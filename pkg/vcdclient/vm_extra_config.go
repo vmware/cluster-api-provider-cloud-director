@@ -1,8 +1,3 @@
-/*
-   Copyright 2021 VMware, Inc.
-   SPDX-License-Identifier: Apache-2.0
-*/
-
 package vcdclient
 
 import (
@@ -14,62 +9,9 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"reflect"
+	"strings"
 )
-
-type ExtraConfigVirtualHardwareSection struct {
-	XMLName xml.Name `xml:"VirtualHardwareSection"`
-	Xmlns   string   `xml:"vcloud,attr,omitempty"`
-	NS10    string   `xml:"ns10,attr,omitempty"`
-
-	Info         string                       `xml:"Info"`
-	HREF         string                       `xml:"href,attr,omitempty"`
-	Type         string                       `xml:"type,attr,omitempty"`
-	Items        []*types.VirtualHardwareItem `xml:"Item,omitempty"`
-	ExtraConfigs []*ExtraConfig               `xml:"ExtraConfig,omitempty"`
-	Links        types.LinkList               `xml:"Link,omitempty"`
-}
-
-type ExtraConfigVirtualHardwareSectionMarshal struct {
-	NS10         string                `xml:"xmlns:ns10,attr,omitempty"`
-	Info         string                `xml:"ovf:Info"`
-	ExtraConfigs []*ExtraConfigMarshal `xml:"vmw:ExtraConfig,omitempty"`
-}
-
-type ExtraConfig struct {
-	Key      string `xml:"key,attr"`
-	Value    string `xml:"value,attr"`
-	Required bool   `xml:"required,attr"`
-}
-
-type ExtraConfigMarshal struct {
-	Key      string `xml:"vmw:key,attr"`
-	Value    string `xml:"vmw:value,attr"`
-	Required bool   `xml:"ovf:required,attr"`
-}
-
-type Vm struct {
-	Ovf                string `xml:"ovf,attr,omitempty"`
-	Xmlns              string `xml:"xmlns,attr,omitempty"`
-	Vmw                string `xml:"vmw,attr,omitempty"`
-	NeedsCustomization string `xml:"needsCustomization,attr,omitempty"`
-
-	Name        string `xml:"name,attr"`
-	Description string `xml:"Description,omitempty"`
-
-	ExtraConfigVirtualHardwareSection *ExtraConfigVirtualHardwareSection `xml:"VirtualHardwareSection,omitempty"`
-}
-
-type VmMarshal struct {
-	XMLName xml.Name `xml:"Vm"`
-
-	Ovf                string `xml:"xmlns:ovf,attr,omitempty"`
-	Xmlns              string `xml:"xmlns,attr,omitempty"`
-	Vmw                string `xml:"xmlns:vmw,attr,omitempty"`
-	NeedsCustomization string `xml:"needsCustomization,attr,omitempty"`
-
-	Name                   string                                    `xml:"name,attr"`
-	VirtualHardwareSection *ExtraConfigVirtualHardwareSectionMarshal `xml:"ovf:VirtualHardwareSection,omitempty"`
-}
 
 // the returned extra configs is part of the returned vm
 func (client *Client) getVmExtraConfigs(vm *govcd.VM) ([]*ExtraConfig, *Vm, error) {
@@ -116,6 +58,101 @@ func (client *Client) getTaskFromResponse(resp *http.Response) (*govcd.Task, err
 	return task, nil
 }
 
+func convertConnectionToMarshalConnection(connections []*types.VirtualHardwareConnection) []*VirtualHardwareConnectionMarshal {
+	marshalConnections := make([]*VirtualHardwareConnectionMarshal, len(connections))
+	for i, connection := range connections {
+		marshalConnections[i] = &VirtualHardwareConnectionMarshal{
+			IPAddress:         connection.IPAddress,
+			PrimaryConnection: connection.PrimaryConnection,
+			IpAddressingMode:  connection.IpAddressingMode,
+			Value:             connection.NetworkName,
+		}
+	}
+	return marshalConnections
+}
+
+func convertHostResourceToMarshalHostResource(hostResources []*VirtualHardwareHostResource) []*VirtualHardwareHostResourceMarshal {
+	marshalHostResources := make([]*VirtualHardwareHostResourceMarshal, len(hostResources))
+	for i, hostResource := range hostResources {
+		marshalHostResources[i] = &VirtualHardwareHostResourceMarshal{
+			BusType:           hostResource.BusType,
+			BusSubType:        hostResource.BusSubType,
+			Capacity:          hostResource.Capacity,
+			Iops:              hostResource.Iops,
+			StorageProfile:    hostResource.StorageProfile,
+			OverrideVmDefault: hostResource.OverrideVmDefault,
+		}
+	}
+	return marshalHostResources
+}
+
+func getNillableElement(item *VirtualHardwareItem, field string) *NillableElementMarshal {
+	r := reflect.ValueOf(item)
+	foundField := reflect.Indirect(r).FieldByName(field)
+	element := foundField.Interface().(*NillableElement)
+	if element == nil {
+		return &NillableElementMarshal{
+			Value:    "",
+			XsiNil:   "true",
+			XmlnsXsi: "",
+		}
+	}
+
+	xsiNilValue := "true"
+	if element.Value != "" {
+		xsiNilValue = ""
+	}
+	return &NillableElementMarshal{
+		Value:    element.Value,
+		XsiNil:   xsiNilValue,
+		XmlnsXsi: element.XmlnsXsi,
+	}
+}
+
+func convertItemsToMarshalItems(items []*VirtualHardwareItem) []*VirtualHardwareItemMarshal {
+	marshalItems := make([]*VirtualHardwareItemMarshal, len(items))
+	for i, item := range items {
+		var coresPerSocketMarshal *CoresPerSocketMarshal = nil
+		if item.CoresPerSocket != nil {
+			coresPerSocketMarshal = &CoresPerSocketMarshal{
+				OvfRequired: item.CoresPerSocket.OvfRequired,
+				Value:       item.CoresPerSocket.Value,
+			}
+		}
+		marshalItems[i] = &VirtualHardwareItemMarshal{
+			Href:                  item.Href,
+			Type:                  item.Type,
+			ResourceType:          item.ResourceType,
+			ResourceSubType:       getNillableElement(item, "ResourceSubType"),
+			ElementName:           getNillableElement(item, "ElementName"),
+			Description:           getNillableElement(item, "Description"),
+			InstanceID:            item.InstanceID,
+			ConfigurationName:     getNillableElement(item, "ConfigurationName"),
+			ConsumerVisibility:    getNillableElement(item, "ConsumerVisibility"),
+			AutomaticAllocation:   getNillableElement(item, "AutomaticAllocation"),
+			AutomaticDeallocation: getNillableElement(item, "AutomaticDeallocation"),
+			Address:               getNillableElement(item, "Address"),
+			AddressOnParent:       getNillableElement(item, "AddressOnParent"),
+			AllocationUnits:       getNillableElement(item, "AllocationUnits"),
+			Reservation:           getNillableElement(item, "Reservation"),
+			VirtualQuantity:       getNillableElement(item, "VirtualQuantity"),
+			VirtualQuantityUnits:  getNillableElement(item, "VirtualQuantityUnits"),
+			Weight:                getNillableElement(item, "Weight"),
+			CoresPerSocket:        coresPerSocketMarshal,
+			Connection:            convertConnectionToMarshalConnection(item.Connection),
+			HostResource:          convertHostResourceToMarshalHostResource(item.HostResource),
+			Link:                  item.Link,
+			Parent:                getNillableElement(item, "Parent"),
+			Generation:            getNillableElement(item, "Generation"),
+			Limit:                 getNillableElement(item, "Limit"),
+			MappingBehavior:       getNillableElement(item, "MappingBehavior"),
+			OtherResourceType:     getNillableElement(item, "OtherResourceType"),
+			PoolID:                getNillableElement(item, "PoolID"),
+		}
+	}
+	return marshalItems
+}
+
 func (client *Client) SetVmExtraConfigKeyValue(vm *govcd.VM, key string, value string, required bool) error {
 	_, extraConfigVm, err := client.getVmExtraConfigs(vm)
 	if err != nil {
@@ -130,22 +167,62 @@ func (client *Client) SetVmExtraConfigKeyValue(vm *govcd.VM, key string, value s
 
 	// form request
 	vmMarshal := &VmMarshal{
-		Ovf:                extraConfigVm.Ovf,
-		Xmlns:              extraConfigVm.Xmlns,
-		Vmw:                extraConfigVm.Vmw,
-		Name:               extraConfigVm.Name,
-		NeedsCustomization: extraConfigVm.NeedsCustomization,
+		Xmlns:                   extraConfigVm.Xmlns,
+		Vmext:                   extraConfigVm.Vmext,
+		Ovf:                     extraConfigVm.Ovf,
+		Vssd:                    extraConfigVm.Vssd,
+		Common:                  extraConfigVm.Common,
+		Rasd:                    extraConfigVm.Rasd,
+		Vmw:                     extraConfigVm.Vmw,
+		Ovfenv:                  extraConfigVm.Ovfenv,
+		Ns9:                     extraConfigVm.Ns9,
+		NeedsCustomization:      extraConfigVm.NeedsCustomization,
+		NestedHypervisorEnabled: extraConfigVm.NestedHypervisorEnabled,
+		Deployed:                extraConfigVm.Deployed,
+		Status:                  extraConfigVm.Status,
+		Name:                    extraConfigVm.Name,
+		Id:                      extraConfigVm.Id,
+		Href:                    extraConfigVm.Href,
+		Type:                    extraConfigVm.Type,
+		Description:             extraConfigVm.Description,
+		VmSpecSection: &VmSpecSectionMarshal{
+			Modified:          extraConfigVm.VmSpecSection.Modified,
+			Info:              extraConfigVm.VmSpecSection.Info,
+			OsType:            extraConfigVm.VmSpecSection.OsType,
+			NumCpus:           extraConfigVm.VmSpecSection.NumCpus,
+			NumCoresPerSocket: extraConfigVm.VmSpecSection.NumCoresPerSocket,
+			CpuResourceMhz:    extraConfigVm.VmSpecSection.CpuResourceMhz,
+			MemoryResourceMb:  extraConfigVm.VmSpecSection.MemoryResourceMb,
+			MediaSection:      extraConfigVm.VmSpecSection.MediaSection,
+			DiskSection:       extraConfigVm.VmSpecSection.DiskSection,
+			HardwareVersion:   extraConfigVm.VmSpecSection.HardwareVersion,
+			VmToolsVersion:    extraConfigVm.VmSpecSection.VmToolsVersion,
+			VirtualCpuType:    extraConfigVm.VmSpecSection.VirtualCpuType,
+			TimeSyncWithHost:  extraConfigVm.VmSpecSection.TimeSyncWithHost,
+		},
 		VirtualHardwareSection: &ExtraConfigVirtualHardwareSectionMarshal{
 			NS10:         extraConfigVm.ExtraConfigVirtualHardwareSection.NS10,
+			Items:        convertItemsToMarshalItems(extraConfigVm.ExtraConfigVirtualHardwareSection.Items),
 			Info:         extraConfigVm.ExtraConfigVirtualHardwareSection.Info,
 			ExtraConfigs: newExtraConfig,
 		},
+		NetworkConnectionSection: &NetworkConnectionSectionMarshal{
+			Xmlns:                         extraConfigVm.NetworkConnectionSection.Xmlns,
+			OvfRequired:                   extraConfigVm.NetworkConnectionSection.OvfRequired,
+			Info:                          extraConfigVm.NetworkConnectionSection.Info,
+			HREF:                          extraConfigVm.NetworkConnectionSection.HREF,
+			Type:                          extraConfigVm.NetworkConnectionSection.Type,
+			PrimaryNetworkConnectionIndex: extraConfigVm.NetworkConnectionSection.PrimaryNetworkConnectionIndex,
+			NetworkConnection:             extraConfigVm.NetworkConnectionSection.NetworkConnection,
+			Link:                          extraConfigVm.NetworkConnectionSection.Link,
+		},
 	}
-	marshaledXml, err := xml.MarshalIndent(vmMarshal, "  ", "    ")
+	marshaledXml, err := xml.MarshalIndent(vmMarshal, "", "    ")
 	if err != nil {
 		return fmt.Errorf("error marshalling vm data: [%v]", err)
 	}
-	reqBody := bytes.NewBufferString(xml.Header + string(marshaledXml))
+	standaloneXmlHeader := strings.Replace(xml.Header, "?>", " standalone=\"yes\"?>", 1)
+	reqBody := bytes.NewBufferString(standaloneXmlHeader + string(marshaledXml))
 	url, err := url.ParseRequestURI(vm.VM.HREF + "/action/reconfigureVm")
 	if err != nil {
 		return fmt.Errorf("error parsing request uri [%s]: [%v]", vm.VM.HREF+"/action/reconfigureVm", err)
@@ -174,7 +251,7 @@ func (client *Client) SetVmExtraConfigKeyValue(vm *govcd.VM, key string, value s
 		return fmt.Errorf("error getting task: [%v]", err)
 	}
 	if task == nil {
-		return fmt.Errorf("null task returned")
+		return fmt.Errorf("nil task returned")
 	}
 	err = task.WaitTaskCompletion()
 	if err != nil {

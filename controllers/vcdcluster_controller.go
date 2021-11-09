@@ -375,13 +375,15 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 
 	controlPlaneNodeIP, err := gateway.GetLoadBalancer(ctx, fmt.Sprintf("%s-tcp", virtualServiceNamePrefix))
 	//TODO: Sahithi: Check if error is really because of missing virtual service.
-	// In any other error cases, force create the new load balancer with the original control plane endpoint (if already present).
-	// Do not overwrite the existing control plane endpoint with a new endpoint.
+	// In any other error cases, force create the new load balancer with the original control plane endpoint
+	// (if already present). Do not overwrite the existing control plane endpoint with a new endpoint.
 
 	if err != nil {
-		controlPlaneNodeIP, err = gateway.CreateL4LoadBalancer(ctx, virtualServiceNamePrefix, lbPoolNamePrefix, []string{}, 6443)
+		controlPlaneNodeIP, err = gateway.CreateL4LoadBalancer(ctx, virtualServiceNamePrefix, lbPoolNamePrefix,
+			[]string{}, 6443)
 		if err != nil {
-			return ctrl.Result{}, errors.Wrapf(err, "unable to create load balancer [%s]: [%v]", virtualServiceNamePrefix, err)
+			return ctrl.Result{}, errors.Wrapf(err, "unable to create load balancer [%s]: [%v]",
+				virtualServiceNamePrefix, err)
 		}
 	}
 

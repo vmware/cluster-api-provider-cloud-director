@@ -1,0 +1,125 @@
+#cloud-config
+write_files:
+- path: /root/vcloud-basic-auth.yaml
+  owner: root
+  content: |
+    ---
+    apiVersion: v1
+    data:
+      username: %s
+      password: %s
+      refreshToken: ""
+    kind: Secret
+    metadata:
+      name: vcloud-basic-auth
+      namespace: kube-system
+    ---
+- path: /root/control_plane.sh
+  owner: root
+  content: |
+    #!/usr/bin/env bash
+    catch() {
+      retval=$?
+       error_message="$(date) $(caller): $BASH_COMMAND"
+       echo "$error_message" &>> /var/log/capvcd/customization/error.log
+       vmtoolsd --cmd "info-set guestinfo.post_customization_script_execution_failure_reason $error_message"
+       vmtoolsd --cmd "info-set guestinfo.post_customization_script_execution_status $retval"
+    }
+    mkdir -p /var/log/capvcd/customization
+    trap 'catch $? $LINENO' ERR
+    set -ex
+    echo "$(date) Post Customization script execution in progress" &>> /var/log/capvcd/customization/status.log
+    vcloud_basic_auth_path=/root/vcloud-basic-auth.yaml
+    vcloud_configmap_path=/root/vcloud-configmap.yaml
+    vcloud_ccm_path=/root/cloud-director-ccm.yaml
+    vcloud_csi_configmap_path=/root/vcloud-csi-configmap.yaml
+    csi_driver_path=/root/csi-driver.yaml
+    csi_controller_path=/root/csi-controller.yaml
+    csi_node_path=/root/csi-node.yaml
+
+    vmtoolsd --cmd "info-set guestinfo.postcustomization.networkconfiguration.status in_progress"
+      echo 'net.ipv6.conf.all.disable_ipv6 = 1' >> /etc/sysctl.conf
+      echo 'net.ipv6.conf.default.disable_ipv6 = 1' >> /etc/sysctl.conf
+      echo 'net.ipv6.conf.lo.disable_ipv6 = 1' >> /etc/sysctl.conf
+      sudo sysctl -p
+      # also remove ipv6 localhost entry from /etc/hosts
+      sed -i 's/::1/127.0.0.1/g' /etc/hosts || true
+    vmtoolsd --cmd "info-set guestinfo.postcustomization.networkconfiguration.status successful"
+
+    vmtoolsd --cmd "info-set guestinfo.postcustomization.store.sshkey.status in_progress"
+      ssh_key="%s"
+      if [[ ! -z "$ssh_key" ]];
+      then
+        mkdir -p /root/.ssh
+        echo $ssh_key >> /root/.ssh/authorized_keys
+        chmod -R go-rwx /root/.ssh
+      fi
+    vmtoolsd --cmd "info-set guestinfo.postcustomization.store.sshkey.status successful"
+
+    vmtoolsd --cmd "info-set guestinfo.postcustomization.kubeinit.status in_progress"
+      for image in "coredns" "etcd" "kube-proxy" "kube-apiserver" "kube-controller-manager" "kube-scheduler"
+      do
+        image_ref=$(ctr -n=k8s.io image list | cut -d" " -f1 | grep $image)
+        ref_path=$(echo $image_ref | sed 's/:.*//')
+        new_tag_version=$(echo $image_ref | sed 's/.*://' | sed 's/_/-/')
+        ctr -n=k8s.io image tag $image_ref $ref_path:$new_tag_version
+      done
+      %s
+      export KUBECONFIG=/etc/kubernetes/admin.conf
+      kubectl get po -A -owide
+    vmtoolsd --cmd "info-set guestinfo.kubeconfig $(cat /etc/kubernetes/admin.conf | base64 | tr -d '\n')"
+    vmtoolsd --cmd "info-set guestinfo.postcustomization.kubeinit.status successful"
+
+    vmtoolsd --cmd "info-set guestinfo.postcustomization.kubectl.cni.install.status in_progress"
+      antrea_path=/root/antrea-v0.11.3.yaml
+      wget -O $antrea_path https://github.com/vmware-tanzu/antrea/releases/download/v0.11.3/antrea.yml
+      # This does not need to be done from v0.12.0 onwards inclusive
+      sed -i 's/antrea\/antrea-ubuntu:v0.11.3/projects.registry.vmware.com\/antrea\/antrea-ubuntu:v0.11.3/g' $antrea_path
+      kubectl apply -f $antrea_path
+    vmtoolsd --cmd "info-set guestinfo.postcustomization.kubectl.cni.install.status successful"
+
+    vmtoolsd --cmd "info-set guestinfo.postcustomization.kubectl.cpi.install.status in_progress"
+      kubectl apply -f $vcloud_basic_auth_path
+      wget -O $vcloud_configmap_path https://raw.githubusercontent.com/vmware/cloud-provider-for-cloud-director/main/manifests/vcloud-configmap.yaml
+      sed -i 's/VCD_HOST/"%s"/' $vcloud_configmap_path
+      sed -i 's/ORG/"%s"/' $vcloud_configmap_path
+      sed -i 's/OVDC/"%s"/' $vcloud_configmap_path
+      sed -i 's/NETWORK/"%s"/' $vcloud_configmap_path
+      sed -i 's/VIP_SUBNET_CIDR/"%s"/' $vcloud_configmap_path
+      sed -i 's/VAPP/%s/' $vcloud_configmap_path
+      sed -i 's/CLUSTER_ID/%s/' $vcloud_configmap_path
+      kubectl apply -f $vcloud_configmap_path
+      wget -O $vcloud_ccm_path https://raw.githubusercontent.com/vmware/cloud-provider-for-cloud-director/main/manifests/cloud-director-ccm.yaml
+      kubectl apply -f $vcloud_ccm_path
+    vmtoolsd --cmd "info-set guestinfo.postcustomization.kubectl.cpi.install.status successful"
+
+    vmtoolsd --cmd "info-set guestinfo.postcustomization.kubectl.csi.install.status in_progress"
+      wget -O $vcloud_csi_configmap_path https://raw.githubusercontent.com/vmware/cloud-director-named-disk-csi-driver/main/manifests/vcloud-csi-config.yaml
+      sed -i 's/VCD_HOST/"%s"/' $vcloud_csi_configmap_path
+      sed -i 's/ORG/"%s"/' $vcloud_csi_configmap_path
+      sed -i 's/OVDC/"%s"/' $vcloud_csi_configmap_path
+      sed -i 's/VAPP/%s/' $vcloud_csi_configmap_path
+      sed -i 's/CLUSTER_ID/"%s"/' $vcloud_csi_configmap_path
+      kubectl apply -f $vcloud_csi_configmap_path
+      wget -O $csi_driver_path https://raw.githubusercontent.com/vmware/cloud-director-named-disk-csi-driver/main/manifests/csi-driver.yaml
+      wget -O $csi_controller_path https://raw.githubusercontent.com/vmware/cloud-director-named-disk-csi-driver/main/manifests/csi-controller.yaml
+      wget -O $csi_node_path https://raw.githubusercontent.com/vmware/cloud-director-named-disk-csi-driver/main/manifests/csi-node.yaml
+      kubectl apply -f $csi_driver_path
+      kubectl apply -f $csi_controller_path
+      kubectl apply -f $csi_node_path
+    vmtoolsd --cmd "info-set guestinfo.postcustomization.kubectl.csi.install.status successful"
+
+    vmtoolsd --cmd "info-set guestinfo.postcustomization.kubeadm.token.generate.status in_progress"
+      kubeadm_join_info=$(kubeadm token create --print-join-command 2> /dev/null)
+      vmtoolsd --cmd "info-set guestinfo.postcustomization.kubeadm.token.info $kubeadm_join_info"
+    vmtoolsd --cmd "info-set guestinfo.postcustomization.kubeadm.token.generate.status successful"
+
+    echo "$(date) post customization script execution completed" &>> /var/log/capvcd/customization/status.log
+    exit 0
+runcmd:
+- bash /root/control_plane.sh
+timezone: UTC
+disable_root: false
+preserve_hostname: false
+hostname: %s
+final_message: "The system is ready after $UPTIME seconds"
