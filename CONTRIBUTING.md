@@ -1,76 +1,31 @@
-# Contributing to cluster-api-provider-cloud-director
+# Contributing Guidelines
 
-The cluster-api-provider-cloud-director project team welcomes contributions from the community. Before you start working with cluster-api-provider-cloud-director, please
-read our [Developer Certificate of Origin](https://cla.vmware.com/dco). All contributions to this repository must be
-signed as described on that page. Your signature certifies that you wrote the patch or have the right to pass it on
-as an open-source patch.
+The **cluster-api-provider-cloud-director** project team welcomes contributions from the community. If you wish to contribute code and you have not signed our contributor license agreement ([CLA](https://cla.vmware.com/cla/1/preview)), our bot will update the issue when you open a Pull Request. For any questions about the CLA process, please refer to our [FAQ](https://cla.vmware.com/faq)
 
-## Contribution Flow
+## Sign the Contributor License Agreement
 
-This is a rough outline of what a contributor's workflow looks like:
+We'd love to accept your patches! Before you start working with cluster-api-provider-cloud-director, please read our [Developer Certificate of Origin](https://cla.vmware.com/dco). All contributions to this repository must be signed as described on that page. Your signature certifies that you wrote the patch or have the right to pass it on as an open-source patch.
 
-- Create a topic branch from where you want to base your work
-- Make commits of logical units
-- Make sure your commit messages are in the proper format (see below)
-- Push your changes to a topic branch in your fork of the repository
-- Submit a pull request
+## Reporting an issue
 
-Example:
+If you find a bug or a feature request related to cloud-provider-for-cloud-director you can create a new GitHub issue in this repo.
 
-``` shell
-git remote add upstream https://github.com/vmware/@(project).git
-git checkout -b my-new-feature main
-git commit -a
-git push origin my-new-feature
-```
+## Development Environment
 
-### Staying In Sync With Upstream
+1. Install GoLang 1.16.x and set up your dev environment with `GOPATH`
+2. Check out code into `$GOPATH/github.com/vmware/cluster-api-provider-cloud-director`
 
-When your branch gets out of sync with the vmware/main branch, use the following to update:
+## Building container image for the Cloud Provider
 
-``` shell
-git checkout my-new-feature
-git fetch -a
-git pull --rebase upstream main
-git push --force-with-lease origin my-new-feature
-```
+1. Ensure that you have `docker` installed in your dev/build machine.
+2. Run `REGISTRY=<registry where you want to push your images> make all`
 
-### Updating pull requests
+## Contributing a Patch
 
-If your PR fails to pass CI or needs changes based on code review, you'll most likely want to squash these changes into
-existing commits.
+1. Submit an issue describing your proposed change to the repo.
+2. Fork the **cluster-api-provider-cloud-director** repo, develop and test your code changes.
+3. Submit a pull request.
 
-If your pull request contains a single commit or your changes are related to the most recent commit, you can simply
-amend the commit.
+## Contact
 
-``` shell
-git add .
-git commit --amend
-git push --force-with-lease origin my-new-feature
-```
-
-If you need to squash changes into an earlier commit, you can use:
-
-``` shell
-git add .
-git commit --fixup <commit>
-git rebase -i --autosquash main
-git push --force-with-lease origin my-new-feature
-```
-
-Be sure to add a comment to the PR indicating your new changes are ready to review, as GitHub does not generate a
-notification when you git push.
-
-### Code Style
-
-### Formatting Commit Messages
-
-We follow the conventions on [How to Write a Git Commit Message](http://chris.beams.io/posts/git-commit/).
-
-Be sure to include any related GitHub issue references in the commit message.  See
-[GFM syntax](https://guides.github.com/features/mastering-markdown/#GitHub-flavored-markdown) for referencing issues
-and commits.
-
-## Reporting Bugs and Creating Issues
-
-When opening a new issue, try to roughly follow the commit message format conventions above.
+Please use Github Pull Requests and Github Issues as a means to start a conversation with the team.
