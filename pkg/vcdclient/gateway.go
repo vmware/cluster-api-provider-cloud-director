@@ -549,14 +549,27 @@ func (gateway *GatewayManager) formLoadBalancerPool(lbPoolName string, ips []str
 		lbPoolMembers[i].Enabled = true
 	}
 
+	persistenceProfile := &swaggerClient.EdgeLoadBalancerPersistenceProfile{
+		Type_: "CLIENT_IP",
+	}
+
+	healthMonitors := []swaggerClient.EdgeLoadBalancerHealthMonitor{
+		{
+			Type_: "TCP",
+		},
+	}
+
+	gracefulTimeoutPeriod := int32(0)
 	lbPool := swaggerClient.EdgeLoadBalancerPool{
 		Enabled:               true,
 		Name:                  lbPoolName,
 		DefaultPort:           internalPort,
-		GracefulTimeoutPeriod: 0, // when service outage occurs, immediately mark as bad
+		GracefulTimeoutPeriod: &gracefulTimeoutPeriod, // when service outage occurs, immediately mark as bad
 		Members:               lbPoolMembers,
 		GatewayRef:            client.GatewayRef,
 		Algorithm:             "ROUND_ROBIN",
+		PersistenceProfile:    persistenceProfile,
+		HealthMonitors:        healthMonitors,
 	}
 	return lbPool, lbPoolMembers
 }
