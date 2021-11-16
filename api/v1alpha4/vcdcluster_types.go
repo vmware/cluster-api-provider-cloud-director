@@ -53,8 +53,6 @@ type VCDClusterSpec struct {
 	// +optional
 	OvdcNetwork string `json:"ovdcNetwork,omitempty"`
 	// +optional
-	ClusterRDEId string `json:"clusterRDEId,omitempty"`
-	// +optional
 	DefaultComputePolicy string `json:"defaultComputePolicy,omitempty"`
 }
 
@@ -69,6 +67,8 @@ type VCDClusterStatus struct {
 	// Conditions defines current service state of the VCDCluster.
 	// +optional
 	Conditions clusterv1.Conditions `json:"conditions,omitempty"`
+	// +optional
+	ClusterRDEId string `json:"clusterRDEId,omitempty"`
 }
 
 //+kubebuilder:object:root=true
