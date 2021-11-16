@@ -1,0 +1,14 @@
+vcd:
+  host: VCD_HOST
+  org: ORG
+  vdc: OVDC
+  network: NETWORK
+  vipSubnet: VIP_SUBNET_CIDR
+loadbalancer:
+  oneArm:
+    startIP: "192.168.8.2"
+    endIP: "192.168.8.100"
+  ports:
+    http: 80
+    https: 443
+    tcp: 6443

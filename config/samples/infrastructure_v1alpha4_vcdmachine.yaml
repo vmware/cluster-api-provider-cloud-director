@@ -1,0 +1,7 @@
+apiVersion: infrastructure.cluster.x-k8s.io/v1alpha4
+kind: VCDMachine
+metadata:
+  name: vcdmachine-sample
+spec:
+  # Add fields here
+  foo: bar

@@ -1,0 +1,133 @@
+apiVersion: cluster.x-k8s.io/v1alpha4
+kind: Cluster
+metadata:
+  name: capvcd
+  namespace: default
+spec:
+  clusterNetwork:
+    pods:
+      cidrBlocks:
+        - 192.168.0.0/16
+    serviceDomain: k8s.test
+    services:
+      cidrBlocks:
+        - 10.96.0.0/12
+  controlPlaneRef:
+    apiVersion: controlplane.cluster.x-k8s.io/v1alpha4
+    kind: KubeadmControlPlane
+    name: capvcd-control-plane
+    namespace: default
+  infrastructureRef:
+    apiVersion: infrastructure.cluster.x-k8s.io/v1alpha4
+    kind: VCDCluster
+    name: capvcd
+    namespace: default
+---
+apiVersion: infrastructure.cluster.x-k8s.io/v1alpha4
+kind: VCDCluster
+metadata:
+  name: capvcd
+  namespace: default
+---
+apiVersion: infrastructure.cluster.x-k8s.io/v1alpha4
+kind: VCDMachineTemplate
+metadata:
+  name: capvcd-control-plane
+  namespace: default
+spec:
+  template:
+    spec:
+      catalog: cse
+      template: ubuntu-16.04_k8-1.21_weave-2.8.1_rev1
+      computePolicy: 2core2gb
+---
+apiVersion: controlplane.cluster.x-k8s.io/v1alpha4
+kind: KubeadmControlPlane
+metadata:
+  name: capvcd-control-plane
+  namespace: default
+spec:
+  kubeadmConfigSpec:
+    clusterConfiguration:
+      apiServer:
+        certSANs:
+          - localhost
+          - 127.0.0.1
+      controllerManager:
+        extraArgs:
+          enable-hostpath-provisioner: "true"
+    initConfiguration:
+      nodeRegistration:
+        criSocket: /var/run/dockershim.sock
+        kubeletExtraArgs:
+          cgroup-driver: cgroupfs
+          eviction-hard: nodefs.available<0%,nodefs.inodesFree<0%,imagefs.available<0%
+          cloud-provider: external
+    joinConfiguration:
+      nodeRegistration:
+        criSocket: /var/run/dockershim.sock
+        kubeletExtraArgs:
+          cgroup-driver: cgroupfs
+          eviction-hard: nodefs.available<0%,nodefs.inodesFree<0%,imagefs.available<0%
+          cloud-provider: external
+  machineTemplate:
+    infrastructureRef:
+      apiVersion: infrastructure.cluster.x-k8s.io/v1alpha4
+      kind: VCDMachineTemplate
+      name: capvcd-control-plane
+      namespace: default
+  replicas: 3
+  version: v1.21.2
+---
+apiVersion: infrastructure.cluster.x-k8s.io/v1alpha4
+kind: VCDMachineTemplate
+metadata:
+  name: capvcd-md-0
+  namespace: default
+spec:
+  template:
+    spec:
+      catalog: cse
+      template: ubuntu-16.04_k8-1.21_weave-2.8.1_rev1
+      computePolicy: 2core2gb
+---
+apiVersion: bootstrap.cluster.x-k8s.io/v1alpha4
+kind: KubeadmConfigTemplate
+metadata:
+  name: capvcd-md-0
+  namespace: default
+spec:
+  template:
+    spec:
+      joinConfiguration:
+        nodeRegistration:
+          kubeletExtraArgs:
+            cgroup-driver: cgroupfs
+            eviction-hard: nodefs.available<0%,nodefs.inodesFree<0%,imagefs.available<0%
+            cloud-provider: external
+---
+apiVersion: cluster.x-k8s.io/v1alpha4
+kind: MachineDeployment
+metadata:
+  name: capvcd-md-0
+  namespace: default
+spec:
+  clusterName: capvcd
+  replicas: 1
+  selector:
+    matchLabels: null
+  template:
+    spec:
+      bootstrap:
+        configRef:
+          apiVersion: bootstrap.cluster.x-k8s.io/v1alpha4
+          kind: KubeadmConfigTemplate
+          name: capvcd-md-0
+          namespace: default
+      clusterName: capvcd
+      infrastructureRef:
+        apiVersion: infrastructure.cluster.x-k8s.io/v1alpha4
+        kind: VCDMachineTemplate
+        name: capvcd-md-0
+        namespace: default
+      version: v1.21.2
