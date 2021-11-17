@@ -219,6 +219,19 @@ func (r *VCDClusterReconciler) constructCapvcdRDE(vcdCluster *infrav1.VCDCluster
 }
 
 func (r *VCDClusterReconciler) updateAndResolveEntity(ctx context.Context, cluster *clusterv1.Cluster, vcdCluster *infrav1.VCDCluster, controlPlaneIP string) error {
+	org := r.VcdClient.VcdAuthConfig.Org
+	if vcdCluster.Spec.Org != "" && vcdCluster.Spec.Org != org {
+		org = vcdCluster.Spec.Org
+	}
+	vdc := r.VcdClient.VcdAuthConfig.VDC
+	if vcdCluster.Spec.Ovdc != "" && vcdCluster.Spec.Ovdc != vdc {
+		vdc = vcdCluster.Spec.Ovdc
+	}
+	ovdcNetwork := r.VcdClient.NetworkName
+	if vcdCluster.Spec.OvdcNetwork != "" && vcdCluster.Spec.OvdcNetwork != ovdcNetwork {
+		ovdcNetwork = vcdCluster.Spec.OvdcNetwork
+	}
+
 	rdeID := vcdCluster.Status.ClusterRDEId
 	definedEntity, resp, etag, err := r.VcdClient.ApiClient.DefinedEntityApi.GetDefinedEntity(ctx, rdeID)
 	if err != nil {
@@ -237,10 +250,18 @@ func (r *VCDClusterReconciler) updateAndResolveEntity(ctx context.Context, clust
 		return fmt.Errorf("failed to marshal entity byte array to capvcd entity for cluster: [%s]", vcdCluster.Name)
 	}
 
+	// update metadata
+	capvcdEntity.Metadata = &vcdtypes.Metadata{
+		Name: vcdCluster.Name,
+		Vdc: vdc,
+		Org: org,
+		Site: r.VcdClient.VcdAuthConfig.Host,
+	}
+
 	// update spec
 	if capvcdEntity.Spec != nil {
 		if capvcdEntity.Spec.Settings != nil {
-			capvcdEntity.Spec.Settings.OvdcNetwork = r.VcdClient.NetworkName
+			capvcdEntity.Spec.Settings.OvdcNetwork = ovdcNetwork
 		} else {
 			capvcdEntity.Spec.Settings = &vcdtypes.Settings{
 				OvdcNetwork: r.VcdClient.NetworkName,
@@ -377,6 +398,7 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		}
 	}
 
+	// NOTE: Since RDE is used just as a book-keeping mechanism, we should not fail reconciliation if RDE operations fail
 	// create RDE for cluster
 	if vcdCluster.Status.ClusterRDEId == "" {
 		nameFilter := &swagger.DefinedEntityApiGetDefinedEntitiesByEntityTypeOpts{
@@ -384,40 +406,44 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		}
 		definedEntities, resp, err := r.VcdClient.ApiClient.DefinedEntityApi.GetDefinedEntitiesByEntityType(ctx, CAPVCDTypeVendor, CAPVCDTypeNss, CAPVCDTypeVersion, 1, 25, nameFilter)
 		if err != nil {
-			return ctrl.Result{}, errors.Wrapf(err, "failed to get entities by entity type [%s] with name filter [name==%s]", CAPVCDEntityTypeID, vcdCluster.Name)
+			klog.Errorf("failed to get entities by entity type [%s] with name filter [name==%s]", CAPVCDEntityTypeID, vcdCluster.Name)
 		}
 		if resp.StatusCode != http.StatusOK {
-			return ctrl.Result{}, errors.Errorf("error while getting entities by entity type [%s] with name filter [name==%s]", CAPVCDEntityTypeID, vcdCluster.Name)
+			klog.Errorf("error while getting entities by entity type [%s] with name filter [name==%s]", CAPVCDEntityTypeID, vcdCluster.Name)
 		}
-		if len(definedEntities.Values) == 0 {
-			definedEntity, err := r.constructCapvcdRDE(vcdCluster)
-			if err != nil {
-				return ctrl.Result{}, errors.Wrapf(err, "unable to create defined entity for cluster [%s]", vcdCluster.Name)
-			}
+		if err == nil && resp.StatusCode == http.StatusOK {
+			if len(definedEntities.Values) == 0 {
+				definedEntity, err := r.constructCapvcdRDE(vcdCluster)
+				if err != nil {
+					return ctrl.Result{}, errors.Wrapf(err, "unable to create defined entity for cluster [%s]", vcdCluster.Name)
+				}
 
-			resp, err := r.VcdClient.ApiClient.DefinedEntityApi.CreateDefinedEntity(ctx, *definedEntity, definedEntity.EntityType, nil)
-			if err != nil {
-				return ctrl.Result{}, errors.Wrapf(err, "failed to create defined entity for cluster [%s]", vcdCluster.Name)
-			}
+				resp, err := r.VcdClient.ApiClient.DefinedEntityApi.CreateDefinedEntity(ctx, *definedEntity, definedEntity.EntityType, nil)
+				if err != nil {
+					return ctrl.Result{}, errors.Wrapf(err, "failed to create defined entity for cluster [%s]", vcdCluster.Name)
+				}
 
-			if resp.StatusCode != http.StatusAccepted {
-				return ctrl.Result{}, errors.Wrapf(err, "error while creating the defined entity for cluster [%s]", vcdCluster.Name)
+				if resp.StatusCode != http.StatusAccepted {
+					return ctrl.Result{}, errors.Wrapf(err, "error while creating the defined entity for cluster [%s]", vcdCluster.Name)
+				}
+				taskURL := resp.Header.Get(VCDLocationHeader)
+				task := govcd.NewTask(&r.VcdClient.VcdClient.Client)
+				task.Task.HREF = taskURL
+				err = task.Refresh()
+				if err == nil {
+					vcdCluster.Status.ClusterRDEId = task.Task.Owner.ID
+					klog.Infof("created defined entity for cluster [%s]. RDE ID: [%s]", vcdCluster.Name, vcdCluster.Status.ClusterRDEId)
+				} else {
+					klog.Errorf("error refreshing task: [%s]", task.Task.HREF)
+				}
+			} else {
+				klog.Infof("defined entity for cluster [%s] already present. RDE ID: [%s]", vcdCluster.Name, definedEntities.Values[0].Id)
+				vcdCluster.Status.ClusterRDEId = definedEntities.Values[0].Id
 			}
-			taskURL := resp.Header.Get(VCDLocationHeader)
-			task := govcd.NewTask(&r.VcdClient.VcdClient.Client)
-			task.Task.HREF = taskURL
-			err = task.Refresh()
-			if err != nil {
-				return ctrl.Result{}, errors.Wrapf(err, "error refreshing task: [%s]", task.Task.HREF)
-			}
-			vcdCluster.Status.ClusterRDEId = task.Task.Owner.ID
-			klog.Infof("created defined entity for cluster [%s]. RDE ID: [%s]", vcdCluster.Name, vcdCluster.Status.ClusterRDEId)
-		} else {
-			klog.Infof("defined entity for cluster [%s] already present. RDE ID: [%s]", vcdCluster.Name, definedEntities.Values[0].Id)
-			vcdCluster.Status.ClusterRDEId = definedEntities.Values[0].Id
 		}
 	}
 
+	// TODO: What should be the prefix if cluster creation fails here?
 	// create load balancer for the cluster. Only one-arm load balancer is fully tested.
 	virtualServiceNamePrefix := vcdCluster.Name + "-" + vcdCluster.Status.ClusterRDEId
 	lbPoolNamePrefix := vcdCluster.Name + "-" + vcdCluster.Status.ClusterRDEId
@@ -436,17 +462,18 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 
 	_, resp, _, err := r.VcdClient.ApiClient.DefinedEntityApi.GetDefinedEntity(ctx, vcdCluster.Status.ClusterRDEId)
 	if err != nil {
-		return ctrl.Result{}, errors.Wrapf(err, "failed to get defined entity with ID [%s] for cluster [%s]", vcdCluster.Status.ClusterRDEId, vcdCluster.Name)
+		klog.Errorf("failed to get defined entity with ID [%s] for cluster [%s]: [%s]", vcdCluster.Status.ClusterRDEId, vcdCluster.Name, err)
 	}
 	if resp.StatusCode != http.StatusOK {
-		return ctrl.Result{}, errors.Errorf("error getting defined entity with ID [%s] for cluster [%s]", vcdCluster.Status.ClusterRDEId, vcdCluster.Name)
+		klog.Errorf("error getting defined entity with ID [%s] for cluster [%s]", vcdCluster.Status.ClusterRDEId, vcdCluster.Name)
+	}
+	if err == nil && resp.StatusCode == http.StatusOK {
+		if err = r.updateAndResolveEntity(ctx, cluster, vcdCluster, controlPlaneNodeIP); err != nil {
+			klog.Errorf("failed to update and resolve defined entity with ID [%s] for cluster [%s]: [%v]", vcdCluster.Status.ClusterRDEId, vcdCluster.Name, err)
+		}
 	}
 
-	if err = r.updateAndResolveEntity(ctx, cluster, vcdCluster, controlPlaneNodeIP); err != nil {
-		return ctrl.Result{}, errors.Wrapf(err, "failed to update and resolve defined entity with ID [%s] for cluster [%s]", vcdCluster.Status.ClusterRDEId, vcdCluster.Name)
-	}
-
-	// Update the vcdcluster resource with updated information
+	// Update the vcdCluster resource with updated information
 	// TODO Check if updating ovdcNetwork, Org and Ovdc should be done somewhere earlier in the code.
 	vcdCluster.Spec.ControlPlaneEndpoint = infrav1.APIEndpoint{
 		Host: controlPlaneNodeIP,
@@ -536,6 +563,7 @@ func (r *VCDClusterReconciler) reconcileDelete(ctx context.Context,
 		}
 	}
 
+	// TODO: If RDE deletion fails, should we throw an error during reconciliation?
 	// Delete RDE
 	if vcdCluster.Status.ClusterRDEId != "" {
 		definedEntities, resp, err := r.VcdClient.ApiClient.DefinedEntityApi.GetDefinedEntitiesByEntityType(ctx, CAPVCDTypeVendor, CAPVCDTypeNss, CAPVCDTypeVersion, 1, 25, &swagger.DefinedEntityApiGetDefinedEntitiesByEntityTypeOpts{
