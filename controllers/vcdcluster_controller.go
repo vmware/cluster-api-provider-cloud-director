@@ -137,8 +137,19 @@ func patchVCDCluster(ctx context.Context, patchHelper *patch.Helper, vcdCluster 
 	)
 }
 
-func (r *VCDClusterReconciler) constructDefinedEntity(vcdCluster *infrav1.VCDCluster, controlPlaneIP string) (*swagger.DefinedEntity, error) {
-	// TODO: Fill with right values for: ControlPlaneIP,
+func (r *VCDClusterReconciler) constructCapvcdRDE(vcdCluster *infrav1.VCDCluster) (*swagger.DefinedEntity, error) {
+	org := r.VcdClient.VcdAuthConfig.Org
+	if vcdCluster.Spec.Org != "" && vcdCluster.Spec.Org != org {
+		org = vcdCluster.Spec.Org
+	}
+	vdc := r.VcdClient.VcdAuthConfig.VDC
+	if vcdCluster.Spec.Ovdc != "" && vcdCluster.Spec.Ovdc != vdc {
+		vdc = vcdCluster.Spec.Ovdc
+	}
+	ovdcNetwork := r.VcdClient.NetworkName
+	if vcdCluster.Spec.OvdcNetwork != "" && vcdCluster.Spec.OvdcNetwork != ovdcNetwork {
+		ovdcNetwork = vcdCluster.Spec.OvdcNetwork
+	}
 	definedEntity := &swagger.DefinedEntity{
 		EntityType: CAPVCDEntityTypeID,
 		Name:       vcdCluster.Name,
@@ -148,28 +159,28 @@ func (r *VCDClusterReconciler) constructDefinedEntity(vcdCluster *infrav1.VCDClu
 		ApiVersion: CAPVCDClusterEntityApiVersion,
 		Metadata: &vcdtypes.Metadata{
 			Name: vcdCluster.Name,
-			Org:  r.VcdClient.VcdAuthConfig.Org,
-			Vdc:  r.VcdClient.VcdAuthConfig.VDC,
+			Org:  org,
+			Vdc:  vdc,
 			Site: r.VcdClient.VcdAuthConfig.Host,
 		},
 		Spec: &vcdtypes.ClusterSpec{
 			Settings: &vcdtypes.Settings{
-				OvdcNetwork: r.VcdClient.NetworkName,
+				OvdcNetwork: vcdCluster.Spec.OvdcNetwork,
 				SshKey:      "", // TODO: Should add ssh key as part of vcdCluster representation
 				Network: &vcdtypes.Network{
 					Cni: &vcdtypes.Cni{
-						Name: CAPVCDClusterCniName, // TODO: should this value be imported from vcdCluster?
+						Name: CAPVCDClusterCniName,
 					},
 				},
 			},
 			Topology: &vcdtypes.Topology{
 				ControlPlane: &vcdtypes.ControlPlane{
-					SizingClass: vcdCluster.Spec.DefaultComputePolicy,
-					Count:       int32(0), // TODO: Fill with right value
+					SizingClass: vcdCluster.Spec.DefaultComputePolicy, // TODO: Need to fill sizing policy from KCP object
+					Count:       int32(0),                             // TODO: Fill with right value
 				},
 				Workers: &vcdtypes.Workers{
-					SizingClass: vcdCluster.Spec.DefaultComputePolicy,
-					Count:       int32(0),
+					SizingClass: vcdCluster.Spec.DefaultComputePolicy, // TODO: Need to fill sizing class from KCP object.
+					Count:       int32(0),                             // TODO: Fill with right value
 				},
 			},
 			Distribution: &vcdtypes.Distribution{
@@ -182,8 +193,8 @@ func (r *VCDClusterReconciler) constructDefinedEntity(vcdCluster *infrav1.VCDClu
 			Kubernetes: vcdCluster.APIVersion,
 			CloudProperties: &vcdtypes.CloudProperties{
 				Site: r.VcdClient.VcdAuthConfig.Host,
-				Org:  r.VcdClient.VcdAuthConfig.Org,
-				Vdc:  r.VcdClient.VcdAuthConfig.VDC,
+				Org:  org,
+				Vdc:  vdc,
 				Distribution: &vcdtypes.Distribution{
 					TemplateName: "some-template-name", // TODO: Fix with right value
 				},
@@ -207,9 +218,8 @@ func (r *VCDClusterReconciler) constructDefinedEntity(vcdCluster *infrav1.VCDClu
 	return definedEntity, nil
 }
 
-func (r *VCDClusterReconciler) updateAndResolveEntity(ctx context.Context, cluster *clusterv1.Cluster, vcdCluster *infrav1.VCDCluster) error {
+func (r *VCDClusterReconciler) updateAndResolveEntity(ctx context.Context, cluster *clusterv1.Cluster, vcdCluster *infrav1.VCDCluster, controlPlaneIP string) error {
 	rdeID := vcdCluster.Status.ClusterRDEId
-
 	definedEntity, resp, etag, err := r.VcdClient.ApiClient.DefinedEntityApi.GetDefinedEntity(ctx, rdeID)
 	if err != nil {
 		return fmt.Errorf("failed to get the defined entity with ID [%s] for cluster [%s]", rdeID, vcdCluster.Name)
@@ -236,6 +246,7 @@ func (r *VCDClusterReconciler) updateAndResolveEntity(ctx context.Context, clust
 				OvdcNetwork: r.VcdClient.NetworkName,
 			}
 		}
+		// TODO: Need to fill sizing class from KubeadmControlPlane object
 		if capvcdEntity.Spec.Topology != nil {
 			if capvcdEntity.Spec.Topology.ControlPlane != nil {
 				capvcdEntity.Spec.Topology.ControlPlane.Count = int32(1) // TODO: fill with right value
@@ -290,8 +301,8 @@ func (r *VCDClusterReconciler) updateAndResolveEntity(ctx context.Context, clust
 	clusterApiStatus := vcdtypes.ClusterApiStatus{
 		Phase: "", // TODO: Find out what should be filled out here
 		ApiEndpoints: []*vcdtypes.ApiEndpoints{
-			&vcdtypes.ApiEndpoints{
-				Host: r.VcdClient.VcdAuthConfig.Host,
+			{
+				Host: controlPlaneIP,
 				Port: 6443,
 			},
 		},
@@ -351,10 +362,6 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 
 	_ = ctrl.LoggerFrom(ctx)
 
-	// create load balancer for the cluster. Only one-arm load balancer is fully tested.
-	virtualServiceNamePrefix := vcdCluster.Name + "-" + r.VcdClient.ClusterID
-	lbPoolNamePrefix := vcdCluster.Name + "-" + r.VcdClient.ClusterID
-
 	gateway := &vcdclient.GatewayManager{
 		NetworkName:        r.VcdClient.NetworkName,
 		Client:             r.VcdClient,
@@ -370,19 +377,6 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		}
 	}
 
-	controlPlaneNodeIP, err := gateway.GetLoadBalancer(ctx, fmt.Sprintf("%s-tcp", virtualServiceNamePrefix))
-	//TODO: Sahithi: Check if error is really because of missing virtual service.
-	// In any other error cases, force create the new load balancer with the original control plane endpoint (if already present).
-	// Do not overwrite the existing control plane endpoint with a new endpoint.
-
-	if err != nil {
-		controlPlaneNodeIP, err = gateway.CreateL4LoadBalancer(ctx, virtualServiceNamePrefix, lbPoolNamePrefix, []string{}, 6443)
-		if err != nil {
-			return ctrl.Result{}, errors.Wrapf(err, "unable to create load balancer [%s]: [%v]", virtualServiceNamePrefix, err)
-		}
-	}
-
-	// TODO: Sahithi: Create RDE and the below cluster ID should be replaced by RDE_ID
 	// create RDE for cluster
 	if vcdCluster.Status.ClusterRDEId == "" {
 		nameFilter := &swagger.DefinedEntityApiGetDefinedEntitiesByEntityTypeOpts{
@@ -396,7 +390,7 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 			return ctrl.Result{}, errors.Errorf("error while getting entities by entity type [%s] with name filter [name==%s]", CAPVCDEntityTypeID, vcdCluster.Name)
 		}
 		if len(definedEntities.Values) == 0 {
-			definedEntity, err := r.constructDefinedEntity(vcdCluster, controlPlaneNodeIP)
+			definedEntity, err := r.constructCapvcdRDE(vcdCluster)
 			if err != nil {
 				return ctrl.Result{}, errors.Wrapf(err, "unable to create defined entity for cluster [%s]", vcdCluster.Name)
 			}
@@ -423,7 +417,24 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 			vcdCluster.Status.ClusterRDEId = definedEntities.Values[0].Id
 		}
 	}
-	definedEntity, resp, _, err := r.VcdClient.ApiClient.DefinedEntityApi.GetDefinedEntity(ctx, vcdCluster.Status.ClusterRDEId)
+
+	// create load balancer for the cluster. Only one-arm load balancer is fully tested.
+	virtualServiceNamePrefix := vcdCluster.Name + "-" + vcdCluster.Status.ClusterRDEId
+	lbPoolNamePrefix := vcdCluster.Name + "-" + vcdCluster.Status.ClusterRDEId
+
+	controlPlaneNodeIP, err := gateway.GetLoadBalancer(ctx, fmt.Sprintf("%s-tcp", virtualServiceNamePrefix))
+	//TODO: Sahithi: Check if error is really because of missing virtual service.
+	// In any other error cases, force create the new load balancer with the original control plane endpoint (if already present).
+	// Do not overwrite the existing control plane endpoint with a new endpoint.
+
+	if err != nil {
+		controlPlaneNodeIP, err = gateway.CreateL4LoadBalancer(ctx, virtualServiceNamePrefix, lbPoolNamePrefix, []string{}, 6443)
+		if err != nil {
+			return ctrl.Result{}, errors.Wrapf(err, "unable to create load balancer [%s]: [%v]", virtualServiceNamePrefix, err)
+		}
+	}
+
+	_, resp, _, err := r.VcdClient.ApiClient.DefinedEntityApi.GetDefinedEntity(ctx, vcdCluster.Status.ClusterRDEId)
 	if err != nil {
 		return ctrl.Result{}, errors.Wrapf(err, "failed to get defined entity with ID [%s] for cluster [%s]", vcdCluster.Status.ClusterRDEId, vcdCluster.Name)
 	}
@@ -431,10 +442,8 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		return ctrl.Result{}, errors.Errorf("error getting defined entity with ID [%s] for cluster [%s]", vcdCluster.Status.ClusterRDEId, vcdCluster.Name)
 	}
 
-	if definedEntity.State != "RESOLVED" {
-		if err = r.updateAndResolveEntity(ctx, cluster, vcdCluster); err != nil {
-			return ctrl.Result{}, errors.Wrapf(err, "failed to update and resolve defined entity with ID [%s] for cluster [%s]", vcdCluster.Status.ClusterRDEId, vcdCluster.Name)
-		}
+	if err = r.updateAndResolveEntity(ctx, cluster, vcdCluster, controlPlaneNodeIP); err != nil {
+		return ctrl.Result{}, errors.Wrapf(err, "failed to update and resolve defined entity with ID [%s] for cluster [%s]", vcdCluster.Status.ClusterRDEId, vcdCluster.Name)
 	}
 
 	// Update the vcdcluster resource with updated information

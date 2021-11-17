@@ -216,12 +216,6 @@ type Metadata struct {
 	Site string `json:"site,omitempty"`
 }
 
-type Nfs struct {
-	SizingClass    string `json:"sizingClass,omitempty"`
-	StorageProfile string `json:"storageProfile,omitempty"`
-	Count          string `json:"count,omitempty"`
-}
-
 type ControlPlane struct {
 	SizingClass string `json:"sizingClass,omitempty"`
 	Count       int32  `json:"count,omitempty"`
@@ -263,10 +257,6 @@ type Settings struct {
 	OvdcNetwork string   `json:"ovdcNetwork,omitempty"`
 	SshKey      string   `json:"sshKey,omitempty"`
 	Network     *Network `json:"network,omitempty"`
-}
-
-type NfsNode struct {
-	Exports []string `json:"exports,omitempty"`
 }
 
 type CloudProperties struct {
