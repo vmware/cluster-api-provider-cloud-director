@@ -18,11 +18,11 @@ package controllers
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"github.com/antihax/optional"
 	"github.com/pkg/errors"
 	infrav1 "github.com/vmware/cluster-api-provider-cloud-director/api/v1alpha4"
+	util2 "github.com/vmware/cluster-api-provider-cloud-director/pkg/util"
 	"github.com/vmware/cluster-api-provider-cloud-director/pkg/vcdclient"
 	swagger "github.com/vmware/cluster-api-provider-cloud-director/pkg/vcdswaggerclient"
 	"github.com/vmware/cluster-api-provider-cloud-director/pkg/vcdtypes"
@@ -204,121 +204,39 @@ func (r *VCDClusterReconciler) constructCapvcdRDE(vcdCluster *infrav1.VCDCluster
 	}
 
 	// convert CAPVCDEntity to map[string]interface{} type
-	entityByteArr, err := json.Marshal(capvcdEntity)
+	capvcdEntityMap, err := util2.ConvertCAPVCDEntityToMap(&capvcdEntity)
 	if err != nil {
-		return nil, fmt.Errorf("failed to convert native entity to bytes: [%v]", err)
-	}
-	var entityMap map[string]interface{}
-	err = json.Unmarshal(entityByteArr, &entityMap)
-	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal native entity to map[string]interface{}: [%v]", err)
+		return nil, fmt.Errorf("failed to convert CAPVCD entity to Map: [%v]", err)
 	}
 
-	definedEntity.Entity = entityMap
+	definedEntity.Entity = capvcdEntityMap
 	return definedEntity, nil
 }
 
-func (r *VCDClusterReconciler) updateAndResolveEntity(ctx context.Context, cluster *clusterv1.Cluster, vcdCluster *infrav1.VCDCluster, controlPlaneIP string) error {
-	org := r.VcdClient.VcdAuthConfig.Org
-	if vcdCluster.Spec.Org != "" && vcdCluster.Spec.Org != org {
-		org = vcdCluster.Spec.Org
-	}
-	vdc := r.VcdClient.VcdAuthConfig.VDC
-	if vcdCluster.Spec.Ovdc != "" && vcdCluster.Spec.Ovdc != vdc {
-		vdc = vcdCluster.Spec.Ovdc
-	}
-	ovdcNetwork := r.VcdClient.NetworkName
-	if vcdCluster.Spec.OvdcNetwork != "" && vcdCluster.Spec.OvdcNetwork != ovdcNetwork {
-		ovdcNetwork = vcdCluster.Spec.OvdcNetwork
-	}
+func (r *VCDClusterReconciler) syncDefinedEntity(ctx context.Context, cluster *clusterv1.Cluster, vcdCluster *infrav1.VCDCluster, controlPlaneIP string) error {
+	updatePatch := make(map[string]interface{})
 
-	rdeID := vcdCluster.Status.ClusterRDEId
-	definedEntity, resp, etag, err := r.VcdClient.ApiClient.DefinedEntityApi.GetDefinedEntity(ctx, rdeID)
-	if err != nil {
-		return fmt.Errorf("failed to get the defined entity with ID [%s] for cluster [%s]", rdeID, vcdCluster.Name)
+	updatePatch["Metadata.Org"] = r.VcdClient.VcdAuthConfig.Org
+	if vcdCluster.Spec.Org != "" {
+		updatePatch["Metadata.Org"] = vcdCluster.Spec.Org
 	}
-	capvcdEntityMap := definedEntity.Entity
+	updatePatch["Metadata.Vdc"] = r.VcdClient.VcdAuthConfig.VDC
+	if vcdCluster.Spec.Ovdc != "" {
+		updatePatch["Metadata.Vdc"] = vcdCluster.Spec.Ovdc
+	}
+	updatePatch["Metadata.Site"] = r.VcdClient.VcdAuthConfig.Host
 
-	// convert to CAPVCDEntity
-	var capvcdEntity vcdtypes.CAPVCDEntity
-	entityByteArr, err := json.Marshal(&capvcdEntityMap)
-	if err != nil {
-		return fmt.Errorf("failed to unmarshal entity map to string for cluster [%s]", vcdCluster.Name)
+	updatePatch["Spec.Settings.OvdcNetwork"] = r.VcdClient.NetworkName
+	if vcdCluster.Spec.OvdcNetwork != "" {
+		updatePatch["Spec.Settings.OvdcNetwork"] = vcdCluster.Spec.OvdcNetwork
 	}
-	err = json.Unmarshal(entityByteArr, &capvcdEntity)
-	if err != nil {
-		return fmt.Errorf("failed to marshal entity byte array to capvcd entity for cluster: [%s]", vcdCluster.Name)
-	}
-
-	// update metadata
-	capvcdEntity.Metadata = &vcdtypes.Metadata{
-		Name: vcdCluster.Name,
-		Vdc: vdc,
-		Org: org,
-		Site: r.VcdClient.VcdAuthConfig.Host,
-	}
-
-	// update spec
-	if capvcdEntity.Spec != nil {
-		if capvcdEntity.Spec.Settings != nil {
-			capvcdEntity.Spec.Settings.OvdcNetwork = ovdcNetwork
-		} else {
-			capvcdEntity.Spec.Settings = &vcdtypes.Settings{
-				OvdcNetwork: r.VcdClient.NetworkName,
-			}
-		}
-		// TODO: Need to fill sizing class from KubeadmControlPlane object
-		if capvcdEntity.Spec.Topology != nil {
-			if capvcdEntity.Spec.Topology.ControlPlane != nil {
-				capvcdEntity.Spec.Topology.ControlPlane.Count = int32(1) // TODO: fill with right value
-			} else {
-				capvcdEntity.Spec.Topology.ControlPlane = &vcdtypes.ControlPlane{
-					Count: int32(1), // TODO: Fill with right value
-				}
-			}
-			if capvcdEntity.Spec.Topology.Workers != nil {
-				capvcdEntity.Spec.Topology.Workers.Count = int32(1) // TODO: fill with right value
-			} else {
-				capvcdEntity.Spec.Topology.Workers = &vcdtypes.Workers{
-					Count: int32(1), // TODO: fill with right value
-				}
-			}
-		} else {
-			capvcdEntity.Spec.Topology = &vcdtypes.Topology{
-				ControlPlane: &vcdtypes.ControlPlane{
-					Count: int32(1), // TODO: Fill with right value
-				},
-				Workers: &vcdtypes.Workers{
-					Count: int32(1), // TODO: fill with right value
-				},
-			}
-		}
-		if capvcdEntity.Spec.Distribution != nil {
-			capvcdEntity.Spec.Distribution.TemplateName = "some-template-name" // TODO: fill with appropriate value
-		} else {
-			capvcdEntity.Spec.Distribution = &vcdtypes.Distribution{
-				TemplateName: "some-template-name", // TODO: Should add template name as part of vcdCluster representation
-			}
-		}
-	} else {
-		capvcdEntity.Spec = &vcdtypes.ClusterSpec{
-			Settings: &vcdtypes.Settings{
-				OvdcNetwork: r.VcdClient.NetworkName,
-			},
-			Topology: &vcdtypes.Topology{
-				ControlPlane: &vcdtypes.ControlPlane{
-					Count: int32(0), // TODO: Fill with right value
-				},
-				Workers: &vcdtypes.Workers{
-					Count: int32(0), // TODO: fill with right value
-				},
-			},
-			Distribution: &vcdtypes.Distribution{
-				TemplateName: "some-template-name", // TODO: Should add template name as part of vcdCluster representation
-			},
-		}
-	}
-
+	updatePatch["Spec.Topology.ControlPlane.Count"] = int32(0) // TODO (3097): Get proper control palne count value
+	updatePatch["Spec.Topology.ControlPlane.SizingClass"] = "" // TODO (3097): Get proper control palne count value
+	updatePatch["Spec.Topology.Workers.Count"] = int32(0) // TODO (3097): Get proper control palne count value
+	updatePatch["Spec.Topology.Workers.SizingClass"] = "" // TODO (3097): Get proper control palne count value
+	updatePatch["Spec.Distribution.TemplateName"] = "some-template-name" // TODO (3097): Get proper control palne count value
+	updatePatch["Status.Uid"] = vcdCluster.Status.ClusterRDEId
+	updatePatch["Status.Phase"] = cluster.Status.Phase
 	clusterApiStatus := vcdtypes.ClusterApiStatus{
 		Phase: "", // TODO: Find out what should be filled out here
 		ApiEndpoints: []*vcdtypes.ApiEndpoints{
@@ -328,54 +246,24 @@ func (r *VCDClusterReconciler) updateAndResolveEntity(ctx context.Context, clust
 			},
 		},
 	}
-	// update status
-	if capvcdEntity.Status != nil {
-		capvcdEntity.Status.Uid = rdeID
-		capvcdEntity.Status.Phase = cluster.Status.Phase
-		capvcdEntity.Status.ClusterAPIStatus = &clusterApiStatus
-	} else {
-		capvcdEntity.Status = &vcdtypes.Status{
-			Uid:              rdeID,
-			Phase:            cluster.Status.Phase,
-			ClusterAPIStatus: &clusterApiStatus,
-		}
-	}
-
-	// convert CAPVCDEntity to map[string]interface{}
-	var updatedEntityMap map[string]interface{}
-	entityByteArr, err = json.Marshal(&capvcdEntity)
+	updatePatch["Status.ClusterAPIStatus"] = clusterApiStatus
+	err := r.VcdClient.UpdateDefinedEntityWithChanges(ctx, updatePatch, vcdCluster.Status.ClusterRDEId)
 	if err != nil {
-		return fmt.Errorf("failed to unmarshal updated entity to byte array for cluster [%s] with RDE ID [%s]", vcdCluster.Name, rdeID)
-	}
-	err = json.Unmarshal(entityByteArr, &updatedEntityMap)
-	if err != nil {
-		return fmt.Errorf("failed to marshal updaated entity data to map for  cluster [%s] with RDE ID [%s]", vcdCluster.Name, rdeID)
-	}
-
-	definedEntity.Entity = updatedEntityMap
-
-	klog.Infof("Updating defined entity for cluster [%s] with defined entity ID [%s]: [%#v]", vcdCluster.Name, rdeID, definedEntity)
-	_, resp, err = r.VcdClient.ApiClient.DefinedEntityApi.UpdateDefinedEntity(ctx, definedEntity, etag, rdeID, nil)
-	if err != nil {
-		return fmt.Errorf("failed to update defined entity for cluster [%s] with RDE ID [%s]", vcdCluster.Name, rdeID)
-	}
-	klog.Infof("Response code for update entity: [%d]", resp.StatusCode)
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("error updating RDE for cluster [%s] with RDE ID [%s]", vcdCluster.Name, rdeID)
+		return fmt.Errorf("failed to update defined entity with ID [%s]: [%v]", vcdCluster.Status.ClusterRDEId, err)
 	}
 
 	// try to resolve the defined entity
-	entityState, resp, err := r.VcdClient.ApiClient.DefinedEntityApi.ResolveDefinedEntity(ctx, rdeID)
+	entityState, resp, err := r.VcdClient.ApiClient.DefinedEntityApi.ResolveDefinedEntity(ctx, vcdCluster.Status.ClusterRDEId)
 	if err != nil {
-		return fmt.Errorf("failed to resolve defined entity with ID [%s] for cluster [%s]", rdeID, vcdCluster.Name)
+		return fmt.Errorf("failed to resolve defined entity with ID [%s] for cluster [%s]", vcdCluster.Status.ClusterRDEId, vcdCluster.Name)
 	}
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("error while resolving defined entity with ID [%s] for cluster [%s] with message: [%s]", rdeID, vcdCluster.Name, entityState.Message)
+		return fmt.Errorf("error while resolving defined entity with ID [%s] for cluster [%s] with message: [%s]", vcdCluster.Status.ClusterRDEId, vcdCluster.Name, entityState.Message)
 	}
 	if entityState.State != DefinedEntityStatusResolved {
-		return fmt.Errorf("defined entity resolution failed for RDE with ID [%s] for cluster [%s] with message: [%s]", rdeID, vcdCluster.Name, entityState.Message)
+		return fmt.Errorf("defined entity resolution failed for RDE with ID [%s] for cluster [%s] with message: [%s]", vcdCluster.Status.ClusterRDEId, vcdCluster.Name, entityState.Message)
 	}
-	klog.Infof("resolved defined entity with ID [%s] for cluster [%s]", rdeID, vcdCluster.Name)
+	klog.Infof("resolved defined entity with ID [%s] for cluster [%s]", vcdCluster.Status.ClusterRDEId, vcdCluster.Name)
 	return nil
 }
 
@@ -468,7 +356,7 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		klog.Errorf("error getting defined entity with ID [%s] for cluster [%s]", vcdCluster.Status.ClusterRDEId, vcdCluster.Name)
 	}
 	if err == nil && resp.StatusCode == http.StatusOK {
-		if err = r.updateAndResolveEntity(ctx, cluster, vcdCluster, controlPlaneNodeIP); err != nil {
+		if err = r.syncDefinedEntity(ctx, cluster, vcdCluster, controlPlaneNodeIP); err != nil {
 			klog.Errorf("failed to update and resolve defined entity with ID [%s] for cluster [%s]: [%v]", vcdCluster.Status.ClusterRDEId, vcdCluster.Name, err)
 		}
 	}
