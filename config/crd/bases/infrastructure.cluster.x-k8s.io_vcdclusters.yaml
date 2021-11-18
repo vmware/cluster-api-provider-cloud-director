@@ -39,8 +39,6 @@ spec:
           spec:
             description: VCDClusterSpec defines the desired state of VCDCluster
             properties:
-              clusterRDEId:
-                type: string
               controlPlaneEndpoint:
                 description: APIEndpoint represents a reachable Kubernetes API endpoint.
                 properties:
@@ -66,6 +64,8 @@ spec:
           status:
             description: VCDClusterStatus defines the observed state of VCDCluster
             properties:
+              clusterRDEId:
+                type: string
               conditions:
                 description: Conditions defines current service state of the VCDCluster.
                 items:

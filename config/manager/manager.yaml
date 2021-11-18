@@ -16,7 +16,7 @@ spec:
         control-plane: controller-manager
     spec:
       securityContext:
-        runAsNonRoot: true
+        runAsNonRoot: false
       containers:
       - command:
         - /opt/vcloud/bin/cluster-api-provider-cloud-director

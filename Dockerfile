@@ -23,5 +23,5 @@ COPY --from=builder /build/vcloud/cluster-api-provider-cloud-director .
 
 RUN chmod +x /opt/vcloud/bin/cluster-api-provider-cloud-director
 
-USER 65532:65532
+USER nobody
 ENTRYPOINT ["/bin/bash", "-l", "-c"]

@@ -333,7 +333,7 @@ exit 0
 	// update dnat rule to point to control plane node
 	// update loadbalancer pool with the IP of the control plane node as a new member.
 	if util.IsControlPlaneMachine(machine) {
-		lbPoolName := cluster.Name + "-" + r.VcdClient.ClusterID + "-tcp"
+		lbPoolName := cluster.Name + "-" + vcdCluster.Status.ClusterRDEId + "-tcp"
 		lbPoolRef, err := gateway.GetLoadBalancerPool(ctx, lbPoolName)
 		if err != nil {
 			return ctrl.Result{}, errors.Wrapf(err, "Failed to get load balancer pool by name [%s]: [%v]", lbPoolName, err)

@@ -214,6 +214,96 @@ type ComposeVAppWithVMs struct {
 	AllEULAsAccepted    bool                                 `xml:"AllEULAsAccepted,omitempty"`    // True confirms acceptance of all EULAs in a vApp template. Instantiation fails if this element is missing, empty, or set to false and one or more EulaSection elements are present.
 }
 
-//type VcdComputePolicy struct {
-//
-//}
+type Metadata struct {
+	Name string `json:"name,omitempty"`
+	Org  string `json:"orgName,omitempty"`
+	Vdc  string `json:"virtualDataCenterName,omitempty"`
+	Site string `json:"site,omitempty"`
+}
+
+type ControlPlane struct {
+	SizingClass string `json:"sizingClass,omitempty"`
+	Count       int32  `json:"count,omitempty"`
+}
+
+type Workers struct {
+	SizingClass string `json:"sizingClass,omitempty"`
+	Count       int32  `json:"count,omitempty"`
+}
+
+type Distribution struct {
+	TemplateName string `json:"templateName,omitempty"`
+}
+
+type Topology struct {
+	ControlPlane *ControlPlane `json:"controlPlane,omitempty"`
+	Workers      *Workers      `json:"workers,omitempty"`
+}
+
+type Cni struct {
+	Name string `json:"name,omitempty"`
+}
+
+type Pods struct {
+	CidrBlocks []string `json:"cidrBlocks,omitempty"`
+}
+
+type Services struct {
+	CidrBlocks []string `json:"cidrBlocks,omitempty"`
+}
+
+type Network struct {
+	Cni      *Cni      `json:"cni,omitempty"`
+	Pods     *Pods     `json:"pods,omitempty"`
+	Services *Services `json:"services,omitempty"`
+}
+
+type Settings struct {
+	OvdcNetwork string   `json:"ovdcNetwork,omitempty"`
+	SshKey      string   `json:"sshKey,omitempty"`
+	Network     *Network `json:"network,omitempty"`
+}
+
+type CloudProperties struct {
+	Site         string        `json:"site,omitempty"`
+	Org          string        `json:"orgName,omitempty"`
+	Vdc          string        `json:"virtualDataCenterName,omitempty"`
+	Distribution *Distribution `json:"distribution,omitempty"`
+	SshKey       string        `json:"sshKey,omitempty"`
+}
+
+type ApiEndpoints struct {
+	Host string `json:"host,omitempty"`
+	Port int32  `json:"port,omitempty"`
+}
+
+type ClusterApiStatus struct {
+	Phase        string          `json:"phase,omitempty"`
+	ApiEndpoints []*ApiEndpoints `json:"apiEndpoints,omitempty"`
+}
+
+type Status struct {
+	Phase             string                 `json:"phase,omitempty"`
+	Cni               string                 `json:"cni,omitempty"`
+	Kubernetes        string                 `json:"kubernetes,omitempty"`
+	Uid               string                 `json:"uid,omitempty"`
+	ClusterAPIStatus  *ClusterApiStatus      `json:"clusterApiStatus,omitempty"`
+	CloudProperties   *CloudProperties       `json:"cloudProperties,omitempty"`
+	PersistentVolumes []string               `json:"persistentVolumes,omitempty"`
+	VirtualIPs        []string               `json:"virtualIPs,omitempty"`
+	NodeStatus        map[string]interface{} `json:"nodeStatus,omitempty"`
+}
+
+type ClusterSpec struct {
+	Settings     *Settings     `json:"settings"`
+	Topology     *Topology     `json:"topology"`
+	Distribution *Distribution `json:"distribution"`
+}
+
+type CAPVCDEntity struct {
+	Metadata   *Metadata    `json:"metadata"`
+	Spec       *ClusterSpec `json:"spec"`
+	ApiVersion string       `json:"apiVersion"`
+	Status     *Status      `json:"status"`
+	Kind       string       `json:"kind"`
+}
