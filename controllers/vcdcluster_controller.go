@@ -230,10 +230,10 @@ func (r *VCDClusterReconciler) syncDefinedEntity(ctx context.Context, cluster *c
 	if vcdCluster.Spec.OvdcNetwork != "" {
 		updatePatch["Spec.Settings.OvdcNetwork"] = vcdCluster.Spec.OvdcNetwork
 	}
-	updatePatch["Spec.Topology.ControlPlane.Count"] = int32(0) // TODO (3097): Get proper control palne count value
-	updatePatch["Spec.Topology.ControlPlane.SizingClass"] = "" // TODO (3097): Get proper control palne count value
-	updatePatch["Spec.Topology.Workers.Count"] = int32(0) // TODO (3097): Get proper control palne count value
-	updatePatch["Spec.Topology.Workers.SizingClass"] = "" // TODO (3097): Get proper control palne count value
+	updatePatch["Spec.Topology.ControlPlane.Count"] = int32(0)           // TODO (3097): Get proper control palne count value
+	updatePatch["Spec.Topology.ControlPlane.SizingClass"] = ""           // TODO (3097): Get proper control palne count value
+	updatePatch["Spec.Topology.Workers.Count"] = int32(0)                // TODO (3097): Get proper control palne count value
+	updatePatch["Spec.Topology.Workers.SizingClass"] = ""                // TODO (3097): Get proper control palne count value
 	updatePatch["Spec.Distribution.TemplateName"] = "some-template-name" // TODO (3097): Get proper control palne count value
 	updatePatch["Status.Uid"] = vcdCluster.Status.ClusterRDEId
 	updatePatch["Status.Phase"] = cluster.Status.Phase
