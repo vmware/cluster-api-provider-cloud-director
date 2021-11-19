@@ -21,11 +21,13 @@ import (
 	"fmt"
 	"github.com/pkg/errors"
 	infrav1 "github.com/vmware/cluster-api-provider-cloud-director/api/v1alpha4"
+	util2 "github.com/vmware/cluster-api-provider-cloud-director/pkg/util"
 	"github.com/vmware/cluster-api-provider-cloud-director/pkg/vcdclient"
 	"github.com/vmware/go-vcloud-director/v2/govcd"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/klog"
+	"net/http"
 	"os/exec"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1alpha4"
 	"sigs.k8s.io/cluster-api/test/infrastructure/docker/cloudinit"
@@ -41,6 +43,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 	"sigs.k8s.io/kind/pkg/cluster/constants"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -169,15 +172,73 @@ func patchVCDMachine(ctx context.Context, patchHelper *patch.Helper, vcdMachine 
 	)
 }
 
+func (r *VCDMachineReconciler) updateNodeInRDE(ctx context.Context, definedEntityID string, vcdMachine *infrav1.VCDMachine) error {
+	if definedEntityID == "" {
+		return fmt.Errorf("cannot update RDE as defined entity ID is empty")
+	}
+	updatePatch := make(map[string]interface{})
+	definedEntity, resp, _, err := r.VcdClient.ApiClient.DefinedEntityApi.GetDefinedEntity(ctx, definedEntityID)
+	if err != nil {
+		return fmt.Errorf("failed to get defined entity with ID [%s] to update node status for machine [%s]: [%v]", definedEntityID, vcdMachine.Name, err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("error getting defined entity with ID [%s] to update node status for machine [%s]", definedEntityID, vcdMachine.Name)
+	}
+	capvcdEntity, err := util2.ConvertMapToCAPVCDEntity(definedEntity.Entity)
+	if err != nil {
+		return fmt.Errorf("failed to convert CAPVCD entity map to type CAPVCD entity: [%v]", err)
+	}
+	nodeStatusMap := capvcdEntity.Status.NodeStatus
+	if nodeStatus, ok := nodeStatusMap[vcdMachine.Name]; ok && nodeStatus ==  strconv.FormatBool(vcdMachine.Status.Ready){
+		// no update needed
+		return nil
+	}
+	if nodeStatusMap == nil {
+		nodeStatusMap = make(map[string]interface{})
+	}
+	nodeStatusMap[vcdMachine.Name] = strconv.FormatBool(vcdMachine.Status.Ready)
+	updatePatch["Status.NodeStatus"] = nodeStatusMap
+
+	// update defined entity
+	updatedDefinedEntity, err := r.VcdClient.UpdateDefinedEntityWithChanges(ctx, updatePatch, definedEntityID)
+	if err != nil {
+		return fmt.Errorf("failed to update defined entity with ID [%s] with node status for VCDMachine [%s]: [%v]",definedEntityID, vcdMachine.Name, err)
+	}
+	if updatedDefinedEntity.State != DefinedEntityStatusResolved {
+		// try to resolve the defined entity
+		entityState, resp, err := r.VcdClient.ApiClient.DefinedEntityApi.ResolveDefinedEntity(ctx, updatedDefinedEntity.Id)
+		if err != nil {
+			return fmt.Errorf("failed to resolve defined entity with ID [%s] for cluster [%s]", updatedDefinedEntity.Id, updatedDefinedEntity.Name)
+		}
+		if resp.StatusCode != http.StatusOK {
+			return fmt.Errorf("error while resolving defined entity with ID [%s] for cluster [%s] with message: [%s]", updatedDefinedEntity.Id, updatedDefinedEntity.Name, entityState.Message)
+		}
+		if entityState.State != DefinedEntityStatusResolved {
+			return fmt.Errorf("defined entity resolution failed for RDE with ID [%s] for cluster [%s] with message: [%s]", updatedDefinedEntity.Id, updatedDefinedEntity.Name, entityState.Message)
+		}
+		klog.Infof("resolved defined entity with ID [%s] for cluster [%s]", updatedDefinedEntity.Id, updatedDefinedEntity.Name)
+	}
+	return nil
+}
+
 func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clusterv1.Cluster,
 	machine *clusterv1.Machine, vcdMachine *infrav1.VCDMachine, vcdCluster *infrav1.VCDCluster) (res ctrl.Result, retErr error) {
 
 	log := ctrl.LoggerFrom(ctx)
 
 	if vcdMachine.Spec.ProviderID != nil {
+		err := r.updateNodeInRDE(ctx, vcdCluster.Status.ClusterRDEId, vcdMachine)
+		if err != nil {
+			klog.Errorf("failed to add VCDMachine [%s] to node status: [%v]", vcdMachine.Name, err)
+		}
 		vcdMachine.Status.Ready = true
 		conditions.MarkTrue(vcdMachine, infrav1.ContainerProvisionedCondition)
 		return ctrl.Result{}, nil
+	}
+
+	err := r.updateNodeInRDE(ctx, vcdCluster.Status.ClusterRDEId, vcdMachine)
+	if err != nil {
+		klog.Errorf("failed to add VCDMachine [%s] to node status", vcdMachine.Name)
 	}
 
 	if machine.Spec.Bootstrap.DataSecretName == nil {
@@ -403,6 +464,10 @@ exit 0
 	providerID := fmt.Sprintf("%s://%s", infrav1.VCDProviderID, vm.VM.ID)
 	vcdMachine.Spec.ProviderID = &providerID
 	vcdMachine.Status.Ready = true
+	err = r.updateNodeInRDE(ctx, vcdCluster.Status.ClusterRDEId, vcdMachine)
+	if err != nil {
+		klog.Errorf("failed to add VCDMachine [%s] to node status", vcdMachine.Name)
+	}
 	conditions.MarkTrue(vcdMachine, infrav1.ContainerProvisionedCondition)
 
 	return ctrl.Result{}, nil
