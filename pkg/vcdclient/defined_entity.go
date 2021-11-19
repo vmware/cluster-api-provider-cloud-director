@@ -67,6 +67,15 @@ func (client *Client) UpdateDefinedEntityWithChanges(ctx context.Context, patch 
 	}
 	rde.Entity = capvcdEntityMap
 	for retries := 0; retries < MaxUpdateRetries; retries++ {
+		_, resp, etag, err = client.ApiClient.DefinedEntityApi.GetDefinedEntity(ctx, definedEntityID)
+		if err != nil {
+			klog.Errorf("failed to call get defined entity RDE with ID [%s]: [%s]. Remaining retry attempts: [%d]", definedEntityID, err, MaxUpdateRetries - retries + 1)
+			continue
+		}
+		if resp.StatusCode != http.StatusOK {
+			klog.Errorf("error getting the defined entity with ID [%s]. Remaining retry attempts: [%d]", definedEntityID, MaxUpdateRetries - retries + 1)
+			continue
+		}
 		rde, resp, err = client.ApiClient.DefinedEntityApi.UpdateDefinedEntity(ctx, rde, etag, definedEntityID, nil)
 		if err != nil {
 			klog.Errorf("failed to update defined entity with ID [%s]: [%v]. Remaining retry attempts: [%d]", definedEntityID, err, MaxUpdateRetries - retries + 1)
