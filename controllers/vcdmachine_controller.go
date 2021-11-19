@@ -21,7 +21,7 @@ import (
 	"fmt"
 	"github.com/pkg/errors"
 	infrav1 "github.com/vmware/cluster-api-provider-cloud-director/api/v1alpha4"
-	util2 "github.com/vmware/cluster-api-provider-cloud-director/pkg/util"
+	vcdutil "github.com/vmware/cluster-api-provider-cloud-director/pkg/util"
 	"github.com/vmware/cluster-api-provider-cloud-director/pkg/vcdclient"
 	"github.com/vmware/go-vcloud-director/v2/govcd"
 	corev1 "k8s.io/api/core/v1"
@@ -184,7 +184,7 @@ func (r *VCDMachineReconciler) updateNodeInRDE(ctx context.Context, definedEntit
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("error getting defined entity with ID [%s] to update node status for machine [%s]", definedEntityID, vcdMachine.Name)
 	}
-	capvcdEntity, err := util2.ConvertMapToCAPVCDEntity(definedEntity.Entity)
+	capvcdEntity, err := vcdutil.ConvertMapToCAPVCDEntity(definedEntity.Entity)
 	if err != nil {
 		return fmt.Errorf("failed to convert CAPVCD entity map to type CAPVCD entity: [%v]", err)
 	}

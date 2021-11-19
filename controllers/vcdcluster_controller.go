@@ -22,7 +22,7 @@ import (
 	"github.com/antihax/optional"
 	"github.com/pkg/errors"
 	infrav1 "github.com/vmware/cluster-api-provider-cloud-director/api/v1alpha4"
-	util2 "github.com/vmware/cluster-api-provider-cloud-director/pkg/util"
+	vcdutil "github.com/vmware/cluster-api-provider-cloud-director/pkg/util"
 	"github.com/vmware/cluster-api-provider-cloud-director/pkg/vcdclient"
 	swagger "github.com/vmware/cluster-api-provider-cloud-director/pkg/vcdswaggerclient"
 	"github.com/vmware/cluster-api-provider-cloud-director/pkg/vcdtypes"
@@ -210,7 +210,7 @@ func (r *VCDClusterReconciler) constructCapvcdRDE(vcdCluster *infrav1.VCDCluster
 	}
 
 	// convert CAPVCDEntity to map[string]interface{} type
-	capvcdEntityMap, err := util2.ConvertCAPVCDEntityToMap(&capvcdEntity)
+	capvcdEntityMap, err := vcdutil.ConvertCAPVCDEntityToMap(&capvcdEntity)
 	if err != nil {
 		return nil, fmt.Errorf("failed to convert CAPVCD entity to Map: [%v]", err)
 	}
@@ -228,7 +228,7 @@ func (r *VCDClusterReconciler) syncDefinedEntity(ctx context.Context, cluster *c
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("error getting defined entity with ID [%s] to sync with VCDCluster [%s]", vcdCluster.Status.ClusterRDEId, vcdCluster.Name)
 	}
-	capvcdEntity, err := util2.ConvertMapToCAPVCDEntity(definedEntity.Entity)
+	capvcdEntity, err := vcdutil.ConvertMapToCAPVCDEntity(definedEntity.Entity)
 	if err != nil {
 		return fmt.Errorf("failed to convert CAPVCD entity map to type CAPVCD entity: [%v]", err)
 	}
