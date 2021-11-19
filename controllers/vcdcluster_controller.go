@@ -158,52 +158,52 @@ func (r *VCDClusterReconciler) constructCapvcdRDE(vcdCluster *infrav1.VCDCluster
 	capvcdEntity := vcdtypes.CAPVCDEntity{
 		Kind:       CAPVCDClusterKind,
 		ApiVersion: CAPVCDClusterEntityApiVersion,
-		Metadata: &vcdtypes.Metadata{
+		Metadata: vcdtypes.Metadata{
 			Name: vcdCluster.Name,
 			Org:  org,
 			Vdc:  vdc,
 			Site: r.VcdClient.VcdAuthConfig.Host,
 		},
-		Spec: &vcdtypes.ClusterSpec{
-			Settings: &vcdtypes.Settings{
+		Spec: vcdtypes.ClusterSpec{
+			Settings: vcdtypes.Settings{
 				OvdcNetwork: vcdCluster.Spec.OvdcNetwork,
 				SshKey:      "", // TODO: Should add ssh key as part of vcdCluster representation
-				Network: &vcdtypes.Network{
-					Cni: &vcdtypes.Cni{
+				Network: vcdtypes.Network{
+					Cni: vcdtypes.Cni{
 						Name: CAPVCDClusterCniName,
 					},
 				},
 			},
-			Topology: &vcdtypes.Topology{
-				ControlPlane: &vcdtypes.ControlPlane{
+			Topology: vcdtypes.Topology{
+				ControlPlane: vcdtypes.ControlPlane{
 					SizingClass: vcdCluster.Spec.DefaultComputePolicy, // TODO: Need to fill sizing policy from KCP object
 					Count:       int32(0),                             // TODO: Fill with right value
 				},
-				Workers: &vcdtypes.Workers{
+				Workers: vcdtypes.Workers{
 					SizingClass: vcdCluster.Spec.DefaultComputePolicy, // TODO: Need to fill sizing class from KCP object.
 					Count:       int32(0),                             // TODO: Fill with right value
 				},
 			},
-			Distribution: &vcdtypes.Distribution{
+			Distribution: vcdtypes.Distribution{
 				TemplateName: "some-template-name", // TODO: Should add template name as part of vcdCluster representation
 			},
 		},
-		Status: &vcdtypes.Status{
+		Status: vcdtypes.Status{
 			Phase:      "",                   // TODO: should be the Cluster object status
 			Cni:        CAPVCDClusterCniName, // TODO: Should add cni as part of vcdCluster representation
 			Kubernetes: vcdCluster.APIVersion,
-			CloudProperties: &vcdtypes.CloudProperties{
+			CloudProperties: vcdtypes.CloudProperties{
 				Site: r.VcdClient.VcdAuthConfig.Host,
 				Org:  org,
 				Vdc:  vdc,
-				Distribution: &vcdtypes.Distribution{
+				Distribution: vcdtypes.Distribution{
 					TemplateName: "some-template-name", // TODO: Fix with right value
 				},
 				SshKey: "", // TODO: Should add ssh key as part of vcdCluster representation
 			},
-			ClusterAPIStatus: &vcdtypes.ClusterApiStatus{
-				Phase: "",
-				ApiEndpoints: []*vcdtypes.ApiEndpoints{},
+			ClusterAPIStatus: vcdtypes.ClusterApiStatus{
+				Phase:        "",
+				ApiEndpoints: []vcdtypes.ApiEndpoints{},
 			},
 			NodeStatus: make(map[string]interface{}),
 		},
@@ -262,17 +262,17 @@ func (r *VCDClusterReconciler) syncDefinedEntity(ctx context.Context, cluster *c
 	}
 
 	if capvcdEntity.Spec.Topology.ControlPlane.Count != int32(0) {
-		updatePatch["Spec.Topology.ControlPlane.Count"] = int32(0)           // TODO (3097): Get proper control palne count value
+		updatePatch["Spec.Topology.ControlPlane.Count"] = int32(0) // TODO (3097): Get proper control palne count value
 	}
 	if capvcdEntity.Spec.Topology.ControlPlane.SizingClass != "" {
-		updatePatch["Spec.Topology.ControlPlane.SizingClass"] = ""           // TODO (3097): Get proper control palne count value
+		updatePatch["Spec.Topology.ControlPlane.SizingClass"] = "" // TODO (3097): Get proper control palne count value
 	}
 
 	if capvcdEntity.Spec.Topology.Workers.Count != int32(0) {
-		updatePatch["Spec.Topology.Workers.Count"] = int32(0)                // TODO (3097): Get proper control palne count value
+		updatePatch["Spec.Topology.Workers.Count"] = int32(0) // TODO (3097): Get proper control palne count value
 	}
 	if capvcdEntity.Spec.Topology.Workers.SizingClass != "" {
-		updatePatch["Spec.Topology.Workers.SizingClass"] = ""                // TODO (3097): Get proper control palne count value
+		updatePatch["Spec.Topology.Workers.SizingClass"] = "" // TODO (3097): Get proper control palne count value
 	}
 
 	if capvcdEntity.Spec.Distribution.TemplateName != "some-template-name" {
@@ -288,14 +288,14 @@ func (r *VCDClusterReconciler) syncDefinedEntity(ctx context.Context, cluster *c
 	}
 	clusterApiStatus := vcdtypes.ClusterApiStatus{
 		Phase: "", // TODO: Find out what should be filled out here
-		ApiEndpoints: []*vcdtypes.ApiEndpoints{
+		ApiEndpoints: []vcdtypes.ApiEndpoints{
 			{
 				Host: controlPlaneIP,
 				Port: 6443,
 			},
 		},
 	}
-	if capvcdEntity.Status.ClusterAPIStatus == nil || !reflect.DeepEqual(clusterApiStatus, *capvcdEntity.Status.ClusterAPIStatus) {
+	if !reflect.DeepEqual(clusterApiStatus, capvcdEntity.Status.ClusterAPIStatus) {
 		updatePatch["Status.ClusterAPIStatus"] = clusterApiStatus
 	}
 

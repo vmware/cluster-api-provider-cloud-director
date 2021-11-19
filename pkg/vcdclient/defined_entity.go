@@ -21,7 +21,7 @@ func (client *Client) UpdateDefinedEntityWithChanges(ctx context.Context, patch 
 		// recover from panic if panic occurs because of
 		// 1. calling Set() on a zero value
 		if r := recover(); r != nil {
-			err = errors.Errorf("recovered panic during updating entity: [%v]", r )
+			err = errors.Errorf("recovered panic during updating entity: [%v]", r)
 		}
 	}()
 	rde, resp, etag, err := client.ApiClient.DefinedEntityApi.GetDefinedEntity(ctx, definedEntityID)
@@ -47,7 +47,7 @@ func (client *Client) UpdateDefinedEntityWithChanges(ctx context.Context, patch 
 	for k, v := range patch {
 		fields := strings.Split(k, ".")
 		updatedVal := reflect.ValueOf(v)
-		klog.Infof("Assigning value ", v, " to key ", k)
+		klog.Infof("Assigning value %v to key %s", v, k)
 		objVal := reflect.ValueOf(capvcdEntity).Elem()
 		for _, attr := range fields {
 			// cannot call fieldByName on a zero value
@@ -66,14 +66,18 @@ func (client *Client) UpdateDefinedEntityWithChanges(ctx context.Context, patch 
 		return
 	}
 	rde.Entity = capvcdEntityMap
-	for retries := MaxUpdateRetries ; retries > 0; retries -- {
+	for retries := 0; retries < MaxUpdateRetries; retries++ {
 		rde, resp, err = client.ApiClient.DefinedEntityApi.UpdateDefinedEntity(ctx, rde, etag, definedEntityID, nil)
 		if err != nil {
-			return nil, fmt.Errorf("failed to update defined entity with ID [%s]: [%v]", definedEntityID, err)
+			klog.Errorf("failed to update defined entity with ID [%s]: [%v]. Remaining retry attempts: [%d]", definedEntityID, err, MaxUpdateRetries - retries + 1)
+			continue
 		}
 		if resp.StatusCode != http.StatusOK {
-			return nil, fmt.Errorf("error updating the defined entity with ID [%s]. failed with status code [%d]", definedEntityID, resp.StatusCode)
+			klog.Errorf("error updating the defined entity with ID [%s]. failed with status code [%d]. Remaining retry attempts: [%d]", definedEntityID, resp.StatusCode, MaxUpdateRetries - retries + 1)
+			continue
 		}
+		klog.Infof("successfully updated defined entity with ID [%s]", definedEntityID)
+		return &rde, nil
 	}
 	return &rde, nil
 }

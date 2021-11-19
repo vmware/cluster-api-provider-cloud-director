@@ -172,7 +172,7 @@ func patchVCDMachine(ctx context.Context, patchHelper *patch.Helper, vcdMachine 
 	)
 }
 
-func (r *VCDMachineReconciler) updateNodeInRDE(ctx context.Context, definedEntityID string, vcdMachine *infrav1.VCDMachine) error {
+func (r *VCDMachineReconciler) syncNodeInRDE(ctx context.Context, definedEntityID string, vcdMachine *infrav1.VCDMachine) error {
 	if definedEntityID == "" {
 		return fmt.Errorf("cannot update RDE as defined entity ID is empty")
 	}
@@ -189,7 +189,7 @@ func (r *VCDMachineReconciler) updateNodeInRDE(ctx context.Context, definedEntit
 		return fmt.Errorf("failed to convert CAPVCD entity map to type CAPVCD entity: [%v]", err)
 	}
 	nodeStatusMap := capvcdEntity.Status.NodeStatus
-	if nodeStatus, ok := nodeStatusMap[vcdMachine.Name]; ok && nodeStatus ==  strconv.FormatBool(vcdMachine.Status.Ready){
+	if nodeStatus, ok := nodeStatusMap[vcdMachine.Name]; ok && nodeStatus == strconv.FormatBool(vcdMachine.Status.Ready) {
 		// no update needed
 		return nil
 	}
@@ -202,7 +202,7 @@ func (r *VCDMachineReconciler) updateNodeInRDE(ctx context.Context, definedEntit
 	// update defined entity
 	updatedDefinedEntity, err := r.VcdClient.UpdateDefinedEntityWithChanges(ctx, updatePatch, definedEntityID)
 	if err != nil {
-		return fmt.Errorf("failed to update defined entity with ID [%s] with node status for VCDMachine [%s]: [%v]",definedEntityID, vcdMachine.Name, err)
+		return fmt.Errorf("failed to update defined entity with ID [%s] with node status for VCDMachine [%s]: [%v]", definedEntityID, vcdMachine.Name, err)
 	}
 	if updatedDefinedEntity.State != DefinedEntityStatusResolved {
 		// try to resolve the defined entity
@@ -227,7 +227,7 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	log := ctrl.LoggerFrom(ctx)
 
 	if vcdMachine.Spec.ProviderID != nil {
-		err := r.updateNodeInRDE(ctx, vcdCluster.Status.ClusterRDEId, vcdMachine)
+		err := r.syncNodeInRDE(ctx, vcdCluster.Status.ClusterRDEId, vcdMachine)
 		if err != nil {
 			klog.Errorf("failed to add VCDMachine [%s] to node status: [%v]", vcdMachine.Name, err)
 		}
@@ -236,7 +236,7 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		return ctrl.Result{}, nil
 	}
 
-	err := r.updateNodeInRDE(ctx, vcdCluster.Status.ClusterRDEId, vcdMachine)
+	err := r.syncNodeInRDE(ctx, vcdCluster.Status.ClusterRDEId, vcdMachine)
 	if err != nil {
 		klog.Errorf("failed to add VCDMachine [%s] to node status", vcdMachine.Name)
 	}
@@ -464,7 +464,7 @@ exit 0
 	providerID := fmt.Sprintf("%s://%s", infrav1.VCDProviderID, vm.VM.ID)
 	vcdMachine.Spec.ProviderID = &providerID
 	vcdMachine.Status.Ready = true
-	err = r.updateNodeInRDE(ctx, vcdCluster.Status.ClusterRDEId, vcdMachine)
+	err = r.syncNodeInRDE(ctx, vcdCluster.Status.ClusterRDEId, vcdMachine)
 	if err != nil {
 		klog.Errorf("failed to add VCDMachine [%s] to node status", vcdMachine.Name)
 	}
