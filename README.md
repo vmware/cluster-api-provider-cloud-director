@@ -10,4 +10,5 @@ The Cluster API brings declarative, Kubernetes-style APIs to cluster creation, c
 The cluster-api-provider-cloud-director project team welcomes contributions from the community. Before you start working with cluster-api-provider-cloud-director, please refer to [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
+[Apache-2.0](LICENSE.txt)
 
