@@ -1220,6 +1220,9 @@ func (gateway *GatewayManager) GetLoadBalancer(ctx context.Context, virtualServi
 			return "", fmt.Errorf("Unable to find dnat rule [%s] for virtual service [%s]: [%v]",
 				dnatRuleName, virtualServiceName, err)
 		}
+		if dnatRuleRef == nil {
+			return "", fmt.Errorf("dnat rule [%s] for virtual service [%s] not found", dnatRuleName, virtualServiceName)
+		}
 		vip = dnatRuleRef.ExternalIP
 	}
 

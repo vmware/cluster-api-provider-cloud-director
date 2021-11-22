@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"github.com/pkg/errors"
 	infrav1 "github.com/vmware/cluster-api-provider-cloud-director/api/v1alpha4"
-	vcdutil "github.com/vmware/cluster-api-provider-cloud-director/pkg/util"
 	"github.com/vmware/cluster-api-provider-cloud-director/pkg/vcdclient"
 	"github.com/vmware/go-vcloud-director/v2/govcd"
 	corev1 "k8s.io/api/core/v1"
@@ -43,10 +42,21 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 	"sigs.k8s.io/kind/pkg/cluster/constants"
-	"strconv"
 	"strings"
 	"time"
 )
+
+const (
+	RDENodeStatusProvisioned = "Provisioned"
+	RDENodeStatusProvisioning = "Provisioning"
+)
+
+func getNodeStatusFromCondition(vcdMachine *infrav1.VCDMachine) string {
+	if conditions.IsTrue(vcdMachine, infrav1.ContainerProvisionedCondition) {
+		return RDENodeStatusProvisioned
+	}
+	return RDENodeStatusProvisioning
+}
 
 // VCDMachineReconciler reconciles a VCDMachine object
 type VCDMachineReconciler struct {
@@ -172,51 +182,45 @@ func patchVCDMachine(ctx context.Context, patchHelper *patch.Helper, vcdMachine 
 	)
 }
 
-func (r *VCDMachineReconciler) syncNodeInRDE(ctx context.Context, definedEntityID string, vcdMachine *infrav1.VCDMachine) error {
-	if definedEntityID == "" {
+func (r *VCDMachineReconciler) syncNodeInRDE(ctx context.Context, rdeID string, vcdMachine *infrav1.VCDMachine) error {
+	if rdeID == "" {
 		return fmt.Errorf("cannot update RDE as defined entity ID is empty")
 	}
 	updatePatch := make(map[string]interface{})
-	definedEntity, resp, _, err := r.VcdClient.ApiClient.DefinedEntityApi.GetDefinedEntity(ctx, definedEntityID)
+	_, capvcdEntity, err := r.VcdClient.GetCAPVCDEntity(ctx, rdeID)
 	if err != nil {
-		return fmt.Errorf("failed to get defined entity with ID [%s] to update node status for machine [%s]: [%v]", definedEntityID, vcdMachine.Name, err)
-	}
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("error getting defined entity with ID [%s] to update node status for machine [%s]", definedEntityID, vcdMachine.Name)
-	}
-	capvcdEntity, err := vcdutil.ConvertMapToCAPVCDEntity(definedEntity.Entity)
-	if err != nil {
-		return fmt.Errorf("failed to convert CAPVCD entity map to type CAPVCD entity: [%v]", err)
+		return fmt.Errorf("failed to get CAPVCD entity with ID [%s] to sync node details for machine [%s]: [%v]", rdeID, vcdMachine.Name, err)
 	}
 	nodeStatusMap := capvcdEntity.Status.NodeStatus
-	if nodeStatus, ok := nodeStatusMap[vcdMachine.Name]; ok && nodeStatus == strconv.FormatBool(vcdMachine.Status.Ready) {
+	rdeNodeStatus := getNodeStatusFromCondition(vcdMachine)
+	if nodeStatus, ok := nodeStatusMap[vcdMachine.Name]; ok && nodeStatus == rdeNodeStatus {
 		// no update needed
 		return nil
 	}
 	if nodeStatusMap == nil {
-		nodeStatusMap = make(map[string]interface{})
+		nodeStatusMap = make(map[string]string)
 	}
-	nodeStatusMap[vcdMachine.Name] = strconv.FormatBool(vcdMachine.Status.Ready)
+	nodeStatusMap[vcdMachine.Name] = getNodeStatusFromCondition(vcdMachine)
 	updatePatch["Status.NodeStatus"] = nodeStatusMap
 
 	// update defined entity
-	updatedDefinedEntity, err := r.VcdClient.UpdateDefinedEntityWithChanges(ctx, updatePatch, definedEntityID)
+	updatedRDE, err := r.VcdClient.PatchRDE(ctx, updatePatch, rdeID)
 	if err != nil {
-		return fmt.Errorf("failed to update defined entity with ID [%s] with node status for VCDMachine [%s]: [%v]", definedEntityID, vcdMachine.Name, err)
+		return fmt.Errorf("failed to update defined entity with ID [%s] with node status for VCDMachine [%s]: [%v]", rdeID, vcdMachine.Name, err)
 	}
-	if updatedDefinedEntity.State != DefinedEntityStatusResolved {
+	if updatedRDE.State != RDEStatusResolved {
 		// try to resolve the defined entity
-		entityState, resp, err := r.VcdClient.ApiClient.DefinedEntityApi.ResolveDefinedEntity(ctx, updatedDefinedEntity.Id)
+		entityState, resp, err := r.VcdClient.ApiClient.DefinedEntityApi.ResolveDefinedEntity(ctx, updatedRDE.Id)
 		if err != nil {
-			return fmt.Errorf("failed to resolve defined entity with ID [%s] for cluster [%s]", updatedDefinedEntity.Id, updatedDefinedEntity.Name)
+			return fmt.Errorf("failed to resolve defined entity with ID [%s] for cluster [%s]", updatedRDE.Id, updatedRDE.Name)
 		}
 		if resp.StatusCode != http.StatusOK {
-			return fmt.Errorf("error while resolving defined entity with ID [%s] for cluster [%s] with message: [%s]", updatedDefinedEntity.Id, updatedDefinedEntity.Name, entityState.Message)
+			return fmt.Errorf("error while resolving defined entity with ID [%s] for cluster [%s] with message: [%s]", updatedRDE.Id, updatedRDE.Name, entityState.Message)
 		}
-		if entityState.State != DefinedEntityStatusResolved {
-			return fmt.Errorf("defined entity resolution failed for RDE with ID [%s] for cluster [%s] with message: [%s]", updatedDefinedEntity.Id, updatedDefinedEntity.Name, entityState.Message)
+		if entityState.State != RDEStatusResolved {
+			return fmt.Errorf("defined entity resolution failed for RDE with ID [%s] for cluster [%s] with message: [%s]", updatedRDE.Id, updatedRDE.Name, entityState.Message)
 		}
-		klog.Infof("resolved defined entity with ID [%s] for cluster [%s]", updatedDefinedEntity.Id, updatedDefinedEntity.Name)
+		klog.Infof("resolved defined entity with ID [%s] for cluster [%s]", updatedRDE.Id, updatedRDE.Name)
 	}
 	return nil
 }

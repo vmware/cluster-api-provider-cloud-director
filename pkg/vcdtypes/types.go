@@ -286,7 +286,7 @@ type Status struct {
 	CloudProperties   CloudProperties        `json:"cloudProperties,omitempty"`
 	PersistentVolumes []string               `json:"persistentVolumes,omitempty"`
 	VirtualIPs        []string               `json:"virtualIPs,omitempty"`
-	NodeStatus        map[string]interface{} `json:"nodeStatus,omitempty"`
+	NodeStatus        map[string]string `json:"nodeStatus,omitempty"`
 }
 
 type ClusterSpec struct {
