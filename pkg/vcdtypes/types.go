@@ -278,14 +278,14 @@ type ClusterApiStatus struct {
 }
 
 type Status struct {
-	Phase             string                 `json:"phase,omitempty"`
-	Cni               string                 `json:"cni,omitempty"`
-	Kubernetes        string                 `json:"kubernetes,omitempty"`
-	Uid               string                 `json:"uid,omitempty"`
-	ClusterAPIStatus  ClusterApiStatus       `json:"clusterApiStatus,omitempty"`
-	CloudProperties   CloudProperties        `json:"cloudProperties,omitempty"`
-	PersistentVolumes []string               `json:"persistentVolumes,omitempty"`
-	VirtualIPs        []string               `json:"virtualIPs,omitempty"`
+	Phase             string            `json:"phase,omitempty"`
+	Cni               string            `json:"cni,omitempty"`
+	Kubernetes        string            `json:"kubernetes,omitempty"`
+	Uid               string            `json:"uid,omitempty"`
+	ClusterAPIStatus  ClusterApiStatus  `json:"clusterApiStatus,omitempty"`
+	CloudProperties   CloudProperties   `json:"cloudProperties,omitempty"`
+	PersistentVolumes []string          `json:"persistentVolumes,omitempty"`
+	VirtualIPs        []string          `json:"virtualIPs,omitempty"`
 	NodeStatus        map[string]string `json:"nodeStatus,omitempty"`
 }
 
