@@ -236,8 +236,8 @@ type Distribution struct {
 }
 
 type Topology struct {
-	ControlPlane *ControlPlane `json:"controlPlane,omitempty"`
-	Workers      *Workers      `json:"workers,omitempty"`
+	ControlPlane ControlPlane `json:"controlPlane,omitempty"`
+	Workers      Workers      `json:"workers,omitempty"`
 }
 
 type Cni struct {
@@ -253,23 +253,23 @@ type Services struct {
 }
 
 type Network struct {
-	Cni      *Cni      `json:"cni,omitempty"`
-	Pods     *Pods     `json:"pods,omitempty"`
-	Services *Services `json:"services,omitempty"`
+	Cni      Cni      `json:"cni,omitempty"`
+	Pods     Pods     `json:"pods,omitempty"`
+	Services Services `json:"services,omitempty"`
 }
 
 type Settings struct {
-	OvdcNetwork string   `json:"ovdcNetwork,omitempty"`
-	SshKey      string   `json:"sshKey,omitempty"`
-	Network     *Network `json:"network,omitempty"`
+	OvdcNetwork string  `json:"ovdcNetwork,omitempty"`
+	SshKey      string  `json:"sshKey,omitempty"`
+	Network     Network `json:"network,omitempty"`
 }
 
 type CloudProperties struct {
-	Site         string        `json:"site,omitempty"`
-	Org          string        `json:"orgName,omitempty"`
-	Vdc          string        `json:"virtualDataCenterName,omitempty"`
-	Distribution *Distribution `json:"distribution,omitempty"`
-	SshKey       string        `json:"sshKey,omitempty"`
+	Site         string       `json:"site,omitempty"`
+	Org          string       `json:"orgName,omitempty"`
+	Vdc          string       `json:"virtualDataCenterName,omitempty"`
+	Distribution Distribution `json:"distribution,omitempty"`
+	SshKey       string       `json:"sshKey,omitempty"`
 }
 
 type ApiEndpoints struct {
@@ -278,32 +278,32 @@ type ApiEndpoints struct {
 }
 
 type ClusterApiStatus struct {
-	Phase        string          `json:"phase,omitempty"`
-	ApiEndpoints []*ApiEndpoints `json:"apiEndpoints,omitempty"`
+	Phase        string         `json:"phase,omitempty"`
+	ApiEndpoints []ApiEndpoints `json:"apiEndpoints,omitempty"`
 }
 
 type Status struct {
-	Phase             string                 `json:"phase,omitempty"`
-	Cni               string                 `json:"cni,omitempty"`
-	Kubernetes        string                 `json:"kubernetes,omitempty"`
-	Uid               string                 `json:"uid,omitempty"`
-	ClusterAPIStatus  *ClusterApiStatus      `json:"clusterApiStatus,omitempty"`
-	CloudProperties   *CloudProperties       `json:"cloudProperties,omitempty"`
-	PersistentVolumes []string               `json:"persistentVolumes,omitempty"`
-	VirtualIPs        []string               `json:"virtualIPs,omitempty"`
-	NodeStatus        map[string]interface{} `json:"nodeStatus,omitempty"`
+	Phase             string            `json:"phase,omitempty"`
+	Cni               string            `json:"cni,omitempty"`
+	Kubernetes        string            `json:"kubernetes,omitempty"`
+	Uid               string            `json:"uid,omitempty"`
+	ClusterAPIStatus  ClusterApiStatus  `json:"clusterApiStatus,omitempty"`
+	CloudProperties   CloudProperties   `json:"cloudProperties,omitempty"`
+	PersistentVolumes []string          `json:"persistentVolumes,omitempty"`
+	VirtualIPs        []string          `json:"virtualIPs,omitempty"`
+	NodeStatus        map[string]string `json:"nodeStatus,omitempty"`
 }
 
 type ClusterSpec struct {
-	Settings     *Settings     `json:"settings"`
-	Topology     *Topology     `json:"topology"`
-	Distribution *Distribution `json:"distribution"`
+	Settings     Settings     `json:"settings"`
+	Topology     Topology     `json:"topology"`
+	Distribution Distribution `json:"distribution"`
 }
 
 type CAPVCDEntity struct {
-	Metadata   *Metadata    `json:"metadata"`
-	Spec       *ClusterSpec `json:"spec"`
-	ApiVersion string       `json:"apiVersion"`
-	Status     *Status      `json:"status"`
-	Kind       string       `json:"kind"`
+	Metadata   Metadata    `json:"metadata"`
+	Spec       ClusterSpec `json:"spec"`
+	ApiVersion string      `json:"apiVersion"`
+	Status     Status      `json:"status"`
+	Kind       string      `json:"kind"`
 }
