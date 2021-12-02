@@ -6,9 +6,9 @@ write_files:
     ---
     apiVersion: v1
     data:
-      username: %s
-      password: %s
-      refreshToken: ""
+      username: "%s"
+      password: "%s"
+      refreshToken: "%s"
     kind: Secret
     metadata:
       name: vcloud-basic-auth

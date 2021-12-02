@@ -1,4 +1,3 @@
-
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
@@ -38,6 +37,15 @@ spec:
           spec:
             description: VCDClusterSpec defines the desired state of VCDCluster
             properties:
+              context:
+                properties:
+                  password:
+                    type: string
+                  refreshToken:
+                    type: string
+                  username:
+                    type: string
+                type: object
               controlPlaneEndpoint:
                 description: APIEndpoint represents a reachable Kubernetes API endpoint.
                 properties:
@@ -59,6 +67,11 @@ spec:
                 type: string
               ovdcNetwork:
                 type: string
+              site:
+                type: string
+            required:
+            - context
+            - site
             type: object
           status:
             description: VCDClusterStatus defines the observed state of VCDCluster
@@ -116,6 +129,8 @@ spec:
             required:
             - ready
             type: object
+        required:
+        - spec
         type: object
     served: true
     storage: true

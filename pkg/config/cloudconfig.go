@@ -146,16 +146,5 @@ func ValidateCloudConfig(config *CloudConfig) error {
 		return fmt.Errorf("need a valid ovdc network name")
 	}
 
-	if config.VCD.RefreshToken == "" {
-		if config.VCD.User == "" || config.VCD.Secret == "" {
-			return fmt.Errorf("credentials not passed correctly")
-		}
-	} else {
-		// if RefreshToken is passed, let's disallow other strings
-		if config.VCD.User != "" || config.VCD.Secret != "" {
-			return fmt.Errorf("credentials not passed correctly")
-		}
-	}
-
 	return nil
 }
