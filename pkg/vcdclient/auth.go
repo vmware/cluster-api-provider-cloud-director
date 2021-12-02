@@ -15,6 +15,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strings"
 
 	swaggerClient "github.com/vmware/cluster-api-provider-cloud-director/pkg/vcdswaggerclient"
 	"github.com/vmware/go-vcloud-director/v2/govcd"
@@ -44,6 +45,8 @@ func (config *VCDAuthConfig) GetBearerTokenFromSecrets() (*govcd.VCDClient, *htt
 	vcdClient.Client.APIVersion = "35.0"
 	klog.Infof("Using VCD OpenAPI version [%s]", vcdClient.Client.APIVersion)
 
+	config.User = strings.TrimSuffix(config.User, "\n")
+	config.Password = strings.TrimSuffix(config.Password, "\n")
 	resp, err := vcdClient.GetAuthResponse(config.User, config.Password, config.Org)
 	if err != nil {
 		return nil, resp, fmt.Errorf("unable to authenticate [%s/%s] for url [%s]: [%+v] : [%v]",

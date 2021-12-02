@@ -8,7 +8,6 @@ package vcdclient
 import (
 	"encoding/xml"
 	"fmt"
-	"github.com/vmware/cluster-api-provider-cloud-director/pkg/util"
 	"github.com/vmware/cluster-api-provider-cloud-director/pkg/vcdtypes"
 	"io/ioutil"
 	"k8s.io/klog"
@@ -26,8 +25,7 @@ import (
 const (
 	// VCDVMIDPrefix is a prefix added to VM objects by VCD. This needs
 	// to be removed for query operations.
-	VCDVMIDPrefix      = "urn:vcloud:vm:"
-	CSEPlacementPolicy = "cse----native"
+	VCDVMIDPrefix = "urn:vcloud:vm:"
 )
 
 func (vdc *VdcManager) FindVMByName(vmName string) (*govcd.VM, error) {
@@ -113,7 +111,7 @@ func (vdc *VdcManager) IsVmNotAvailable(err error) bool {
 // power on VMs and join the cluster with hardcoded script
 func (vdc *VdcManager) AddNewMultipleVM(vapp *govcd.VApp, vmNamePrefix string, vmNum int,
 	catalogName string, templateName string, placementPolicyName string, computePolicyName string,
-	guestCustScript string, acceptAllEulas bool) (govcd.Task, error) {
+	guestCustScript string, acceptAllEulas bool, powerOn bool) (govcd.Task, error) {
 
 	klog.Infof("start adding %d VMs\n", vmNum)
 
@@ -158,45 +156,32 @@ func (vdc *VdcManager) AddNewMultipleVM(vapp *govcd.VApp, vmNamePrefix string, v
 		return govcd.Task{}, fmt.Errorf("vApp Template status [%d] is not ok", vAppTemplate.VAppTemplate.Status)
 	}
 
-	/*
-	   	// add [postcustomization] checking for potential vm reboot, which will cause kubeadm reset before joining the cluster
-	   	guestCustScriptTemplate := `
-	   #!/usr/bin/env bash -x
-	   echo "Command called with arguments [$@] at time $(date)" >> /root/output.txt
-	   if [ -f "/.guest-customization-post-reboot-pending" ]
-	   then
-	   	echo "Reboot pending, hence will do nothing."  >> /root/output.txt
-	   elif [ "$1" = "postcustomization" ]
-	   then
-	   	echo "START: joining node to cluster $(date)" >> /root/output.txt
+	var computePolicy *types.ComputePolicy = nil
 
-	   	echo "START: reset cluster if present $(date)" >> /root/output.txt
-	   	kubeadm reset -f >> /root/output.txt 2>&1 || true
-	   	echo "END  : reset cluster if present $(date)" >> /root/output.txt
-
-	   	echo "START: kubeadm join $(date)" >> /root/output.txt 2>&1
-	   	kubeadm join %s \
-	   		--token %s \
-	   		--discovery-token-ca-cert-hash %s \
-	   		--v=5 >> /root/output.txt 2>&1
-
-	   	echo "END  : joining node to cluster $(date)" >> /root/output.txt
-	   else
-	   	echo "Skipping script since postcustomization is not involved." >> /root/output.txt
-	   fi
-	   exit 0
-	   `
-	   	guestCustScript := fmt.Sprintf(guestCustScriptTemplate, ip, token, hash)
-	*/
-
-	vmPlacementPolicy, err := vdc.Client.GetComputePolicyDetailsFromName(placementPolicyName)
-	if err != nil {
-		return govcd.Task{}, fmt.Errorf("unable to find placement policy [%s]: [%v]", placementPolicyName, err)
+	if placementPolicyName != "" {
+		vmPlacementPolicy, err := vdc.Client.GetComputePolicyDetailsFromName(placementPolicyName)
+		if err != nil {
+			return govcd.Task{}, fmt.Errorf("unable to find placement policy [%s]: [%v]", placementPolicyName, err)
+		}
+		if computePolicy == nil {
+			computePolicy = &types.ComputePolicy{}
+		}
+		computePolicy.VmPlacementPolicy = &types.Reference{
+			HREF: vmPlacementPolicy.ID,
+		}
 	}
 
-	vmComputePolicy, err := vdc.Client.GetComputePolicyDetailsFromName(computePolicyName)
-	if err != nil {
-		return govcd.Task{}, fmt.Errorf("unable to find compute policy [%s]: [%v]", computePolicyName, err)
+	if computePolicyName != "" {
+		vmComputePolicy, err := vdc.Client.GetComputePolicyDetailsFromName(computePolicyName)
+		if err != nil {
+			return govcd.Task{}, fmt.Errorf("unable to find compute policy [%s]: [%v]", computePolicyName, err)
+		}
+		if computePolicy == nil {
+			computePolicy = &types.ComputePolicy{}
+		}
+		computePolicy.VmSizingPolicy = &types.Reference{
+			HREF: vmComputePolicy.ID,
+		}
 	}
 
 	// for loop to create vms with same settings and append to the sourcedItemList
@@ -222,23 +207,6 @@ func (vdc *VdcManager) AddNewMultipleVM(vapp *govcd.VApp, vmNamePrefix string, v
 				},
 				VAppScopedLocalID: vmName,
 				InstantiationParams: &types.InstantiationParams{
-					GuestCustomizationSection: &types.GuestCustomizationSection{
-						Enabled:               util.Bool2BoolPtr(true),
-						JoinDomainEnabled:     util.Bool2BoolPtr(false),
-						UseOrgSettings:        util.Bool2BoolPtr(false),
-						DomainUserName:        "",
-						DomainName:            "",
-						DomainUserPassword:    "",
-						AdminPasswordEnabled:  util.Bool2BoolPtr(true),
-						AdminPassword:         "password",
-						AdminPasswordAuto:     util.Bool2BoolPtr(false),
-						AdminAutoLogonEnabled: util.Bool2BoolPtr(false),
-						AdminAutoLogonCount:   0,
-						ResetPasswordRequired: util.Bool2BoolPtr(false),
-						CustomizationScript:   guestCustScript,
-						ComputerName:          vmName,
-						VirtualMachineID:      vmName,
-					},
 					NetworkConnectionSection: &types.NetworkConnectionSection{
 						NetworkConnection: []*types.NetworkConnection{
 							{
@@ -251,14 +219,7 @@ func (vdc *VdcManager) AddNewMultipleVM(vapp *govcd.VApp, vmNamePrefix string, v
 						},
 					},
 				},
-				ComputePolicy: &types.ComputePolicy{
-					VmPlacementPolicy: &types.Reference{
-						HREF: vmPlacementPolicy.ID,
-					},
-					VmSizingPolicy: &types.Reference{
-						HREF: vmComputePolicy.ID,
-					},
-				},
+				ComputePolicy: computePolicy,
 			},
 		)
 	}
@@ -296,6 +257,10 @@ func (vdc *VdcManager) AddNewMultipleVM(vapp *govcd.VApp, vmNamePrefix string, v
 	vAppRefreshed, err := vdc.Vdc.GetVAppByName(vapp.VApp.Name, true)
 	if err != nil {
 		return govcd.Task{}, fmt.Errorf("unable to get refreshed vapp by name [%s]: [%v]", vapp.VApp.Name, err)
+	}
+
+	if !powerOn {
+		return govcd.Task{}, nil
 	}
 
 	// once recomposeVApp is done, execute PowerOnAndForceCustomization in go routine to power on VMs in parallel
@@ -377,7 +342,7 @@ func (vdc *VdcManager) AddNewMultipleVM(vapp *govcd.VApp, vmNamePrefix string, v
 
 func (vdc *VdcManager) AddNewVM(vmNamePrefix string, vAppName string, vmNum int,
 	catalogName string, templateName string, placementPolicyName string, computePolicyName string,
-	guestCustScript string) error {
+	guestCustScript string, powerOn bool) error {
 
 	if err := vdc.Client.RefreshToken(); err != nil {
 		return fmt.Errorf("unable to refresh token in AddNewVM for [%s]: [%v", vmNamePrefix, err)
@@ -425,7 +390,7 @@ func (vdc *VdcManager) AddNewVM(vmNamePrefix string, vAppName string, vmNum int,
 	}
 
 	_, err = vdc.AddNewMultipleVM(vApp, vmNamePrefix, vmNum, catalogName, templateName,
-		placementPolicyName, computePolicyName, guestCustScript, true)
+		placementPolicyName, computePolicyName, guestCustScript, true, powerOn)
 	if err != nil {
 		return fmt.Errorf(
 			"unable to issue call to create VMs with prefix [%s] in vApp [%s] with template [%s/%s]: [%v]",

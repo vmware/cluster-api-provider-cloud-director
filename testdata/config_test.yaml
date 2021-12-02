@@ -1,8 +1,8 @@
 vcd:
-  host: "https://bos1-vcloud-static-173-219.eng.vmware.com"
+  host: "https://vmc-vcloud-dhcp-169-27.eng.vmware.com"
   org: "org1"
   vdc: "ovdc1"
-  user: "administrator"
+  user: "clusterauthor1"
   secret: "ca$hc0w"
   network: "ovdc1_nw"
   vipSubnet: "10.150.191.253/19"
