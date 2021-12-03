@@ -22,6 +22,7 @@ import (
 	"net/http"
 	"reflect"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1alpha4"
+	kcpv1 "sigs.k8s.io/cluster-api/controlplane/kubeadm/api/v1alpha4"
 	"sigs.k8s.io/cluster-api/util"
 	"sigs.k8s.io/cluster-api/util/conditions"
 	"sigs.k8s.io/cluster-api/util/patch"
@@ -41,6 +42,9 @@ const (
 
 	RDEStatusResolved = "RESOLVED"
 	VCDLocationHeader = "Location"
+
+	ClusterApiStatusPhaseReady    = "Ready"
+	ClusterApiStatusPhaseNotReady = "Not Ready"
 )
 
 var (
@@ -52,6 +56,53 @@ type VCDClusterReconciler struct {
 	client.Client
 	Scheme    *runtime.Scheme
 	VcdClient *vcdclient.Client
+}
+
+func (r *VCDClusterReconciler) getAllMachineDeploymentsForCluster(ctx context.Context, c *clusterv1.Cluster) (*clusterv1.MachineDeploymentList, error) {
+	mdListLabels := map[string]string{clusterv1.ClusterLabelName: c.Name}
+	mdList := &clusterv1.MachineDeploymentList{}
+	if err := r.Client.List(ctx, mdList, client.InNamespace(c.Namespace), client.MatchingLabels(mdListLabels)); err != nil {
+		return nil, errors.Wrapf(err, "error getting machine deployments for the cluster [%s]", c.Name)
+	}
+	return mdList, nil
+}
+
+func (r *VCDClusterReconciler) getAllKubeadmControlPlaneForCluster(ctx context.Context, c *clusterv1.Cluster) (*kcpv1.KubeadmControlPlaneList, error) {
+	kcpListLabels := map[string]string{clusterv1.ClusterLabelName: c.Name}
+	kcpList := &kcpv1.KubeadmControlPlaneList{}
+
+	if err := r.Client.List(ctx, kcpList, client.InNamespace(c.Namespace), client.MatchingLabels(kcpListLabels)); err != nil {
+		return nil, errors.Wrapf(err, "error getting all kubeadm control planes for the cluster [%s]", c.Name)
+	}
+	return kcpList, nil
+}
+
+func (r *VCDClusterReconciler) getVCDMachineTemplateFromKCP(ctx context.Context, kcp *kcpv1.KubeadmControlPlane) (*infrav1.VCDMachineTemplate, error) {
+	vcdMachineTemplateRef := kcp.Spec.MachineTemplate.InfrastructureRef
+	vcdMachineTemplate := &infrav1.VCDMachineTemplate{}
+	vcdMachineTemplateKey := client.ObjectKey{
+		Namespace: vcdMachineTemplateRef.Namespace,
+		Name:      vcdMachineTemplate.Name,
+	}
+	if err := r.Client.Get(ctx, vcdMachineTemplateKey, vcdMachineTemplate); err != nil {
+		return nil, fmt.Errorf("failed to get VCDMachineTemplate by name [%s] from KCP [%s]: [%v]", vcdMachineTemplateRef.Name, kcp.Name, err)
+	}
+
+	return vcdMachineTemplate, nil
+}
+
+func (r *VCDClusterReconciler) getVCDMachineTemplateFromMachineDeployment(ctx context.Context, md *clusterv1.MachineDeployment) (*infrav1.VCDMachineTemplate, error) {
+	vcdMachineTemplateRef := md.Spec.Template.Spec.InfrastructureRef
+	vcdMachineTemplate := &infrav1.VCDMachineTemplate{}
+	vcdMachineTemplateKey := client.ObjectKey{
+		Namespace: vcdMachineTemplateRef.Namespace,
+		Name:      vcdMachineTemplate.Name,
+	}
+	if err := r.Client.Get(ctx, vcdMachineTemplateKey, vcdMachineTemplate); err != nil {
+		return nil, fmt.Errorf("failed to get VCDMachineTemplate by name [%s] from machine deployment [%s]: [%v]", vcdMachineTemplateRef.Name, md.Name, err)
+	}
+
+	return vcdMachineTemplate, nil
 }
 
 //+kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=vcdclusters,verbs=get;list;watch;create;update;patch;delete
@@ -127,11 +178,49 @@ func patchVCDCluster(ctx context.Context, patchHelper *patch.Helper, vcdCluster 
 	)
 }
 
-func (r *VCDClusterReconciler) constructCapvcdRDE(workloadVCDClient *vcdclient.Client,
+func (r *VCDClusterReconciler) constructCapvcdRDE(ctx context.Context, workloadVCDClient *vcdclient.Client, cluster *clusterv1.Cluster,
 	vcdCluster *infrav1.VCDCluster) (*swagger.DefinedEntity, error) {
 	org := workloadVCDClient.VcdAuthConfig.Org
 	vdc := workloadVCDClient.VcdAuthConfig.VDC
 	ovdcNetwork := workloadVCDClient.NetworkName
+
+	kcpList, err := r.getAllKubeadmControlPlaneForCluster(ctx, cluster)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get all kubeadm control plane objects for cluster [%s]: [%v]", vcdCluster.Name, err)
+	}
+	topologyControlPlanes := make([]vcdtypes.ControlPlane, len(kcpList.Items))
+	templateName := ""
+	kubernetesVersion := ""
+	for _, kcp := range kcpList.Items {
+		vcdMachineTemplate, err := r.getVCDMachineTemplateFromKCP(ctx, &kcp)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get VCDMachineTemplate from KCP [%s] for cluster [%s]: [%v]", kcp.Name, cluster.Name, err)
+		}
+		topologyControlPlane := vcdtypes.ControlPlane{
+			Count:       *kcp.Spec.Replicas,
+			SizingClass: vcdMachineTemplate.Spec.Template.Spec.ComputePolicy,
+		}
+		topologyControlPlanes = append(topologyControlPlanes, topologyControlPlane)
+		templateName = vcdMachineTemplate.Spec.Template.Spec.Template
+		kubernetesVersion = vcdMachineTemplate.APIVersion
+	}
+
+	mdList, err := r.getAllMachineDeploymentsForCluster(ctx, cluster)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get al machine deployments for cluster [%s]: [%v]", vcdCluster.Name, err)
+	}
+	topologyWorkers := make([]vcdtypes.Workers, len(mdList.Items))
+	for _, md := range mdList.Items {
+		vcdMachineTemplate, err := r.getVCDMachineTemplateFromMachineDeployment(ctx, &md)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get VCDMachineTemplate from MachineDeployment [%s] for cluster [%s]: [%v]", md.Name, cluster.Name, err)
+		}
+		topologyWorker := vcdtypes.Workers{
+			Count:       *md.Spec.Replicas,
+			SizingClass: vcdMachineTemplate.Spec.Template.Spec.ComputePolicy,
+		}
+		topologyWorkers = append(topologyWorkers, topologyWorker)
+	}
 	rde := &swagger.DefinedEntity{
 		EntityType: CAPVCDEntityTypeID,
 		Name:       vcdCluster.Name,
@@ -153,32 +242,31 @@ func (r *VCDClusterReconciler) constructCapvcdRDE(workloadVCDClient *vcdclient.C
 					Cni: vcdtypes.Cni{
 						Name: CAPVCDClusterCniName,
 					},
+					Pods: vcdtypes.Pods{
+						CidrBlocks: nil, // TODO: fetch pod CIDR
+					},
+					Services: vcdtypes.Services{
+						CidrBlocks: nil, // TODO: fetch services CIDR
+					},
 				},
 			},
 			Topology: vcdtypes.Topology{
-				ControlPlane: vcdtypes.ControlPlane{
-					SizingClass: vcdCluster.Spec.DefaultComputePolicy, // TODO: Need to fill sizing policy from KCP object
-					Count:       int32(0),                             // TODO: Fill with right value
-				},
-				Workers: vcdtypes.Workers{
-					SizingClass: vcdCluster.Spec.DefaultComputePolicy, // TODO: Need to fill sizing class from KCP object.
-					Count:       int32(0),                             // TODO: Fill with right value
-				},
+				ControlPlane: topologyControlPlanes,
+				Workers:      topologyWorkers,
 			},
 			Distribution: vcdtypes.Distribution{
-				TemplateName: "some-template-name", // TODO: Should add template name as part of vcdCluster representation
+				TemplateName: templateName,
 			},
 		},
 		Status: vcdtypes.Status{
-			Phase:      "",                   // TODO: should be the Cluster object status
-			Cni:        CAPVCDClusterCniName, // TODO: Should add cni as part of vcdCluster representation
-			Kubernetes: vcdCluster.APIVersion,
+			Phase:      ClusterApiStatusPhaseNotReady,
+			Kubernetes: kubernetesVersion,
 			CloudProperties: vcdtypes.CloudProperties{
 				Site: vcdCluster.Spec.Site,
 				Org:  org,
 				Vdc:  vdc,
 				Distribution: vcdtypes.Distribution{
-					TemplateName: "some-template-name", // TODO: Fix with right value
+					TemplateName: templateName,
 				},
 				SshKey: "", // TODO: Should add ssh key as part of vcdCluster representation
 			},
@@ -207,7 +295,6 @@ func (r *VCDClusterReconciler) syncRDE(ctx context.Context, cluster *clusterv1.C
 	if err != nil {
 		return fmt.Errorf("failed to get RDE with ID [%s] for cluster [%s]: [%v]", vcdCluster.Status.ClusterRDEId, vcdCluster.Name, err)
 	}
-
 	// TODO(VCDA-3107): Should we be updating org and vdc information here.
 	org := vcdCluster.Spec.Org
 	if org != capvcdEntity.Metadata.Org {
@@ -228,22 +315,57 @@ func (r *VCDClusterReconciler) syncRDE(ctx context.Context, cluster *clusterv1.C
 		updatePatch["Spec.Settings.OvdcNetwork"] = networkName
 	}
 
-	if capvcdEntity.Spec.Topology.ControlPlane.Count != int32(0) {
-		updatePatch["Spec.Topology.ControlPlane.Count"] = int32(0) // TODO (3097): Get proper control palne count value
+	kcpList, err := r.getAllKubeadmControlPlaneForCluster(ctx, cluster)
+	if err != nil {
+		return fmt.Errorf("failed to get all kubeadm control plane objects for cluster [%s]: [%v]", vcdCluster.Name, err)
 	}
-	if capvcdEntity.Spec.Topology.ControlPlane.SizingClass != "" {
-		updatePatch["Spec.Topology.ControlPlane.SizingClass"] = "" // TODO (3097): Get proper control palne count value
+	topologyControlPlanes := make([]vcdtypes.ControlPlane, len(kcpList.Items))
+	templateName := ""
+	kubernetesVersion := ""
+	for _, kcp := range kcpList.Items {
+		vcdMachineTemplate, err := r.getVCDMachineTemplateFromKCP(ctx, &kcp)
+		if err != nil {
+			return fmt.Errorf("failed to get VCDMachineTemplate from KCP [%s] for cluster [%s]: [%v]", kcp.Name, cluster.Name, err)
+		}
+		topologyControlPlane := vcdtypes.ControlPlane{
+			Count:       *kcp.Spec.Replicas,
+			SizingClass: vcdMachineTemplate.Spec.Template.Spec.ComputePolicy,
+		}
+		topologyControlPlanes = append(topologyControlPlanes, topologyControlPlane)
+		templateName = vcdMachineTemplate.Spec.Template.Spec.Template
+		kubernetesVersion = vcdMachineTemplate.APIVersion
 	}
 
-	if capvcdEntity.Spec.Topology.Workers.Count != int32(0) {
-		updatePatch["Spec.Topology.Workers.Count"] = int32(0) // TODO (3097): Get proper control palne count value
+	mdList, err := r.getAllMachineDeploymentsForCluster(ctx, cluster)
+	if err != nil {
+		return fmt.Errorf("failed to get al machine deployments for cluster [%s]: [%v]", vcdCluster.Name, err)
 	}
-	if capvcdEntity.Spec.Topology.Workers.SizingClass != "" {
-		updatePatch["Spec.Topology.Workers.SizingClass"] = "" // TODO (3097): Get proper control palne count value
+	topologyWorkers := make([]vcdtypes.Workers, len(mdList.Items))
+	for _, md := range mdList.Items {
+		vcdMachineTemplate, err := r.getVCDMachineTemplateFromMachineDeployment(ctx, &md)
+		if err != nil {
+			return fmt.Errorf("failed to get VCDMachineTemplate from MachineDeployment [%s] for cluster [%s]: [%v]", md.Name, cluster.Name, err)
+		}
+		topologyWorker := vcdtypes.Workers{
+			Count:       *md.Spec.Replicas,
+			SizingClass: vcdMachineTemplate.Spec.Template.Spec.ComputePolicy,
+		}
+		topologyWorkers = append(topologyWorkers, topologyWorker)
 	}
 
-	if capvcdEntity.Spec.Distribution.TemplateName != "some-template-name" {
-		updatePatch["Spec.Distribution.TemplateName"] = "some-template-name" // TODO (3097): Get proper control palne count value
+	if !reflect.DeepEqual(capvcdEntity.Spec.Topology.ControlPlane, topologyControlPlanes) {
+		updatePatch["Spec.Topology.ControlPlane"] = topologyControlPlanes
+	}
+	if !reflect.DeepEqual(capvcdEntity.Spec.Topology.Workers, topologyWorkers) {
+		updatePatch["Spec.Topology.Workers"] = topologyWorkers
+	}
+
+	if capvcdEntity.Status.Kubernetes != kubernetesVersion {
+		updatePatch["Status.Kubernetes"] = kubernetesVersion
+	}
+
+	if capvcdEntity.Spec.Distribution.TemplateName != templateName {
+		updatePatch["Spec.Distribution.TemplateName"] = templateName
 	}
 
 	if capvcdEntity.Status.Uid != vcdCluster.Status.ClusterRDEId {
@@ -253,8 +375,12 @@ func (r *VCDClusterReconciler) syncRDE(ctx context.Context, cluster *clusterv1.C
 	if capvcdEntity.Status.Phase != cluster.Status.Phase {
 		updatePatch["Status.Phase"] = cluster.Status.Phase
 	}
+	clusterApiStatusPhase := ClusterApiStatusPhaseNotReady
+	if cluster.Status.ControlPlaneReady {
+		clusterApiStatusPhase = ClusterApiStatusPhaseReady
+	}
 	clusterApiStatus := vcdtypes.ClusterApiStatus{
-		Phase: "", // TODO: Find out what should be filled out here
+		Phase: clusterApiStatusPhase,
 		ApiEndpoints: []vcdtypes.ApiEndpoints{
 			{
 				Host: controlPlaneIP,
@@ -296,7 +422,7 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	workloadVCDClient, err := vcdclient.NewVCDClientFromSecrets(vcdCluster.Spec.Site, vcdCluster.Spec.Org,
 		vcdCluster.Spec.Ovdc, vcdCluster.Spec.OvdcNetwork, r.VcdClient.IPAMSubnet,
 		vcdCluster.Spec.UserCredentialsContext.Username, vcdCluster.Spec.UserCredentialsContext.Password, true,
-		"", r.VcdClient.OneArm, 0, 0, r.VcdClient.TCPPort, true)
+		vcdCluster.Status.ClusterRDEId, r.VcdClient.OneArm, 0, 0, r.VcdClient.TCPPort, true)
 	if err != nil {
 		return ctrl.Result{}, errors.Wrapf(err, "unable to create client for workload cluster")
 	}
@@ -320,13 +446,14 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 			klog.Errorf("failed to get entities by entity type [%s] with name filter [name==%s]",
 				CAPVCDEntityTypeID, vcdCluster.Name)
 		}
-		if resp.StatusCode != http.StatusOK {
-			klog.Errorf("error while getting entities by entity type [%s] with name filter [name==%s]",
-				CAPVCDEntityTypeID, vcdCluster.Name)
+		if resp == nil {
+			klog.Errorf("obtained an empty response for get defined entity call for cluster with name [%s]", vcdCluster.Name)
+		} else if resp.StatusCode != http.StatusOK {
+			klog.Errorf("error while getting entities by entity type [%s] with name filter [name==%s]", CAPVCDEntityTypeID, vcdCluster.Name)
 		}
-		if err == nil && resp.StatusCode == http.StatusOK {
+		if err == nil && resp != nil && resp.StatusCode == http.StatusOK {
 			if len(definedEntities.Values) == 0 {
-				rde, err := r.constructCapvcdRDE(workloadVCDClient, vcdCluster)
+				rde, err := r.constructCapvcdRDE(ctx, workloadVCDClient, cluster, vcdCluster)
 				if err != nil {
 					return ctrl.Result{}, errors.Wrapf(err,
 						"unable to create defined entity for cluster [%s]", vcdCluster.Name)
@@ -337,10 +464,11 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 					return ctrl.Result{}, errors.Wrapf(err, "failed to create defined entity for cluster [%s]",
 						vcdCluster.Name)
 				}
-
-				if resp.StatusCode != http.StatusAccepted {
-					return ctrl.Result{}, errors.Wrapf(err,
-						"error while creating the defined entity for cluster [%s]", vcdCluster.Name)
+				if resp == nil {
+					klog.Errorf("obtained an empty response while creating a defined entity for cluster [%s]", vcdCluster.Name)
+				}
+				if resp != nil && resp.StatusCode != http.StatusAccepted {
+					return ctrl.Result{}, errors.Errorf("create defined entity call failed for cluster [%s]", vcdCluster.Name)
 				}
 				taskURL := resp.Header.Get(VCDLocationHeader)
 				task := govcd.NewTask(&workloadVCDClient.VcdClient.Client)
@@ -384,13 +512,14 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	if err != nil {
 		klog.Errorf("failed to get defined entity with ID [%s] for cluster [%s]: [%s]", vcdCluster.Status.ClusterRDEId, vcdCluster.Name, err)
 	}
-	if resp.StatusCode != http.StatusOK {
+	if resp == nil {
+		klog.Errorf("obtained an empty response for get defined entity call for cluster [%s] and RDE [%s]", vcdCluster.Name, vcdCluster.Status.ClusterRDEId)
+	} else if resp.StatusCode != http.StatusOK {
 		klog.Errorf("error getting defined entity with ID [%s] for cluster [%s]", vcdCluster.Status.ClusterRDEId, vcdCluster.Name)
 	}
-	if err == nil && resp.StatusCode == http.StatusOK {
+	if err == nil && resp != nil && resp.StatusCode == http.StatusOK {
 		if err = r.syncRDE(ctx, cluster, vcdCluster, controlPlaneNodeIP, workloadVCDClient); err != nil {
-			klog.Errorf("failed to update and resolve defined entity with ID [%s] for cluster [%s]: [%v]",
-				vcdCluster.Status.ClusterRDEId, vcdCluster.Name, err)
+			klog.Errorf("failed to update and resolve defined entity with ID [%s] for cluster [%s]: [%v]", vcdCluster.Status.ClusterRDEId, vcdCluster.Name, err)
 		}
 	}
 
@@ -488,7 +617,7 @@ func (r *VCDClusterReconciler) reconcileDelete(ctx context.Context,
 			// resolve defined entity before deleting
 			entityState, resp, err := workloadVCDClient.ApiClient.DefinedEntityApi.ResolveDefinedEntity(ctx, vcdCluster.Status.ClusterRDEId)
 			if err != nil {
-				return ctrl.Result{}, errors.Wrapf(err, "failed to resolve defined entity for cluster [%s] with ID [%s] before deleting", vcdCluster.Name, vcdCluster.Status.ClusterRDEId)
+				return ctrl.Result{}, errors.Wrapf(err, "error occurred while resolving defined entity [%s] with ID [%s] before deleting", vcdCluster.Name, vcdCluster.Status.ClusterRDEId)
 			}
 			if resp.StatusCode != http.StatusOK {
 				klog.Errorf("failed to resolve RDE with ID [%s] for cluster [%s]: [%s]", vcdCluster.Status.ClusterRDEId, vcdCluster.Name, entityState.Message)

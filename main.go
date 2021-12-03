@@ -33,6 +33,7 @@ import (
 	infrastructurev1alpha4 "github.com/vmware/cluster-api-provider-cloud-director/api/v1alpha4"
 	infrav1 "github.com/vmware/cluster-api-provider-cloud-director/api/v1alpha4"
 	"github.com/vmware/cluster-api-provider-cloud-director/controllers"
+	kcpv1 "sigs.k8s.io/cluster-api/controlplane/kubeadm/api/v1alpha4"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -48,6 +49,7 @@ func init() {
 	utilruntime.Must(infrav1.AddToScheme(myscheme))
 
 	utilruntime.Must(clusterv1.AddToScheme(myscheme))
+	utilruntime.Must(kcpv1.AddToScheme(myscheme))
 	utilruntime.Must(infrastructurev1alpha4.AddToScheme(myscheme))
 	//+kubebuilder:scaffold:scheme
 }

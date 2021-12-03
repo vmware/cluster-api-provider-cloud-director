@@ -225,6 +225,7 @@ func (r *VCDMachineReconciler) waitForPostCustomizationPhase(workloadVCDClient *
 	possibleStatuses := []string{"", "in_progress", "successful"}
 	currentStatus := possibleStatuses[0]
 	for {
+		klog.Infof("waiting for control plane phase : [%s]", phase)
 		if err := vm.Refresh(); err != nil {
 			return errors.Wrapf(err, "unable to refresh vm [%s]: [%v]", vm.VM.Name, err)
 		}
@@ -291,7 +292,6 @@ func (r *VCDMachineReconciler) syncNodeInRDE(ctx context.Context, rdeID string, 
 	nodeStatusMap := capvcdEntity.Status.NodeStatus
 	if nodeStatus, ok := nodeStatusMap[nodeName]; ok && nodeStatus == status {
 		// no update needed
-
 		return nil
 	}
 	if nodeStatusMap == nil {
@@ -332,7 +332,7 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	workloadVCDClient, err := vcdclient.NewVCDClientFromSecrets(vcdCluster.Spec.Site, vcdCluster.Spec.Org,
 		vcdCluster.Spec.Ovdc, vcdCluster.Spec.OvdcNetwork, r.VcdClient.IPAMSubnet,
 		vcdCluster.Spec.UserCredentialsContext.Username, vcdCluster.Spec.UserCredentialsContext.Password, true,
-		"", r.VcdClient.OneArm, 0, 0, r.VcdClient.TCPPort, true)
+		vcdCluster.Status.ClusterRDEId, r.VcdClient.OneArm, 0, 0, r.VcdClient.TCPPort, true)
 	if err != nil {
 		return ctrl.Result{}, errors.Wrapf(err, "unable to create client for workload cluster")
 	}
@@ -578,30 +578,53 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		for key, val := range keyVals {
 			err = workloadVCDClient.SetVmExtraConfigKeyValue(vm, key, val, true)
 			if err != nil {
+				//log.Error(err, "error occurred while configuring machine", "machineName", vm.VM.Name)
+				//if err := vm.Delete(); err != nil {
+				//	log.Error(err, "failed to delete VM", "VM Name", vm.VM.Name)
+				//}
 				return ctrl.Result{}, errors.Wrapf(err, "unable to set vm extra config key [%s] for vm [%s]: [%v]",
 					key, vm.VM.Name, err)
 			}
 
 			if err = vm.Refresh(); err != nil {
+				//log.Error(err, "error occurred while configuring machine", "machineName", vm.VM.Name)
+				//if err := vm.Delete(); err != nil {
+				//	log.Error(err, "failed to delete VM", "VM Name", vm.VM.Name)
+				//}
 				return ctrl.Result{}, errors.Wrapf(err, "unable to refresh vm [%s]: [%v]", vm.VM.Name, err)
 			}
 
 			if err = vApp.Refresh(); err != nil {
+				//log.Error(err, "error occurred while configuring machine", "machineName", vm.VM.Name)
+				//if err := vm.Delete(); err != nil {
+				//	log.Error(err, "failed to delete VM", "VM Name", vm.VM.Name)
+				//}
 				return ctrl.Result{}, errors.Wrapf(err, "unable to refresh vapp [%s]: [%v]", vAppName, err)
 			}
 
 			klog.Infof("Completed setting [%s] for [%s/%s]", key, vAppName, vm.VM.Name)
 		}
-
 		task, err := vm.PowerOn()
 		if err != nil {
+			//log.Error(err, "error occurred while configuring machine", "machineName", vm.VM.Name)
+			//if err := vm.Delete(); err != nil {
+			//	log.Error(err, "failed to delete VM", "VM Name", vm.VM.Name)
+			//}
 			return ctrl.Result{}, errors.Wrapf(err, "unable to power on [%s]: [%v]", vm.VM.Name, err)
 		}
 		if err = task.WaitTaskCompletion(); err != nil {
+			//log.Error(err, "error occurred while configuring machine", "machineName", vm.VM.Name)
+			//if err := vm.Delete(); err != nil {
+			//	log.Error(err, "failed to delete VM", "VM Name", vm.VM.Name)
+			//}
 			return ctrl.Result{}, fmt.Errorf("error waiting for task completion after reconfiguring vm: [%v]", err)
 		}
 
 		if err = vApp.Refresh(); err != nil {
+			//log.Error(err, "error occurred while configuring machine", "machineName", vm.VM.Name)
+			//if err := vm.Delete(); err != nil {
+			//	log.Error(err, "failed to delete VM", "VM Name", vm.VM.Name)
+			//}
 			return ctrl.Result{}, errors.Wrapf(err, "unable to refresh vapp [%s]: [%v]", vAppName, err)
 		}
 	}
@@ -613,6 +636,10 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	}
 	for _, phase := range phases {
 		if err = vApp.Refresh(); err != nil {
+			//log.Error(err, "error occurred while configuring machine", "machineName", vm.VM.Name)
+			//if err := vm.Delete(); err != nil {
+			//	log.Error(err, "failed to delete VM", "VM Name", vm.VM.Name)
+			//}
 			return ctrl.Result{}, errors.Wrapf(err, "unable to refresh vapp [%s]: [%v]", vAppName, err)
 		}
 		if err = r.waitForPostCustomizationPhase(workloadVCDClient, vm, phase); err != nil {
@@ -766,6 +793,11 @@ func (r *VCDMachineReconciler) reconcileDelete(ctx context.Context, cluster *clu
 			}
 		}
 		klog.Infof("successfully deleted VM [%s]", machine.Name)
+	}
+
+	err = r.syncNodeInRDE(ctx, vcdCluster.Status.ClusterRDEId, vcdMachine.Name, machine.Status.Phase, workloadVCDClient)
+	if err != nil {
+		klog.Errorf("failed to add VCDMachine [%s] to node status: [%v]", vcdMachine.Name, err)
 	}
 
 	controllerutil.RemoveFinalizer(vcdMachine, infrav1.MachineFinalizer)
