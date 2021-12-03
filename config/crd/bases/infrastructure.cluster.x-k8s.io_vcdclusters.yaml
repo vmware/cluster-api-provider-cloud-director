@@ -1,4 +1,3 @@
-
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
@@ -59,6 +58,23 @@ spec:
                 type: string
               ovdcNetwork:
                 type: string
+              site:
+                type: string
+              userContext:
+                properties:
+                  password:
+                    type: string
+                  refreshToken:
+                    type: string
+                  username:
+                    type: string
+                type: object
+            required:
+            - org
+            - ovdc
+            - ovdcNetwork
+            - site
+            - userContext
             type: object
           status:
             description: VCDClusterStatus defines the observed state of VCDCluster
@@ -116,6 +132,8 @@ spec:
             required:
             - ready
             type: object
+        required:
+        - spec
         type: object
     served: true
     storage: true

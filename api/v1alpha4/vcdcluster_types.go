@@ -28,6 +28,12 @@ type APIEndpoint struct {
 	Port int `json:"port"`
 }
 
+type UserCredentialsContext struct {
+	Username     string `json:"username,omitempty"`
+	Password     string `json:"password,omitempty"`
+	RefreshToken string `json:"refreshToken,omitempty"`
+}
+
 // VCDClusterSpec defines the desired state of VCDCluster
 type VCDClusterSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
@@ -35,12 +41,16 @@ type VCDClusterSpec struct {
 
 	// +optional
 	ControlPlaneEndpoint APIEndpoint `json:"controlPlaneEndpoint"`
-	// +optional
-	Org string `json:"org,omitempty"`
-	// +optional
-	Ovdc string `json:"ovdc,omitempty"`
-	// +optional
-	OvdcNetwork string `json:"ovdcNetwork,omitempty"`
+	// +kubebuilder:validation:Required
+	Site string `json:"site"`
+	// +kubebuilder:validation:Required
+	Org string `json:"org"`
+	// +kubebuilder:validation:Required
+	Ovdc string `json:"ovdc"`
+	// +kubebuilder:validation:Required
+	OvdcNetwork string `json:"ovdcNetwork"`
+	// +kubebuilder:validation:Required
+	UserCredentialsContext UserCredentialsContext `json:"userContext"`
 	// +optional
 	DefaultComputePolicy string `json:"defaultComputePolicy,omitempty"`
 }
@@ -68,7 +78,8 @@ type VCDCluster struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   VCDClusterSpec   `json:"spec,omitempty"`
+	// +kubebuilder:validation:Required
+	Spec   VCDClusterSpec   `json:"spec"`
 	Status VCDClusterStatus `json:"status,omitempty"`
 }
 
