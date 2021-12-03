@@ -51,8 +51,7 @@ var (
 type VCDClusterReconciler struct {
 	client.Client
 	Scheme    *runtime.Scheme
-	IPAMSubnet string
-	OneArm *vcdclient.OneArm
+	VcdClient *vcdclient.Client
 }
 
 //+kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=vcdclusters,verbs=get;list;watch;create;update;patch;delete
@@ -295,9 +294,9 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	_ = ctrl.LoggerFrom(ctx)
 
 	workloadVCDClient, err := vcdclient.NewVCDClientFromSecrets(vcdCluster.Spec.Site, vcdCluster.Spec.Org,
-		vcdCluster.Spec.Ovdc, vcdCluster.Spec.OvdcNetwork, r.IPAMSubnet,
+		vcdCluster.Spec.Ovdc, vcdCluster.Spec.OvdcNetwork, r.VcdClient.IPAMSubnet,
 		vcdCluster.Spec.UserCredentialsContext.Username, vcdCluster.Spec.UserCredentialsContext.Password, true,
-		"", r.OneArm, 0, 0, 6443, true)
+		"", r.VcdClient.OneArm, 0, 0, r.VcdClient.TCPPort, true)
 	if err != nil {
 		return ctrl.Result{}, errors.Wrapf(err, "unable to create client for workload cluster")
 	}
@@ -426,9 +425,9 @@ func (r *VCDClusterReconciler) reconcileDelete(ctx context.Context,
 	}
 
 	workloadVCDClient, err := vcdclient.NewVCDClientFromSecrets(vcdCluster.Spec.Site, vcdCluster.Spec.Org,
-		vcdCluster.Spec.Ovdc, vcdCluster.Spec.OvdcNetwork, r.IPAMSubnet,
+		vcdCluster.Spec.Ovdc, vcdCluster.Spec.OvdcNetwork, r.VcdClient.IPAMSubnet,
 		vcdCluster.Spec.UserCredentialsContext.Username, vcdCluster.Spec.UserCredentialsContext.Password, true,
-		"", r.OneArm, 0, 0, 6443, true)
+		"", r.VcdClient.OneArm, 0, 0, r.VcdClient.TCPPort, true)
 	if err != nil {
 		return ctrl.Result{}, errors.Wrapf(err, "unable to create client for workload cluster")
 	}

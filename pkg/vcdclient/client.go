@@ -51,7 +51,7 @@ type Client struct {
 	HTTPPort           int32
 	HTTPSPort          int32
 	TCPPort            int32
-	ipamSubnet         string
+	IPAMSubnet         string
 	GatewayRef         *swaggerClient.EntityReference
 	NetworkBackingType swaggerClient.BackingNetworkType
 	rwLock             sync.RWMutex
@@ -127,7 +127,7 @@ func NewVCDClientFromSecrets(host string, orgName string, vdcName string,
 		VcdClient:     vcdClient,
 		ApiClient:     apiClient,
 		NetworkName:   networkName,
-		ipamSubnet:    ipamSubnet,
+		IPAMSubnet:    ipamSubnet,
 		GatewayRef:    nil,
 		ClusterID:     clusterID,
 		OneArm:        oneArm,

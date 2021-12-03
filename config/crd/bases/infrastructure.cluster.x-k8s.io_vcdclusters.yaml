@@ -71,6 +71,9 @@ spec:
                 type: string
             required:
             - context
+            - org
+            - ovdc
+            - ovdcNetwork
             - site
             type: object
           status:

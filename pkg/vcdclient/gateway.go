@@ -158,7 +158,7 @@ func (gateway *GatewayManager) getUnusedExternalIPAddress(ctx context.Context, i
 		return "", fmt.Errorf("gateway reference should not be nil")
 	}
 
-	// First, get list of ip ranges for the ipamSubnet subnet mask
+	// First, get list of ip ranges for the IPAMSubnet subnet mask
 	edgeGW, resp, err := client.ApiClient.EdgeGatewayApi.GetEdgeGateway(ctx, client.GatewayRef.Id)
 	if err != nil {
 		return "", fmt.Errorf("unable to retrieve edge gateway details for [%s]: resp [%+v]: [%v]",
@@ -992,10 +992,10 @@ func (gateway *GatewayManager) CreateLoadBalancer(ctx context.Context, virtualSe
 		},
 	}
 
-	externalIP, err := gateway.getUnusedExternalIPAddress(ctx, client.ipamSubnet)
+	externalIP, err := gateway.getUnusedExternalIPAddress(ctx, client.IPAMSubnet)
 	if err != nil {
 		return "", fmt.Errorf("unable to get unused IP address from subnet [%s]: [%v]",
-			client.ipamSubnet, err)
+			client.IPAMSubnet, err)
 	}
 	klog.Infof("Using external IP [%s] for virtual service\n", externalIP)
 
@@ -1096,10 +1096,10 @@ func (gateway *GatewayManager) CreateL4LoadBalancer(ctx context.Context, virtual
 		},
 	}
 
-	externalIP, err := gateway.getUnusedExternalIPAddress(ctx, gateway.Client.ipamSubnet)
+	externalIP, err := gateway.getUnusedExternalIPAddress(ctx, gateway.Client.IPAMSubnet)
 	if err != nil {
 		return "", fmt.Errorf("unable to get unused IP address from subnet [%s]: [%v]",
-			gateway.Client.ipamSubnet, err)
+			gateway.Client.IPAMSubnet, err)
 	}
 	klog.Infof("Using external IP [%s] for virtual service\n", externalIP)
 

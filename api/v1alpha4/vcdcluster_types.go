@@ -44,11 +44,11 @@ type VCDClusterSpec struct {
 	// +kubebuilder:validation:Required
 	Site string `json:"site"`
 	// +kubebuilder:validation:Required
-	Org string `json:"org,omitempty"`
+	Org string `json:"org"`
 	// +kubebuilder:validation:Required
-	Ovdc string `json:"ovdc,omitempty"`
+	Ovdc string `json:"ovdc"`
 	// +kubebuilder:validation:Required
-	OvdcNetwork string `json:"ovdcNetwork,omitempty"`
+	OvdcNetwork string `json:"ovdcNetwork"`
 	// +kubebuilder:validation:Required
 	UserCredentialsContext UserCredentialsContext `json:"context"`
 	// +optional

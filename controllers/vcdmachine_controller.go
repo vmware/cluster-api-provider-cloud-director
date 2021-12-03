@@ -49,9 +49,8 @@ var nodeCloudInitScriptTemplate string
 // VCDMachineReconciler reconciles a VCDMachine object
 type VCDMachineReconciler struct {
 	client.Client
-	IPAMSubnet string
-	OneArm *vcdclient.OneArm
 	//Scheme    *runtime.Scheme
+	VcdClient *vcdclient.Client
 }
 
 //+kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=vcdmachines,verbs=get;list;watch;create;update;patch;delete
@@ -331,9 +330,9 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	log := ctrl.LoggerFrom(ctx)
 
 	workloadVCDClient, err := vcdclient.NewVCDClientFromSecrets(vcdCluster.Spec.Site, vcdCluster.Spec.Org,
-		vcdCluster.Spec.Ovdc, vcdCluster.Spec.OvdcNetwork, r.IPAMSubnet,
+		vcdCluster.Spec.Ovdc, vcdCluster.Spec.OvdcNetwork, r.VcdClient.IPAMSubnet,
 		vcdCluster.Spec.UserCredentialsContext.Username, vcdCluster.Spec.UserCredentialsContext.Password, true,
-		"", r.OneArm, 0, 0, 6443, true)
+		"", r.VcdClient.OneArm, 0, 0, r.VcdClient.TCPPort, true)
 	if err != nil {
 		return ctrl.Result{}, errors.Wrapf(err, "unable to create client for workload cluster")
 	}
@@ -472,7 +471,7 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		default:
 			cloudInitScript = fmt.Sprintf(
 				guestCustScriptTemplate,      // template script
-				"",                       // ssh key
+				"",                           // ssh key
 				indentedBootstrapShellScript, // join script from k8s
 				machine.Name,                 // vm host name
 			)
@@ -681,9 +680,9 @@ func (r *VCDMachineReconciler) reconcileDelete(ctx context.Context, cluster *clu
 	}
 
 	workloadVCDClient, err := vcdclient.NewVCDClientFromSecrets(vcdCluster.Spec.Site, vcdCluster.Spec.Org,
-		vcdCluster.Spec.Ovdc, vcdCluster.Spec.OvdcNetwork, r.IPAMSubnet,
+		vcdCluster.Spec.Ovdc, vcdCluster.Spec.OvdcNetwork, r.VcdClient.IPAMSubnet,
 		vcdCluster.Spec.UserCredentialsContext.Username, vcdCluster.Spec.UserCredentialsContext.Password, true,
-		"", r.OneArm, 0, 0, 6443, true)
+		"", r.VcdClient.OneArm, 0, 0, r.VcdClient.TCPPort, true)
 	if err != nil {
 		return ctrl.Result{}, errors.Wrapf(err, "unable to create client for workload cluster")
 	}

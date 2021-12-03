@@ -52,30 +52,53 @@ func init() {
 	//+kubebuilder:scaffold:scheme
 }
 
-func getVcdClientFromConfig(inputMap map[string]interface{}) (string, *vcdclient.OneArm, error) {
+func getVcdClientFromConfig(inputMap map[string]interface{}) (*vcdclient.Client, error) {
 	configFilePath := "/etc/kubernetes/vcloud/controller_manager_config.yaml"
 	configReader, err := os.Open(configFilePath)
 	if err != nil {
-		return "", nil, fmt.Errorf("Unable to open file [%s]: [%v]", configFilePath, err)
+		return nil, fmt.Errorf("Unable to open file [%s]: [%v]", configFilePath, err)
 	}
 	defer configReader.Close()
 
 	cloudConfig, err := config.ParseCloudConfig(configReader)
 	if err != nil {
-		return "", nil, fmt.Errorf("Unable to parse cloud config file [%s]: [%v]", configFilePath, err)
+		return nil, fmt.Errorf("Unable to parse cloud config file [%s]: [%v]", configFilePath, err)
+	}
+
+	err = config.SetAuthorization(cloudConfig)
+	if err != nil {
+		return nil, fmt.Errorf("unable to set authorization in config: [%v]", err)
 	}
 
 	err = config.ValidateCloudConfig(cloudConfig)
 	if err != nil {
-		return "", nil, fmt.Errorf("error validating config: [%v]", err)
+		return nil, fmt.Errorf("error validating config: [%v]", err)
 	}
 
+	insecure := true
 	oneArm := &vcdclient.OneArm{
 		StartIPAddress: cloudConfig.LB.OneArm.StartIP,
 		EndIPAddress:   cloudConfig.LB.OneArm.EndIP,
 	}
-
-	return cloudConfig.VCD.VIPSubnet, oneArm, nil
+	getVdcClient := true
+	// TODO (Sahithi: Let this method take the cloudConfig as a
+	// param instead of individual properties)
+	return vcdclient.NewVCDClientFromSecrets(
+		cloudConfig.VCD.Host,
+		cloudConfig.VCD.Org,
+		cloudConfig.VCD.VDC,
+		cloudConfig.VCD.VDCNetwork,
+		cloudConfig.VCD.VIPSubnet,
+		cloudConfig.VCD.User,
+		cloudConfig.VCD.Secret,
+		insecure,
+		cloudConfig.ClusterID,
+		oneArm,
+		cloudConfig.LB.Ports.HTTP,
+		cloudConfig.LB.Ports.HTTPS,
+		cloudConfig.LB.Ports.TCP,
+		getVdcClient,
+	)
 }
 
 func main() {
@@ -116,7 +139,7 @@ func main() {
 		setupLog.Error(err, "unable to start manager")
 		os.Exit(1)
 	}
-	ipamSubnet, oneArm, err := getVcdClientFromConfig(nil)
+	vcdClient, err := getVcdClientFromConfig(nil)
 	if err != nil {
 		panic(fmt.Errorf("unable to connect to vcd: [%v]", err))
 	}
@@ -126,8 +149,7 @@ func main() {
 	if err = (&controllers.VCDMachineReconciler{
 		Client: mgr.GetClient(),
 		// Scheme:    mgr.GetScheme(),
-		IPAMSubnet: ipamSubnet,
-		OneArm: oneArm,
+		VcdClient: vcdClient,
 	}).SetupWithManager(ctx, mgr, controller.Options{
 		MaxConcurrentReconciles: concurrency,
 	}); err != nil {
@@ -138,8 +160,7 @@ func main() {
 	if err = (&controllers.VCDClusterReconciler{
 		Client:    mgr.GetClient(),
 		Scheme:    mgr.GetScheme(),
-		IPAMSubnet: ipamSubnet,
-		OneArm: oneArm,
+		VcdClient: vcdClient,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "VCDCluster")
 		os.Exit(1)
