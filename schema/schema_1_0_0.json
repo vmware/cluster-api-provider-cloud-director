@@ -11,6 +11,47 @@
         }
       },
       "additionalProperties": true
+    },
+    "network": {
+      "type": "object",
+      "description": "The network-related settings for the cluster.",
+      "properties": {
+        "cni": {
+          "type": "object",
+          "description": "The CNI to use.",
+          "properties": {
+            "name": {
+              "type": "string"
+            }
+          }
+        },
+        "pods": {
+          "type": "object",
+          "description": "The network settings for Kubernetes pods.",
+          "properties": {
+            "cidrBlocks": {
+              "type": "array",
+              "description": "Specifies a range of IP addresses to use for Kubernetes pods.",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "services": {
+          "type": "object",
+          "description": "The network settings for Kubernetes services",
+          "properties": {
+            "cidrBlocks": {
+              "type": "array",
+              "description": "The range of IP addresses to use for Kubernetes services",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
     }
   },
   "type": "object",
@@ -37,9 +78,9 @@
           "description": "Topology of the kubernetes cluster",
           "properties": {
             "controlPlane": {
-              "type": "object",
+              "type": "array",
               "description": "The desired control-plane state of the cluster. The properties \"sizingClass\" and \"storageProfile\" can be specified only during the cluster creation phase. These properties will no longer be modifiable in further update operations like \"resize\" and \"upgrade\".\n ",
-              "properties": {
+              "items": {
                 "count": {
                   "type": "integer",
                   "description": "Multi control plane is supported.",
@@ -54,9 +95,9 @@
               "additionalProperties": true
             },
             "workers": {
-              "type": "object",
+              "type": "array",
               "description": "The desired worker state of the cluster. The properties \"sizingClass\" and \"storageProfile\" can be specified only during the cluster creation phase. These properties will no longer be modifiable in further update operations like \"resize\" and \"upgrade\". Non uniform worker nodes in the clusters is not yet supported.",
-              "properties": {
+              "items": {
                 "count": {
                   "type": "integer",
                   "description": "Worker nodes can be scaled up and down.",
@@ -84,45 +125,7 @@
               "description": "The ssh key that users can use to log into the node VMs without explicitly providing passwords."
             },
             "network": {
-              "type": "object",
-              "description": "The network-related settings for the cluster.",
-              "properties": {
-                "cni": {
-                  "type": "object",
-                  "description": "The CNI to use.",
-                  "properties": {
-                    "name": {
-                      "type": "string"
-                    }
-                  }
-                },
-                "pods": {
-                  "type": "object",
-                  "description": "The network settings for Kubernetes pods.",
-                  "properties": {
-                    "cidrBlocks": {
-                      "type": "array",
-                      "description": "Specifies a range of IP addresses to use for Kubernetes pods.",
-                      "items": {
-                        "type": "string"
-                      }
-                    }
-                  }
-                },
-                "services": {
-                  "type": "object",
-                  "description": "The network settings for Kubernetes services",
-                  "properties": {
-                    "cidrBlocks": {
-                      "type": "array",
-                      "description": "The range of IP addresses to use for Kubernetes services",
-                      "items": {
-                        "type": "string"
-                      }
-                    }
-                  }
-                }
-              }
+              "$ref": "#/definitions/network"
             }
           },
           "additionalProperties": true
@@ -144,12 +147,20 @@
         "kubernetes": {
           "type": "string"
         },
-        "cni": {
-          "type": "string"
+        "network": {
+          "$ref": "#/definitions/network"
         },
         "uid": {
           "type": "string",
           "description": "unique ID of the cluster"
+        },
+        "parentUid": {
+          "type": "string",
+          "description": "unique ID of the parent management cluster"
+        },
+        "isManagementCluster": {
+          "type": "boolean",
+          "description": "Does this RDE represent a management cluster?"
         },
         "clusterApiStatus": {
           "type": "object",
