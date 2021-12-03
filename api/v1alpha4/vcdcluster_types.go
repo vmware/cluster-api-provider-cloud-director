@@ -50,7 +50,7 @@ type VCDClusterSpec struct {
 	// +kubebuilder:validation:Required
 	OvdcNetwork string `json:"ovdcNetwork"`
 	// +kubebuilder:validation:Required
-	UserCredentialsContext UserCredentialsContext `json:"context"`
+	UserCredentialsContext UserCredentialsContext `json:"userContext"`
 	// +optional
 	DefaultComputePolicy string `json:"defaultComputePolicy,omitempty"`
 }

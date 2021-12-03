@@ -37,15 +37,6 @@ spec:
           spec:
             description: VCDClusterSpec defines the desired state of VCDCluster
             properties:
-              context:
-                properties:
-                  password:
-                    type: string
-                  refreshToken:
-                    type: string
-                  username:
-                    type: string
-                type: object
               controlPlaneEndpoint:
                 description: APIEndpoint represents a reachable Kubernetes API endpoint.
                 properties:
@@ -69,12 +60,21 @@ spec:
                 type: string
               site:
                 type: string
+              userContext:
+                properties:
+                  password:
+                    type: string
+                  refreshToken:
+                    type: string
+                  username:
+                    type: string
+                type: object
             required:
-            - context
             - org
             - ovdc
             - ovdcNetwork
             - site
+            - userContext
             type: object
           status:
             description: VCDClusterStatus defines the observed state of VCDCluster
