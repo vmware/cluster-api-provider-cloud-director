@@ -616,9 +616,12 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 			return ctrl.Result{}, errors.Wrapf(err, "unable to refresh vapp [%s]: [%v]", vAppName, err)
 		}
 		if err = r.waitForPostCustomizationPhase(workloadVCDClient, vm, phase); err != nil {
+			fmt.Errorf("error waiting for phase [%s] for vm [%s]: [%v]", phase, vm.VM.Name, err)
 			return ctrl.Result{}, errors.Wrapf(err, "unable to wait for post customization phase [%s]: [%v]",
 				phase, err)
 		}
+		fmt.Sprintf("successfully completed phase [%s] for vm [%s]", phase, vm.VM.Name)
+
 	}
 
 	if err = vm.Refresh(); err != nil {
