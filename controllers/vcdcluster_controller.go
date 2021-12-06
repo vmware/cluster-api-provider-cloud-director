@@ -288,7 +288,7 @@ func (r *VCDClusterReconciler) constructCapvcdRDE(ctx context.Context, workloadV
 	return rde, nil
 }
 
-func (r *VCDClusterReconciler) syncRDE(ctx context.Context, cluster *clusterv1.Cluster, vcdCluster *infrav1.VCDCluster,
+func (r *VCDClusterReconciler) reconcileRDE(ctx context.Context, cluster *clusterv1.Cluster, vcdCluster *infrav1.VCDCluster,
 	controlPlaneIP string, workloadVCDClient *vcdclient.Client) error {
 	updatePatch := make(map[string]interface{})
 	_, capvcdEntity, err := workloadVCDClient.GetCAPVCDEntity(ctx, vcdCluster.Status.ClusterRDEId)
@@ -518,7 +518,7 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		klog.Errorf("error getting defined entity with ID [%s] for cluster [%s]", vcdCluster.Status.ClusterRDEId, vcdCluster.Name)
 	}
 	if err == nil && resp != nil && resp.StatusCode == http.StatusOK {
-		if err = r.syncRDE(ctx, cluster, vcdCluster, controlPlaneNodeIP, workloadVCDClient); err != nil {
+		if err = r.reconcileRDE(ctx, cluster, vcdCluster, controlPlaneNodeIP, workloadVCDClient); err != nil {
 			klog.Errorf("failed to update and resolve defined entity with ID [%s] for cluster [%s]: [%v]", vcdCluster.Status.ClusterRDEId, vcdCluster.Name, err)
 		}
 	}
