@@ -100,6 +100,7 @@ func getVcdClientFromConfig(inputMap map[string]interface{}) (*vcdclient.Client,
 		cloudConfig.LB.Ports.HTTPS,
 		cloudConfig.LB.Ports.TCP,
 		getVdcClient,
+		cloudConfig.ManagementClusterRDEId,
 	)
 }
 
@@ -181,6 +182,12 @@ func main() {
 	setupLog.Info("starting manager")
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
 		setupLog.Error(err, "problem running manager")
+		os.Exit(1)
+	}
+
+	err = vcdClient.SetIsManagementCluster(ctx)
+	if err != nil {
+		setupLog.Error(err, "unable to set isManagementCluster flag")
 		os.Exit(1)
 	}
 }

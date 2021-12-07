@@ -59,7 +59,7 @@ type VCDClusterReconciler struct {
 	VcdClient *vcdclient.Client
 }
 
-func (r *VCDClusterReconciler) getAllMachineDeploymentsForCluster(ctx context.Context, c *clusterv1.Cluster) (*clusterv1.MachineDeploymentList, error) {
+func (r *VCDClusterReconciler) getAllMachineDeploymentsForCluster(ctx context.Context, c clusterv1.Cluster) (*clusterv1.MachineDeploymentList, error) {
 	mdListLabels := map[string]string{clusterv1.ClusterLabelName: c.Name}
 	mdList := &clusterv1.MachineDeploymentList{}
 	if err := r.Client.List(ctx, mdList, client.InNamespace(c.Namespace), client.MatchingLabels(mdListLabels)); err != nil {
@@ -68,7 +68,7 @@ func (r *VCDClusterReconciler) getAllMachineDeploymentsForCluster(ctx context.Co
 	return mdList, nil
 }
 
-func (r *VCDClusterReconciler) getAllKubeadmControlPlaneForCluster(ctx context.Context, c *clusterv1.Cluster) (*kcpv1.KubeadmControlPlaneList, error) {
+func (r *VCDClusterReconciler) getAllKubeadmControlPlaneForCluster(ctx context.Context, c clusterv1.Cluster) (*kcpv1.KubeadmControlPlaneList, error) {
 	kcpListLabels := map[string]string{clusterv1.ClusterLabelName: c.Name}
 	kcpList := &kcpv1.KubeadmControlPlaneList{}
 
@@ -78,7 +78,7 @@ func (r *VCDClusterReconciler) getAllKubeadmControlPlaneForCluster(ctx context.C
 	return kcpList, nil
 }
 
-func (r *VCDClusterReconciler) getVCDMachineTemplateFromKCP(ctx context.Context, kcp *kcpv1.KubeadmControlPlane) (*infrav1.VCDMachineTemplate, error) {
+func (r *VCDClusterReconciler) getVCDMachineTemplateFromKCP(ctx context.Context, kcp kcpv1.KubeadmControlPlane) (*infrav1.VCDMachineTemplate, error) {
 	vcdMachineTemplateRef := kcp.Spec.MachineTemplate.InfrastructureRef
 	vcdMachineTemplate := &infrav1.VCDMachineTemplate{}
 	vcdMachineTemplateKey := types.NamespacedName{
@@ -92,7 +92,7 @@ func (r *VCDClusterReconciler) getVCDMachineTemplateFromKCP(ctx context.Context,
 	return vcdMachineTemplate, nil
 }
 
-func (r *VCDClusterReconciler) getVCDMachineTemplateFromMachineDeployment(ctx context.Context, md *clusterv1.MachineDeployment) (*infrav1.VCDMachineTemplate, error) {
+func (r *VCDClusterReconciler) getVCDMachineTemplateFromMachineDeployment(ctx context.Context, md clusterv1.MachineDeployment) (*infrav1.VCDMachineTemplate, error) {
 	vcdMachineTemplateRef := md.Spec.Template.Spec.InfrastructureRef
 	vcdMachineTemplate := &infrav1.VCDMachineTemplate{}
 	vcdMachineTemplateKey := client.ObjectKey{
@@ -181,23 +181,21 @@ func patchVCDCluster(ctx context.Context, patchHelper *patch.Helper, vcdCluster 
 
 func (r *VCDClusterReconciler) constructCapvcdRDE(ctx context.Context, cluster *clusterv1.Cluster,
 	vcdCluster *infrav1.VCDCluster) (*swagger.DefinedEntity, error) {
-	// Refactor to remove workloadVCDClient and use vcdCluster object instead
-
 	org := vcdCluster.Spec.Org
 	vdc := vcdCluster.Spec.Ovdc
 	ovdcNetwork := vcdCluster.Spec.OvdcNetwork
 
-	kcpList, err := r.getAllKubeadmControlPlaneForCluster(ctx, cluster)
+	kcpList, err := r.getAllKubeadmControlPlaneForCluster(ctx, *cluster)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get all kubeadm control plane objects for cluster [%s]: [%v]", vcdCluster.Name, err)
+		return nil, fmt.Errorf("error getting KubeadmControlPlane objects for cluster [%s]: [%v]", vcdCluster.Name, err)
 	}
 	topologyControlPlanes := make([]vcdtypes.ControlPlane, len(kcpList.Items))
 	templateName := ""
 	kubernetesVersion := ""
 	for _, kcp := range kcpList.Items {
-		vcdMachineTemplate, err := r.getVCDMachineTemplateFromKCP(ctx, &kcp)
+		vcdMachineTemplate, err := r.getVCDMachineTemplateFromKCP(ctx, kcp)
 		if err != nil {
-			return nil, fmt.Errorf("failed to get VCDMachineTemplate from KCP [%s] for cluster [%s]: [%v]", kcp.Name, cluster.Name, err)
+			return nil, fmt.Errorf("error getting the VCDMachineTemplate object from KCP [%s] for cluster [%s]: [%v]", kcp.Name, cluster.Name, err)
 		}
 		topologyControlPlane := vcdtypes.ControlPlane{
 			Count:       *kcp.Spec.Replicas,
@@ -208,15 +206,15 @@ func (r *VCDClusterReconciler) constructCapvcdRDE(ctx context.Context, cluster *
 		kubernetesVersion = *kcp.Status.Version
 	}
 
-	mdList, err := r.getAllMachineDeploymentsForCluster(ctx, cluster)
+	mdList, err := r.getAllMachineDeploymentsForCluster(ctx, *cluster)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get al machine deployments for cluster [%s]: [%v]", vcdCluster.Name, err)
+		return nil, fmt.Errorf("error getting the MachineDeployments for cluster [%s]: [%v]", vcdCluster.Name, err)
 	}
 	topologyWorkers := make([]vcdtypes.Workers, len(mdList.Items))
 	for _, md := range mdList.Items {
-		vcdMachineTemplate, err := r.getVCDMachineTemplateFromMachineDeployment(ctx, &md)
+		vcdMachineTemplate, err := r.getVCDMachineTemplateFromMachineDeployment(ctx, md)
 		if err != nil {
-			return nil, fmt.Errorf("failed to get VCDMachineTemplate from MachineDeployment [%s] for cluster [%s]: [%v]", md.Name, cluster.Name, err)
+			return nil, fmt.Errorf("error getting the VCDMachineTemplate object from MachineDeployment [%s] for cluster [%s]: [%v]", md.Name, cluster.Name, err)
 		}
 		topologyWorker := vcdtypes.Workers{
 			Count:       *md.Spec.Replicas,
@@ -246,10 +244,10 @@ func (r *VCDClusterReconciler) constructCapvcdRDE(ctx context.Context, cluster *
 						Name: CAPVCDClusterCniName,
 					},
 					Pods: vcdtypes.Pods{
-						CidrBlocks: nil, // TODO: fetch pod CIDR
+						CidrBlocks: cluster.Spec.ClusterNetwork.Pods.CIDRBlocks,
 					},
 					Services: vcdtypes.Services{
-						CidrBlocks: nil, // TODO: fetch services CIDR
+						CidrBlocks: cluster.Spec.ClusterNetwork.Services.CIDRBlocks,
 					},
 				},
 			},
@@ -277,7 +275,7 @@ func (r *VCDClusterReconciler) constructCapvcdRDE(ctx context.Context, cluster *
 				Phase:        "",
 				ApiEndpoints: []vcdtypes.ApiEndpoints{},
 			},
-			NodeStatus: make(map[string]string),
+			NodeStatus:          make(map[string]string),
 			IsManagementCluster: false,
 		},
 	}
@@ -292,8 +290,7 @@ func (r *VCDClusterReconciler) constructCapvcdRDE(ctx context.Context, cluster *
 	return rde, nil
 }
 
-func (r *VCDClusterReconciler) reconcileRDE(ctx context.Context, cluster *clusterv1.Cluster, vcdCluster *infrav1.VCDCluster,
-	controlPlaneIP string, workloadVCDClient *vcdclient.Client) error {
+func (r *VCDClusterReconciler) reconcileRDE(ctx context.Context, cluster *clusterv1.Cluster, vcdCluster *infrav1.VCDCluster, workloadVCDClient *vcdclient.Client) error {
 	updatePatch := make(map[string]interface{})
 	_, capvcdEntity, err := workloadVCDClient.GetCAPVCDEntity(ctx, vcdCluster.Status.RDEId)
 	if err != nil {
@@ -319,17 +316,17 @@ func (r *VCDClusterReconciler) reconcileRDE(ctx context.Context, cluster *cluste
 		updatePatch["Spec.Settings.OvdcNetwork"] = networkName
 	}
 
-	kcpList, err := r.getAllKubeadmControlPlaneForCluster(ctx, cluster)
+	kcpList, err := r.getAllKubeadmControlPlaneForCluster(ctx, *cluster)
 	if err != nil {
-		return fmt.Errorf("failed to get all kubeadm control plane objects for cluster [%s]: [%v]", vcdCluster.Name, err)
+		return fmt.Errorf("error getting all KubeadmControlPlane objects for cluster [%s]: [%v]", vcdCluster.Name, err)
 	}
 	topologyControlPlanes := make([]vcdtypes.ControlPlane, len(kcpList.Items))
 	templateName := ""
 	kubernetesVersion := ""
 	for idx, kcp := range kcpList.Items {
-		vcdMachineTemplate, err := r.getVCDMachineTemplateFromKCP(ctx, &kcp)
+		vcdMachineTemplate, err := r.getVCDMachineTemplateFromKCP(ctx, kcp)
 		if err != nil {
-			return fmt.Errorf("failed to get VCDMachineTemplate from KCP [%s] for cluster [%s]: [%v]", kcp.Name, cluster.Name, err)
+			return fmt.Errorf("error getting VCDMachineTemplate from KCP [%s] for cluster [%s]: [%v]", kcp.Name, cluster.Name, err)
 		}
 		topologyControlPlane := vcdtypes.ControlPlane{
 			Count:       *kcp.Spec.Replicas,
@@ -337,19 +334,18 @@ func (r *VCDClusterReconciler) reconcileRDE(ctx context.Context, cluster *cluste
 		}
 		topologyControlPlanes[idx] = topologyControlPlane
 		templateName = vcdMachineTemplate.Spec.Template.Spec.Template
-		// TODO: Update RDE with array of kubernetes versions when workload clusters are heterogeneous
 		kubernetesVersion = *kcp.Status.Version
 	}
 
-	mdList, err := r.getAllMachineDeploymentsForCluster(ctx, cluster)
+	mdList, err := r.getAllMachineDeploymentsForCluster(ctx, *cluster)
 	if err != nil {
-		return fmt.Errorf("failed to get al machine deployments for cluster [%s]: [%v]", vcdCluster.Name, err)
+		return fmt.Errorf("error getting getting all MachineDeployment for cluster [%s]: [%v]", vcdCluster.Name, err)
 	}
 	topologyWorkers := make([]vcdtypes.Workers, len(mdList.Items))
 	for idx, md := range mdList.Items {
-		vcdMachineTemplate, err := r.getVCDMachineTemplateFromMachineDeployment(ctx, &md)
+		vcdMachineTemplate, err := r.getVCDMachineTemplateFromMachineDeployment(ctx, md)
 		if err != nil {
-			return fmt.Errorf("failed to get VCDMachineTemplate from MachineDeployment [%s] for cluster [%s]: [%v]", md.Name, cluster.Name, err)
+			return fmt.Errorf("error getting VCDMachineTemplate from MachineDeployment [%s] for cluster [%s]: [%v]", md.Name, cluster.Name, err)
 		}
 		topologyWorker := vcdtypes.Workers{
 			Count:       *md.Spec.Replicas,
@@ -358,7 +354,7 @@ func (r *VCDClusterReconciler) reconcileRDE(ctx context.Context, cluster *cluste
 		topologyWorkers[idx] = topologyWorker
 	}
 
-	// TODO: The following code only updates the spec portion of the RDE
+	// The following code only updates the spec portion of the RDE
 	if !reflect.DeepEqual(capvcdEntity.Spec.Topology.ControlPlane, topologyControlPlanes) {
 		updatePatch["Spec.Topology.ControlPlane"] = topologyControlPlanes
 	}
@@ -394,7 +390,7 @@ func (r *VCDClusterReconciler) reconcileRDE(ctx context.Context, cluster *cluste
 			},
 		},
 	}
-	// TODO: We are updaitng status portion of the RDE in the following code
+	// Updating status portion of the RDE in the following code
 	if !reflect.DeepEqual(clusterApiStatus, capvcdEntity.Status.ClusterAPIStatus) {
 		updatePatch["Status.ClusterAPIStatus"] = clusterApiStatus
 	}
@@ -429,7 +425,7 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	workloadVCDClient, err := vcdclient.NewVCDClientFromSecrets(vcdCluster.Spec.Site, vcdCluster.Spec.Org,
 		vcdCluster.Spec.Ovdc, vcdCluster.Spec.OvdcNetwork, r.VcdClient.IPAMSubnet,
 		vcdCluster.Spec.UserCredentialsContext.Username, vcdCluster.Spec.UserCredentialsContext.Password, true,
-		vcdCluster.Status.RDEId, r.VcdClient.OneArm, 0, 0, r.VcdClient.TCPPort, true)
+		vcdCluster.Status.RDEId, r.VcdClient.OneArm, 0, 0, r.VcdClient.TCPPort, true, "")
 	if err != nil {
 		return ctrl.Result{}, errors.Wrapf(err, "unable to create client for workload cluster")
 	}
@@ -529,17 +525,13 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		klog.Errorf("error getting defined entity with ID [%s] for cluster [%s]", vcdCluster.Status.RDEId, vcdCluster.Name)
 	}
 	if err == nil && resp != nil && resp.StatusCode == http.StatusOK {
-		if err = r.reconcileRDE(ctx, cluster, vcdCluster, controlPlaneNodeIP, workloadVCDClient); err != nil {
+		if err = r.reconcileRDE(ctx, cluster, vcdCluster, workloadVCDClient); err != nil {
 			klog.Errorf("failed to update and resolve defined entity with ID [%s] for cluster [%s]: [%v]", vcdCluster.Status.RDEId, vcdCluster.Name, err)
 		}
 	}
 
 	// Update the vcdCluster resource with updated information
 	// TODO Check if updating ovdcNetwork, Org and Ovdc should be done somewhere earlier in the code.
-	vcdCluster.Spec.ControlPlaneEndpoint = infrav1.APIEndpoint{
-		Host: controlPlaneNodeIP,
-		Port: 6443,
-	}
 	vcdCluster.ClusterName = vcdCluster.Name
 
 	vcdCluster.Status.Ready = true
@@ -567,7 +559,7 @@ func (r *VCDClusterReconciler) reconcileDelete(ctx context.Context,
 	workloadVCDClient, err := vcdclient.NewVCDClientFromSecrets(vcdCluster.Spec.Site, vcdCluster.Spec.Org,
 		vcdCluster.Spec.Ovdc, vcdCluster.Spec.OvdcNetwork, r.VcdClient.IPAMSubnet,
 		vcdCluster.Spec.UserCredentialsContext.Username, vcdCluster.Spec.UserCredentialsContext.Password, true,
-		"", r.VcdClient.OneArm, 0, 0, r.VcdClient.TCPPort, true)
+		"", r.VcdClient.OneArm, 0, 0, r.VcdClient.TCPPort, true, "")
 	if err != nil {
 		return ctrl.Result{}, errors.Wrapf(err, "unable to create client for workload cluster")
 	}

@@ -18,6 +18,24 @@ const (
 	MaxUpdateRetries = 10
 )
 
+// SetIsManagementCluster: sets the isManagementCluster flag in RDE for the management cluster
+func (client *Client) SetIsManagementCluster(ctx context.Context) error {
+	if client.ManagementClusterRDEId == "" {
+		klog.Infof("RDE ID for the management cluster not found. Skip setting isManagementCluster flag for the RDE.")
+		return nil
+	}
+	updatePatch := make(map[string]interface{})
+	updatePatch["Status.IsManagementCluster"] = true
+	_, err := client.PatchRDE(ctx, updatePatch, client.ManagementClusterRDEId)
+	if err != nil {
+		return fmt.Errorf("failed to set isManagementCluster flag for management cluster with RDE ID [%s]: [%v]", client.ManagementClusterRDEId, err)
+	}
+	return nil
+}
+
+// PatchRDE: Update only specific fields in the RDE. Takes in a map with keys, which contain "." delimitted
+// strings, representing the CAPVCD RDE fields to be updated.
+// Example: To patch only the API version for the RDE
 func (client *Client) PatchRDE(ctx context.Context, patch map[string]interface{}, rdeID string) (rde *swagger.DefinedEntity, err error) {
 	defer func() {
 		// recover from panic if panic occurs because of
