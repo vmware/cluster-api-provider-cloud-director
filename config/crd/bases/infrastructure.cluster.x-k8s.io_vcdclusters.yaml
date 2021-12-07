@@ -1,3 +1,4 @@
+
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
@@ -79,7 +80,7 @@ spec:
           status:
             description: VCDClusterStatus defines the observed state of VCDCluster
             properties:
-              clusterRDEId:
+              RDEId:
                 type: string
               conditions:
                 description: Conditions defines current service state of the VCDCluster.

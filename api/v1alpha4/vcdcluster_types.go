@@ -67,7 +67,7 @@ type VCDClusterStatus struct {
 	// +optional
 	Conditions clusterv1.Conditions `json:"conditions,omitempty"`
 	// +optional
-	ClusterRDEId string `json:"clusterRDEId,omitempty"`
+	RDEId string `json:"RDEId,omitempty"`
 }
 
 //+kubebuilder:object:root=true

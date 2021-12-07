@@ -332,13 +332,13 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	workloadVCDClient, err := vcdclient.NewVCDClientFromSecrets(vcdCluster.Spec.Site, vcdCluster.Spec.Org,
 		vcdCluster.Spec.Ovdc, vcdCluster.Spec.OvdcNetwork, r.VcdClient.IPAMSubnet,
 		vcdCluster.Spec.UserCredentialsContext.Username, vcdCluster.Spec.UserCredentialsContext.Password, true,
-		vcdCluster.Status.ClusterRDEId, r.VcdClient.OneArm, 0, 0, r.VcdClient.TCPPort, true)
+		vcdCluster.Status.RDEId, r.VcdClient.OneArm, 0, 0, r.VcdClient.TCPPort, true)
 	if err != nil {
 		return ctrl.Result{}, errors.Wrapf(err, "unable to create client for workload cluster")
 	}
 
 	if vcdMachine.Spec.ProviderID != nil {
-		err := r.syncNodeInRDE(ctx, vcdCluster.Status.ClusterRDEId, vcdMachine.Name, machine.Status.Phase,
+		err := r.syncNodeInRDE(ctx, vcdCluster.Status.RDEId, vcdMachine.Name, machine.Status.Phase,
 			workloadVCDClient)
 		if err != nil {
 			klog.Errorf("failed to add VCDMachine [%s] to node status: [%v]", vcdMachine.Name, err)
@@ -348,7 +348,7 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		conditions.MarkTrue(vcdMachine, infrav1.ContainerProvisionedCondition)
 		return ctrl.Result{}, nil
 	}
-	err = r.syncNodeInRDE(ctx, vcdCluster.Status.ClusterRDEId, vcdMachine.Name, machine.Status.Phase,
+	err = r.syncNodeInRDE(ctx, vcdCluster.Status.RDEId, vcdMachine.Name, machine.Status.Phase,
 		workloadVCDClient)
 	if err != nil {
 		klog.Errorf("failed to add VCDMachine [%s] to node status", vcdMachine.Name)
@@ -539,7 +539,7 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	// Update loadbalancer pool with the IP of the control plane node as a new member.
 	// Note that this must be done before booting on the VM!
 	if util.IsControlPlaneMachine(machine) {
-		lbPoolName := vcdCluster.Name + "-" + vcdCluster.Status.ClusterRDEId + "-tcp"
+		lbPoolName := vcdCluster.Name + "-" + vcdCluster.Status.RDEId + "-tcp"
 		lbPoolRef, err := gateway.GetLoadBalancerPool(ctx, lbPoolName)
 		if err != nil {
 			return ctrl.Result{}, errors.Wrapf(err, "Failed to get load balancer pool by name [%s]: [%v]", lbPoolName, err)
@@ -578,27 +578,15 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		for key, val := range keyVals {
 			err = workloadVCDClient.SetVmExtraConfigKeyValue(vm, key, val, true)
 			if err != nil {
-				//log.Error(err, "error occurred while configuring machine", "machineName", vm.VM.Name)
-				//if err := vm.Delete(); err != nil {
-				//	log.Error(err, "failed to delete VM", "VM Name", vm.VM.Name)
-				//}
 				return ctrl.Result{}, errors.Wrapf(err, "unable to set vm extra config key [%s] for vm [%s]: [%v]",
 					key, vm.VM.Name, err)
 			}
 
 			if err = vm.Refresh(); err != nil {
-				//log.Error(err, "error occurred while configuring machine", "machineName", vm.VM.Name)
-				//if err := vm.Delete(); err != nil {
-				//	log.Error(err, "failed to delete VM", "VM Name", vm.VM.Name)
-				//}
 				return ctrl.Result{}, errors.Wrapf(err, "unable to refresh vm [%s]: [%v]", vm.VM.Name, err)
 			}
 
 			if err = vApp.Refresh(); err != nil {
-				//log.Error(err, "error occurred while configuring machine", "machineName", vm.VM.Name)
-				//if err := vm.Delete(); err != nil {
-				//	log.Error(err, "failed to delete VM", "VM Name", vm.VM.Name)
-				//}
 				return ctrl.Result{}, errors.Wrapf(err, "unable to refresh vapp [%s]: [%v]", vAppName, err)
 			}
 
@@ -606,25 +594,13 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		}
 		task, err := vm.PowerOn()
 		if err != nil {
-			//log.Error(err, "error occurred while configuring machine", "machineName", vm.VM.Name)
-			//if err := vm.Delete(); err != nil {
-			//	log.Error(err, "failed to delete VM", "VM Name", vm.VM.Name)
-			//}
 			return ctrl.Result{}, errors.Wrapf(err, "unable to power on [%s]: [%v]", vm.VM.Name, err)
 		}
 		if err = task.WaitTaskCompletion(); err != nil {
-			//log.Error(err, "error occurred while configuring machine", "machineName", vm.VM.Name)
-			//if err := vm.Delete(); err != nil {
-			//	log.Error(err, "failed to delete VM", "VM Name", vm.VM.Name)
-			//}
 			return ctrl.Result{}, fmt.Errorf("error waiting for task completion after reconfiguring vm: [%v]", err)
 		}
 
 		if err = vApp.Refresh(); err != nil {
-			//log.Error(err, "error occurred while configuring machine", "machineName", vm.VM.Name)
-			//if err := vm.Delete(); err != nil {
-			//	log.Error(err, "failed to delete VM", "VM Name", vm.VM.Name)
-			//}
 			return ctrl.Result{}, errors.Wrapf(err, "unable to refresh vapp [%s]: [%v]", vAppName, err)
 		}
 	}
@@ -636,10 +612,6 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	}
 	for _, phase := range phases {
 		if err = vApp.Refresh(); err != nil {
-			//log.Error(err, "error occurred while configuring machine", "machineName", vm.VM.Name)
-			//if err := vm.Delete(); err != nil {
-			//	log.Error(err, "failed to delete VM", "VM Name", vm.VM.Name)
-			//}
 			return ctrl.Result{}, errors.Wrapf(err, "unable to refresh vapp [%s]: [%v]", vAppName, err)
 		}
 		if err = r.waitForPostCustomizationPhase(workloadVCDClient, vm, phase); err != nil {
@@ -663,7 +635,7 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	vcdMachine.Spec.ProviderID = &providerID
 	vcdMachine.Status.Ready = true
 	conditions.MarkTrue(vcdMachine, infrav1.ContainerProvisionedCondition)
-	err = r.syncNodeInRDE(ctx, vcdCluster.Status.ClusterRDEId, vcdMachine.Name, machine.Status.Phase, workloadVCDClient)
+	err = r.syncNodeInRDE(ctx, vcdCluster.Status.RDEId, vcdMachine.Name, machine.Status.Phase, workloadVCDClient)
 	if err != nil {
 		klog.Errorf("failed to add VCDMachine [%s] to node status", vcdMachine.Name)
 	}
@@ -795,7 +767,7 @@ func (r *VCDMachineReconciler) reconcileDelete(ctx context.Context, cluster *clu
 		klog.Infof("successfully deleted VM [%s]", machine.Name)
 	}
 
-	err = r.syncNodeInRDE(ctx, vcdCluster.Status.ClusterRDEId, vcdMachine.Name, machine.Status.Phase, workloadVCDClient)
+	err = r.syncNodeInRDE(ctx, vcdCluster.Status.RDEId, vcdMachine.Name, machine.Status.Phase, workloadVCDClient)
 	if err != nil {
 		klog.Errorf("failed to add VCDMachine [%s] to node status: [%v]", vcdMachine.Name, err)
 	}

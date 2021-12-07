@@ -23,6 +23,7 @@ func (client *Client) PatchRDE(ctx context.Context, patch map[string]interface{}
 		// recover from panic if panic occurs because of
 		// 1. calling Set() on a zero value
 		if r := recover(); r != nil {
+			klog.Errorf("panic occurred while patching RDE: [%v]", r)
 			err = errors.Errorf("recovered panic during updating entity: [%v]", r)
 		}
 	}()
