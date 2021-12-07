@@ -205,7 +205,7 @@ func (r *VCDClusterReconciler) constructCapvcdRDE(ctx context.Context, cluster *
 		}
 		topologyControlPlanes = append(topologyControlPlanes, topologyControlPlane)
 		templateName = vcdMachineTemplate.Spec.Template.Spec.Template
-		kubernetesVersion = vcdMachineTemplate.APIVersion
+		kubernetesVersion = *kcp.Status.Version
 	}
 
 	mdList, err := r.getAllMachineDeploymentsForCluster(ctx, cluster)
@@ -338,7 +338,7 @@ func (r *VCDClusterReconciler) reconcileRDE(ctx context.Context, cluster *cluste
 		topologyControlPlanes[idx] = topologyControlPlane
 		templateName = vcdMachineTemplate.Spec.Template.Spec.Template
 		// TODO: Update RDE with array of kubernetes versions when workload clusters are heterogeneous
-		kubernetesVersion = vcdMachineTemplate.APIVersion
+		kubernetesVersion = *kcp.Status.Version
 	}
 
 	mdList, err := r.getAllMachineDeploymentsForCluster(ctx, cluster)
