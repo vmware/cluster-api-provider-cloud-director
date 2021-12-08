@@ -1,11 +1,11 @@
 vcd:
-  host: "https://vmc-vcloud-dhcp-169-27.eng.vmware.com"
-  org: "org1"
-  vdc: "ovdc1"
-  user: "clusterauthor1"
-  secret: "ca$hc0w"
-  network: "ovdc1_nw"
-  vipSubnet: "10.150.191.253/19"
+  host: "https://vcd-url.com"
+  org: "org"
+  vdc: "ovdc"
+  user: "user"
+  secret: "password"
+  network: "ovdc1nw"
+  vipSubnet: "vipSubnet"
 loadbalancer:
   oneArm:
     startIP: "192.168.8.2"
