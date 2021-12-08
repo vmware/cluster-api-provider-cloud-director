@@ -14,13 +14,12 @@ import (
 	infrav1 "github.com/vmware/cluster-api-provider-cloud-director/api/v1alpha4"
 	"github.com/vmware/cluster-api-provider-cloud-director/pkg/vcdclient"
 	"github.com/vmware/go-vcloud-director/v2/govcd"
+	"gopkg.in/yaml.v2"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/klog"
 	"net/http"
-	"os/exec"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1alpha4"
-	"sigs.k8s.io/cluster-api/test/infrastructure/docker/cloudinit"
 	"sigs.k8s.io/cluster-api/util"
 	"sigs.k8s.io/cluster-api/util/annotations"
 	"sigs.k8s.io/cluster-api/util/conditions"
@@ -185,7 +184,6 @@ const (
 
 var controlPlanePostCustPhases = []string{
 	NetworkConfiguration,
-	StoreSshKey,
 	KubeadmInit,
 	KubectlApplyCni,
 	KubectlApplyCpi,
@@ -195,7 +193,6 @@ var controlPlanePostCustPhases = []string{
 
 var workerPostCustPhases = []string{
 	NetworkConfiguration,
-	StoreSshKey,
 	KubeadmNodeJoin,
 }
 
@@ -412,31 +409,16 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 				machine.Name)
 		}
 
-		bootstrapShellScript, err := JinjaToShell(bootstrapJinjaScript)
-		if err != nil {
-			return ctrl.Result{}, errors.Wrapf(err,
-				"unable to convert bootstrap jinja script to shell script [%s]", bootstrapJinjaScript)
-		}
-
-		indentedBootstrapShellScript := ""
-		// The 4 here is based on how the line appears in the yaml. Coincidentally the size is the same for the node
-		// and control-plane scripts. Later lines do not need an extra indent since the jinja script has added it.
-		indentSize := 4
-		indent := strings.Repeat(" ", indentSize)
-		for idx, line := range strings.Split(bootstrapShellScript, "\n") {
-			if idx == 0 {
-				// the first line is already indented
-				indentedBootstrapShellScript = line + "\n" // last line also needs "\n"
-				continue
-			}
-
-			// indent to be added for later lines
-			indentedBootstrapShellScript += indent + line + "\n"
-		}
-
 		guestCustScriptTemplate := controlPlaneCloudInitScriptTemplate
 		if !util.IsControlPlaneMachine(machine) {
 			guestCustScriptTemplate = nodeCloudInitScriptTemplate
+		}
+
+		mergedCloudConfigBytes, err := MergeJinjaToCloudInitScript(guestCustScriptTemplate, bootstrapJinjaScript)
+		if err != nil {
+			return ctrl.Result{}, errors.Wrapf(err,
+				"unable to merge bootstrap jinja script for [%s/%s] [%s]",
+				vAppName, machine.Name, bootstrapJinjaScript)
 		}
 
 		switch {
@@ -447,12 +429,10 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 			b64RefreshToken := b64.StdEncoding.EncodeToString([]byte(vcdCluster.Spec.UserCredentialsContext.RefreshToken))
 			vcdHostFormatted := strings.Replace(vcdCluster.Spec.Site, "/", "\\/", -1)
 			cloudInitScript = fmt.Sprintf(
-				guestCustScriptTemplate,             // template script
+				string(mergedCloudConfigBytes),      // template script
 				b64OrgUser,                          // base 64 org/username
 				b64Password,                         // base64 password
 				b64RefreshToken,                     // refresh token
-				"",                                  // ssh key
-				indentedBootstrapShellScript,        // init script from k8s
 				vcdHostFormatted,                    // vcd host
 				workloadVCDClient.VcdAuthConfig.Org, // org
 				workloadVCDClient.VcdAuthConfig.VDC, // ovdc
@@ -470,10 +450,8 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 
 		default:
 			cloudInitScript = fmt.Sprintf(
-				guestCustScriptTemplate,      // template script
-				"",                           // ssh key
-				indentedBootstrapShellScript, // join script from k8s
-				machine.Name,                 // vm host name
+				string(mergedCloudConfigBytes), // template script
+				machine.Name,                   // vm host name
 			)
 		}
 	}
@@ -562,8 +540,8 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 
 	vmStatus, err := vm.GetStatus()
 	if err != nil {
-		klog.Errorf("Failed to get status of vm [%s/%s]", vApp.VApp.Name, vm.VM.Name)
-		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
+		return ctrl.Result{},
+			errors.Wrapf(err, "Failed to get status of vm [%s/%s]", vApp.VApp.Name, vm.VM.Name)
 	}
 
 	if vmStatus != "POWERED_ON" {
@@ -819,7 +797,8 @@ func (r *VCDMachineReconciler) VCDClusterToVCDMachines(o client.Object) []ctrl.R
 	var result []ctrl.Request
 	c, ok := o.(*infrav1.VCDCluster)
 	if !ok {
-		panic(fmt.Sprintf("Expected a VCDCluster but got a %T", o))
+		klog.Errorf("Expected a VCDCluster found [%T]", o)
+		return nil
 	}
 
 	cluster, err := util.GetOwnerCluster(context.TODO(), r.Client, c.ObjectMeta)
@@ -847,27 +826,96 @@ func (r *VCDMachineReconciler) VCDClusterToVCDMachines(o client.Object) []ctrl.R
 	return result
 }
 
-// JinjaToShell converts from jinja to shell
-func JinjaToShell(jinjaScript string) (string, error) {
-	commands, err := cloudinit.Commands([]byte(jinjaScript))
-	if err != nil {
-		klog.Errorf("unable to parse jinja config [%s]", jinjaScript)
-		return "", errors.Wrap(err, "failed to join a control plane node with kubeadm")
+// MergeJinjaToCloudInitScript : merges the cloud init config with a jinja config and adds a
+// `#cloudconfig` header. Does a couple of special handling: takes jinja's runcmd and embeds
+// it into a fixed location in the cloudInitConfig. Returns the merged bytes or nil and error.
+func MergeJinjaToCloudInitScript(cloudInitConfig string, jinjaConfig string) ([]byte, error) {
+	jinja := make(map[string]interface{})
+	if err := yaml.Unmarshal([]byte(jinjaConfig), &jinja); err != nil {
+		return nil, fmt.Errorf("unable to unmarshal yaml [%s]: [%v]", jinjaConfig, err)
 	}
 
-	shellScript := make([]string, len(commands))
-	for idx, command := range commands {
-		cmd := exec.Command(command.Cmd, command.Args...)
-		shellScript[idx] = strings.TrimPrefix(
-			strings.TrimSpace(
-				strings.Join(cmd.Args[:], " "),
-			),
-			"/bin/sh -c ",
-		)
-		if command.Stdin != "" {
-			shellScript[idx] = fmt.Sprintf("echo -n '%s' | %s", command.Stdin, shellScript[idx])
+	// handle runcmd before parsing vcd cloud init yaml all to simplify things
+	cloudInitModified := ""
+	jinjaRunCmd, ok := jinja["runcmd"]
+	if ok {
+		jinjaLines, ok := jinjaRunCmd.([]interface{})
+		if !ok {
+			return nil, fmt.Errorf("expected []interface{}, found [%T] for jinja runcmd [%v]",
+				jinjaRunCmd, jinjaRunCmd)
+		}
+
+		formattedJinjaCmd := "\n"
+		indent := strings.Repeat(" ", 4)
+		for _, jinjaLine := range jinjaLines {
+			jinjaLineStr, ok := jinjaLine.(string)
+			if !ok {
+				return nil, fmt.Errorf("unable to convert [%#v] to string", jinjaLineStr)
+			}
+			formattedJinjaCmd += indent + jinjaLineStr + "\n"
+		}
+
+		cloudInitModified = strings.Trim(
+			strings.Replace(cloudInitConfig,
+				"__JINJA_RUNCMD_REPLACE_ME__", strings.Trim(formattedJinjaCmd, "\n"), 1), "\r\n")
+	}
+
+	vcdCloudInit := make(map[string]interface{})
+	if err := yaml.Unmarshal([]byte(cloudInitModified), &vcdCloudInit); err != nil {
+		return nil, fmt.Errorf("unable to unmarshal cloud init with embedded jinja script: [%v]: [%v]",
+			cloudInitModified, err)
+	}
+
+	mergedCloudInit := make(map[string]interface{})
+	for key, vcdVal := range vcdCloudInit {
+		jinjaVal, ok := jinja[key]
+		if !ok || key == "runcmd" {
+			mergedCloudInit[key] = vcdVal
+			continue
+		}
+
+		switch vcdVal.(type) {
+		case []interface{}:
+			mergedCloudInit[key] = append(vcdVal.([]interface{}), jinjaVal.([]interface{})...)
+		default:
+			return nil, fmt.Errorf("unable to handle type [%T] for key [%v]", vcdVal, key)
 		}
 	}
 
-	return strings.Join(shellScript, "\n"), nil
+	// consume the remaining keys not used in VCD
+	for key, jinjaVal := range jinja {
+		if _, ok := vcdCloudInit[key]; !ok {
+			mergedCloudInit[key] = jinjaVal
+			continue
+		}
+	}
+
+	out := []byte("#cloud-config\n")
+	for _, key := range []string{
+		"write_files",
+		"runcmd",
+		"users",
+		"timezone",
+		"disable_root",
+		"preserve_hostname",
+		"hostname",
+		"final_message",
+	} {
+		val, ok := mergedCloudInit[key]
+		if !ok {
+			continue
+		}
+
+		deltaMap := map[string]interface{}{
+			key: val,
+		}
+		delta, err := yaml.Marshal(deltaMap)
+		if err != nil {
+			return nil, fmt.Errorf("unable to marshal [%#v]", deltaMap)
+		}
+
+		out = append(out, delta...)
+	}
+
+	return out, nil
 }

@@ -560,9 +560,6 @@ sigs.k8s.io/cluster-api/util/labels
 sigs.k8s.io/cluster-api/util/patch
 sigs.k8s.io/cluster-api/util/predicates
 sigs.k8s.io/cluster-api/util/version
-# sigs.k8s.io/cluster-api/test/infrastructure/docker v0.0.0-20210602185643-40841d9837b8
-## explicit
-sigs.k8s.io/cluster-api/test/infrastructure/docker/cloudinit
 # sigs.k8s.io/controller-runtime v0.9.6
 ## explicit
 sigs.k8s.io/controller-runtime
