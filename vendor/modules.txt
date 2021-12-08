@@ -27,8 +27,16 @@ github.com/beorn7/perks/quantile
 github.com/blang/semver
 # github.com/cespare/xxhash/v2 v2.1.1
 github.com/cespare/xxhash/v2
+# github.com/coredns/caddy v1.1.0
+github.com/coredns/caddy/caddyfile
+# github.com/coredns/corefile-migration v1.0.12
+github.com/coredns/corefile-migration/migration
+github.com/coredns/corefile-migration/migration/corefile
 # github.com/davecgh/go-spew v1.1.1
 github.com/davecgh/go-spew/spew
+# github.com/docker/distribution v2.7.1+incompatible
+github.com/docker/distribution/digestset
+github.com/docker/distribution/reference
 # github.com/evanphx/json-patch v4.11.0+incompatible
 github.com/evanphx/json-patch
 # github.com/form3tech-oss/jwt-go v3.2.3+incompatible
@@ -134,6 +142,8 @@ github.com/onsi/gomega/matchers/support/goraph/edge
 github.com/onsi/gomega/matchers/support/goraph/node
 github.com/onsi/gomega/matchers/support/goraph/util
 github.com/onsi/gomega/types
+# github.com/opencontainers/go-digest v1.0.0
+github.com/opencontainers/go-digest
 # github.com/peterhellberg/link v1.1.0
 ## explicit
 github.com/peterhellberg/link
@@ -515,6 +525,9 @@ k8s.io/client-go/util/jsonpath
 k8s.io/client-go/util/keyutil
 k8s.io/client-go/util/retry
 k8s.io/client-go/util/workqueue
+# k8s.io/cluster-bootstrap v0.21.2
+k8s.io/cluster-bootstrap/token/api
+k8s.io/cluster-bootstrap/token/util
 # k8s.io/component-base v0.21.3
 k8s.io/component-base/config
 k8s.io/component-base/config/v1alpha1
@@ -535,18 +548,18 @@ k8s.io/utils/trace
 # sigs.k8s.io/cluster-api v0.4.1
 ## explicit
 sigs.k8s.io/cluster-api/api/v1alpha4
+sigs.k8s.io/cluster-api/bootstrap/kubeadm/api/v1alpha4
+sigs.k8s.io/cluster-api/controlplane/kubeadm/api/v1alpha4
 sigs.k8s.io/cluster-api/errors
 sigs.k8s.io/cluster-api/feature
 sigs.k8s.io/cluster-api/util
 sigs.k8s.io/cluster-api/util/annotations
 sigs.k8s.io/cluster-api/util/conditions
+sigs.k8s.io/cluster-api/util/container
 sigs.k8s.io/cluster-api/util/labels
 sigs.k8s.io/cluster-api/util/patch
 sigs.k8s.io/cluster-api/util/predicates
 sigs.k8s.io/cluster-api/util/version
-# sigs.k8s.io/cluster-api/test/infrastructure/docker v0.0.0-20210602185643-40841d9837b8
-## explicit
-sigs.k8s.io/cluster-api/test/infrastructure/docker/cloudinit
 # sigs.k8s.io/controller-runtime v0.9.6
 ## explicit
 sigs.k8s.io/controller-runtime

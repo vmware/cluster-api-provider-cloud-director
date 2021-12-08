@@ -129,5 +129,6 @@ func getTestVCDClient(inputMap map[string]interface{}) (*Client, error) {
 		cloudConfig.LB.Ports.HTTPS,
 		cloudConfig.LB.Ports.TCP,
 		getVdcClient,
+		"",
 	)
 }

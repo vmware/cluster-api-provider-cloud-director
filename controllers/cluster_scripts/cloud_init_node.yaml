@@ -23,16 +23,6 @@ write_files:
       sed -i 's/::1/127.0.0.1/g' /etc/hosts || true
     vmtoolsd --cmd "info-set guestinfo.postcustomization.networkconfiguration.status successful"
 
-    vmtoolsd --cmd "info-set guestinfo.postcustomization.store.sshkey.status in_progress"
-      ssh_key="%s"
-      if [[ ! -z "$ssh_key" ]];
-      then
-        mkdir -p /root/.ssh
-        echo $ssh_key >> /root/.ssh/authorized_keys
-        chmod -R go-rwx /root/.ssh
-      fi
-    vmtoolsd --cmd "info-set guestinfo.postcustomization.store.sshkey.status successful"
-
     vmtoolsd --cmd "info-set guestinfo.postcustomization.kubeadm.node.join.status in_progress"
       # tag images
       for image in "coredns" "etcd" "kube-proxy" "kube-apiserver" "kube-controller-manager" "kube-scheduler"
@@ -42,7 +32,7 @@ write_files:
         new_tag_version=$(echo $image_ref | sed 's/.*://' | sed 's/_/-/')
         ctr -n=k8s.io image tag $image_ref $ref_path:$new_tag_version
       done
-      %s
+      __JINJA_RUNCMD_REPLACE_ME__
     vmtoolsd --cmd "info-set guestinfo.postcustomization.kubeadm.node.join.status successful"
 
     echo "$(date) post customization script execution completed" &>> /var/log/capvcd/customization/status.log
@@ -52,5 +42,5 @@ runcmd:
 timezone: UTC
 disable_root: false
 preserve_hostname: false
-hostname: %s
+hostname: "%s"
 final_message: "The system is ready after $UPTIME seconds"

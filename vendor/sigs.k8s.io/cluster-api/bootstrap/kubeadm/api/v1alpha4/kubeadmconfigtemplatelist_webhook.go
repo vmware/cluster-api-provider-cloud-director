@@ -1,5 +1,5 @@
 /*
-Copyright 2019 The Kubernetes Authors.
+Copyright 2020 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,10 +14,14 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-/*
-Package cloudinit defines cloud init adapter for kind nodes.
+package v1alpha4
 
-The Adapter supports a limited set of cloud init features, just what is necessary to test CPBPK;
-additionally, for sake of simplicity, the adapter is designed to work on existing kind node images.
-*/
-package cloudinit
+import (
+	ctrl "sigs.k8s.io/controller-runtime"
+)
+
+func (r *KubeadmConfigTemplateList) SetupWebhookWithManager(mgr ctrl.Manager) error {
+	return ctrl.NewWebhookManagedBy(mgr).
+		For(r).
+		Complete()
+}
