@@ -417,7 +417,8 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		mergedCloudConfigBytes, err := MergeJinjaToCloudInitScript(guestCustScriptTemplate, bootstrapJinjaScript)
 		if err != nil {
 			return ctrl.Result{}, errors.Wrapf(err,
-				"unable to merge bootstrap jinja script [%s]", bootstrapJinjaScript)
+				"unable to merge bootstrap jinja script for [%s/%s] [%s]",
+				vAppName, machine.Name, bootstrapJinjaScript)
 		}
 
 		switch {
@@ -877,7 +878,7 @@ func MergeJinjaToCloudInitScript(cloudInitConfig string, jinjaConfig string) ([]
 		}
 	}
 
-	// eat the remaining keys not used in VCD
+	// consume the remaining keys not used in VCD
 	for key, jinjaVal := range jinja {
 		if _, ok := vcdCloudInit[key]; !ok {
 			mergedCloudInit[key] = jinjaVal
