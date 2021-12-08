@@ -12,3 +12,4 @@ loadbalancer:
     http: 80
     https: 443
     tcp: 6443
+managementClusterRDEId: MANGEMENT_CLUSTER_RDE_ID
