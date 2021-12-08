@@ -4,7 +4,7 @@ vcd:
   vdc: "ovdc"
   user: "user"
   secret: "password"
-  network: "ovdc1nw"
+  network: "ovdc_nw"
   vipSubnet: "vipSubnet"
 loadbalancer:
   oneArm:
