@@ -106,6 +106,15 @@ func (r *VCDClusterReconciler) getVCDMachineTemplateFromMachineDeployment(ctx co
 	return vcdMachineTemplate, nil
 }
 
+func (r *VCDClusterReconciler) getMachineListFromCluster(ctx context.Context, cluster clusterv1.Cluster) (*clusterv1.MachineList, error) {
+	machineListLabels := map[string]string{clusterv1.ClusterLabelName: cluster.Name}
+	machineList := &clusterv1.MachineList{}
+	if err := r.Client.List(ctx, machineList, client.InNamespace(cluster.Namespace), client.MatchingLabels(machineListLabels)); err != nil {
+		return nil, errors.Wrapf(err, "error getting machine list for the cluster [%s]", cluster.Name)
+	}
+	return machineList, nil
+}
+
 //+kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=vcdclusters,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=vcdclusters/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=vcdclusters/finalizers,verbs=update
@@ -417,6 +426,20 @@ func (r *VCDClusterReconciler) reconcileRDE(ctx context.Context, cluster *cluste
 	// Updating status portion of the RDE in the following code
 	if !reflect.DeepEqual(clusterApiStatus, capvcdEntity.Status.ClusterAPIStatus) {
 		updatePatch["Status.ClusterAPIStatus"] = clusterApiStatus
+	}
+
+	// update node status. Needed to remove stray nodes which were already deleted
+	machineList, err := r.getMachineListFromCluster(ctx, *cluster)
+	if err != nil {
+		return fmt.Errorf("error getting machine list for cluster with name [%s]: [%v]", cluster.Name, err)
+	}
+
+	updatedNodeStatus := make(map[string]string)
+	for _, machine := range machineList.Items {
+		updatedNodeStatus[machine.Name] = machine.Status.Phase
+	}
+	if !reflect.DeepEqual(updatedNodeStatus, capvcdEntity.Status.NodeStatus) {
+		updatePatch["Status.NodeStatus"] = updatedNodeStatus
 	}
 
 	updatedRDE, err := workloadVCDClient.PatchRDE(ctx, updatePatch, vcdCluster.Status.RDEId)

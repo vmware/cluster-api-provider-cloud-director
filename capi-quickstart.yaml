@@ -29,13 +29,13 @@ metadata:
   name: capi-cluster
   namespace: default
 spec:
-  site: https://bos1-vcloud-static-171-239.eng.vmware.com
-  org: cseorg
-  ovdc: cseorgvdc
-  ovdcNetwork: cseorgvdc_nw
+  site: https://bos1-vcloud-static-170-210.eng.vmware.com
+  org: test_org
+  ovdc: test_orgvdc
+  ovdcNetwork: test_orgvdc_net
   userContext:
-    username: clusteradmin
-    password: ca$hc0w
+    username: user_admin
+    password: vmware
     refreshToken: ""
 ---
 apiVersion: infrastructure.cluster.x-k8s.io/v1alpha4
@@ -46,7 +46,7 @@ metadata:
 spec:
   template:
     spec:
-      catalog: cse
+      catalog: cse-cat
       template: ubuntu-2004-kube-v1.20.8+vmware.1-tkg.1-17589475007677388652
       computePolicy: 2core2gb
 ---
@@ -71,10 +71,8 @@ spec:
       etcd:
         local:
           imageRepository: projects.registry.vmware.com/tkg
-
           imageTag: v3.4.13-vmware.14
       imageRepository: projects.registry.vmware.com/tkg
-      kubernetesVersion: v1.20.8-vmware.1
     initConfiguration:
       nodeRegistration:
         criSocket: /run/containerd/containerd.sock
@@ -101,19 +99,19 @@ spec:
 apiVersion: infrastructure.cluster.x-k8s.io/v1alpha4
 kind: VCDMachineTemplate
 metadata:
-  name: capi-md-0
+  name: capi-md0
   namespace: default
 spec:
   template:
     spec:
-      catalog: cse
+      catalog: cse-cat
       template: ubuntu-2004-kube-v1.20.8+vmware.1-tkg.1-17589475007677388652
-      computePolicy: 2core2gb
+      computePolicy: ""
 ---
 apiVersion: bootstrap.cluster.x-k8s.io/v1alpha4
 kind: KubeadmConfigTemplate
 metadata:
-  name: capi-md-0
+  name: capi-md0
   namespace: default
 spec:
   template:
@@ -129,7 +127,7 @@ spec:
 apiVersion: cluster.x-k8s.io/v1alpha4
 kind: MachineDeployment
 metadata:
-  name: capi-md-0
+  name: capi-md0
   namespace: default
 spec:
   clusterName: capi-cluster
@@ -142,12 +140,12 @@ spec:
         configRef:
           apiVersion: bootstrap.cluster.x-k8s.io/v1alpha4
           kind: KubeadmConfigTemplate
-          name: capi-md-0
+          name: capi-md0
           namespace: default
       clusterName: capi-cluster
       infrastructureRef:
         apiVersion: infrastructure.cluster.x-k8s.io/v1alpha4
         kind: VCDMachineTemplate
-        name: capi-md-0
+        name: capi-md0
         namespace: default
       version: v1.20.8-vmware.1
