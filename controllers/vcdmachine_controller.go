@@ -539,8 +539,8 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 
 	vmStatus, err := vm.GetStatus()
 	if err != nil {
-		klog.Errorf("Failed to get status of vm [%s/%s]", vApp.VApp.Name, vm.VM.Name)
-		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
+		return ctrl.Result{},
+			errors.Wrapf(err, "Failed to get status of vm [%s/%s]", vApp.VApp.Name, vm.VM.Name)
 	}
 
 	if vmStatus != "POWERED_ON" {
@@ -792,7 +792,8 @@ func (r *VCDMachineReconciler) VCDClusterToVCDMachines(o client.Object) []ctrl.R
 	var result []ctrl.Request
 	c, ok := o.(*infrav1.VCDCluster)
 	if !ok {
-		panic(fmt.Sprintf("Expected a VCDCluster but got a %T", o))
+		klog.Errorf("Expected a VCDCluster found [%T]", o)
+		return nil
 	}
 
 	cluster, err := util.GetOwnerCluster(context.TODO(), r.Client, c.ObjectMeta)
