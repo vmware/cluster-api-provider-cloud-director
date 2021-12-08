@@ -203,7 +203,7 @@ func (r *VCDClusterReconciler) constructCapvcdRDE(ctx context.Context, cluster *
 		}
 		topologyControlPlanes = append(topologyControlPlanes, topologyControlPlane)
 		templateName = vcdMachineTemplate.Spec.Template.Spec.Template
-		kubernetesVersion = *kcp.Status.Version
+		kubernetesVersion = kcp.Spec.Version
 	}
 
 	mdList, err := r.getAllMachineDeploymentsForCluster(ctx, *cluster)
@@ -290,6 +290,30 @@ func (r *VCDClusterReconciler) constructCapvcdRDE(ctx context.Context, cluster *
 	return rde, nil
 }
 
+func (r *VCDClusterReconciler) constructAndCreateRDEFromCluster(ctx context.Context, workloadVCDClient *vcdclient.Client, cluster *clusterv1.Cluster, vcdCluster *infrav1.VCDCluster) (string, error) {
+	rde, err := r.constructCapvcdRDE(ctx, cluster, vcdCluster)
+	if err != nil {
+		return "", fmt.Errorf("unable to create defined entity for cluster [%s]: [%v]", vcdCluster.Name, err)
+	}
+	resp, err := workloadVCDClient.ApiClient.DefinedEntityApi.CreateDefinedEntity(ctx, *rde, rde.EntityType, nil)
+	if err != nil {
+		return "", fmt.Errorf("failed to create defined entity for cluster [%s]", vcdCluster.Name)
+	}
+	if resp.StatusCode != http.StatusAccepted {
+		return "", fmt.Errorf("create defined entity call failed for cluster [%s]", vcdCluster.Name)
+	}
+	taskURL := resp.Header.Get(VCDLocationHeader)
+	task := govcd.NewTask(&workloadVCDClient.VcdClient.Client)
+	task.Task.HREF = taskURL
+	err = task.Refresh()
+	if err != nil {
+		return "", fmt.Errorf("error refreshing task: [%s]", task.Task.HREF)
+	}
+	klog.Infof("created defined entity for cluster [%s]. RDE ID: [%s]", vcdCluster.Name,
+		vcdCluster.Status.RDEId)
+	return task.Task.Owner.ID, nil
+}
+
 func (r *VCDClusterReconciler) reconcileRDE(ctx context.Context, cluster *clusterv1.Cluster, vcdCluster *infrav1.VCDCluster, workloadVCDClient *vcdclient.Client) error {
 	updatePatch := make(map[string]interface{})
 	_, capvcdEntity, err := workloadVCDClient.GetCAPVCDEntity(ctx, vcdCluster.Status.RDEId)
@@ -334,7 +358,7 @@ func (r *VCDClusterReconciler) reconcileRDE(ctx context.Context, cluster *cluste
 		}
 		topologyControlPlanes[idx] = topologyControlPlane
 		templateName = vcdMachineTemplate.Spec.Template.Spec.Template
-		kubernetesVersion = *kcp.Status.Version
+		kubernetesVersion = kcp.Spec.Version
 	}
 
 	mdList, err := r.getAllMachineDeploymentsForCluster(ctx, *cluster)
@@ -456,33 +480,11 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		}
 		if err == nil && resp != nil && resp.StatusCode == http.StatusOK {
 			if len(definedEntities.Values) == 0 {
-				rde, err := r.constructCapvcdRDE(ctx, cluster, vcdCluster)
+				rdeID, err := r.constructAndCreateRDEFromCluster(ctx, workloadVCDClient, cluster, vcdCluster)
 				if err != nil {
-					return ctrl.Result{}, errors.Wrapf(err,
-						"unable to create defined entity for cluster [%s]", vcdCluster.Name)
-				}
-
-				resp, err := workloadVCDClient.ApiClient.DefinedEntityApi.CreateDefinedEntity(ctx, *rde, rde.EntityType, nil)
-				if err != nil {
-					return ctrl.Result{}, errors.Wrapf(err, "failed to create defined entity for cluster [%s]",
-						vcdCluster.Name)
-				}
-				if resp == nil {
-					klog.Errorf("obtained an empty response while creating a defined entity for cluster [%s]", vcdCluster.Name)
-				}
-				if resp != nil && resp.StatusCode != http.StatusAccepted {
-					return ctrl.Result{}, errors.Errorf("create defined entity call failed for cluster [%s]", vcdCluster.Name)
-				}
-				taskURL := resp.Header.Get(VCDLocationHeader)
-				task := govcd.NewTask(&workloadVCDClient.VcdClient.Client)
-				task.Task.HREF = taskURL
-				err = task.Refresh()
-				if err == nil {
-					vcdCluster.Status.RDEId = task.Task.Owner.ID
-					klog.Infof("created defined entity for cluster [%s]. RDE ID: [%s]", vcdCluster.Name,
-						vcdCluster.Status.RDEId)
+					klog.Errorf("failed to create RDE from Cluster and VCDCluster objects for cluster [%s]: [%v]", vcdCluster.Name, err)
 				} else {
-					klog.Errorf("error refreshing task: [%s]", task.Task.HREF)
+					vcdCluster.Status.RDEId = rdeID
 				}
 			} else {
 				klog.Infof("defined entity for cluster [%s] already present. RDE ID: [%s]", vcdCluster.Name,

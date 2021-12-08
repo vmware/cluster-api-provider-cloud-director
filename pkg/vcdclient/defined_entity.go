@@ -18,8 +18,8 @@ const (
 	MaxUpdateRetries = 10
 )
 
-// SetIsManagementCluster: sets the isManagementCluster flag in RDE for the management cluster
-func (client *Client) SetIsManagementCluster(ctx context.Context) error {
+// SetIsManagementClusterInRDE: sets the isManagementCluster flag in RDE for the management cluster
+func (client *Client) SetIsManagementClusterInRDE(ctx context.Context) error {
 	if client.ManagementClusterRDEId == "" {
 		klog.Infof("RDE ID for the management cluster not found. Skip setting isManagementCluster flag for the RDE.")
 		return nil
