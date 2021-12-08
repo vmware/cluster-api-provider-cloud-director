@@ -225,6 +225,7 @@ func (r *VCDMachineReconciler) waitForPostCustomizationPhase(workloadVCDClient *
 	possibleStatuses := []string{"", "in_progress", "successful"}
 	currentStatus := possibleStatuses[0]
 	for {
+		klog.Infof("waiting for control plane phase : [%s]", phase)
 		if err := vm.Refresh(); err != nil {
 			return errors.Wrapf(err, "unable to refresh vm [%s]: [%v]", vm.VM.Name, err)
 		}
@@ -277,7 +278,7 @@ func (r *VCDMachineReconciler) waitForPostCustomizationPhase(workloadVCDClient *
 
 }
 
-func (r *VCDMachineReconciler) syncNodeInRDE(ctx context.Context, rdeID string, nodeName string, status string,
+func (r *VCDMachineReconciler) reconcileNodeStatusInRDE(ctx context.Context, rdeID string, nodeName string, status string,
 	workloadVCDClient *vcdclient.Client) error {
 	if rdeID == "" {
 		return fmt.Errorf("cannot update RDE as defined entity ID is empty")
@@ -291,7 +292,6 @@ func (r *VCDMachineReconciler) syncNodeInRDE(ctx context.Context, rdeID string, 
 	nodeStatusMap := capvcdEntity.Status.NodeStatus
 	if nodeStatus, ok := nodeStatusMap[nodeName]; ok && nodeStatus == status {
 		// no update needed
-
 		return nil
 	}
 	if nodeStatusMap == nil {
@@ -332,13 +332,13 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	workloadVCDClient, err := vcdclient.NewVCDClientFromSecrets(vcdCluster.Spec.Site, vcdCluster.Spec.Org,
 		vcdCluster.Spec.Ovdc, vcdCluster.Spec.OvdcNetwork, r.VcdClient.IPAMSubnet,
 		vcdCluster.Spec.UserCredentialsContext.Username, vcdCluster.Spec.UserCredentialsContext.Password, true,
-		"", r.VcdClient.OneArm, 0, 0, r.VcdClient.TCPPort, true)
+		vcdCluster.Status.RDEId, r.VcdClient.OneArm, 0, 0, r.VcdClient.TCPPort, true, "")
 	if err != nil {
 		return ctrl.Result{}, errors.Wrapf(err, "unable to create client for workload cluster")
 	}
 
 	if vcdMachine.Spec.ProviderID != nil {
-		err := r.syncNodeInRDE(ctx, vcdCluster.Status.ClusterRDEId, vcdMachine.Name, machine.Status.Phase,
+		err := r.reconcileNodeStatusInRDE(ctx, vcdCluster.Status.RDEId, machine.Name, machine.Status.Phase,
 			workloadVCDClient)
 		if err != nil {
 			klog.Errorf("failed to add VCDMachine [%s] to node status: [%v]", vcdMachine.Name, err)
@@ -348,7 +348,7 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		conditions.MarkTrue(vcdMachine, infrav1.ContainerProvisionedCondition)
 		return ctrl.Result{}, nil
 	}
-	err = r.syncNodeInRDE(ctx, vcdCluster.Status.ClusterRDEId, vcdMachine.Name, machine.Status.Phase,
+	err = r.reconcileNodeStatusInRDE(ctx, vcdCluster.Status.RDEId, machine.Name, machine.Status.Phase,
 		workloadVCDClient)
 	if err != nil {
 		klog.Errorf("failed to add VCDMachine [%s] to node status", vcdMachine.Name)
@@ -539,7 +539,7 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	// Update loadbalancer pool with the IP of the control plane node as a new member.
 	// Note that this must be done before booting on the VM!
 	if util.IsControlPlaneMachine(machine) {
-		lbPoolName := vcdCluster.Name + "-" + vcdCluster.Status.ClusterRDEId + "-tcp"
+		lbPoolName := vcdCluster.Name + "-" + vcdCluster.Status.RDEId + "-tcp"
 		lbPoolRef, err := gateway.GetLoadBalancerPool(ctx, lbPoolName)
 		if err != nil {
 			return ctrl.Result{}, errors.Wrapf(err, "Failed to get load balancer pool by name [%s]: [%v]", lbPoolName, err)
@@ -592,7 +592,6 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 
 			klog.Infof("Completed setting [%s] for [%s/%s]", key, vAppName, vm.VM.Name)
 		}
-
 		task, err := vm.PowerOn()
 		if err != nil {
 			return ctrl.Result{}, errors.Wrapf(err, "unable to power on [%s]: [%v]", vm.VM.Name, err)
@@ -640,7 +639,7 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	vcdMachine.Spec.ProviderID = &providerID
 	vcdMachine.Status.Ready = true
 	conditions.MarkTrue(vcdMachine, infrav1.ContainerProvisionedCondition)
-	err = r.syncNodeInRDE(ctx, vcdCluster.Status.ClusterRDEId, vcdMachine.Name, machine.Status.Phase, workloadVCDClient)
+	err = r.reconcileNodeStatusInRDE(ctx, vcdCluster.Status.RDEId, machine.Name, machine.Status.Phase, workloadVCDClient)
 	if err != nil {
 		klog.Errorf("failed to add VCDMachine [%s] to node status", vcdMachine.Name)
 	}
@@ -686,7 +685,7 @@ func (r *VCDMachineReconciler) reconcileDelete(ctx context.Context, cluster *clu
 	workloadVCDClient, err := vcdclient.NewVCDClientFromSecrets(vcdCluster.Spec.Site, vcdCluster.Spec.Org,
 		vcdCluster.Spec.Ovdc, vcdCluster.Spec.OvdcNetwork, r.VcdClient.IPAMSubnet,
 		vcdCluster.Spec.UserCredentialsContext.Username, vcdCluster.Spec.UserCredentialsContext.Password, true,
-		"", r.VcdClient.OneArm, 0, 0, r.VcdClient.TCPPort, true)
+		"", r.VcdClient.OneArm, 0, 0, r.VcdClient.TCPPort, true, "")
 	if err != nil {
 		return ctrl.Result{}, errors.Wrapf(err, "unable to create client for workload cluster")
 	}
@@ -770,6 +769,11 @@ func (r *VCDMachineReconciler) reconcileDelete(ctx context.Context, cluster *clu
 			}
 		}
 		klog.Infof("successfully deleted VM [%s]", machine.Name)
+	}
+
+	err = r.reconcileNodeStatusInRDE(ctx, vcdCluster.Status.RDEId, machine.Name, machine.Status.Phase, workloadVCDClient)
+	if err != nil {
+		klog.Errorf("failed to add VCDMachine [%s] to node status: [%v]", vcdMachine.Name, err)
 	}
 
 	controllerutil.RemoveFinalizer(vcdMachine, infrav1.MachineFinalizer)

@@ -24,7 +24,7 @@ func (client *Client) GetCatalogByName(orgName string, catalogName string) (*gov
 	}
 	catalog, err := org.GetCatalogByName(catalogName, true)
 	if err != nil {
-		return catalog, fmt.Errorf("unable to find catalog [%s] in org [%s]", orgName, catalogName)
+		return catalog, fmt.Errorf("unable to find catalog [%s] in org [%s]", catalogName, orgName)
 	}
 	return catalog, nil
 }

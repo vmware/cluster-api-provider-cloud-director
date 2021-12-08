@@ -236,8 +236,8 @@ type Distribution struct {
 }
 
 type Topology struct {
-	ControlPlane ControlPlane `json:"controlPlane,omitempty"`
-	Workers      Workers      `json:"workers,omitempty"`
+	ControlPlane []ControlPlane `json:"controlPlane,omitempty"`
+	Workers      []Workers      `json:"workers,omitempty"`
 }
 
 type Cni struct {
@@ -283,15 +283,16 @@ type ClusterApiStatus struct {
 }
 
 type Status struct {
-	Phase             string            `json:"phase,omitempty"`
-	Cni               string            `json:"cni,omitempty"`
-	Kubernetes        string            `json:"kubernetes,omitempty"`
-	Uid               string            `json:"uid,omitempty"`
-	ClusterAPIStatus  ClusterApiStatus  `json:"clusterApiStatus,omitempty"`
-	CloudProperties   CloudProperties   `json:"cloudProperties,omitempty"`
-	PersistentVolumes []string          `json:"persistentVolumes,omitempty"`
-	VirtualIPs        []string          `json:"virtualIPs,omitempty"`
-	NodeStatus        map[string]string `json:"nodeStatus,omitempty"`
+	Phase               string            `json:"phase,omitempty"`
+	Kubernetes          string            `json:"kubernetes,omitempty"`
+	Uid                 string            `json:"uid,omitempty"`
+	ClusterAPIStatus    ClusterApiStatus  `json:"clusterApiStatus,omitempty"`
+	CloudProperties     CloudProperties   `json:"cloudProperties,omitempty"`
+	PersistentVolumes   []string          `json:"persistentVolumes,omitempty"`
+	VirtualIPs          []string          `json:"virtualIPs,omitempty"`
+	NodeStatus          map[string]string `json:"nodeStatus,omitempty"`
+	ParentUID           string            `json:"parentUid,omitempty"`
+	IsManagementCluster bool              `json:"isManagementCluster,omitempty"`
 }
 
 type ClusterSpec struct {

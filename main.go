@@ -33,6 +33,7 @@ import (
 	infrastructurev1alpha4 "github.com/vmware/cluster-api-provider-cloud-director/api/v1alpha4"
 	infrav1 "github.com/vmware/cluster-api-provider-cloud-director/api/v1alpha4"
 	"github.com/vmware/cluster-api-provider-cloud-director/controllers"
+	kcpv1 "sigs.k8s.io/cluster-api/controlplane/kubeadm/api/v1alpha4"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -48,6 +49,7 @@ func init() {
 	utilruntime.Must(infrav1.AddToScheme(myscheme))
 
 	utilruntime.Must(clusterv1.AddToScheme(myscheme))
+	utilruntime.Must(kcpv1.AddToScheme(myscheme))
 	utilruntime.Must(infrastructurev1alpha4.AddToScheme(myscheme))
 	//+kubebuilder:scaffold:scheme
 }
@@ -98,6 +100,7 @@ func getVcdClientFromConfig(inputMap map[string]interface{}) (*vcdclient.Client,
 		cloudConfig.LB.Ports.HTTPS,
 		cloudConfig.LB.Ports.TCP,
 		getVdcClient,
+		cloudConfig.ManagementClusterRDEId,
 	)
 }
 
@@ -180,5 +183,12 @@ func main() {
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
 		setupLog.Error(err, "problem running manager")
 		os.Exit(1)
+	}
+
+	err = vcdClient.SetIsManagementClusterInRDE(ctx)
+	if err != nil {
+		setupLog.Error(err, "unable to set isManagementCluster flag")
+	} else {
+		setupLog.Info("successfully set isManagementCLuster flag in RDE: [%s]", vcdClient.ManagementClusterRDEId)
 	}
 }

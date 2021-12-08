@@ -41,20 +41,21 @@ type OneArm struct {
 
 // Client :
 type Client struct {
-	VcdAuthConfig      *VCDAuthConfig
-	VcdClient          *govcd.VCDClient
-	Vdc                *govcd.Vdc
-	ApiClient          *swaggerClient.APIClient
-	NetworkName        string
-	ClusterID          string
-	OneArm             *OneArm
-	HTTPPort           int32
-	HTTPSPort          int32
-	TCPPort            int32
-	IPAMSubnet         string
-	GatewayRef         *swaggerClient.EntityReference
-	NetworkBackingType swaggerClient.BackingNetworkType
-	rwLock             sync.RWMutex
+	VcdAuthConfig          *VCDAuthConfig
+	VcdClient              *govcd.VCDClient
+	Vdc                    *govcd.Vdc
+	ApiClient              *swaggerClient.APIClient
+	NetworkName            string
+	ClusterID              string
+	OneArm                 *OneArm
+	HTTPPort               int32
+	HTTPSPort              int32
+	TCPPort                int32
+	IPAMSubnet             string
+	GatewayRef             *swaggerClient.EntityReference
+	NetworkBackingType     swaggerClient.BackingNetworkType
+	ManagementClusterRDEId string
+	rwLock                 sync.RWMutex
 }
 
 // RefreshToken will check if can authenticate and rebuild clients if needed
@@ -94,7 +95,7 @@ func (client *Client) RefreshToken() error {
 func NewVCDClientFromSecrets(host string, orgName string, vdcName string,
 	networkName string, ipamSubnet string, user string, password string,
 	insecure bool, clusterID string, oneArm *OneArm, httpPort int32,
-	httpsPort int32, tcpPort int32, getVdcClient bool) (*Client, error) {
+	httpsPort int32, tcpPort int32, getVdcClient bool, managementClusterRDEId string) (*Client, error) {
 
 	// TODO: validation of parameters
 
@@ -175,6 +176,7 @@ func NewVCDClientFromSecrets(host string, orgName string, vdcName string,
 		}
 		klog.Infof("Cached gateway details [%#v] successfully\n", client.GatewayRef)
 	}
+	client.ManagementClusterRDEId = managementClusterRDEId
 	clientSingleton = client
 
 	return clientSingleton, nil
