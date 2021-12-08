@@ -433,17 +433,17 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 				b64Password,                    // base64 password
 				b64RefreshToken,                // refresh token
 				vcdHostFormatted,               // vcd host
-				r.VcdClient.VcdAuthConfig.Org,  // org
-				r.VcdClient.VcdAuthConfig.VDC,  // ovdc
-				r.VcdClient.NetworkName,        // network
+				workloadVCDClient.VcdAuthConfig.Org,  // org
+				workloadVCDClient.VcdAuthConfig.VDC,  // ovdc
+				workloadVCDClient.NetworkName,        // network
 				"",                             // vip subnet cidr - empty for now for CPI to select subnet
 				vAppName,                       // vApp name
-				r.VcdClient.ClusterID,          // cluster id
+				workloadVCDClient.ClusterID,          // cluster id
 				vcdHostFormatted,               // vcd host,
-				r.VcdClient.VcdAuthConfig.Org,  // org
-				r.VcdClient.VcdAuthConfig.VDC,  // ovdc
+				workloadVCDClient.VcdAuthConfig.Org,  // org
+				workloadVCDClient.VcdAuthConfig.VDC,  // ovdc
 				vAppName,                       // vApp
-				r.VcdClient.ClusterID,          // cluster id
+				workloadVCDClient.ClusterID,          // cluster id
 				machine.Name,                   // vm host name
 			)
 
