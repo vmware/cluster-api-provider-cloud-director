@@ -428,23 +428,23 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 			b64RefreshToken := b64.StdEncoding.EncodeToString([]byte(vcdCluster.Spec.UserCredentialsContext.RefreshToken))
 			vcdHostFormatted := strings.Replace(vcdCluster.Spec.Site, "/", "\\/", -1)
 			cloudInitScript = fmt.Sprintf(
-				string(mergedCloudConfigBytes), // template script
-				b64OrgUser,                     // base 64 org/username
-				b64Password,                    // base64 password
-				b64RefreshToken,                // refresh token
-				vcdHostFormatted,               // vcd host
-				workloadVCDClient.VcdAuthConfig.Org,  // org
-				workloadVCDClient.VcdAuthConfig.VDC,  // ovdc
-				workloadVCDClient.NetworkName,        // network
-				"",                             // vip subnet cidr - empty for now for CPI to select subnet
-				vAppName,                       // vApp name
-				workloadVCDClient.ClusterID,          // cluster id
-				vcdHostFormatted,               // vcd host,
-				workloadVCDClient.VcdAuthConfig.Org,  // org
-				workloadVCDClient.VcdAuthConfig.VDC,  // ovdc
-				vAppName,                       // vApp
-				workloadVCDClient.ClusterID,          // cluster id
-				machine.Name,                   // vm host name
+				string(mergedCloudConfigBytes),      // template script
+				b64OrgUser,                          // base 64 org/username
+				b64Password,                         // base64 password
+				b64RefreshToken,                     // refresh token
+				vcdHostFormatted,                    // vcd host
+				workloadVCDClient.VcdAuthConfig.Org, // org
+				workloadVCDClient.VcdAuthConfig.VDC, // ovdc
+				workloadVCDClient.NetworkName,       // network
+				"",                                  // vip subnet cidr - empty for now for CPI to select subnet
+				vAppName,                            // vApp name
+				workloadVCDClient.ClusterID,         // cluster id
+				vcdHostFormatted,                    // vcd host,
+				workloadVCDClient.VcdAuthConfig.Org, // org
+				workloadVCDClient.VcdAuthConfig.VDC, // ovdc
+				vAppName,                            // vApp
+				workloadVCDClient.ClusterID,         // cluster id
+				machine.Name,                        // vm host name
 			)
 
 		default:
