@@ -856,7 +856,8 @@ func MergeJinjaToCloudInitScript(cloudInitConfig string, jinjaConfig string) ([]
 
 	vcdCloudInit := make(map[string]interface{})
 	if err := yaml.Unmarshal([]byte(cloudInitModified), &vcdCloudInit); err != nil {
-		panic(err)
+		return nil, fmt.Errorf("unable to unmarshal cloud init with embedded jinja script: [%v]: [%v]",
+			cloudInitModified, err)
 	}
 
 	mergedCloudInit := make(map[string]interface{})
