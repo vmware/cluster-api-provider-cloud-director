@@ -188,5 +188,7 @@ func main() {
 	err = vcdClient.SetIsManagementClusterInRDE(ctx)
 	if err != nil {
 		setupLog.Error(err, "unable to set isManagementCluster flag")
+	} else {
+		setupLog.Info("successfully set isManagementCLuster flag in RDE: [%s]", vcdClient.ManagementClusterRDEId)
 	}
 }

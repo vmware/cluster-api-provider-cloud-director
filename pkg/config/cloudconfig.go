@@ -62,7 +62,7 @@ type CloudConfig struct {
 	VCD                    VCDConfig `yaml:"vcd"`
 	ClusterID              string    `yaml:"clusterid"`
 	LB                     LBConfig  `yaml:"loadbalancer"`
-	ManagementClusterRDEId string    `yaml:"ManagementClusterRDEId,omitempty"`
+	ManagementClusterRDEId string    `yaml:"managementClusterRDEId,omitempty"`
 }
 
 func getUserAndOrg(fullUserName string, clusterOrg string) (userOrg string, userName string, err error) {
