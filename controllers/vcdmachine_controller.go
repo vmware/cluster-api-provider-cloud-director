@@ -278,7 +278,7 @@ func (r *VCDMachineReconciler) waitForPostCustomizationPhase(workloadVCDClient *
 
 }
 
-func (r *VCDMachineReconciler) syncNodeInRDE(ctx context.Context, rdeID string, nodeName string, status string,
+func (r *VCDMachineReconciler) reconcileNodeStatusInRDE(ctx context.Context, rdeID string, nodeName string, status string,
 	workloadVCDClient *vcdclient.Client) error {
 	if rdeID == "" {
 		return fmt.Errorf("cannot update RDE as defined entity ID is empty")
@@ -338,7 +338,7 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	}
 
 	if vcdMachine.Spec.ProviderID != nil {
-		err := r.syncNodeInRDE(ctx, vcdCluster.Status.RDEId, vcdMachine.Name, machine.Status.Phase,
+		err := r.reconcileNodeStatusInRDE(ctx, vcdCluster.Status.RDEId, vcdMachine.Name, machine.Status.Phase,
 			workloadVCDClient)
 		if err != nil {
 			klog.Errorf("failed to add VCDMachine [%s] to node status: [%v]", vcdMachine.Name, err)
@@ -348,7 +348,7 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		conditions.MarkTrue(vcdMachine, infrav1.ContainerProvisionedCondition)
 		return ctrl.Result{}, nil
 	}
-	err = r.syncNodeInRDE(ctx, vcdCluster.Status.RDEId, vcdMachine.Name, machine.Status.Phase,
+	err = r.reconcileNodeStatusInRDE(ctx, vcdCluster.Status.RDEId, vcdMachine.Name, machine.Status.Phase,
 		workloadVCDClient)
 	if err != nil {
 		klog.Errorf("failed to add VCDMachine [%s] to node status", vcdMachine.Name)
@@ -635,7 +635,7 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	vcdMachine.Spec.ProviderID = &providerID
 	vcdMachine.Status.Ready = true
 	conditions.MarkTrue(vcdMachine, infrav1.ContainerProvisionedCondition)
-	err = r.syncNodeInRDE(ctx, vcdCluster.Status.RDEId, vcdMachine.Name, machine.Status.Phase, workloadVCDClient)
+	err = r.reconcileNodeStatusInRDE(ctx, vcdCluster.Status.RDEId, vcdMachine.Name, machine.Status.Phase, workloadVCDClient)
 	if err != nil {
 		klog.Errorf("failed to add VCDMachine [%s] to node status", vcdMachine.Name)
 	}
@@ -767,7 +767,7 @@ func (r *VCDMachineReconciler) reconcileDelete(ctx context.Context, cluster *clu
 		klog.Infof("successfully deleted VM [%s]", machine.Name)
 	}
 
-	err = r.syncNodeInRDE(ctx, vcdCluster.Status.RDEId, vcdMachine.Name, machine.Status.Phase, workloadVCDClient)
+	err = r.reconcileNodeStatusInRDE(ctx, vcdCluster.Status.RDEId, vcdMachine.Name, machine.Status.Phase, workloadVCDClient)
 	if err != nil {
 		klog.Errorf("failed to add VCDMachine [%s] to node status: [%v]", vcdMachine.Name, err)
 	}
