@@ -1,71 +1,92 @@
 apiVersion: cluster.x-k8s.io/v1alpha4
 kind: Cluster
 metadata:
-  name: capvcd
+  name: capi-cluster
   namespace: default
 spec:
   clusterNetwork:
     pods:
       cidrBlocks:
-        - 192.168.0.0/16
+      - 192.168.0.0/16
     serviceDomain: k8s.test
     services:
       cidrBlocks:
-        - 10.96.0.0/12
+      - 10.96.0.0/12
   controlPlaneRef:
     apiVersion: controlplane.cluster.x-k8s.io/v1alpha4
     kind: KubeadmControlPlane
-    name: capvcd-control-plane
+    name: capi-control-plane
     namespace: default
   infrastructureRef:
     apiVersion: infrastructure.cluster.x-k8s.io/v1alpha4
     kind: VCDCluster
-    name: capvcd
+    name: capi-cluster
     namespace: default
 ---
 apiVersion: infrastructure.cluster.x-k8s.io/v1alpha4
 kind: VCDCluster
 metadata:
-  name: capvcd
+  name: capi-cluster
   namespace: default
+spec:
+  site: https://bos1-vcloud-static-170-210.eng.vmware.com
+  org: test_org
+  ovdc: test_orgvdc
+  ovdcNetwork: test_orgvdc_net
+  userContext:
+    username: user_admin
+    password: vmware
+    refreshToken: ""
 ---
 apiVersion: infrastructure.cluster.x-k8s.io/v1alpha4
 kind: VCDMachineTemplate
 metadata:
-  name: capvcd-control-plane
+  name: capi-control-plane
   namespace: default
 spec:
   template:
     spec:
-      catalog: cse
-      template: ubuntu-16.04_k8-1.21_weave-2.8.1_rev1
+      catalog: cse-cat
+      template: ubuntu-2004-kube-v1.20.8+vmware.1-tkg.1-17589475007677388652
       computePolicy: 2core2gb
 ---
 apiVersion: controlplane.cluster.x-k8s.io/v1alpha4
 kind: KubeadmControlPlane
 metadata:
-  name: capvcd-control-plane
+  name: capi-control-plane
   namespace: default
 spec:
   kubeadmConfigSpec:
     clusterConfiguration:
       apiServer:
         certSANs:
-          - localhost
-          - 127.0.0.1
+        - localhost
+        - 127.0.0.1
       controllerManager:
         extraArgs:
           enable-hostpath-provisioner: "true"
+      dns:
+        imageRepository: projects.registry.vmware.com/tkg
+        imageTag: v1.7.0-vmware.12
+      etcd:
+        local:
+          imageRepository: projects.registry.vmware.com/tkg
+          imageTag: v3.4.13-vmware.14
+      imageRepository: projects.registry.vmware.com/tkg
+    users:
+    - name: root
+      sshAuthorizedKeys:
+      - "ssh-key"
     initConfiguration:
       nodeRegistration:
-        criSocket: /var/run/dockershim.sock
+        criSocket: /run/containerd/containerd.sock
         kubeletExtraArgs:
           cgroup-driver: cgroupfs
           eviction-hard: nodefs.available<0%,nodefs.inodesFree<0%,imagefs.available<0%
           cloud-provider: external
     joinConfiguration:
       nodeRegistration:
-        criSocket: /var/run/dockershim.sock
+        criSocket: /run/containerd/containerd.sock
         kubeletExtraArgs:
           cgroup-driver: cgroupfs
           eviction-hard: nodefs.available<0%,nodefs.inodesFree<0%,imagefs.available<0%
@@ -74,33 +95,38 @@ spec:
     infrastructureRef:
       apiVersion: infrastructure.cluster.x-k8s.io/v1alpha4
       kind: VCDMachineTemplate
-      name: capvcd-control-plane
+      name: capi-control-plane
       namespace: default
-  replicas: 3
-  version: v1.21.2
+  replicas: 1
+  version: v1.20.8-vmware.1
 ---
 apiVersion: infrastructure.cluster.x-k8s.io/v1alpha4
 kind: VCDMachineTemplate
 metadata:
-  name: capvcd-md-0
+  name: capi-md0
   namespace: default
 spec:
   template:
     spec:
-      catalog: cse
-      template: ubuntu-16.04_k8-1.21_weave-2.8.1_rev1
-      computePolicy: 2core2gb
+      catalog: cse-cat
+      template: ubuntu-2004-kube-v1.20.8+vmware.1-tkg.1-17589475007677388652
+      computePolicy: ""
 ---
 apiVersion: bootstrap.cluster.x-k8s.io/v1alpha4
 kind: KubeadmConfigTemplate
 metadata:
-  name: capvcd-md-0
+  name: capi-md0
   namespace: default
 spec:
   template:
     spec:
+      users:
+      - name: root
+        sshAuthorizedKeys:
+        - "ssh-key"
       joinConfiguration:
         nodeRegistration:
+          criSocket: /run/containerd/containerd.sock
           kubeletExtraArgs:
             cgroup-driver: cgroupfs
             eviction-hard: nodefs.available<0%,nodefs.inodesFree<0%,imagefs.available<0%
@@ -109,10 +135,10 @@ spec:
 apiVersion: cluster.x-k8s.io/v1alpha4
 kind: MachineDeployment
 metadata:
-  name: capvcd-md-0
+  name: capi-md0
   namespace: default
 spec:
-  clusterName: capvcd
+  clusterName: capi-cluster
   replicas: 1
   selector:
     matchLabels: null
@@ -122,12 +148,12 @@ spec:
         configRef:
           apiVersion: bootstrap.cluster.x-k8s.io/v1alpha4
           kind: KubeadmConfigTemplate
-          name: capvcd-md-0
+          name: capi-md0
           namespace: default
-      clusterName: capvcd
+      clusterName: capi-cluster
       infrastructureRef:
         apiVersion: infrastructure.cluster.x-k8s.io/v1alpha4
         kind: VCDMachineTemplate
-        name: capvcd-md-0
+        name: capi-md0
         namespace: default
-      version: v1.21.2
+      version: v1.20.8-vmware.1

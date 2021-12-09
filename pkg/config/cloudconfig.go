@@ -15,6 +15,7 @@ import (
 	yaml "gopkg.in/yaml.v2"
 	"io"
 	"io/ioutil"
+	"k8s.io/klog"
 	"os"
 	"strings"
 )
