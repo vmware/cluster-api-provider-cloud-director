@@ -262,15 +262,13 @@ type Network struct {
 
 type Settings struct {
 	OvdcNetwork string  `json:"ovdcNetwork,omitempty"`
-	SshKey      string  `json:"sshKey,omitempty"`
 	Network     Network `json:"network,omitempty"`
 }
 
 type CloudProperties struct {
-	Site   string `json:"site,omitempty"`
-	Org    string `json:"orgName,omitempty"`
-	Vdc    string `json:"virtualDataCenterName,omitempty"`
-	SshKey string `json:"sshKey,omitempty"`
+	Site string `json:"site,omitempty"`
+	Org  string `json:"orgName,omitempty"`
+	Vdc  string `json:"virtualDataCenterName,omitempty"`
 }
 
 type ApiEndpoints struct {

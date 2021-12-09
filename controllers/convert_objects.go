@@ -33,23 +33,23 @@ func yamlWithoutStatus(obj interface{}) (string, error) {
 	}
 
 	if _, ok := objMap["typemeta"]; ok {
-		typeMetaMap, ok := objMap["typemeta"].(map[string]interface{})
+		typeMetaMap, ok := objMap["typemeta"].(map[interface{}]interface{})
 		if !ok {
-			return "", fmt.Errorf("failed to convert typemeta [%v] to map[string]interface{}: [%v]", objMap["typemeta"], err)
+			return "", fmt.Errorf("failed to convert typemeta [%v] to map[interface{}]interface{}: [%v]", objMap["typemeta"], err)
 		}
 		for k, v := range typeMetaMap {
-			objMap[k] = v
+			objMap[k.(string)] = v
 		}
 		delete(objMap, "typemeta")
 	}
 
 	if _, ok := objMap["objectmeta"]; ok {
-		objectMetaMap, ok := objMap["objectmeta"].(map[string]interface{})
+		objectMetaMap, ok := objMap["objectmeta"].(map[interface{}]interface{})
 		if !ok {
-			return "", fmt.Errorf("failed to convert objectmeta [%v] to map[string]interface{}: [%v]", objMap["objectmeta"], err)
+			return "", fmt.Errorf("failed to convert objectmeta [%v] to map[interface{}]interface{}: [%v]", objMap["objectmeta"], err)
 		}
 		for k, _ := range objectMetaMap {
-			if k != "name" && k != "namespace" {
+			if k.(string) != "name" && k.(string) != "namespace" {
 				delete(objectMetaMap, k)
 			}
 		}
@@ -58,7 +58,7 @@ func yamlWithoutStatus(obj interface{}) (string, error) {
 	}
 
 	// marshal back to a string
-	output, err := yaml.Marshal(obj)
+	output, err := yaml.Marshal(objMap)
 	if err != nil {
 		return "", fmt.Errorf("failed to marshal modified object: [%v]", err)
 	}

@@ -128,10 +128,6 @@
               "type": "string",
               "description": "Name of the Organization's virtual data center network"
             },
-            "sshKey": {
-              "type": "string",
-              "description": "The ssh key that users can use to log into the node VMs without explicitly providing passwords."
-            },
             "network": {
               "$ref": "#/definitions/network"
             }
@@ -254,10 +250,6 @@
             "ovdcNetworkName": {
               "type": "string",
               "description": "The name of the Organization Virtual data center network to which cluster is connected."
-            },
-            "sshKey": {
-              "type": "string",
-              "description": "The ssh key that users can use to log into the node VMs without explicitly providing passwords."
             },
             "site": {
               "type": "string",
