@@ -10,6 +10,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"sigs.k8s.io/cluster-api/bootstrap/kubeadm/api/v1alpha4"
 	"time"
 
 	"k8s.io/klog"
@@ -51,6 +52,7 @@ func init() {
 	utilruntime.Must(clusterv1.AddToScheme(myscheme))
 	utilruntime.Must(kcpv1.AddToScheme(myscheme))
 	utilruntime.Must(infrastructurev1alpha4.AddToScheme(myscheme))
+	utilruntime.Must(v1alpha4.AddToScheme(myscheme))
 	//+kubebuilder:scaffold:scheme
 }
 

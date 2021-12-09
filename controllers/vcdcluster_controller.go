@@ -206,8 +206,8 @@ func (r *VCDClusterReconciler) constructCapvcdRDE(ctx context.Context, cluster *
 			return nil, fmt.Errorf("error getting the VCDMachineTemplate object from KCP [%s] for cluster [%s]: [%v]", kcp.Name, cluster.Name, err)
 		}
 		topologyControlPlane := vcdtypes.ControlPlane{
-			Count:       *kcp.Spec.Replicas,
-			SizingClass: vcdMachineTemplate.Spec.Template.Spec.ComputePolicy,
+			Count:        *kcp.Spec.Replicas,
+			SizingClass:  vcdMachineTemplate.Spec.Template.Spec.ComputePolicy,
 			TemplateName: vcdMachineTemplate.Spec.Template.Spec.Template,
 		}
 		topologyControlPlanes = append(topologyControlPlanes, topologyControlPlane)
@@ -225,8 +225,8 @@ func (r *VCDClusterReconciler) constructCapvcdRDE(ctx context.Context, cluster *
 			return nil, fmt.Errorf("error getting the VCDMachineTemplate object from MachineDeployment [%s] for cluster [%s]: [%v]", md.Name, cluster.Name, err)
 		}
 		topologyWorker := vcdtypes.Workers{
-			Count:       *md.Spec.Replicas,
-			SizingClass: vcdMachineTemplate.Spec.Template.Spec.ComputePolicy,
+			Count:        *md.Spec.Replicas,
+			SizingClass:  vcdMachineTemplate.Spec.Template.Spec.ComputePolicy,
 			TemplateName: vcdMachineTemplate.Spec.Template.Spec.Template,
 		}
 		topologyWorkers = append(topologyWorkers, topologyWorker)
@@ -269,13 +269,13 @@ func (r *VCDClusterReconciler) constructCapvcdRDE(ctx context.Context, cluster *
 			},
 		},
 		Status: vcdtypes.Status{
-			Phase:      ClusterApiStatusPhaseNotReady,
+			Phase: ClusterApiStatusPhaseNotReady,
 			// TODO: Discuss with sahithi if "kubernetes" needs to be removed from the RDE.
 			Kubernetes: kubernetesVersion,
 			CloudProperties: vcdtypes.CloudProperties{
-				Site: vcdCluster.Spec.Site,
-				Org:  org,
-				Vdc:  vdc,
+				Site:   vcdCluster.Spec.Site,
+				Org:    org,
+				Vdc:    vdc,
 				SshKey: "", // TODO: Should add ssh key as part of vcdCluster representation
 			},
 			ClusterAPIStatus: vcdtypes.ClusterApiStatus{
@@ -284,7 +284,7 @@ func (r *VCDClusterReconciler) constructCapvcdRDE(ctx context.Context, cluster *
 			},
 			NodeStatus:          make(map[string]string),
 			IsManagementCluster: false,
-			CapvcdVersion: "0.5.0", // TODO: Discuss with Arun on how to get the CAPVCD version.
+			CapvcdVersion:       "0.5.0", // TODO: Discuss with Arun on how to get the CAPVCD version.
 		},
 	}
 
@@ -360,8 +360,8 @@ func (r *VCDClusterReconciler) reconcileRDE(ctx context.Context, cluster *cluste
 			return fmt.Errorf("error getting VCDMachineTemplate from KCP [%s] for cluster [%s]: [%v]", kcp.Name, cluster.Name, err)
 		}
 		topologyControlPlane := vcdtypes.ControlPlane{
-			Count:       *kcp.Spec.Replicas,
-			SizingClass: vcdMachineTemplate.Spec.Template.Spec.ComputePolicy,
+			Count:        *kcp.Spec.Replicas,
+			SizingClass:  vcdMachineTemplate.Spec.Template.Spec.ComputePolicy,
 			TemplateName: vcdMachineTemplate.Spec.Template.Spec.Template,
 		}
 		topologyControlPlanes[idx] = topologyControlPlane
@@ -379,8 +379,8 @@ func (r *VCDClusterReconciler) reconcileRDE(ctx context.Context, cluster *cluste
 			return fmt.Errorf("error getting VCDMachineTemplate from MachineDeployment [%s] for cluster [%s]: [%v]", md.Name, cluster.Name, err)
 		}
 		topologyWorker := vcdtypes.Workers{
-			Count:       *md.Spec.Replicas,
-			SizingClass: vcdMachineTemplate.Spec.Template.Spec.ComputePolicy,
+			Count:        *md.Spec.Replicas,
+			SizingClass:  vcdMachineTemplate.Spec.Template.Spec.ComputePolicy,
 			TemplateName: vcdMachineTemplate.Spec.Template.Spec.Template,
 		}
 		topologyWorkers[idx] = topologyWorker
@@ -393,11 +393,11 @@ func (r *VCDClusterReconciler) reconcileRDE(ctx context.Context, cluster *cluste
 	if !reflect.DeepEqual(capvcdEntity.Spec.Topology.Workers, topologyWorkers) {
 		updatePatch["Spec.Topology.Workers"] = topologyWorkers
 	}
-
-	capiYaml, err := r.getCapiYaml(vcdCluster, cluster)
+	capiYaml, err := getCapiYaml(ctx, r.Client, *cluster, *vcdCluster)
 	if err != nil {
-
+		klog.Errorf("______________DEBUG: error occurred: [%v]", err)
 	}
+	klog.Infof("-------------------DEBUG: capiYaml: \n[%s]", capiYaml)
 
 	// Updating status portion of the RDE in the following code
 	// TODO: Delete "kubernetes" string in RDE. Discuss with Sahithi
