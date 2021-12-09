@@ -103,3 +103,39 @@ rules:
   - get
   - patch
   - update
+- apiGroups:
+    - controlplane.cluster.x-k8s.io
+  resources:
+    - kubeadmcontrolplanes
+  verbs:
+    - create
+    - delete
+    - get
+    - list
+    - patch
+    - update
+    - watch
+- apiGroups:
+    - infrastructure.cluster.x-k8s.io
+  resources:
+    - vcdmachinetemplates
+  verbs:
+    - create
+    - delete
+    - get
+    - list
+    - patch
+    - update
+    - watch
+- apiGroups:
+    - cluster.x-k8s.io
+  resources:
+    - machinedeployments
+  verbs:
+    - create
+    - delete
+    - get
+    - list
+    - patch
+    - update
+    - watch
