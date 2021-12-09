@@ -199,7 +199,6 @@ func (r *VCDClusterReconciler) constructCapvcdRDE(ctx context.Context, cluster *
 		return nil, fmt.Errorf("error getting KubeadmControlPlane objects for cluster [%s]: [%v]", vcdCluster.Name, err)
 	}
 	topologyControlPlanes := make([]vcdtypes.ControlPlane, len(kcpList.Items))
-	templateName := ""
 	kubernetesVersion := ""
 	for _, kcp := range kcpList.Items {
 		vcdMachineTemplate, err := r.getVCDMachineTemplateFromKCP(ctx, kcp)
@@ -209,9 +208,9 @@ func (r *VCDClusterReconciler) constructCapvcdRDE(ctx context.Context, cluster *
 		topologyControlPlane := vcdtypes.ControlPlane{
 			Count:       *kcp.Spec.Replicas,
 			SizingClass: vcdMachineTemplate.Spec.Template.Spec.ComputePolicy,
+			TemplateName: vcdMachineTemplate.Spec.Template.Spec.Template,
 		}
 		topologyControlPlanes = append(topologyControlPlanes, topologyControlPlane)
-		templateName = vcdMachineTemplate.Spec.Template.Spec.Template
 		kubernetesVersion = kcp.Spec.Version
 	}
 
@@ -228,6 +227,7 @@ func (r *VCDClusterReconciler) constructCapvcdRDE(ctx context.Context, cluster *
 		topologyWorker := vcdtypes.Workers{
 			Count:       *md.Spec.Replicas,
 			SizingClass: vcdMachineTemplate.Spec.Template.Spec.ComputePolicy,
+			TemplateName: vcdMachineTemplate.Spec.Template.Spec.Template,
 		}
 		topologyWorkers = append(topologyWorkers, topologyWorker)
 	}
@@ -265,19 +265,17 @@ func (r *VCDClusterReconciler) constructCapvcdRDE(ctx context.Context, cluster *
 				Workers:      topologyWorkers,
 			},
 			Distribution: vcdtypes.Distribution{
-				TemplateName: templateName,
+				Version: kubernetesVersion,
 			},
 		},
 		Status: vcdtypes.Status{
 			Phase:      ClusterApiStatusPhaseNotReady,
+			// TODO: Discuss with sahithi if "kubernetes" needs to be removed from the RDE.
 			Kubernetes: kubernetesVersion,
 			CloudProperties: vcdtypes.CloudProperties{
 				Site: vcdCluster.Spec.Site,
 				Org:  org,
 				Vdc:  vdc,
-				Distribution: vcdtypes.Distribution{
-					TemplateName: templateName,
-				},
 				SshKey: "", // TODO: Should add ssh key as part of vcdCluster representation
 			},
 			ClusterAPIStatus: vcdtypes.ClusterApiStatus{
@@ -286,6 +284,7 @@ func (r *VCDClusterReconciler) constructCapvcdRDE(ctx context.Context, cluster *
 			},
 			NodeStatus:          make(map[string]string),
 			IsManagementCluster: false,
+			CapvcdVersion: "0.5.0", // TODO: Discuss with Arun on how to get the CAPVCD version.
 		},
 	}
 
@@ -354,7 +353,6 @@ func (r *VCDClusterReconciler) reconcileRDE(ctx context.Context, cluster *cluste
 		return fmt.Errorf("error getting all KubeadmControlPlane objects for cluster [%s]: [%v]", vcdCluster.Name, err)
 	}
 	topologyControlPlanes := make([]vcdtypes.ControlPlane, len(kcpList.Items))
-	templateName := ""
 	kubernetesVersion := ""
 	for idx, kcp := range kcpList.Items {
 		vcdMachineTemplate, err := r.getVCDMachineTemplateFromKCP(ctx, kcp)
@@ -364,9 +362,9 @@ func (r *VCDClusterReconciler) reconcileRDE(ctx context.Context, cluster *cluste
 		topologyControlPlane := vcdtypes.ControlPlane{
 			Count:       *kcp.Spec.Replicas,
 			SizingClass: vcdMachineTemplate.Spec.Template.Spec.ComputePolicy,
+			TemplateName: vcdMachineTemplate.Spec.Template.Spec.Template,
 		}
 		topologyControlPlanes[idx] = topologyControlPlane
-		templateName = vcdMachineTemplate.Spec.Template.Spec.Template
 		kubernetesVersion = kcp.Spec.Version
 	}
 
@@ -383,6 +381,7 @@ func (r *VCDClusterReconciler) reconcileRDE(ctx context.Context, cluster *cluste
 		topologyWorker := vcdtypes.Workers{
 			Count:       *md.Spec.Replicas,
 			SizingClass: vcdMachineTemplate.Spec.Template.Spec.ComputePolicy,
+			TemplateName: vcdMachineTemplate.Spec.Template.Spec.Template,
 		}
 		topologyWorkers[idx] = topologyWorker
 	}
@@ -395,12 +394,19 @@ func (r *VCDClusterReconciler) reconcileRDE(ctx context.Context, cluster *cluste
 		updatePatch["Spec.Topology.Workers"] = topologyWorkers
 	}
 
+	capiYaml, err := r.getCapiYaml(vcdCluster, cluster)
+	if err != nil {
+
+	}
+
+	// Updating status portion of the RDE in the following code
+	// TODO: Delete "kubernetes" string in RDE. Discuss with Sahithi
 	if capvcdEntity.Status.Kubernetes != kubernetesVersion {
 		updatePatch["Status.Kubernetes"] = kubernetesVersion
 	}
 
-	if capvcdEntity.Spec.Distribution.TemplateName != templateName {
-		updatePatch["Spec.Distribution.TemplateName"] = templateName
+	if capvcdEntity.Spec.Distribution.Version != kubernetesVersion {
+		updatePatch["Spec.Distribution.Version"] = kubernetesVersion
 	}
 
 	if capvcdEntity.Status.Uid != vcdCluster.Status.RDEId {
@@ -423,7 +429,6 @@ func (r *VCDClusterReconciler) reconcileRDE(ctx context.Context, cluster *cluste
 			},
 		},
 	}
-	// Updating status portion of the RDE in the following code
 	if !reflect.DeepEqual(clusterApiStatus, capvcdEntity.Status.ClusterAPIStatus) {
 		updatePatch["Status.ClusterAPIStatus"] = clusterApiStatus
 	}
