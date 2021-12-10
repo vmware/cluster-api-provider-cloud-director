@@ -16,6 +16,7 @@ import (
 )
 
 func yamlWithoutStatus(obj interface{}) (string, error) {
+	// Redact the password and refresh token
 	// get yaml string for obj
 	objInByteArr, err := yaml.Marshal(obj)
 	if err != nil {

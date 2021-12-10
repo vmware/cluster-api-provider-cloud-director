@@ -336,10 +336,10 @@ func (r *VCDClusterReconciler) reconcileRDE(ctx context.Context, cluster *cluste
 	}
 	capiYaml, err := getCapiYaml(ctx, r.Client, *cluster, *vcdCluster)
 	if err != nil {
-		return fmt.Errorf("failed to get the capi yaml resources for cluster [%s]: [%v]", cluster.Name, err)
+		klog.Errorf("failed to construct capi yaml using kubernetes resources for cluster [%s]: [%v]", cluster.Name, err)
 	}
 
-	if capvcdEntity.Spec.CapiYaml != capiYaml {
+	if err == nil && capvcdEntity.Spec.CapiYaml != capiYaml {
 		updatePatch["Spec.CapiYaml"] = capiYaml
 	}
 

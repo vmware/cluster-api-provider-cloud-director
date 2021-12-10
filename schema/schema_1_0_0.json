@@ -139,8 +139,8 @@
         },
         "capiYaml": {
           "type": "string",
-          "description": "input used to create the cluster"
-        },
+          "description": "CAPI Yaml specification of the CAPVCD cluster"
+        }
       },
       "additionalProperties": true
     },
