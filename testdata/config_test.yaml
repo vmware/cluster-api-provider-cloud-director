@@ -1,11 +1,11 @@
 vcd:
-  host: "https://bos1-vcloud-static-166-165.eng.vmware.com"
-  org: "org1"
-  vdc: "ovdc1"
-  user: "clusteradmin"
-  secret: "ca$hc0w"
-  network: "ovdc1_nw"
-  vipSubnet: "10.150.191.253/19"
+  host: VCD_HOST
+  org: ORG
+  vdc: OVDC
+  user: USER
+  secret: PASSWORD
+  network: NETWORK
+  vipSubnet: VIP_SUBNET_CIDR
 loadbalancer:
   oneArm:
     startIP: "192.168.8.2"

@@ -38,6 +38,8 @@ const (
 	CAPVCDClusterKind             = "CAPVCDCluster"
 	CAPVCDClusterEntityApiVersion = "capvcd.vmware.com/v1.0"
 	CAPVCDClusterCniName          = "antrea" // TODO: Get the correct value for CNI name
+	VcdCsiName                    = "cloud-director-named-disk-csi-driver"
+	VcdCpiName                    = "cloud-provider-for-cloud-director"
 
 	RDEStatusResolved = "RESOLVED"
 	VCDLocationHeader = "Location"
@@ -226,6 +228,18 @@ func (r *VCDClusterReconciler) constructCapvcdRDE(ctx context.Context, cluster *
 			IsManagementCluster: false,
 			CapvcdVersion:       "0.5.0", // TODO: Discuss with Arun on how to get the CAPVCD version.
 			ParentUID:           r.VcdClient.ManagementClusterRDEId,
+			Csi: vcdtypes.VersionedAddon{
+				Name:    VcdCsiName,
+				Version: r.VcdClient.CsiVersion, // TODO: get cpi, csi, cni version from workload client
+			},
+			Cpi: vcdtypes.VersionedAddon{
+				Name:    VcdCpiName,
+				Version: r.VcdClient.CpiVersion,
+			},
+			Cni: vcdtypes.VersionedAddon{
+				Name:    CAPVCDClusterCniName,
+				Version: r.VcdClient.CniVersion,
+			},
 		},
 	}
 
