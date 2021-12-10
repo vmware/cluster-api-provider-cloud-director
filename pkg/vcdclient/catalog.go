@@ -11,13 +11,9 @@ import (
 )
 
 func (client *Client) GetCatalogByName(orgName string, catalogName string) (*govcd.Catalog, error) {
-	if err := client.RefreshToken(); err != nil {
-		return nil, fmt.Errorf("unable to refresh token in GetCatalogByName")
-	}
-
-	org, err := client.VcdClient.GetOrgByName(client.VcdAuthConfig.Org)
+	org, err := client.VcdClient.GetOrgByName(client.ClusterOrgName)
 	if err != nil {
-		return nil, fmt.Errorf("unable to get vcd organization [%s]: [%v]", client.VcdAuthConfig.Org, err)
+		return nil, fmt.Errorf("unable to get vcd organization [%s]: [%v]", client.ClusterOrgName, err)
 	}
 	if err := org.Refresh(); err != nil {
 		return nil, fmt.Errorf("unable to refresh org [%s]: [%v]", orgName, err)

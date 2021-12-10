@@ -85,16 +85,18 @@ func getVcdClientFromConfig(inputMap map[string]interface{}) (*vcdclient.Client,
 		EndIPAddress:   cloudConfig.LB.OneArm.EndIP,
 	}
 	getVdcClient := true
-	// TODO (Sahithi: Let this method take the cloudConfig as a
-	// param instead of individual properties)
+	// TODO (Sahithi: Let this method take the cloudConfig as a param instead of individual properties)
 	return vcdclient.NewVCDClientFromSecrets(
 		cloudConfig.VCD.Host,
 		cloudConfig.VCD.Org,
 		cloudConfig.VCD.VDC,
+		"",
 		cloudConfig.VCD.VDCNetwork,
 		cloudConfig.VCD.VIPSubnet,
+		cloudConfig.VCD.UserOrg,
 		cloudConfig.VCD.User,
 		cloudConfig.VCD.Secret,
+		cloudConfig.VCD.RefreshToken,
 		insecure,
 		cloudConfig.ClusterID,
 		oneArm,

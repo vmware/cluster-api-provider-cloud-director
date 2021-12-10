@@ -419,9 +419,11 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	_ = ctrl.LoggerFrom(ctx)
 
 	workloadVCDClient, err := vcdclient.NewVCDClientFromSecrets(vcdCluster.Spec.Site, vcdCluster.Spec.Org,
-		vcdCluster.Spec.Ovdc, vcdCluster.Spec.OvdcNetwork, r.VcdClient.IPAMSubnet,
-		vcdCluster.Spec.UserCredentialsContext.Username, vcdCluster.Spec.UserCredentialsContext.Password, true,
-		vcdCluster.Status.RDEId, r.VcdClient.OneArm, 0, 0, r.VcdClient.TCPPort, true, "")
+		vcdCluster.Spec.Ovdc, vcdCluster.Name, vcdCluster.Spec.OvdcNetwork, r.VcdClient.IPAMSubnet,
+		r.VcdClient.VcdAuthConfig.UserOrg, vcdCluster.Spec.UserCredentialsContext.Username,
+		vcdCluster.Spec.UserCredentialsContext.Password, vcdCluster.Spec.UserCredentialsContext.RefreshToken,
+		true, vcdCluster.Status.RDEId, r.VcdClient.OneArm, 0, 0, r.VcdClient.TCPPort,
+		true, "")
 	if err != nil {
 		return ctrl.Result{}, errors.Wrapf(err, "unable to create client for workload cluster")
 	}
@@ -531,9 +533,11 @@ func (r *VCDClusterReconciler) reconcileDelete(ctx context.Context,
 	}
 
 	workloadVCDClient, err := vcdclient.NewVCDClientFromSecrets(vcdCluster.Spec.Site, vcdCluster.Spec.Org,
-		vcdCluster.Spec.Ovdc, vcdCluster.Spec.OvdcNetwork, r.VcdClient.IPAMSubnet,
-		vcdCluster.Spec.UserCredentialsContext.Username, vcdCluster.Spec.UserCredentialsContext.Password, true,
-		"", r.VcdClient.OneArm, 0, 0, r.VcdClient.TCPPort, true, "")
+		vcdCluster.Spec.Ovdc, vcdCluster.Name, vcdCluster.Spec.OvdcNetwork, r.VcdClient.IPAMSubnet,
+		r.VcdClient.VcdAuthConfig.UserOrg, vcdCluster.Spec.UserCredentialsContext.Username,
+		vcdCluster.Spec.UserCredentialsContext.Password, vcdCluster.Spec.UserCredentialsContext.RefreshToken,
+		true, vcdCluster.Status.RDEId, r.VcdClient.OneArm, 0, 0, r.VcdClient.TCPPort,
+		true, "")
 	if err != nil {
 		return ctrl.Result{}, errors.Wrapf(err, "unable to create client for workload cluster")
 	}
@@ -554,8 +558,8 @@ func (r *VCDClusterReconciler) reconcileDelete(ctx context.Context,
 	}
 
 	vdcManager := vcdclient.VdcManager{
-		VdcName: workloadVCDClient.VcdAuthConfig.VDC,
-		OrgName: workloadVCDClient.VcdAuthConfig.Org,
+		VdcName: workloadVCDClient.ClusterOVDCName,
+		OrgName: workloadVCDClient.ClusterOrgName,
 		Client:  workloadVCDClient,
 		Vdc:     workloadVCDClient.Vdc,
 	}
