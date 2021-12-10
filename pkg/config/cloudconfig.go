@@ -66,11 +66,11 @@ type ClusterResourcesConfig struct {
 
 // CloudConfig contains the config that will be read from the secret
 type CloudConfig struct {
-	VCD                    VCDConfig 			  `yaml:"vcd"`
-	ClusterID              string    			  `yaml:"clusterid"`
-	LB                     LBConfig  			  `yaml:"loadbalancer"`
-	ManagementClusterRDEId string    			  `yaml:"managementClusterRDEId,omitempty"`
-	ClusterResources 	   ClusterResourcesConfig `yaml:"clusterResourceSet"`
+	VCD                    VCDConfig              `yaml:"vcd"`
+	ClusterID              string                 `yaml:"clusterid"`
+	LB                     LBConfig               `yaml:"loadbalancer"`
+	ManagementClusterRDEId string                 `yaml:"managementClusterRDEId,omitempty"`
+	ClusterResources       ClusterResourcesConfig `yaml:"clusterResourceSet"`
 }
 
 func getUserAndOrg(fullUserName string, clusterOrg string) (userOrg string, userName string, err error) {

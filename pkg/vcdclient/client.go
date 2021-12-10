@@ -56,9 +56,9 @@ type Client struct {
 	NetworkBackingType     swaggerClient.BackingNetworkType
 	ManagementClusterRDEId string
 	rwLock                 sync.RWMutex
-	CsiVersion        	   string
-	CpiVersion         	   string
-	CniVersion         	   string
+	CsiVersion             string
+	CpiVersion             string
+	CniVersion             string
 }
 
 // RefreshToken will check if can authenticate and rebuild clients if needed
