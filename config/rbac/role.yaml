@@ -139,3 +139,15 @@ rules:
     - patch
     - update
     - watch
+- apiGroups:
+    - bootstrap.cluster.x-k8s.io
+  resources:
+    - kubeadmconfigtemplates
+  verbs:
+    - create
+    - delete
+    - get
+    - list
+    - patch
+    - update
+    - watch
