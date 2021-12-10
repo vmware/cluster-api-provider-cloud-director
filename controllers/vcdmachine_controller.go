@@ -171,7 +171,6 @@ func patchVCDMachine(ctx context.Context, patchHelper *patch.Helper, vcdMachine 
 
 const (
 	NetworkConfiguration                   = "guestinfo.postcustomization.networkconfiguration.status"
-	StoreSshKey                            = "guestinfo.postcustomization.store.sshkey.status"
 	KubeadmInit                            = "guestinfo.postcustomization.kubeinit.status"
 	KubectlApplyCni                        = "guestinfo.postcustomization.kubectl.cni.install.status"
 	KubectlApplyCpi                        = "guestinfo.postcustomization.kubectl.cpi.install.status"

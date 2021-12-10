@@ -222,17 +222,19 @@ type Metadata struct {
 }
 
 type ControlPlane struct {
-	SizingClass string `json:"sizingClass,omitempty"`
-	Count       int32  `json:"count,omitempty"`
+	SizingClass  string `json:"sizingClass,omitempty"`
+	Count        int32  `json:"count,omitempty"`
+	TemplateName string `json:"templateName,omitempty"`
 }
 
 type Workers struct {
-	SizingClass string `json:"sizingClass,omitempty"`
-	Count       int32  `json:"count,omitempty"`
+	SizingClass  string `json:"sizingClass,omitempty"`
+	Count        int32  `json:"count,omitempty"`
+	TemplateName string `json:"templateName,omitempty"`
 }
 
 type Distribution struct {
-	TemplateName string `json:"templateName,omitempty"`
+	Version string `json:"version,omitempty"`
 }
 
 type Topology struct {
@@ -260,16 +262,13 @@ type Network struct {
 
 type Settings struct {
 	OvdcNetwork string  `json:"ovdcNetwork,omitempty"`
-	SshKey      string  `json:"sshKey,omitempty"`
 	Network     Network `json:"network,omitempty"`
 }
 
 type CloudProperties struct {
-	Site         string       `json:"site,omitempty"`
-	Org          string       `json:"orgName,omitempty"`
-	Vdc          string       `json:"virtualDataCenterName,omitempty"`
-	Distribution Distribution `json:"distribution,omitempty"`
-	SshKey       string       `json:"sshKey,omitempty"`
+	Site string `json:"site,omitempty"`
+	Org  string `json:"orgName,omitempty"`
+	Vdc  string `json:"virtualDataCenterName,omitempty"`
 }
 
 type ApiEndpoints struct {
@@ -280,6 +279,11 @@ type ApiEndpoints struct {
 type ClusterApiStatus struct {
 	Phase        string         `json:"phase,omitempty"`
 	ApiEndpoints []ApiEndpoints `json:"apiEndpoints,omitempty"`
+}
+
+type VersionedAddon struct {
+	Name    string `json:"name,omitempty"`
+	Version string `json:"version,omitempty"`
 }
 
 type Status struct {
@@ -293,12 +297,17 @@ type Status struct {
 	NodeStatus          map[string]string `json:"nodeStatus,omitempty"`
 	ParentUID           string            `json:"parentUid,omitempty"`
 	IsManagementCluster bool              `json:"isManagementCluster,omitempty"`
+	Cni                 VersionedAddon    `json:"cni,omitempty"`
+	Cpi                 VersionedAddon    `json:"cpi,omitempty"`
+	Csi                 VersionedAddon    `json:"csi,omitempty"`
+	CapvcdVersion       string            `json:"capvcdVersion,omitempty"`
 }
 
 type ClusterSpec struct {
 	Settings     Settings     `json:"settings"`
 	Topology     Topology     `json:"topology"`
 	Distribution Distribution `json:"distribution"`
+	CapiYaml     string       `json:"capiYaml,omitempty"`
 }
 
 type CAPVCDEntity struct {
