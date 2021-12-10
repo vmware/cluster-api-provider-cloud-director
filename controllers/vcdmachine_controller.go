@@ -326,10 +326,11 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	log := ctrl.LoggerFrom(ctx)
 
 	workloadVCDClient, err := vcdclient.NewVCDClientFromSecrets(vcdCluster.Spec.Site, vcdCluster.Spec.Org,
-		vcdCluster.Spec.Ovdc, vcdCluster.Spec.OvdcNetwork, r.VcdClient.IPAMSubnet,
-		vcdCluster.Spec.UserCredentialsContext.Username, vcdCluster.Spec.UserCredentialsContext.Password, true,
-		vcdCluster.Status.RDEId, r.VcdClient.OneArm, 0, 0, r.VcdClient.TCPPort, true, "",
-		r.VcdClient.CsiVersion, r.VcdClient.CpiVersion, r.VcdClient.CniVersion)
+		vcdCluster.Spec.Ovdc, vcdCluster.Name, vcdCluster.Spec.OvdcNetwork, r.VcdClient.IPAMSubnet,
+		r.VcdClient.VcdAuthConfig.UserOrg, vcdCluster.Spec.UserCredentialsContext.Username,
+		vcdCluster.Spec.UserCredentialsContext.Password, vcdCluster.Spec.UserCredentialsContext.RefreshToken,
+		true, vcdCluster.Status.RDEId, r.VcdClient.OneArm, 0, 0, r.VcdClient.TCPPort,
+		true, "", r.VcdClient.CsiVersion, r.VcdClient.CpiVersion, r.VcdClient.CniVersion)
 	if err != nil {
 		return ctrl.Result{}, errors.Wrapf(err, "unable to create client for workload cluster")
 	}
@@ -388,8 +389,8 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	}
 
 	vdcManager := vcdclient.VdcManager{
-		VdcName: workloadVCDClient.VcdAuthConfig.VDC,
-		OrgName: workloadVCDClient.VcdAuthConfig.Org,
+		VdcName: workloadVCDClient.ClusterOVDCName,
+		OrgName: workloadVCDClient.ClusterOrgName,
 		Client:  workloadVCDClient,
 		Vdc:     workloadVCDClient.Vdc,
 	}
@@ -423,32 +424,34 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 
 		switch {
 		case util.IsControlPlaneMachine(machine):
-			orgUserStr := fmt.Sprintf("%s/%s", workloadVCDClient.VcdAuthConfig.Org, workloadVCDClient.VcdAuthConfig.User)
+			orgUserStr := fmt.Sprintf("%s/%s", workloadVCDClient.VcdAuthConfig.UserOrg,
+				workloadVCDClient.VcdAuthConfig.User)
 			b64OrgUser := b64.StdEncoding.EncodeToString([]byte(orgUserStr))
 			b64Password := b64.StdEncoding.EncodeToString([]byte(vcdCluster.Spec.UserCredentialsContext.Password))
-			b64RefreshToken := b64.StdEncoding.EncodeToString([]byte(vcdCluster.Spec.UserCredentialsContext.RefreshToken))
+			b64RefreshToken := b64.StdEncoding.EncodeToString([]byte(
+				vcdCluster.Spec.UserCredentialsContext.RefreshToken))
 			vcdHostFormatted := strings.Replace(vcdCluster.Spec.Site, "/", "\\/", -1)
 			cloudInitScript = fmt.Sprintf(
-				string(mergedCloudConfigBytes),      // template script
-				b64OrgUser,                          // base 64 org/username
-				b64Password,                         // base64 password
-				b64RefreshToken,                     // refresh token
-				workloadVCDClient.CniVersion,        // cni version
-				workloadVCDClient.CpiVersion,        // cpi version
-				vcdHostFormatted,                    // vcd host
-				workloadVCDClient.VcdAuthConfig.Org, // org
-				workloadVCDClient.VcdAuthConfig.VDC, // ovdc
-				workloadVCDClient.NetworkName,       // network
-				"",                                  // vip subnet cidr - empty for now for CPI to select subnet
-				vAppName,                            // vApp name
-				workloadVCDClient.ClusterID,         // cluster id
-				workloadVCDClient.CsiVersion,        // csi version
-				vcdHostFormatted,                    // vcd host,
-				workloadVCDClient.VcdAuthConfig.Org, // org
-				workloadVCDClient.VcdAuthConfig.VDC, // ovdc
-				vAppName,                            // vApp
-				workloadVCDClient.ClusterID,         // cluster id
-				machine.Name,                        // vm host name
+				string(mergedCloudConfigBytes),           // template script
+				b64OrgUser,                               // base 64 org/username
+				b64Password,                              // base64 password
+				b64RefreshToken,                          // refresh token
+				workloadVCDClient.CniVersion,             // cni version
+				workloadVCDClient.CpiVersion,             // cpi version
+				vcdHostFormatted,                         // vcd host
+				workloadVCDClient.ClusterOrgName,         // org
+				workloadVCDClient.ClusterOVDCName,        // ovdc
+				workloadVCDClient.NetworkName,            // network
+				"",                                       // vip subnet cidr - empty for now for CPI to select subnet
+				vAppName,                                 // vApp name
+				workloadVCDClient.ClusterID,              // cluster id
+				workloadVCDClient.CsiVersion,             // csi version
+				vcdHostFormatted,                         // vcd host,
+				workloadVCDClient.ClusterOrgName,         // org
+				workloadVCDClient.ClusterOVDCName,        // ovdc
+				vAppName,                                 // vApp
+				workloadVCDClient.ClusterID,              // cluster id
+				machine.Name,                             // vm host name
 			)
 
 		default:
@@ -664,10 +667,11 @@ func (r *VCDMachineReconciler) reconcileDelete(ctx context.Context, cluster *clu
 	}
 
 	workloadVCDClient, err := vcdclient.NewVCDClientFromSecrets(vcdCluster.Spec.Site, vcdCluster.Spec.Org,
-		vcdCluster.Spec.Ovdc, vcdCluster.Spec.OvdcNetwork, r.VcdClient.IPAMSubnet,
-		vcdCluster.Spec.UserCredentialsContext.Username, vcdCluster.Spec.UserCredentialsContext.Password, true,
-		"", r.VcdClient.OneArm, 0, 0, r.VcdClient.TCPPort, true, "",
-		r.VcdClient.CsiVersion, r.VcdClient.CpiVersion, r.VcdClient.CniVersion)
+		vcdCluster.Spec.Ovdc, vcdCluster.Name, vcdCluster.Spec.OvdcNetwork, r.VcdClient.IPAMSubnet,
+		r.VcdClient.VcdAuthConfig.UserOrg, vcdCluster.Spec.UserCredentialsContext.Username,
+		vcdCluster.Spec.UserCredentialsContext.Password, vcdCluster.Spec.UserCredentialsContext.RefreshToken,
+		true, vcdCluster.Status.RDEId, r.VcdClient.OneArm, 0, 0, r.VcdClient.TCPPort,
+		true, "", r.VcdClient.CsiVersion, r.VcdClient.CpiVersion, r.VcdClient.CniVersion)
 	if err != nil {
 		return ctrl.Result{}, errors.Wrapf(err, "unable to create client for workload cluster")
 	}
@@ -681,7 +685,7 @@ func (r *VCDMachineReconciler) reconcileDelete(ctx context.Context, cluster *clu
 
 	if util.IsControlPlaneMachine(machine) {
 		// remove the address from the lbpool
-		lbPoolName := cluster.Name + "-" + workloadVCDClient.ClusterID + "-tcp"
+		lbPoolName := cluster.Name + "-" + workloadVCDClient.ManagementClusterRDEId + "-tcp"
 		lbPoolRef, err := gateway.GetLoadBalancerPool(ctx, lbPoolName)
 		if err != nil && err != govcd.ErrorEntityNotFound {
 			return ctrl.Result{}, errors.Wrapf(err, "failed to get load balancer pool [%s]: [%v]", lbPoolName, err)
@@ -717,8 +721,8 @@ func (r *VCDMachineReconciler) reconcileDelete(ctx context.Context, cluster *clu
 	}
 
 	vdcManager := vcdclient.VdcManager{
-		VdcName: workloadVCDClient.VcdAuthConfig.VDC,
-		OrgName: workloadVCDClient.VcdAuthConfig.Org,
+		VdcName: workloadVCDClient.ClusterOVDCName,
+		OrgName: workloadVCDClient.ClusterOrgName,
 		Client:  workloadVCDClient,
 		Vdc:     workloadVCDClient.Vdc,
 	}

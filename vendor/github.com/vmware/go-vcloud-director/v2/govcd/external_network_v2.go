@@ -38,7 +38,7 @@ func CreateExternalNetworkV2(vcdClient *VCDClient, newExtNet *types.ExternalNetw
 		client:          &vcdClient.Client,
 	}
 
-	err = vcdClient.Client.OpenApiPostItem(minimumApiVersion, urlRef, nil, newExtNet, returnExtNet.ExternalNetwork, nil)
+	err = vcdClient.Client.OpenApiPostItem(minimumApiVersion, urlRef, nil, newExtNet, returnExtNet.ExternalNetwork)
 	if err != nil {
 		return nil, fmt.Errorf("error creating external network: %s", err)
 	}
@@ -68,7 +68,7 @@ func GetExternalNetworkV2ById(vcdClient *VCDClient, id string) (*ExternalNetwork
 		client:          &vcdClient.Client,
 	}
 
-	err = vcdClient.Client.OpenApiGetItem(minimumApiVersion, urlRef, nil, extNet.ExternalNetwork, nil)
+	err = vcdClient.Client.OpenApiGetItem(minimumApiVersion, urlRef, nil, extNet.ExternalNetwork)
 	if err != nil {
 		return nil, err
 	}
@@ -118,7 +118,7 @@ func GetAllExternalNetworksV2(vcdClient *VCDClient, queryParameters url.Values) 
 	}
 
 	typeResponses := []*types.ExternalNetworkV2{{}}
-	err = vcdClient.Client.OpenApiGetAllItems(minimumApiVersion, urlRef, queryParameters, &typeResponses, nil)
+	err = vcdClient.Client.OpenApiGetAllItems(minimumApiVersion, urlRef, queryParameters, &typeResponses)
 	if err != nil {
 		return nil, err
 	}
@@ -157,7 +157,7 @@ func (extNet *ExternalNetworkV2) Update() (*ExternalNetworkV2, error) {
 		client:          extNet.client,
 	}
 
-	err = extNet.client.OpenApiPutItem(minimumApiVersion, urlRef, nil, extNet.ExternalNetwork, returnExtNet.ExternalNetwork, nil)
+	err = extNet.client.OpenApiPutItem(minimumApiVersion, urlRef, nil, extNet.ExternalNetwork, returnExtNet.ExternalNetwork)
 	if err != nil {
 		return nil, fmt.Errorf("error updating external network: %s", err)
 	}
@@ -182,7 +182,7 @@ func (extNet *ExternalNetworkV2) Delete() error {
 		return err
 	}
 
-	err = extNet.client.OpenApiDeleteItem(minimumApiVersion, urlRef, nil, nil)
+	err = extNet.client.OpenApiDeleteItem(minimumApiVersion, urlRef, nil)
 
 	if err != nil {
 		return fmt.Errorf("error deleting extNet: %s", err)

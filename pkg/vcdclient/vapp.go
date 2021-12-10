@@ -59,9 +59,6 @@ func (vdc *VdcManager) DeleteVApp(vAppName string) error {
 	vdc.Client.rwLock.Lock()
 	defer vdc.Client.rwLock.Unlock()
 
-	if err := vdc.Client.RefreshToken(); err != nil {
-		return fmt.Errorf("unable to refresh token in GetVApp for [%s]: [%v", vAppName, err)
-	}
 	if vdc.Vdc == nil {
 		return fmt.Errorf("no Vdc created with name [%s]", vdc.VdcName)
 	}
@@ -91,12 +88,8 @@ func (vdc *VdcManager) DeleteVApp(vAppName string) error {
 	return nil
 }
 
-// make reentrant
+// no need to make reentrant since VCD will take care of it and Kubernetes will retry
 func (vdc *VdcManager) GetOrCreateVApp(vAppName string, ovdcNetworkName string) (*govcd.VApp, error) {
-	if err := vdc.Client.RefreshToken(); err != nil {
-		return nil, fmt.Errorf("unable to refresh token in GetVApp for [%s]: [%v", vAppName, err)
-	}
-
 	if vdc.Vdc == nil {
 		return nil, fmt.Errorf("no Vdc created with name [%s]", vdc.VdcName)
 	}

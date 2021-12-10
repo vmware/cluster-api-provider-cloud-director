@@ -16,7 +16,6 @@ import (
 	"io"
 	"io/ioutil"
 	"k8s.io/klog"
-	"os"
 	"strings"
 )
 
@@ -30,9 +29,9 @@ type VCDConfig struct {
 	// It is allowed to pass the following variables using the config. However
 	// that is unsafe security practice. However there can be user scenarios and
 	// testing scenarios where this is sensible.
-	User         string `yaml:"user" default:""`
-	Secret       string `yaml:"secret" default:""`
-	RefreshToken string `yaml:"refreshToken" default:""`
+	User         string
+	Secret       string
+	RefreshToken string
 
 	VDCNetwork string `yaml:"network"`
 	VIPSubnet  string `yaml:"vipSubnet"`
@@ -112,35 +111,46 @@ func ParseCloudConfig(configReader io.Reader) (*CloudConfig, error) {
 }
 
 func SetAuthorization(config *CloudConfig) error {
-	//check if refresh token is present.
-	if _, err := os.Stat("/etc/kubernetes/vcloud/basic-auth/refreshToken"); err == nil {
-		// refresh token is present. Populate only refresh token and keep user and secret empty
-		refreshToken, err := ioutil.ReadFile("/etc/kubernetes/vcloud/basic-auth/refreshToken")
-		if err != nil {
-			return fmt.Errorf("unable to get refresh token: [%v]", err)
-		}
-		config.VCD.RefreshToken = string(refreshToken)
-		return nil
+	refreshToken, err := ioutil.ReadFile("/etc/kubernetes/vcloud/basic-auth/refreshToken")
+	if err != nil {
+		klog.Infof("Unable to get refresh token: [%v]", err)
+	} else {
+		config.VCD.RefreshToken = strings.TrimSuffix(string(refreshToken), "\n")
 	}
-	klog.Infof("unable to get refresh token. Looking for username and password")
+
 	username, err := ioutil.ReadFile("/etc/kubernetes/vcloud/basic-auth/username")
 	if err != nil {
-		return fmt.Errorf("unable to get username: [%v]", err)
+		klog.Infof("Unable to get username: [%v]", err)
+	} else {
+		if string(username) != "" {
+			config.VCD.UserOrg, config.VCD.User, err = getUserAndOrg(string(username), config.VCD.Org)
+			if err != nil {
+				return fmt.Errorf("unable to get user org and name: [%v]", err)
+			}
+		} else {
+			config.VCD.UserOrg = strings.TrimSuffix(config.VCD.Org, "\n")
+		}
 	}
+
 	secret, err := ioutil.ReadFile("/etc/kubernetes/vcloud/basic-auth/password")
 	if err != nil {
-		return fmt.Errorf("unable to get password: [%v]", err)
+		klog.Infof("Unable to get password: [%v]", err)
+	} else {
+		config.VCD.Secret = strings.TrimSuffix(string(secret), "\n")
 	}
 
-	config.VCD.UserOrg, config.VCD.User, err = getUserAndOrg(string(username), config.VCD.Org)
-	if err != nil {
-		return fmt.Errorf("unable to get user org and name: [%v]", err)
+	if config.VCD.RefreshToken != "" {
+		klog.Infof("Using non-empty refresh token.")
+		return nil
+	}
+	if config.VCD.User != "" && config.VCD.UserOrg != "" && config.VCD.Secret != "" {
+		klog.Infof("Using username/secret based credentials.")
+		return nil
 	}
 
-	config.VCD.Secret = string(secret)
-
-	return nil
+	return fmt.Errorf("unable to get valid set of credentials from secrets")
 }
+
 
 func ValidateCloudConfig(config *CloudConfig) error {
 	// TODO: needs more validation
