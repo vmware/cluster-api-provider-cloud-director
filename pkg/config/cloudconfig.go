@@ -151,7 +151,6 @@ func SetAuthorization(config *CloudConfig) error {
 	return fmt.Errorf("unable to get valid set of credentials from secrets")
 }
 
-
 func ValidateCloudConfig(config *CloudConfig) error {
 	// TODO: needs more validation
 	if config == nil {
