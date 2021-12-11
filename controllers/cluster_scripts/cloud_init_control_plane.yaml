@@ -70,7 +70,7 @@ write_files:
 
     vmtoolsd --cmd "info-set guestinfo.postcustomization.kubectl.cpi.install.status in_progress"
       kubectl apply -f $vcloud_basic_auth_path
-      wget -O $vcloud_configmap_path https://raw.githubusercontent.com/vmware/cloud-provider-for-cloud-director/main/manifests/vcloud-configmap.yaml
+      wget -O $vcloud_configmap_path https://raw.githubusercontent.com/vmware/cloud-provider-for-cloud-director/1.0.x/manifests/vcloud-configmap.yaml
       sed -i 's/VCD_HOST/"%s"/' $vcloud_configmap_path
       sed -i 's/ORG/"%s"/' $vcloud_configmap_path
       sed -i 's/OVDC/"%s"/' $vcloud_configmap_path
@@ -79,7 +79,7 @@ write_files:
       sed -i 's/VAPP/%s/' $vcloud_configmap_path
       sed -i 's/CLUSTER_ID/%s/' $vcloud_configmap_path
       kubectl apply -f $vcloud_configmap_path
-      wget -O $vcloud_ccm_path https://raw.githubusercontent.com/vmware/cloud-provider-for-cloud-director/main/manifests/cloud-director-ccm.yaml
+      wget -O $vcloud_ccm_path https://raw.githubusercontent.com/vmware/cloud-provider-for-cloud-director/1.0.x/manifests/cloud-director-ccm.yaml
       kubectl apply -f $vcloud_ccm_path
     vmtoolsd --cmd "info-set guestinfo.postcustomization.kubectl.cpi.install.status successful"
 

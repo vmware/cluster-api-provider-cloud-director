@@ -276,8 +276,9 @@ func (r *VCDMachineReconciler) waitForPostCustomizationPhase(workloadVCDClient *
 
 func (r *VCDMachineReconciler) reconcileNodeStatusInRDE(ctx context.Context, rdeID string, nodeName string, status string,
 	workloadVCDClient *vcdclient.Client) error {
-	if rdeID == "" {
-		return fmt.Errorf("cannot update RDE as defined entity ID is empty")
+
+	if rdeID == "" || strings.HasPrefix(rdeID, NoRdePrefix) {
+		return fmt.Errorf("RDE ID is generated and hence will not be updated")
 	}
 
 	updatePatch := make(map[string]interface{})
@@ -339,17 +340,17 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		err := r.reconcileNodeStatusInRDE(ctx, vcdCluster.Status.RDEId, machine.Name, machine.Status.Phase,
 			workloadVCDClient)
 		if err != nil {
-			klog.Errorf("failed to add VCDMachine [%s] to node status: [%v]", vcdMachine.Name, err)
+			klog.Errorf("Failed to add VCDMachine [%s] to node status in RDE: [%v]", vcdMachine.Name, err)
 		}
-
 		vcdMachine.Status.Ready = true
 		conditions.MarkTrue(vcdMachine, infrav1.ContainerProvisionedCondition)
 		return ctrl.Result{}, nil
 	}
+
 	err = r.reconcileNodeStatusInRDE(ctx, vcdCluster.Status.RDEId, machine.Name, machine.Status.Phase,
 		workloadVCDClient)
 	if err != nil {
-		klog.Errorf("failed to add VCDMachine [%s] to node status", vcdMachine.Name)
+		klog.Errorf("Failed to add VCDMachine [%s] to node status in RDE: [%v]", vcdMachine.Name, err)
 	}
 
 	if machine.Spec.Bootstrap.DataSecretName == nil {
@@ -402,24 +403,15 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		return ctrl.Result{}, errors.Wrapf(err, "unable to create vApp for new cluster")
 	}
 
-	cloudInitScript := ""
+	// We have control over the content in the guest Cloud Init Script. However, we can't control the content
+	// in the Jinja script. Hence, do any fmt.Sprintf calls first and then merge the two scripts. This is cleaner
+	// than calling custom sanitization libraries since there doesn't seem to be a clearly good one. Also cleaner
+	// than handcrafting one.
+	guestCloudInit := ""
 	if !vcdMachine.Spec.Bootstrapped {
-		bootstrapJinjaScript, err := r.getBootstrapData(ctx, machine)
-		if err != nil {
-			return ctrl.Result{}, errors.Wrapf(err, "unable to get bootstrap data for machine [%s]",
-				machine.Name)
-		}
-
-		guestCustScriptTemplate := controlPlaneCloudInitScriptTemplate
+		guestCloudInitTemplate := controlPlaneCloudInitScriptTemplate
 		if !util.IsControlPlaneMachine(machine) {
-			guestCustScriptTemplate = nodeCloudInitScriptTemplate
-		}
-
-		mergedCloudConfigBytes, err := MergeJinjaToCloudInitScript(guestCustScriptTemplate, bootstrapJinjaScript)
-		if err != nil {
-			return ctrl.Result{}, errors.Wrapf(err,
-				"unable to merge bootstrap jinja script for [%s/%s] [%s]",
-				vAppName, machine.Name, bootstrapJinjaScript)
+			guestCloudInitTemplate = nodeCloudInitScriptTemplate
 		}
 
 		switch {
@@ -431,34 +423,48 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 			b64RefreshToken := b64.StdEncoding.EncodeToString([]byte(
 				vcdCluster.Spec.UserCredentialsContext.RefreshToken))
 			vcdHostFormatted := strings.Replace(vcdCluster.Spec.Site, "/", "\\/", -1)
-			cloudInitScript = fmt.Sprintf(
-				string(mergedCloudConfigBytes),           // template script
-				b64OrgUser,                               // base 64 org/username
-				b64Password,                              // base64 password
-				b64RefreshToken,                          // refresh token
-				vcdHostFormatted,                         // vcd host
-				workloadVCDClient.ClusterOrgName,         // org
-				workloadVCDClient.ClusterOVDCName,        // ovdc
-				workloadVCDClient.NetworkName,            // network
-				"",                                       // vip subnet cidr - empty for now for CPI to select subnet
-				vAppName,                                 // vApp name
-				workloadVCDClient.ManagementClusterRDEId, // cluster id
-				vcdHostFormatted,                         // vcd host,
-				workloadVCDClient.ClusterOrgName,         // org
-				workloadVCDClient.ClusterOVDCName,        // ovdc
-				vAppName,                                 // vApp
-				workloadVCDClient.ManagementClusterRDEId, // cluster id
-				machine.Name,                             // vm host name
+			guestCloudInit = fmt.Sprintf(
+				guestCloudInitTemplate,            // template script
+				b64OrgUser,                        // base 64 org/username
+				b64Password,                       // base64 password
+				b64RefreshToken,                   // refresh token
+				vcdHostFormatted,                  // vcd host
+				workloadVCDClient.ClusterOrgName,  // org
+				workloadVCDClient.ClusterOVDCName, // ovdc
+				workloadVCDClient.NetworkName,     // network
+				"",                                // vip subnet cidr - empty for now for CPI to select subnet
+				vAppName,                          // vApp name
+				workloadVCDClient.ClusterID,       // cluster id
+				vcdHostFormatted,                  // vcd host,
+				workloadVCDClient.ClusterOrgName,  // org
+				workloadVCDClient.ClusterOVDCName, // ovdc
+				vAppName,                          // vApp
+				workloadVCDClient.ClusterID,       // cluster id
+				machine.Name,                      // vm host name
 			)
 
 		default:
-			cloudInitScript = fmt.Sprintf(
-				string(mergedCloudConfigBytes), // template script
-				machine.Name,                   // vm host name
+			guestCloudInit = fmt.Sprintf(
+				guestCloudInitTemplate, // template script
+				machine.Name,           // vm host name
 			)
 		}
 	}
-	klog.Infof("Cloud init Script: [%s]", cloudInitScript)
+
+	bootstrapJinjaScript, err := r.getBootstrapData(ctx, machine)
+	if err != nil {
+		return ctrl.Result{}, errors.Wrapf(err, "unable to get bootstrap data for machine [%s]",
+			machine.Name)
+	}
+
+	mergedCloudInitBytes, err := MergeJinjaToCloudInitScript(guestCloudInit, bootstrapJinjaScript)
+	if err != nil {
+		return ctrl.Result{}, errors.Wrapf(err,
+			"unable to merge bootstrap jinja script for [%s/%s] [%s]",
+			vAppName, machine.Name, bootstrapJinjaScript)
+	}
+
+	klog.Infof("Cloud init Script: [%s]", mergedCloudInitBytes)
 
 	vmExists := true
 	vm, err := vApp.GetVMByName(machine.Name, true)
@@ -523,7 +529,8 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		lbPoolName := vcdCluster.Name + "-" + vcdCluster.Status.RDEId + "-tcp"
 		lbPoolRef, err := gateway.GetLoadBalancerPool(ctx, lbPoolName)
 		if err != nil {
-			return ctrl.Result{}, errors.Wrapf(err, "Failed to get load balancer pool by name [%s]: [%v]", lbPoolName, err)
+			return ctrl.Result{}, errors.Wrapf(err, "Failed to get load balancer pool by name [%s]: [%v]",
+				lbPoolName, err)
 		}
 		controlPlaneIPs, err := gateway.GetLoadBalancerPoolMemberIPs(ctx, lbPoolRef)
 		if err != nil {
@@ -549,7 +556,7 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 
 	if vmStatus != "POWERED_ON" {
 		// try to power on the VM
-		b64CloudInitScript := b64.StdEncoding.EncodeToString([]byte(cloudInitScript))
+		b64CloudInitScript := b64.StdEncoding.EncodeToString(mergedCloudInitBytes)
 		keyVals := map[string]string{
 			"guestinfo.userdata":          b64CloudInitScript,
 			"guestinfo.userdata.encoding": "base64",
@@ -573,6 +580,7 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 
 			klog.Infof("Completed setting [%s] for [%s/%s]", key, vAppName, vm.VM.Name)
 		}
+
 		task, err := vm.PowerOn()
 		if err != nil {
 			return ctrl.Result{}, errors.Wrapf(err, "unable to power on [%s]: [%v]", vm.VM.Name, err)
@@ -622,7 +630,7 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	conditions.MarkTrue(vcdMachine, infrav1.ContainerProvisionedCondition)
 	err = r.reconcileNodeStatusInRDE(ctx, vcdCluster.Status.RDEId, machine.Name, machine.Status.Phase, workloadVCDClient)
 	if err != nil {
-		klog.Errorf("failed to add VCDMachine [%s] to node status", vcdMachine.Name)
+		klog.Errorf("Failed to add VCDMachine [%s] to node status in RDE", vcdMachine.Name)
 	}
 
 	return ctrl.Result{}, nil
@@ -682,7 +690,7 @@ func (r *VCDMachineReconciler) reconcileDelete(ctx context.Context, cluster *clu
 
 	if util.IsControlPlaneMachine(machine) {
 		// remove the address from the lbpool
-		lbPoolName := cluster.Name + "-" + workloadVCDClient.ManagementClusterRDEId + "-tcp"
+		lbPoolName := vcdCluster.Name + "-" + vcdCluster.Status.RDEId + "-tcp"
 		lbPoolRef, err := gateway.GetLoadBalancerPool(ctx, lbPoolName)
 		if err != nil && err != govcd.ErrorEntityNotFound {
 			return ctrl.Result{}, errors.Wrapf(err, "failed to get load balancer pool [%s]: [%v]", lbPoolName, err)
@@ -756,7 +764,7 @@ func (r *VCDMachineReconciler) reconcileDelete(ctx context.Context, cluster *clu
 
 	err = r.reconcileNodeStatusInRDE(ctx, vcdCluster.Status.RDEId, machine.Name, machine.Status.Phase, workloadVCDClient)
 	if err != nil {
-		klog.Errorf("failed to add VCDMachine [%s] to node status: [%v]", vcdMachine.Name, err)
+		klog.Errorf("Failed to add VCDMachine [%s] to node status in RDE: [%v]", vcdMachine.Name, err)
 	}
 
 	controllerutil.RemoveFinalizer(vcdMachine, infrav1.MachineFinalizer)
