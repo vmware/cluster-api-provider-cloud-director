@@ -14,6 +14,7 @@ loadbalancer:
     http: 80
     https: 443
     tcp: 6443
+managementClusterRDEId: MANGEMENT_CLUSTER_RDE_ID
 clusterResourceSet:
   csi: 1.0.0
   cpi: 1.0.0

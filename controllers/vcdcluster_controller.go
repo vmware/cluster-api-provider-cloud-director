@@ -230,7 +230,7 @@ func (r *VCDClusterReconciler) constructCapvcdRDE(ctx context.Context, cluster *
 			ParentUID:           r.VcdClient.ManagementClusterRDEId,
 			Csi: vcdtypes.VersionedAddon{
 				Name:    VcdCsiName,
-				Version: r.VcdClient.CsiVersion, // TODO: get cpi, csi, cni version from workload client
+				Version: r.VcdClient.CsiVersion, // TODO: get CPI, CNI, CSI versions from the CLusterResourceSet objects
 			},
 			Cpi: vcdtypes.VersionedAddon{
 				Name:    VcdCpiName,

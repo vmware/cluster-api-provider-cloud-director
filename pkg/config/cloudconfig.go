@@ -59,8 +59,8 @@ type LBConfig struct {
 
 // ClusterResourcesConfig :
 type ClusterResourcesConfig struct {
-	CsiVersion string `yaml:"csi" default:"1.0.0"`
-	CpiVersion string `yaml:"cpi" default:"1.0.0"`
+	CsiVersion string `yaml:"csi" default:"1.0.x"`
+	CpiVersion string `yaml:"cpi" default:"1.0.x"`
 	CniVersion string `yaml:"cni" default:"0.11.3"`
 }
 
