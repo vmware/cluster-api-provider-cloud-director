@@ -440,7 +440,7 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		vcdCluster.Spec.UserCredentialsContext.Username, vcdCluster.Spec.UserCredentialsContext.Password, true,
 		vcdCluster.Status.RDEId, r.VcdClient.OneArm, 0, 0, r.VcdClient.TCPPort, true, "")
 	if err != nil {
-		return ctrl.Result{}, errors.Wrapf(err, "unable to create VCD client to reconcile Cluster [%s] infrastructure", vcdCluster.Name)
+		return ctrl.Result{}, errors.Wrapf(err, "error creating VCD client to reconcile Cluster [%s] infrastructure", vcdCluster.Name)
 	}
 
 	gateway := &vcdclient.GatewayManager{
