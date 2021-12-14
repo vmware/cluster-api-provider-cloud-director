@@ -58,7 +58,6 @@ type VCDMachineReconciler struct {
 func (r *VCDMachineReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctrl.Result, rerr error) {
 	log := ctrl.LoggerFrom(ctx)
 
-	// your logic here
 	// Fetch the VCDMachine instance.
 	vcdMachine := &infrav1.VCDMachine{}
 	if err := r.Client.Get(ctx, req.NamespacedName, vcdMachine); err != nil {
@@ -325,20 +324,21 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	machine *clusterv1.Machine, vcdMachine *infrav1.VCDMachine, vcdCluster *infrav1.VCDCluster) (res ctrl.Result, retErr error) {
 
 	log := ctrl.LoggerFrom(ctx)
+	log.WithValues("machine", machine.Name, "vcdMachine", vcdMachine.Name, "cluster", vcdCluster.Name)
 
 	workloadVCDClient, err := vcdclient.NewVCDClientFromSecrets(vcdCluster.Spec.Site, vcdCluster.Spec.Org,
 		vcdCluster.Spec.Ovdc, vcdCluster.Spec.OvdcNetwork, r.VcdClient.IPAMSubnet,
 		vcdCluster.Spec.UserCredentialsContext.Username, vcdCluster.Spec.UserCredentialsContext.Password, true,
 		vcdCluster.Status.RDEId, r.VcdClient.OneArm, 0, 0, r.VcdClient.TCPPort, true, "")
 	if err != nil {
-		return ctrl.Result{}, errors.Wrapf(err, "unable to create client for workload cluster")
+		return ctrl.Result{}, errors.Wrapf(err, "unable to create VCD client to reconcile infrastructure for the Machine [%s]", machine.Name)
 	}
 
 	if vcdMachine.Spec.ProviderID != nil {
 		err := r.reconcileNodeStatusInRDE(ctx, vcdCluster.Status.RDEId, machine.Name, machine.Status.Phase,
 			workloadVCDClient)
 		if err != nil {
-			klog.Errorf("failed to add VCDMachine [%s] to node status: [%v]", vcdMachine.Name, err)
+			log.Error(err, "error during RDE reconciliation of the Node status")
 		}
 
 		vcdMachine.Status.Ready = true
@@ -348,7 +348,7 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	err = r.reconcileNodeStatusInRDE(ctx, vcdCluster.Status.RDEId, machine.Name, machine.Status.Phase,
 		workloadVCDClient)
 	if err != nil {
-		klog.Errorf("failed to add VCDMachine [%s] to node status", vcdMachine.Name)
+		log.Error(err, "error during RDE reconciliation of the Node status")
 	}
 
 	if machine.Spec.Bootstrap.DataSecretName == nil {
@@ -371,11 +371,11 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	if util.IsControlPlaneMachine(machine) {
 		role = constants.ControlPlaneNodeRoleValue
 	}
-	klog.Infof("Role of machine is [%s]\n", role)
+	log.Info("VCDMachine provisioning started", "role", role)
 
 	patchHelper, err := patch.NewHelper(vcdMachine, r.Client)
 	if err != nil {
-		return ctrl.Result{}, err
+		return ctrl.Result{}, errors.Wrapf(err, "error patching VCDMachine [%s] of cluster [%s]", vcdMachine.Name, vcdCluster.Name)
 	}
 	conditions.MarkTrue(vcdMachine, infrav1.ContainerProvisionedCondition)
 
@@ -383,7 +383,7 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		conditions.MarkFalse(vcdMachine, infrav1.BootstrapExecSucceededCondition,
 			infrav1.BootstrappingReason, clusterv1.ConditionSeverityInfo, "")
 		if err := patchVCDMachine(ctx, patchHelper, vcdMachine); err != nil {
-			return ctrl.Result{}, errors.Wrap(err, "failed to patch VCDMachine")
+			return ctrl.Result{}, errors.Wrapf(err, "error patching VCDMachine [%s] of cluster [%s]", vcdMachine.Name, vcdCluster.Name)
 		}
 	}
 
@@ -398,15 +398,15 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	vAppName := cluster.Name
 	vApp, err := vdcManager.GetOrCreateVApp(vAppName, workloadVCDClient.NetworkName)
 	if err != nil {
-		return ctrl.Result{}, errors.Wrapf(err, "unable to create vApp for new cluster")
+		return ctrl.Result{}, errors.Wrapf(err, "error provisioning infrastructure for the machine [%s] of the cluster [%s]", machine.Name, vcdCluster.Name)
 	}
 
 	cloudInitScript := ""
 	if !vcdMachine.Spec.Bootstrapped {
 		bootstrapJinjaScript, err := r.getBootstrapData(ctx, machine)
 		if err != nil {
-			return ctrl.Result{}, errors.Wrapf(err, "unable to get bootstrap data for machine [%s]",
-				machine.Name)
+			return ctrl.Result{}, errors.Wrapf(err, "error retrieving bootstrap data for the machine [%s] of the cluster [%s]",
+				machine.Name, vcdCluster.Name)
 		}
 
 		guestCustScriptTemplate := controlPlaneCloudInitScriptTemplate
@@ -417,7 +417,7 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		mergedCloudConfigBytes, err := MergeJinjaToCloudInitScript(guestCustScriptTemplate, bootstrapJinjaScript)
 		if err != nil {
 			return ctrl.Result{}, errors.Wrapf(err,
-				"unable to merge bootstrap jinja script for [%s/%s] [%s]",
+				"error merging bootstrap jinja script for [%s/%s] [%s]",
 				vAppName, machine.Name, bootstrapJinjaScript)
 		}
 
@@ -455,12 +455,12 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 			)
 		}
 	}
-	klog.Infof("Cloud init Script: [%s]", cloudInitScript)
+	log.Info(fmt.Sprintf("Cloud init Script: [%s]", cloudInitScript))
 
 	vmExists := true
 	vm, err := vApp.GetVMByName(machine.Name, true)
 	if err != nil && err != govcd.ErrorEntityNotFound {
-		return ctrl.Result{}, errors.Wrapf(err, "unable to query for VM [%s] in vApp [%s]",
+		return ctrl.Result{}, errors.Wrapf(err, "error provisioning infrastructure for the machine; unable to query for VM [%s] in vApp [%s]",
 			vm.VM.Name, vAppName)
 	} else if err == govcd.ErrorEntityNotFound {
 		vmExists = false
@@ -470,12 +470,12 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 			vcdMachine.Spec.Catalog, vcdMachine.Spec.Template, "",
 			vcdMachine.Spec.ComputePolicy, "", false)
 		if err != nil {
-			return ctrl.Result{}, errors.Wrapf(err, "unable to create VM [%s] in vApp [%s]",
+			return ctrl.Result{}, errors.Wrapf(err, "error provisioning infrastructure for the machine; unable to create VM [%s] in vApp [%s]",
 				machine.Name, vApp.VApp.Name)
 		}
 		vm, err = vApp.GetVMByName(machine.Name, true)
 		if err != nil {
-			return ctrl.Result{}, errors.Wrapf(err, "unable to find newly created VM [%s] in vApp [%s]",
+			return ctrl.Result{}, errors.Wrapf(err, "error provisioning infrastructure for the machine; unable to find newly created VM [%s] in vApp [%s]",
 				vm.VM.Name, vAppName)
 		}
 	}
@@ -487,7 +487,7 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		vm.VM.NetworkConnectionSection.NetworkConnection[0] == nil ||
 		vm.VM.NetworkConnectionSection.NetworkConnection[0].IPAddress == "" {
 
-		klog.Errorf("Failed to get the machine address of vm [%#v]", vm)
+		log.Error(nil, fmt.Sprintf("requeuing...; failed to get the machine address of vm [%#v]", vm))
 		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
 	}
 
@@ -520,28 +520,29 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		lbPoolName := vcdCluster.Name + "-" + vcdCluster.Status.RDEId + "-tcp"
 		lbPoolRef, err := gateway.GetLoadBalancerPool(ctx, lbPoolName)
 		if err != nil {
-			return ctrl.Result{}, errors.Wrapf(err, "Failed to get load balancer pool by name [%s]: [%v]", lbPoolName, err)
+			return ctrl.Result{}, errors.Wrapf(err, "error retrieving/updating load balancer pool [%s] for the "+
+				"control plane machine [%s] of the cluster [%s]", lbPoolName, machine.Name, vcdCluster.Name)
 		}
 		controlPlaneIPs, err := gateway.GetLoadBalancerPoolMemberIPs(ctx, lbPoolRef)
 		if err != nil {
 			return ctrl.Result{}, errors.Wrapf(err,
-				"unexpected error retrieving the controlplane members from the load balancer pool [%s] in gateway [%s]: [%v]",
-				lbPoolName, workloadVCDClient.GatewayRef.Name, err)
+				"error retrieving/updating load balancer pool members [%s] for the "+
+					"control plane machine [%s] of the cluster [%s]", lbPoolName, machine.Name, vcdCluster.Name)
 		}
 
 		updatedIPs := append(controlPlaneIPs, machineAddress)
 		err = gateway.UpdateLoadBalancer(ctx, lbPoolName, updatedIPs, int32(6443))
 		if err != nil {
 			return ctrl.Result{}, errors.Wrapf(err,
-				"unexpected error while updating the controlplane load balancer pool [%s] in gateway [%s]: [%v]",
-				lbPoolName, workloadVCDClient.GatewayRef.Name, err)
+				"error updating the load balancer pool [%s] for the "+
+					"control plane machine [%s] of the cluster [%s]", lbPoolName, machine.Name, vcdCluster.Name)
 		}
 	}
 
 	vmStatus, err := vm.GetStatus()
 	if err != nil {
 		return ctrl.Result{},
-			errors.Wrapf(err, "Failed to get status of vm [%s/%s]", vApp.VApp.Name, vm.VM.Name)
+			errors.Wrapf(err, "error while provisioning the infrastructure VM for the machine [%s] of the cluster [%s]; failed to get status of vm", vm.VM.Name, vApp.VApp.Name)
 	}
 
 	if vmStatus != "POWERED_ON" {
@@ -556,30 +557,30 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		for key, val := range keyVals {
 			err = workloadVCDClient.SetVmExtraConfigKeyValue(vm, key, val, true)
 			if err != nil {
-				return ctrl.Result{}, errors.Wrapf(err, "unable to set vm extra config key [%s] for vm [%s]: [%v]",
-					key, vm.VM.Name, err)
+				return ctrl.Result{}, errors.Wrapf(err, "error while enabling cloudinit on the machine [%s/%s]; unable to set vm extra config key [%s] for vm ",
+					vcdCluster.Name, vm.VM.Name, key)
 			}
 
 			if err = vm.Refresh(); err != nil {
-				return ctrl.Result{}, errors.Wrapf(err, "unable to refresh vm [%s]: [%v]", vm.VM.Name, err)
+				return ctrl.Result{}, errors.Wrapf(err, "error while enabling cloudinit on the machine [%s/%s]; unable to refresh vm", vcdCluster.Name, vm.VM.Name)
 			}
 
 			if err = vApp.Refresh(); err != nil {
-				return ctrl.Result{}, errors.Wrapf(err, "unable to refresh vapp [%s]: [%v]", vAppName, err)
+				return ctrl.Result{}, errors.Wrapf(err, "error while enabling cloudinit on the machine [%s/%s]; unable to refresh vapp", vAppName, vm.VM.Name)
 			}
 
-			klog.Infof("Completed setting [%s] for [%s/%s]", key, vAppName, vm.VM.Name)
+			log.Info("configured the infra machine with one of the keys to enable cloud-init", "key", key)
 		}
 		task, err := vm.PowerOn()
 		if err != nil {
-			return ctrl.Result{}, errors.Wrapf(err, "unable to power on [%s]: [%v]", vm.VM.Name, err)
+			return ctrl.Result{}, errors.Wrapf(err, "error while deploying infra for the machine [%s/%s]; unable to power on VM", vcdCluster.Name, vm.VM.Name)
 		}
 		if err = task.WaitTaskCompletion(); err != nil {
-			return ctrl.Result{}, fmt.Errorf("error waiting for task completion after reconfiguring vm: [%v]", err)
+			return ctrl.Result{}, errors.Wrapf(err, "error while deploying infra for the machine [%s/%s]; error waiting for VM power-on task completion", vcdCluster.Name, vm.VM.Name)
 		}
 
 		if err = vApp.Refresh(); err != nil {
-			return ctrl.Result{}, errors.Wrapf(err, "unable to refresh vapp [%s]: [%v]", vAppName, err)
+			return ctrl.Result{}, errors.Wrapf(err, "error while deploying infra for the machine [%s/%s]; unable to refresh vapp after VM power-on", vAppName, vm.VM.Name)
 		}
 	}
 
