@@ -6,15 +6,18 @@
 package controllers
 
 import (
+	"bytes"
 	"context"
 	_ "embed" // this needs go 1.16+
 	b64 "encoding/base64"
 	"fmt"
 	"github.com/pkg/errors"
+	"github.com/replicatedhq/troubleshoot/pkg/redact"
 	infrav1 "github.com/vmware/cluster-api-provider-cloud-director/api/v1alpha4"
 	"github.com/vmware/cluster-api-provider-cloud-director/pkg/vcdclient"
 	"github.com/vmware/go-vcloud-director/v2/govcd"
 	"gopkg.in/yaml.v2"
+	"io/ioutil"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/klog"
@@ -215,6 +218,17 @@ func strInSlice(findStr string, arr []string) bool {
 
 const phaseSecondTimeout = 600
 
+func redactCloudInit(cloudInitYaml string, path []string) (string, error) {
+	yamlRunner := redact.NewYamlRedactor(strings.Join(path, "."), "", "cloudInitRedactor")
+	outReader := yamlRunner.Redact(bytes.NewReader([]byte(cloudInitYaml)), "")
+	gotBytes, err := ioutil.ReadAll(outReader)
+	if err != nil {
+		return cloudInitYaml, fmt.Errorf("failed to read redacted yaml output : %v", err)
+	}
+	return string(gotBytes), nil
+
+}
+
 func (r *VCDMachineReconciler) waitForPostCustomizationPhase(workloadVCDClient *vcdclient.Client,
 	vm *govcd.VM, phase string) error {
 	startTime := time.Now()
@@ -401,6 +415,7 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	}
 
 	cloudInitScript := ""
+	redactedCloudInitScript := ""
 	if !vcdMachine.Spec.Bootstrapped {
 		bootstrapJinjaScript, err := r.getBootstrapData(ctx, machine)
 		if err != nil {
@@ -446,15 +461,21 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 				workloadVCDClient.ClusterID,         // cluster id
 				machine.Name,                        // vm host name
 			)
+			// redact secrets
+			redactedCloudInitScript, err = redactCloudInit(cloudInitScript, []string{"write_files", "0", "content"})
+			if err != nil {
+				klog.Errorf("failed to redact cloud init script: [%v]", err)
+			}
 
 		default:
 			cloudInitScript = fmt.Sprintf(
 				string(mergedCloudConfigBytes), // template script
 				machine.Name,                   // vm host name
 			)
+			redactedCloudInitScript = cloudInitScript
 		}
 	}
-	klog.Infof("Cloud init Script: [%s]", cloudInitScript)
+	klog.Infof("Cloud init Script: [%s]", redactedCloudInitScript)
 
 	vmExists := true
 	vm, err := vApp.GetVMByName(machine.Name, true)
