@@ -149,6 +149,9 @@ func getKubeadmConfigTemplateByObjRef(ctx context.Context, cli client.Client, ob
 }
 
 func getCapiYaml(ctx context.Context, cli client.Client, cluster clusterv1.Cluster, vcdCluster infrav1.VCDCluster) (string, error) {
+	vcdCluster.Spec.UserCredentialsContext.Username = ""
+	vcdCluster.Spec.UserCredentialsContext.Password = ""
+	vcdCluster.Spec.UserCredentialsContext.RefreshToken = ""
 	capiYamlObjects := []interface{}{
 		cluster,
 		vcdCluster,
