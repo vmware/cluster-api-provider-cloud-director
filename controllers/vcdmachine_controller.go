@@ -109,8 +109,6 @@ func (r *VCDMachineReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		return ctrl.Result{}, nil
 	}
 
-	log = log.WithValues("vcd-cluster", vcdCluster.Name)
-
 	// Initialize the patch helper
 	patchHelper, err := patch.NewHelper(vcdMachine, r)
 	if err != nil {
@@ -215,13 +213,16 @@ func strInSlice(findStr string, arr []string) bool {
 
 const phaseSecondTimeout = 600
 
-func (r *VCDMachineReconciler) waitForPostCustomizationPhase(workloadVCDClient *vcdclient.Client,
-	vm *govcd.VM, phase string) error {
+func (r *VCDMachineReconciler) waitForPostCustomizationPhase(ctx context.Context, workloadVCDClient *vcdclient.Client, vm *govcd.VM, phase string) error {
+	machineName := vm.VM.Name
+	clusterName := vm.VM.VAppParent.Name
+	log := ctrl.LoggerFrom(ctx, "cluster", clusterName, "machine", machineName)
+
 	startTime := time.Now()
 	possibleStatuses := []string{"", "in_progress", "successful"}
 	currentStatus := possibleStatuses[0]
 	for {
-		klog.Infof("waiting for control plane phase : [%s]", phase)
+		log.Info("waiting for control plane phase", "phase", phase)
 		if err := vm.Refresh(); err != nil {
 			return errors.Wrapf(err, "unable to refresh vm [%s]: [%v]", vm.VM.Name, err)
 		}
@@ -592,7 +593,7 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 			return ctrl.Result{}, errors.Wrapf(err, "unable to refresh vapp [%s]: [%v]", vAppName, err)
 		}
 		klog.Infof("START: waiting for phase [%s] for vm [%s] in vApp [%s]", phase, vm.VM.Name, vAppName)
-		if err = r.waitForPostCustomizationPhase(workloadVCDClient, vm, phase); err != nil {
+		if err = r.waitForPostCustomizationPhase(ctx, workloadVCDClient, vm, phase); err != nil {
 			klog.Infof("error waiting for bootstrapping phase [%s] for vm [%s] in vapp [%s]: [%v]",
 				phase, vm.VM.Name, vAppName, err)
 			return ctrl.Result{}, errors.Wrapf(err, "unable to wait for post customization phase [%s]: [%v]",

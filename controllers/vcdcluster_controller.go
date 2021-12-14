@@ -9,6 +9,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/antihax/optional"
+	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	infrav1 "github.com/vmware/cluster-api-provider-cloud-director/api/v1alpha4"
 	vcdutil "github.com/vmware/cluster-api-provider-cloud-director/pkg/util"
@@ -18,7 +19,6 @@ import (
 	"github.com/vmware/go-vcloud-director/v2/govcd"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/klog/v2"
 	"net/http"
 	"reflect"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1alpha4"
@@ -57,6 +57,13 @@ type VCDClusterReconciler struct {
 	VcdClient *vcdclient.Client
 }
 
+func (r *VCDClusterReconciler) dummy(ctx context.Context, log logr.Logger) {
+	ctx1 := context.WithValue(ctx, "cluster_ctx", "myCluster")
+	ctx2 := context.WithValue(ctx1, "machine_ctx", "myMachine")
+	log.Info("testing", ctx2.Value("cluster_ctx"), ctx2.Value("machine_ctx"))
+
+}
+
 //+kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=vcdclusters,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=vcdclusters/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=vcdclusters/finalizers,verbs=update
@@ -64,7 +71,6 @@ type VCDClusterReconciler struct {
 // +kubebuilder:rbac:groups="",resources=namespaces,verbs=get;list;watch
 // +kubebuilder:rbac:groups="",resources=events,verbs=get;list;watch;create;update;patch
 func (r *VCDClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctrl.Result, rerr error) {
-	// your logic here
 	log := ctrl.LoggerFrom(ctx)
 
 	// Fetch the VCDCluster instance
@@ -75,6 +81,13 @@ func (r *VCDClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		}
 		return ctrl.Result{}, err
 	}
+	log = log.WithValues("cluster", vcdCluster.Name)
+	err := fmt.Errorf("hello I am error from fmt")
+	//
+	log.Error(err, "Hello, I am erroring from reconcile", "rdeId", "1234")
+	log.Info("hello darling", "cluster1", vcdCluster.Name)
+	r.dummy(ctx, log)
+	return ctrl.Result{}, nil
 
 	// Fetch the Cluster.
 	cluster, err := util.GetOwnerCluster(ctx, r.Client, vcdCluster.ObjectMeta)
@@ -85,7 +98,6 @@ func (r *VCDClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		log.Info("Waiting for Cluster Controller to set OwnerRef on VCDCluster")
 		return ctrl.Result{}, nil
 	}
-	log = log.WithValues("cluster", cluster.Name)
 
 	patchHelper, err := patch.NewHelper(vcdCluster, r.Client)
 	if err != nil {
@@ -240,6 +252,8 @@ func (r *VCDClusterReconciler) constructCapvcdRDE(ctx context.Context, cluster *
 }
 
 func (r *VCDClusterReconciler) constructAndCreateRDEFromCluster(ctx context.Context, workloadVCDClient *vcdclient.Client, cluster *clusterv1.Cluster, vcdCluster *infrav1.VCDCluster) (string, error) {
+	log := ctrl.LoggerFrom(ctx)
+	log.WithValues("cluster", vcdCluster.Name)
 	rde, err := r.constructCapvcdRDE(ctx, cluster, vcdCluster)
 	if err != nil {
 		return "", fmt.Errorf("unable to create defined entity for cluster [%s]: [%v]", vcdCluster.Name, err)
@@ -258,12 +272,14 @@ func (r *VCDClusterReconciler) constructAndCreateRDEFromCluster(ctx context.Cont
 	if err != nil {
 		return "", fmt.Errorf("error refreshing task: [%s]", task.Task.HREF)
 	}
-	klog.Infof("created defined entity for cluster [%s]. RDE ID: [%s]", vcdCluster.Name,
-		vcdCluster.Status.RDEId)
+	log.Info("created defined entity for cluster", "RDEId", vcdCluster.Status.RDEId)
 	return task.Task.Owner.ID, nil
 }
 
 func (r *VCDClusterReconciler) reconcileRDE(ctx context.Context, cluster *clusterv1.Cluster, vcdCluster *infrav1.VCDCluster, workloadVCDClient *vcdclient.Client) error {
+	log := ctrl.LoggerFrom(ctx)
+	log.WithValues("cluster", vcdCluster.Name)
+
 	updatePatch := make(map[string]interface{})
 	_, capvcdEntity, err := workloadVCDClient.GetCAPVCDEntity(ctx, vcdCluster.Status.RDEId)
 	if err != nil {
@@ -336,7 +352,7 @@ func (r *VCDClusterReconciler) reconcileRDE(ctx context.Context, cluster *cluste
 	}
 	capiYaml, err := getCapiYaml(ctx, r.Client, *cluster, *vcdCluster)
 	if err != nil {
-		klog.Errorf("failed to construct capi yaml using kubernetes resources for cluster [%s]: [%v]", cluster.Name, err)
+		log.Error(err, "failed to construct capi yaml using kubernetes resources for the cluster")
 	}
 
 	if err == nil && capvcdEntity.Spec.CapiYaml != capiYaml {
@@ -408,7 +424,7 @@ func (r *VCDClusterReconciler) reconcileRDE(ctx context.Context, cluster *cluste
 		if entityState.State != RDEStatusResolved {
 			return fmt.Errorf("defined entity resolution failed for RDE with ID [%s] for cluster [%s] with message: [%s]", vcdCluster.Status.RDEId, vcdCluster.Name, entityState.Message)
 		}
-		klog.Infof("resolved defined entity with ID [%s] for cluster [%s]", vcdCluster.Status.RDEId, vcdCluster.Name)
+		log.Info("resolved defined entity of cluster", "RDEId", vcdCluster.Status.RDEId)
 	}
 	return nil
 }
@@ -416,7 +432,8 @@ func (r *VCDClusterReconciler) reconcileRDE(ctx context.Context, cluster *cluste
 func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clusterv1.Cluster,
 	vcdCluster *infrav1.VCDCluster) (ctrl.Result, error) {
 
-	_ = ctrl.LoggerFrom(ctx)
+	log := ctrl.LoggerFrom(ctx)
+	log.WithValues("cluster", vcdCluster.Name)
 
 	workloadVCDClient, err := vcdclient.NewVCDClientFromSecrets(vcdCluster.Spec.Site, vcdCluster.Spec.Org,
 		vcdCluster.Spec.Ovdc, vcdCluster.Spec.OvdcNetwork, r.VcdClient.IPAMSubnet,
@@ -442,24 +459,25 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		definedEntities, resp, err := workloadVCDClient.ApiClient.DefinedEntityApi.GetDefinedEntitiesByEntityType(ctx,
 			CAPVCDTypeVendor, CAPVCDTypeNss, CAPVCDTypeVersion, 1, 25, nameFilter)
 		if err != nil {
-			klog.Errorf("failed to get entities by entity type [%s] with name filter [name==%s]",
-				CAPVCDEntityTypeID, vcdCluster.Name)
+			log.Error(err, "failed to get rde(s) with a given cluster name and entity type",
+				"entityTypeId", CAPVCDEntityTypeID)
 		}
 		if resp == nil {
-			klog.Errorf("obtained an empty response for get defined entity call for cluster with name [%s]", vcdCluster.Name)
+			log.Error(nil, "obtained an empty response for get defined entity call for the cluster")
 		} else if resp.StatusCode != http.StatusOK {
-			klog.Errorf("error while getting entities by entity type [%s] with name filter [name==%s]", CAPVCDEntityTypeID, vcdCluster.Name)
+			log.Error(nil, "failed to get rde(s) with a given cluster name and entity type",
+				"entityTypeId", CAPVCDEntityTypeID, "responseStatusCode", resp.StatusCode)
 		}
 		if err == nil && resp != nil && resp.StatusCode == http.StatusOK {
 			if len(definedEntities.Values) == 0 {
 				rdeID, err := r.constructAndCreateRDEFromCluster(ctx, workloadVCDClient, cluster, vcdCluster)
 				if err != nil {
-					klog.Errorf("failed to create RDE from Cluster and VCDCluster objects for cluster [%s]: [%v]", vcdCluster.Name, err)
+					log.Error(err, "failed to create RDE for the cluster")
 				} else {
 					vcdCluster.Status.RDEId = rdeID
 				}
 			} else {
-				klog.Infof("defined entity for cluster [%s] already present. RDE ID: [%s]", vcdCluster.Name,
+				log.Info("defined entity for the cluster is already present", "RDEId",
 					definedEntities.Values[0].Id)
 				vcdCluster.Status.RDEId = definedEntities.Values[0].Id
 			}
@@ -491,16 +509,16 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 
 	_, resp, _, err := workloadVCDClient.ApiClient.DefinedEntityApi.GetDefinedEntity(ctx, vcdCluster.Status.RDEId)
 	if err != nil {
-		klog.Errorf("failed to get defined entity with ID [%s] for cluster [%s]: [%s]", vcdCluster.Status.RDEId, vcdCluster.Name, err)
+		log.Error(err, "failed to get defined entity for the cluster", "RDEId", vcdCluster.Status.RDEId)
 	}
 	if resp == nil {
-		klog.Errorf("obtained an empty response for get defined entity call for cluster [%s] and RDE [%s]", vcdCluster.Name, vcdCluster.Status.RDEId)
+		log.Error(nil, "obtained an empty response for get defined entity call for the cluster", "RDEId", vcdCluster.Status.RDEId)
 	} else if resp.StatusCode != http.StatusOK {
-		klog.Errorf("error getting defined entity with ID [%s] for cluster [%s]", vcdCluster.Status.RDEId, vcdCluster.Name)
+		log.Error(nil, "error getting defined entity for the cluster", "RDEId", vcdCluster.Status.RDEId)
 	}
 	if err == nil && resp != nil && resp.StatusCode == http.StatusOK {
 		if err = r.reconcileRDE(ctx, cluster, vcdCluster, workloadVCDClient); err != nil {
-			klog.Errorf("failed to update and resolve defined entity with ID [%s] for cluster [%s]: [%v]", vcdCluster.Status.RDEId, vcdCluster.Name, err)
+			log.Error(err, "failed to update and resolve defined entity for the cluster", "RDEId", vcdCluster.Status.RDEId)
 		}
 	}
 
@@ -569,12 +587,12 @@ func (r *VCDClusterReconciler) reconcileDelete(ctx context.Context,
 		if vApp.VApp.Children != nil {
 			return ctrl.Result{}, errors.Errorf("%d VMs detected in the vApp %s", len(vApp.VApp.Children.VM), vcdCluster.Name)
 		} else {
-			log.Info("deleting vApp", "vAppName", vcdCluster.Name)
+			log.Info("deleting vApp of the cluster", "vAppName", vcdCluster.Name)
 			err = vdcManager.DeleteVApp(vcdCluster.Name)
 			if err != nil {
 				return ctrl.Result{}, errors.Wrapf(err, "failed to delete vApp [%s]", vcdCluster.Name)
 			}
-			log.Info("successfully deleted vApp", "vAppName", vcdCluster.Name)
+			log.Info("successfully deleted vApp of the cluster", "vAppName", vcdCluster.Name)
 		}
 	}
 
@@ -585,19 +603,19 @@ func (r *VCDClusterReconciler) reconcileDelete(ctx context.Context,
 			Filter: optional.NewString(fmt.Sprintf("id==%s", vcdCluster.Status.RDEId)),
 		})
 		if err != nil {
-			return ctrl.Result{}, errors.Wrapf(err, "failed to fetch defined entities by entity type [%s] and ID [%s] for cluster [%s]", CAPVCDEntityTypeID, vcdCluster.Status.RDEId, vcdCluster.Name)
+			return ctrl.Result{}, errors.Wrapf(err, "attempt to delete RDE failed; failed to fetch defined entities by entity type [%s] and ID [%s] for cluster [%s]", CAPVCDEntityTypeID, vcdCluster.Status.RDEId, vcdCluster.Name)
 		}
 		if resp.StatusCode != http.StatusOK {
-			return ctrl.Result{}, errors.Errorf("error while fetching defined entities by entity type [%s] and ID [%s] for cluster [%s]", CAPVCDEntityTypeID, vcdCluster.Status.RDEId, vcdCluster.Name)
+			return ctrl.Result{}, errors.Errorf("attempt to delete RDE failed; error while fetching defined entities by entity type [%s] and ID [%s] for cluster [%s]", CAPVCDEntityTypeID, vcdCluster.Status.RDEId, vcdCluster.Name)
 		}
 		if len(definedEntities.Values) > 0 {
 			// resolve defined entity before deleting
 			entityState, resp, err := workloadVCDClient.ApiClient.DefinedEntityApi.ResolveDefinedEntity(ctx, vcdCluster.Status.RDEId)
 			if err != nil {
-				return ctrl.Result{}, errors.Wrapf(err, "error occurred while resolving defined entity [%s] with ID [%s] before deleting", vcdCluster.Name, vcdCluster.Status.RDEId)
+				return ctrl.Result{}, errors.Wrapf(err, "attempt to delete RDE failed; error occurred while resolving defined entity [%s] with ID [%s] before deleting", vcdCluster.Name, vcdCluster.Status.RDEId)
 			}
 			if resp.StatusCode != http.StatusOK {
-				klog.Errorf("failed to resolve RDE with ID [%s] for cluster [%s]: [%s]", vcdCluster.Status.RDEId, vcdCluster.Name, entityState.Message)
+				log.Error(nil, "error occurred during the attempt to delete RDE; failed to resolve RDE with ID [%s] for cluster [%s]: [%s]", vcdCluster.Status.RDEId, vcdCluster.Name, entityState.Message)
 			}
 			resp, err = workloadVCDClient.ApiClient.DefinedEntityApi.DeleteDefinedEntity(ctx, vcdCluster.Status.RDEId, nil)
 			if err != nil {
@@ -606,9 +624,9 @@ func (r *VCDClusterReconciler) reconcileDelete(ctx context.Context,
 			if resp.StatusCode != http.StatusNoContent {
 				return ctrl.Result{}, errors.Errorf("error deleting defined entity associated with the cluster. RDE id: [%s]", vcdCluster.Status.RDEId)
 			}
-			log.Info("successfully deleted the defined entity for cluster", "clusterName", vcdCluster.Name)
+			log.Info("successfully deleted the defined entity for cluster")
 		} else {
-			log.Info("No defined entity found", "clusterName", vcdCluster.Name, "RDE ID", vcdCluster.Status.RDEId)
+			log.Info("Attempting to delete RDE, but corresponding defined entity is not found", "RDEId", vcdCluster.Status.RDEId)
 		}
 	}
 	// Cluster is deleted so remove the finalizer.
