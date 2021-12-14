@@ -130,5 +130,8 @@ func getTestVCDClient(inputMap map[string]interface{}) (*Client, error) {
 		cloudConfig.LB.Ports.TCP,
 		getVdcClient,
 		"",
+		cloudConfig.ClusterResources.CsiVersion,
+		cloudConfig.ClusterResources.CpiVersion,
+		cloudConfig.ClusterResources.CniVersion,
 	)
 }

@@ -328,7 +328,8 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	workloadVCDClient, err := vcdclient.NewVCDClientFromSecrets(vcdCluster.Spec.Site, vcdCluster.Spec.Org,
 		vcdCluster.Spec.Ovdc, vcdCluster.Spec.OvdcNetwork, r.VcdClient.IPAMSubnet,
 		vcdCluster.Spec.UserCredentialsContext.Username, vcdCluster.Spec.UserCredentialsContext.Password, true,
-		vcdCluster.Status.RDEId, r.VcdClient.OneArm, 0, 0, r.VcdClient.TCPPort, true, "")
+		vcdCluster.Status.RDEId, r.VcdClient.OneArm, 0, 0, r.VcdClient.TCPPort, true, "",
+		r.VcdClient.CsiVersion, r.VcdClient.CpiVersion, r.VcdClient.CniVersion)
 	if err != nil {
 		return ctrl.Result{}, errors.Wrapf(err, "unable to create client for workload cluster")
 	}
@@ -432,6 +433,8 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 				b64OrgUser,                          // base 64 org/username
 				b64Password,                         // base64 password
 				b64RefreshToken,                     // refresh token
+				workloadVCDClient.CniVersion,        // cni version
+				workloadVCDClient.CpiVersion,        // cpi version
 				vcdHostFormatted,                    // vcd host
 				workloadVCDClient.VcdAuthConfig.Org, // org
 				workloadVCDClient.VcdAuthConfig.VDC, // ovdc
@@ -439,6 +442,7 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 				"",                                  // vip subnet cidr - empty for now for CPI to select subnet
 				vAppName,                            // vApp name
 				workloadVCDClient.ClusterID,         // cluster id
+				workloadVCDClient.CsiVersion,        // csi version
 				vcdHostFormatted,                    // vcd host,
 				workloadVCDClient.VcdAuthConfig.Org, // org
 				workloadVCDClient.VcdAuthConfig.VDC, // ovdc
@@ -662,7 +666,8 @@ func (r *VCDMachineReconciler) reconcileDelete(ctx context.Context, cluster *clu
 	workloadVCDClient, err := vcdclient.NewVCDClientFromSecrets(vcdCluster.Spec.Site, vcdCluster.Spec.Org,
 		vcdCluster.Spec.Ovdc, vcdCluster.Spec.OvdcNetwork, r.VcdClient.IPAMSubnet,
 		vcdCluster.Spec.UserCredentialsContext.Username, vcdCluster.Spec.UserCredentialsContext.Password, true,
-		"", r.VcdClient.OneArm, 0, 0, r.VcdClient.TCPPort, true, "")
+		"", r.VcdClient.OneArm, 0, 0, r.VcdClient.TCPPort, true, "",
+		r.VcdClient.CsiVersion, r.VcdClient.CpiVersion, r.VcdClient.CniVersion)
 	if err != nil {
 		return ctrl.Result{}, errors.Wrapf(err, "unable to create client for workload cluster")
 	}

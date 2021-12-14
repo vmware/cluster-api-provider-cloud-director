@@ -103,6 +103,9 @@ func getVcdClientFromConfig(inputMap map[string]interface{}) (*vcdclient.Client,
 		cloudConfig.LB.Ports.TCP,
 		getVdcClient,
 		cloudConfig.ManagementClusterRDEId,
+		cloudConfig.ClusterResources.CsiVersion,
+		cloudConfig.ClusterResources.CpiVersion,
+		cloudConfig.ClusterResources.CniVersion,
 	)
 }
 
