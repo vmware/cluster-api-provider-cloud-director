@@ -79,7 +79,7 @@ func (vdc *Vdc) CreateOpenApiOrgVdcNetwork(OrgVdcNetworkConfig *types.OpenApiOrg
 		client:               vdc.client,
 	}
 
-	err = vdc.client.OpenApiPostItem(minimumApiVersion, urlRef, nil, OrgVdcNetworkConfig, returnEgw.OpenApiOrgVdcNetwork, nil)
+	err = vdc.client.OpenApiPostItem(minimumApiVersion, urlRef, nil, OrgVdcNetworkConfig, returnEgw.OpenApiOrgVdcNetwork)
 	if err != nil {
 		return nil, fmt.Errorf("error creating Org VDC network: %s", err)
 	}
@@ -109,7 +109,7 @@ func (orgVdcNet *OpenApiOrgVdcNetwork) Update(OrgVdcNetworkConfig *types.OpenApi
 		client:               orgVdcNet.client,
 	}
 
-	err = orgVdcNet.client.OpenApiPutItem(minimumApiVersion, urlRef, nil, OrgVdcNetworkConfig, returnEgw.OpenApiOrgVdcNetwork, nil)
+	err = orgVdcNet.client.OpenApiPutItem(minimumApiVersion, urlRef, nil, OrgVdcNetworkConfig, returnEgw.OpenApiOrgVdcNetwork)
 	if err != nil {
 		return nil, fmt.Errorf("error updating Org VDC network: %s", err)
 	}
@@ -134,7 +134,7 @@ func (orgVdcNet *OpenApiOrgVdcNetwork) Delete() error {
 		return err
 	}
 
-	err = orgVdcNet.client.OpenApiDeleteItem(minimumApiVersion, urlRef, nil, nil)
+	err = orgVdcNet.client.OpenApiDeleteItem(minimumApiVersion, urlRef, nil)
 
 	if err != nil {
 		return fmt.Errorf("error deleting Org VDC network: %s", err)
@@ -192,7 +192,7 @@ func getOpenApiOrgVdcNetworkById(client *Client, id string, queryParameters url.
 		client:               client,
 	}
 
-	err = client.OpenApiGetItem(minimumApiVersion, urlRef, queryParameters, egw.OpenApiOrgVdcNetwork, nil)
+	err = client.OpenApiGetItem(minimumApiVersion, urlRef, queryParameters, egw.OpenApiOrgVdcNetwork)
 	if err != nil {
 		return nil, err
 	}
@@ -252,7 +252,7 @@ func getAllOpenApiOrgVdcNetworks(client *Client, queryParameters url.Values) ([]
 	}
 
 	typeResponses := []*types.OpenApiOrgVdcNetwork{{}}
-	err = client.OpenApiGetAllItems(minimumApiVersion, urlRef, queryParameters, &typeResponses, nil)
+	err = client.OpenApiGetAllItems(minimumApiVersion, urlRef, queryParameters, &typeResponses)
 	if err != nil {
 		return nil, err
 	}

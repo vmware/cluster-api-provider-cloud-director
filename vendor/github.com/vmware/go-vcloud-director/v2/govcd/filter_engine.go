@@ -250,7 +250,7 @@ func searchByFilter(queryByMetadata queryByMetadataFunc, queryWithMetadataFields
 			util.Logger.Printf("[SearchByFilter] result %v: ", greater)
 			if greater {
 				latestDate = candidate.GetDate()
-				candidateByLatest = candidate
+				candidateByLatest = candidate.(QueryItem)
 			}
 		}
 		if candidateByLatest != nil {
@@ -281,7 +281,7 @@ func searchByFilter(queryByMetadata queryByMetadataFunc, queryWithMetadataFields
 			util.Logger.Printf("[SearchByFilter] result %v: ", greater)
 			if greater {
 				earliestDate = candidate.GetDate()
-				candidateByEarliest = candidate
+				candidateByEarliest = candidate.(QueryItem)
 			}
 		}
 		if candidateByEarliest != nil {
