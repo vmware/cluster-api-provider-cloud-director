@@ -1,4 +1,5 @@
 #cloud-config
+# NOTE: do not change the position of the secret in the following file as secretes need to be redacted.
 write_files:
 - path: /root/vcloud-basic-auth.yaml
   owner: root

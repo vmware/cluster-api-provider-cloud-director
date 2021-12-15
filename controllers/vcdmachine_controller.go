@@ -478,6 +478,8 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	redactedCloudInit := string(mergedCloudInitBytes)
 	if util.IsControlPlaneMachine(machine) {
 		// redact secrets
+		// NOTE: the position of the key in cluster_scripts/cloud_init_control_plane.yaml is important as the following
+		// code expects the secret to be the first element in write_files.
 		redactedCloudInit, err = redactCloudInit(string(mergedCloudInitBytes), []string{"write_files", "0", "content"})
 		if err != nil {
 			log.Error(err, "failed to redact cloud init script")
