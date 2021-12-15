@@ -14,13 +14,13 @@ require (
 	github.com/replicatedhq/troubleshoot v0.25.0
 	github.com/stretchr/testify v1.7.0
 	github.com/vmware/go-vcloud-director/v2 v2.12.0-alpha.4
-	golang.org/x/oauth2 v0.0.0-20210628180205-a41e5a781914
+	golang.org/x/oauth2 v0.0.0-20210819190943-2bc19b11175f
 	gopkg.in/yaml.v2 v2.4.0
 	k8s.io/api v0.22.4
 	k8s.io/apimachinery v0.22.4
 	k8s.io/client-go v0.22.4
 	k8s.io/klog v1.0.0
-	k8s.io/klog/v2 v2.9.0
+	k8s.io/klog/v2 v2.9.0 // indirect
 	sigs.k8s.io/cluster-api v0.4.1
 	sigs.k8s.io/controller-runtime v0.10.3
 	sigs.k8s.io/kind v0.11.1

@@ -453,9 +453,6 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 				workloadVCDClient.ClusterID,       // cluster id
 				machine.Name,                      // vm host name
 			)
-			if err != nil {
-				klog.Errorf("failed to redact cloud init script: [%v]", err)
-			}
 
 		default:
 			guestCloudInit = fmt.Sprintf(
