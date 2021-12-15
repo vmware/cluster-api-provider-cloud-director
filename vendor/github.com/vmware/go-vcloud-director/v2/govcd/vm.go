@@ -1807,11 +1807,3 @@ func (vm *VM) Delete() error {
 	}
 	return task.WaitTaskCompletion()
 }
-
-func (vm *VM) getTenantContext() (*TenantContext, error) {
-	parentVdc, err := vm.GetParentVdc()
-	if err != nil {
-		return nil, err
-	}
-	return parentVdc.getTenantContext()
-}

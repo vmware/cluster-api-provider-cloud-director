@@ -13,14 +13,15 @@ import (
 )
 
 func (client *Client) GetComputePolicyDetailsFromName(computePolicyName string) (*types.VdcComputePolicy, error) {
-	org, err := client.VcdClient.GetOrgByName(client.VcdAuthConfig.Org)
+	org, err := client.VcdClient.GetOrgByName(client.ClusterOrgName)
 	if err != nil {
-		return nil, fmt.Errorf("unable to get org [%s] by name: [%v]", client.VcdAuthConfig.Org, err)
+		return nil, fmt.Errorf("unable to get org [%s] by name: [%v]", client.ClusterOrgName, err)
 	}
 
 	vdcComputePolicies, err := org.GetAllVdcComputePolicies(url.Values{})
 	if err != nil {
-		return nil, fmt.Errorf("unable to get all compute policies for [%s] by name: [%v]", client.VcdAuthConfig.Org, err)
+		return nil, fmt.Errorf("unable to get all compute policies for [%s] by name: [%v]",
+			client.ClusterOrgName, err)
 	}
 
 	var computePolicy *types.VdcComputePolicy = nil

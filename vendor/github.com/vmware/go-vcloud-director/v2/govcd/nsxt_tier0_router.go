@@ -121,7 +121,7 @@ func (vcdCli *VCDClient) GetAllImportableNsxtTier0Routers(nsxtManagerId string, 
 	queryParams := queryParameterFilterAnd("_context=="+nsxtManagerId, queryParameters)
 
 	typeResponses := []*types.NsxtTier0Router{{}}
-	err = vcdCli.Client.OpenApiGetAllItems(minimumApiVersion, urlRef, queryParams, &typeResponses, nil)
+	err = vcdCli.Client.OpenApiGetAllItems(minimumApiVersion, urlRef, queryParams, &typeResponses)
 	if err != nil {
 		return nil, err
 	}

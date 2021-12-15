@@ -1,5 +1,5 @@
 /*
- * Copyright 2021 VMware, Inc.  All rights reserved.  Licensed under the Apache v2 License.
+ * Copyright 2019 VMware, Inc.  All rights reserved.  Licensed under the Apache v2 License.
  */
 
 package govcd
@@ -16,9 +16,8 @@ import (
 )
 
 type Org struct {
-	Org           *types.Org
-	client        *Client
-	TenantContext *TenantContext
+	Org    *types.Org
+	client *Client
 }
 
 func NewOrg(client *Client) *Org {
@@ -82,7 +81,6 @@ func (org *Org) GetVdcByName(vdcname string) (Vdc, error) {
 	for _, link := range org.Org.Link {
 		if link.Name == vdcname {
 			vdc := NewVdc(org.client)
-			vdc.parent = org
 
 			_, err := org.client.ExecuteRequest(link.HREF, http.MethodGet,
 				"", "error retrieving vdc: %s", nil, vdc.Vdc)
@@ -212,7 +210,6 @@ func (org *Org) GetCatalogByHref(catalogHref string) (*Catalog, error) {
 		return nil, err
 	}
 	// The request was successful
-	cat.parent = org
 	return cat, nil
 }
 
@@ -279,7 +276,6 @@ func (org *Org) GetVDCByHref(vdcHref string) (*Vdc, error) {
 		return nil, err
 	}
 	// The request was successful
-	vdc.parent = org
 	return vdc, nil
 }
 
@@ -372,9 +368,8 @@ func (org *Org) GetTaskList() (*types.TasksList, error) {
 // queryOrgVdcByName returns a single QueryResultOrgVdcRecordType
 func (org *Org) queryOrgVdcByName(vdcName string) (*types.QueryResultOrgVdcRecordType, error) {
 	filterFields := map[string]string{
-		"org":     org.Org.HREF,
-		"orgName": org.Org.Name,
-		"name":    vdcName,
+		"org":  org.Org.HREF,
+		"name": vdcName,
 	}
 	allVdcs, err := queryOrgVdcList(org.client, filterFields)
 	if err != nil {
@@ -392,12 +387,11 @@ func (org *Org) queryOrgVdcByName(vdcName string) (*types.QueryResultOrgVdcRecor
 	return allVdcs[0], nil
 }
 
-// queryOrgVdcById returns a single QueryResultOrgVdcRecordType
+// queryOrgVdcById returns a single Org VDC query result
 func (org *Org) queryOrgVdcById(vdcId string) (*types.QueryResultOrgVdcRecordType, error) {
 	filterMap := map[string]string{
-		"org":     org.Org.HREF,
-		"orgName": org.Org.Name,
-		"id":      vdcId,
+		"org": org.Org.HREF,
+		"id":  vdcId,
 	}
 	allVdcs, err := queryOrgVdcList(org.client, filterMap)
 
@@ -412,13 +406,10 @@ func (org *Org) queryOrgVdcById(vdcId string) (*types.QueryResultOrgVdcRecordTyp
 	return allVdcs[0], nil
 }
 
-// queryCatalogByName returns a single CatalogRecord
+// queryCatalogByName returns a single QueryResultOrgVdcRecordType
 func (org *Org) queryCatalogByName(catalogName string) (*types.CatalogRecord, error) {
 	filterMap := map[string]string{
-		// Not injecting `org` or `orgName` here because shared catalogs may also appear here and they would have different
-		// parent Org
-		// "org":     org.Org.HREF,
-		// "orgName": org.Org.Name,
+		"org":  org.Org.HREF,
 		"name": catalogName,
 	}
 	allCatalogs, err := queryCatalogList(org.client, filterMap)
@@ -430,44 +421,18 @@ func (org *Org) queryCatalogByName(catalogName string) (*types.CatalogRecord, er
 		return nil, ErrorEntityNotFound
 	}
 
-	// To conform with this API standard it would be best to return an error if more than 1 item is found, but because
-	// previous method of getting Catalog by Name returned the first result we are doing the same here
-	// if len(allCatalogs) > 1 {
-	// 	return nil, fmt.Errorf("found more than 1 Catalog with Name '%s'", catalogName)
-	// }
-
-	var localCatalog *types.CatalogRecord
-	// if multiple results are found - return the one defined in `org` (local)
 	if len(allCatalogs) > 1 {
-		util.Logger.Printf("[DEBUG] org.queryCatalogByName found %d Catalogs by name '%s'", len(allCatalogs), catalogName)
-		for _, catalog := range allCatalogs {
-			util.Logger.Printf("[DEBUG] org.queryCatalogByName found a Catalog by name '%s' in Org '%s'", catalogName, catalog.OrgName)
-			if catalog.OrgName == org.Org.Name {
-				util.Logger.Printf("[DEBUG] org.queryCatalogByName Catalog '%s' is local for Org '%s'. Prioritising it",
-					catalogName, org.Org.Name)
-				// Not interrupting the loop here to still dump all results to logs
-				localCatalog = catalog
-			}
-		}
+		return nil, fmt.Errorf("found more than 1 VDC with Name '%s'", catalogName)
 	}
 
-	// local catalog was found - return it
-	if localCatalog != nil {
-		return localCatalog, nil
-	}
-
-	// If only one catalog is found or multiple catalogs with no local ones - return the first one
 	return allCatalogs[0], nil
 }
 
-// queryCatalogById returns a single QueryResultOrgVdcRecordType
+// queryCatalogById returns a single Org VDC query result
 func (org *Org) queryCatalogById(catalogId string) (*types.CatalogRecord, error) {
 	filterMap := map[string]string{
-		// Not injecting `org` or `orgName` here because shared catalogs may also appear here and they would have different
-		// parent Org
-		// "org":     org.Org.HREF,
-		// "orgName": org.Org.Name,
-		"id": catalogId,
+		"org": org.Org.HREF,
+		"id":  catalogId,
 	}
 	allCatalogs, err := queryCatalogList(org.client, filterMap)
 
