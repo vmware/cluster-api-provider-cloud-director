@@ -258,7 +258,7 @@ func (r *VCDClusterReconciler) constructAndCreateRDEFromCluster(ctx context.Cont
 
 	rde, err := r.constructCapvcdRDE(ctx, cluster, vcdCluster)
 	if err != nil {
-		return "", fmt.Errorf("error occurred during RDE creation for the cluster [%s]: [%v]", vcdCluster.Name, err)
+		return "", fmt.Errorf("error occurred while constructing RDE payload for the cluster [%s]: [%v]", vcdCluster.Name, err)
 	}
 	resp, err := workloadVCDClient.ApiClient.DefinedEntityApi.CreateDefinedEntity(ctx, *rde,
 		rde.EntityType, nil)
@@ -477,7 +477,7 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 			if len(definedEntities.Values) == 0 {
 				rdeID, err := r.constructAndCreateRDEFromCluster(ctx, workloadVCDClient, cluster, vcdCluster)
 				if err != nil {
-					log.Error(err, "failed to create RDE for the cluster")
+					log.Error(err, "error creating RDE for the cluster")
 				} else {
 					vcdCluster.Status.RDEId = rdeID
 				}
