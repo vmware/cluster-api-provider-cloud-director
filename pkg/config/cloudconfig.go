@@ -57,12 +57,20 @@ type LBConfig struct {
 	Ports  Ports   `yaml:"ports"`
 }
 
+// ClusterResourcesConfig :
+type ClusterResourcesConfig struct {
+	CsiVersion string `yaml:"csi" default:"1.0.x"`
+	CpiVersion string `yaml:"cpi" default:"1.0.x"`
+	CniVersion string `yaml:"cni" default:"0.11.3"`
+}
+
 // CloudConfig contains the config that will be read from the secret
 type CloudConfig struct {
-	VCD                    VCDConfig `yaml:"vcd"`
-	ClusterID              string    `yaml:"clusterid"`
-	LB                     LBConfig  `yaml:"loadbalancer"`
-	ManagementClusterRDEId string    `yaml:"managementClusterRDEId,omitempty"`
+	VCD                    VCDConfig              `yaml:"vcd"`
+	ClusterID              string                 `yaml:"clusterid"`
+	LB                     LBConfig               `yaml:"loadbalancer"`
+	ManagementClusterRDEId string                 `yaml:"managementClusterRDEId,omitempty"`
+	ClusterResources       ClusterResourcesConfig `yaml:"clusterResourceSet"`
 }
 
 func getUserAndOrg(fullUserName string, clusterOrg string) (userOrg string, userName string, err error) {
@@ -104,7 +112,7 @@ func ParseCloudConfig(configReader io.Reader) (*CloudConfig, error) {
 }
 
 func SetAuthorization(config *CloudConfig) error {
-	// check if refresh token is present.
+	//check if refresh token is present.
 	if _, err := os.Stat("/etc/kubernetes/vcloud/basic-auth/refreshToken"); err == nil {
 		// refresh token is present. Populate only refresh token and keep user and secret empty
 		refreshToken, err := ioutil.ReadFile("/etc/kubernetes/vcloud/basic-auth/refreshToken")

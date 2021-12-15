@@ -56,6 +56,9 @@ type Client struct {
 	NetworkBackingType     swaggerClient.BackingNetworkType
 	ManagementClusterRDEId string
 	rwLock                 sync.RWMutex
+	CsiVersion             string
+	CpiVersion             string
+	CniVersion             string
 }
 
 // RefreshToken will check if can authenticate and rebuild clients if needed
@@ -95,7 +98,8 @@ func (client *Client) RefreshToken() error {
 func NewVCDClientFromSecrets(host string, orgName string, vdcName string,
 	networkName string, ipamSubnet string, user string, password string,
 	insecure bool, clusterID string, oneArm *OneArm, httpPort int32,
-	httpsPort int32, tcpPort int32, getVdcClient bool, managementClusterRDEId string) (*Client, error) {
+	httpsPort int32, tcpPort int32, getVdcClient bool, managementClusterRDEId string,
+	csiVersion string, cpiVersion string, cniVersion string) (*Client, error) {
 
 	// TODO: validation of parameters
 
@@ -111,7 +115,10 @@ func NewVCDClientFromSecrets(host string, orgName string, vdcName string,
 			clientSingleton.VcdAuthConfig.User == user &&
 			clientSingleton.VcdAuthConfig.Password == password &&
 			clientSingleton.VcdAuthConfig.Insecure == insecure &&
-			clientSingleton.NetworkName == networkName {
+			clientSingleton.NetworkName == networkName &&
+			clientSingleton.CsiVersion == csiVersion &&
+			clientSingleton.CpiVersion == cpiVersion &&
+			clientSingleton.CniVersion == cniVersion {
 			return clientSingleton, nil
 		}
 	}
@@ -135,6 +142,9 @@ func NewVCDClientFromSecrets(host string, orgName string, vdcName string,
 		HTTPPort:      httpPort,
 		HTTPSPort:     httpsPort,
 		TCPPort:       tcpPort,
+		CsiVersion:    csiVersion,
+		CpiVersion:    cpiVersion,
+		CniVersion:    cniVersion,
 	}
 
 	if getVdcClient {

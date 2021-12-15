@@ -37,6 +37,8 @@ const (
 	CAPVCDClusterKind             = "CAPVCDCluster"
 	CAPVCDClusterEntityApiVersion = "capvcd.vmware.com/v1.0"
 	CAPVCDClusterCniName          = "antrea" // TODO: Get the correct value for CNI name
+	VcdCsiName                    = "cloud-director-named-disk-csi-driver"
+	VcdCpiName                    = "cloud-provider-for-cloud-director"
 
 	RDEStatusResolved = "RESOLVED"
 	VCDLocationHeader = "Location"
@@ -223,6 +225,18 @@ func (r *VCDClusterReconciler) constructCapvcdRDE(ctx context.Context, cluster *
 			IsManagementCluster: false,
 			CapvcdVersion:       "0.5.0", // TODO: Discuss with Arun on how to get the CAPVCD version.
 			ParentUID:           r.VcdClient.ManagementClusterRDEId,
+			Csi: vcdtypes.VersionedAddon{
+				Name:    VcdCsiName,
+				Version: r.VcdClient.CsiVersion, // TODO: get CPI, CNI, CSI versions from the CLusterResourceSet objects
+			},
+			Cpi: vcdtypes.VersionedAddon{
+				Name:    VcdCpiName,
+				Version: r.VcdClient.CpiVersion,
+			},
+			Cni: vcdtypes.VersionedAddon{
+				Name:    CAPVCDClusterCniName,
+				Version: r.VcdClient.CniVersion,
+			},
 		},
 	}
 
@@ -423,7 +437,8 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	workloadVCDClient, err := vcdclient.NewVCDClientFromSecrets(vcdCluster.Spec.Site, vcdCluster.Spec.Org,
 		vcdCluster.Spec.Ovdc, vcdCluster.Spec.OvdcNetwork, r.VcdClient.IPAMSubnet,
 		vcdCluster.Spec.UserCredentialsContext.Username, vcdCluster.Spec.UserCredentialsContext.Password, true,
-		vcdCluster.Status.RDEId, r.VcdClient.OneArm, 0, 0, r.VcdClient.TCPPort, true, "")
+		vcdCluster.Status.RDEId, r.VcdClient.OneArm, 0, 0, r.VcdClient.TCPPort, true, "",
+		r.VcdClient.CsiVersion, r.VcdClient.CpiVersion, r.VcdClient.CniVersion)
 	if err != nil {
 		return ctrl.Result{}, errors.Wrapf(err, "error creating VCD client to reconcile Cluster [%s] infrastructure", vcdCluster.Name)
 	}
@@ -537,7 +552,8 @@ func (r *VCDClusterReconciler) reconcileDelete(ctx context.Context,
 	workloadVCDClient, err := vcdclient.NewVCDClientFromSecrets(vcdCluster.Spec.Site, vcdCluster.Spec.Org,
 		vcdCluster.Spec.Ovdc, vcdCluster.Spec.OvdcNetwork, r.VcdClient.IPAMSubnet,
 		vcdCluster.Spec.UserCredentialsContext.Username, vcdCluster.Spec.UserCredentialsContext.Password, true,
-		"", r.VcdClient.OneArm, 0, 0, r.VcdClient.TCPPort, true, "")
+		"", r.VcdClient.OneArm, 0, 0, r.VcdClient.TCPPort, true, "",
+		r.VcdClient.CsiVersion, r.VcdClient.CpiVersion, r.VcdClient.CniVersion)
 	if err != nil {
 		return ctrl.Result{}, errors.Wrapf(err, "error occurred during cluster deletion; unable to create client for the workload cluster [%s]", vcdCluster.Name)
 	}
