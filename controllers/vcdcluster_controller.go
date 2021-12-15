@@ -624,9 +624,9 @@ func (r *VCDClusterReconciler) reconcileDelete(ctx context.Context,
 	if vcdCluster.Status.RDEId != "" && !strings.HasPrefix(vcdCluster.Status.RDEId, NoRdePrefix) {
 		definedEntities, resp, err := workloadVCDClient.ApiClient.DefinedEntityApi.GetDefinedEntitiesByEntityType(ctx,
 			CAPVCDTypeVendor, CAPVCDTypeNss, CAPVCDTypeVersion, 1, 25,
-			&swagger.DefinedEntityApiGetDefinedEntitiesByEntityTypeOpts {
-			Filter: optional.NewString(fmt.Sprintf("id==%s", vcdCluster.Status.RDEId)),
-		})
+			&swagger.DefinedEntityApiGetDefinedEntitiesByEntityTypeOpts{
+				Filter: optional.NewString(fmt.Sprintf("id==%s", vcdCluster.Status.RDEId)),
+			})
 		if err != nil {
 			return ctrl.Result{}, errors.Wrapf(err, "failed to fetch defined entities by entity type [%s] and ID [%s] for cluster [%s]", CAPVCDEntityTypeID, vcdCluster.Status.RDEId, vcdCluster.Name)
 		}
