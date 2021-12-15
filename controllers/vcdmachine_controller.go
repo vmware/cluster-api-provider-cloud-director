@@ -317,8 +317,7 @@ func (r *VCDMachineReconciler) reconcileNodeStatusInRDE(ctx context.Context, rde
 func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clusterv1.Cluster,
 	machine *clusterv1.Machine, vcdMachine *infrav1.VCDMachine, vcdCluster *infrav1.VCDCluster) (res ctrl.Result, retErr error) {
 
-	log := ctrl.LoggerFrom(ctx)
-	log.WithValues("machine", machine.Name, "vcdMachine", vcdMachine.Name, "cluster", vcdCluster.Name)
+	log := ctrl.LoggerFrom(ctx, "machine", machine.Name, "cluster", vcdCluster.Name)
 
 	workloadVCDClient, err := vcdclient.NewVCDClientFromSecrets(vcdCluster.Spec.Site, vcdCluster.Spec.Org,
 		vcdCluster.Spec.Ovdc, vcdCluster.Spec.OvdcNetwork, r.VcdClient.IPAMSubnet,
@@ -460,6 +459,7 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		vmExists = false
 	}
 	if !vmExists {
+		log.Info("adding infra VM for the machine")
 		err = vdcManager.AddNewVM(machine.Name, vApp.VApp.Name, 1,
 			vcdMachine.Spec.Catalog, vcdMachine.Spec.Template, "",
 			vcdMachine.Spec.ComputePolicy, "", false)
@@ -645,8 +645,7 @@ func (r *VCDMachineReconciler) getBootstrapData(ctx context.Context, machine *cl
 
 func (r *VCDMachineReconciler) reconcileDelete(ctx context.Context, cluster *clusterv1.Cluster, machine *clusterv1.Machine,
 	vcdMachine *infrav1.VCDMachine, vcdCluster *infrav1.VCDCluster) (ctrl.Result, error) {
-	log := ctrl.LoggerFrom(ctx)
-	log.WithValues("cluster", vcdCluster.Name, "machine", machine.Name)
+	log := ctrl.LoggerFrom(ctx, "machine", machine.Name, "cluster", vcdCluster.Name)
 
 	patchHelper, err := patch.NewHelper(vcdMachine, r.Client)
 	if err != nil {
@@ -675,6 +674,7 @@ func (r *VCDMachineReconciler) reconcileDelete(ctx context.Context, cluster *clu
 	}
 	if util.IsControlPlaneMachine(machine) {
 		// remove the address from the lbpool
+		log.Info("deleting the control plane IP from the load balancer pool")
 		lbPoolName := cluster.Name + "-" + workloadVCDClient.ClusterID + "-tcp"
 		lbPoolRef, err := gateway.GetLoadBalancerPool(ctx, lbPoolName)
 		if err != nil && err != govcd.ErrorEntityNotFound {
@@ -740,6 +740,7 @@ func (r *VCDMachineReconciler) reconcileDelete(ctx context.Context, cluster *clu
 		}
 		if vm != nil {
 			// delete the machine
+			log.Info("deleting the infra VM of the machine")
 			if err := vm.Delete(); err != nil {
 				return ctrl.Result{}, errors.Wrapf(err, "error deleting the machine [%s/%s]", vAppName, vm.VM.Name)
 			}

@@ -9,7 +9,6 @@ import (
 	"context"
 	"fmt"
 	"github.com/antihax/optional"
-	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	infrav1 "github.com/vmware/cluster-api-provider-cloud-director/api/v1alpha4"
 	vcdutil "github.com/vmware/cluster-api-provider-cloud-director/pkg/util"
@@ -57,13 +56,6 @@ type VCDClusterReconciler struct {
 	VcdClient *vcdclient.Client
 }
 
-func (r *VCDClusterReconciler) dummy(ctx context.Context, log logr.Logger) {
-	ctx1 := context.WithValue(ctx, "cluster_ctx", "myCluster")
-	ctx2 := context.WithValue(ctx1, "machine_ctx", "myMachine")
-	log.Info("testing", ctx2.Value("cluster_ctx"), ctx2.Value("machine_ctx"))
-
-}
-
 //+kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=vcdclusters,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=vcdclusters/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=vcdclusters/finalizers,verbs=update
@@ -81,13 +73,6 @@ func (r *VCDClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		}
 		return ctrl.Result{}, err
 	}
-	log = log.WithValues("cluster", vcdCluster.Name)
-	err := fmt.Errorf("hello I am error from fmt")
-	//
-	log.Error(err, "Hello, I am erroring from reconcile", "rdeId", "1234")
-	log.Info("hello darling", "cluster1", vcdCluster.Name)
-	r.dummy(ctx, log)
-	return ctrl.Result{}, nil
 
 	// Fetch the Cluster.
 	cluster, err := util.GetOwnerCluster(ctx, r.Client, vcdCluster.ObjectMeta)

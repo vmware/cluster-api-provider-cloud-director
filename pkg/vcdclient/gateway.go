@@ -87,8 +87,8 @@ func (gateway *GatewayManager) CacheGatewayDetails(ctx context.Context) error {
 	// Cache backing type
 	gateway.NetworkBackingType = *ovdcNetwork.BackingNetworkType
 
-	klog.Infof("Obtained GatewayManager [%s] for Network Name [%s] of type [%v]\n",
-		gateway.GatewayRef.Name, gateway.NetworkName, gateway.NetworkBackingType)
+	//klog.Infof("Obtained GatewayManager [%s] for Network Name [%s] of type [%v]\n",
+	//	gateway.GatewayRef.Name, gateway.NetworkName, gateway.NetworkBackingType)
 
 	return nil
 }
