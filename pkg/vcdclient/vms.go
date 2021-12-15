@@ -105,7 +105,7 @@ func (vdc *VdcManager) AddNewMultipleVM(vapp *govcd.VApp, vmNamePrefix string, v
 	catalogName string, templateName string, placementPolicyName string, computePolicyName string,
 	guestCustScript string, acceptAllEulas bool, powerOn bool) (govcd.Task, error) {
 
-	klog.Infof("start adding %d VMs\n", vmNum)
+	// klog.Infof("start adding %d VMs\n", vmNum)
 
 	catalog, err := vdc.Client.GetCatalogByName(vdc.OrgName, catalogName)
 	if err != nil {
@@ -233,7 +233,7 @@ func (vdc *VdcManager) AddNewMultipleVM(vapp *govcd.VApp, vmNamePrefix string, v
 	apiEndpoint.Path += "/action/recomposeVApp"
 
 	// execute the task to recomposeVApp
-	klog.Infof("start to compose VApp [%s] with VMs prefix [%s]", vapp.VApp.Name, vmNamePrefix)
+	// klog.Infof("start to compose VApp [%s] with VMs prefix [%s]", vapp.VApp.Name, vmNamePrefix)
 	task, err := vdc.Client.VcdClient.Client.ExecuteTaskRequest(apiEndpoint.String(),
 		http.MethodPost, types.MimeRecomposeVappParams, "error instantiating a new VM: %s",
 		vAppComposition)
