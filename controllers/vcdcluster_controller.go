@@ -254,8 +254,8 @@ func (r *VCDClusterReconciler) constructCapvcdRDE(ctx context.Context, cluster *
 }
 
 func (r *VCDClusterReconciler) constructAndCreateRDEFromCluster(ctx context.Context, workloadVCDClient *vcdclient.Client, cluster *clusterv1.Cluster, vcdCluster *infrav1.VCDCluster) (string, error) {
-	log := ctrl.LoggerFrom(ctx)
-	log.WithValues("cluster", vcdCluster.Name)
+	log := ctrl.LoggerFrom(ctx, "cluster", vcdCluster.Name)
+
 	rde, err := r.constructCapvcdRDE(ctx, cluster, vcdCluster)
 	if err != nil {
 		return "", fmt.Errorf("error occurred during RDE creation for the cluster [%s]: [%v]", vcdCluster.Name, err)
@@ -281,8 +281,7 @@ func (r *VCDClusterReconciler) constructAndCreateRDEFromCluster(ctx context.Cont
 }
 
 func (r *VCDClusterReconciler) reconcileRDE(ctx context.Context, cluster *clusterv1.Cluster, vcdCluster *infrav1.VCDCluster, workloadVCDClient *vcdclient.Client) error {
-	log := ctrl.LoggerFrom(ctx)
-	log.WithValues("cluster", vcdCluster.Name)
+	log := ctrl.LoggerFrom(ctx, "cluster", vcdCluster.Name)
 
 	updatePatch := make(map[string]interface{})
 	_, capvcdEntity, err := workloadVCDClient.GetCAPVCDEntity(ctx, vcdCluster.Status.RDEId)
@@ -436,8 +435,7 @@ func (r *VCDClusterReconciler) reconcileRDE(ctx context.Context, cluster *cluste
 func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clusterv1.Cluster,
 	vcdCluster *infrav1.VCDCluster) (ctrl.Result, error) {
 
-	log := ctrl.LoggerFrom(ctx)
-	log.WithValues("cluster", vcdCluster.Name)
+	log := ctrl.LoggerFrom(ctx, "cluster", vcdCluster.Name)
 
 	workloadVCDClient, err := vcdclient.NewVCDClientFromSecrets(vcdCluster.Spec.Site, vcdCluster.Spec.Org,
 		vcdCluster.Spec.Ovdc, vcdCluster.Name, vcdCluster.Spec.OvdcNetwork, r.VcdClient.IPAMSubnet,
@@ -495,7 +493,7 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	// cleanly in the Virtual Services etc.
 	if vcdCluster.Status.RDEId == "" {
 		rdeID := NoRdePrefix + uuid.New().String()
-		klog.Infof("Unable to get RDE ID. Hence using a self-generated UUID: [%s]", rdeID)
+		log.Info("error retrieving RDEId. Hence using a self-generated UUID", "UUID", rdeID)
 		vcdCluster.Status.RDEId = rdeID
 	}
 
@@ -552,8 +550,7 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 func (r *VCDClusterReconciler) reconcileDelete(ctx context.Context,
 	vcdCluster *infrav1.VCDCluster) (ctrl.Result, error) {
 
-	log := ctrl.LoggerFrom(ctx)
-	log = log.WithValues("cluster", vcdCluster.Name)
+	log := ctrl.LoggerFrom(ctx, "cluster", vcdCluster.Name)
 
 	patchHelper, err := patch.NewHelper(vcdCluster, r.Client)
 	if err != nil {
