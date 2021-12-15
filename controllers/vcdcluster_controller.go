@@ -66,7 +66,6 @@ type VCDClusterReconciler struct {
 // +kubebuilder:rbac:groups="",resources=events,verbs=get;list;watch;create;update;patch
 func (r *VCDClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctrl.Result, rerr error) {
 	log := ctrl.LoggerFrom(ctx)
-
 	// Fetch the VCDCluster instance
 	vcdCluster := &infrav1.VCDCluster{}
 	if err := r.Client.Get(ctx, req.NamespacedName, vcdCluster); err != nil {
