@@ -25,7 +25,7 @@ func TestVMCreation(t *testing.T) {
 	vAppName := "test-vapp"
 	vdcManager := VdcManager{
 		VdcName: vcdClient.VcdAuthConfig.VDC,
-		OrgName: vcdClient.VcdAuthConfig.Org,
+		OrgName: vcdClient.VcdAuthConfig.UserOrg,
 		Client:  vcdClient,
 		Vdc:     vcdClient.Vdc,
 	}
@@ -78,7 +78,7 @@ func TestVMExtraConfig(t *testing.T) {
 	vAppName := "test-vapp"
 	vdcManager := VdcManager{
 		VdcName: vcdClient.VcdAuthConfig.VDC,
-		OrgName: vcdClient.VcdAuthConfig.Org,
+		OrgName: vcdClient.VcdAuthConfig.UserOrg,
 		Client:  vcdClient,
 		Vdc:     vcdClient.Vdc,
 	}

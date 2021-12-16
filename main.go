@@ -57,7 +57,8 @@ func init() {
 }
 
 func getVcdClientFromConfig(inputMap map[string]interface{}) (*vcdclient.Client, error) {
-	configFilePath := "/etc/kubernetes/vcloud/controller_manager_config.yaml"
+	//configFilePath := "/etc/kubernetes/vcloud/controller_manager_config.yaml"
+	configFilePath := "/Users/ltimothy/go/src/github.com/vmware/cluster-api-provider-cloud-director/testdata/config_test.yaml"
 	configReader, err := os.Open(configFilePath)
 	if err != nil {
 		return nil, fmt.Errorf("Unable to open file [%s]: [%v]", configFilePath, err)
