@@ -780,7 +780,24 @@ func (r *VCDMachineReconciler) reconcileDelete(ctx context.Context, cluster *clu
 			}
 		}
 		if vm != nil {
-			// delete the machine
+			// power-off the VM if it is powered on
+			vmStatus, err := vm.GetStatus()
+			if err != nil {
+				klog.Warningf("Unable to get VM status for VM [%s]: [%v]", vm.VM.Name, err)
+			} else {
+				// continue and try to power-off in any case
+				klog.Infof("VM [%s] has status [%s]", vm.VM.Name, vmStatus)
+				task, err := vm.PowerOff()
+				if err != nil {
+					klog.Warningf("Error while powering off VM [%s]: [%v]", vm.VM.Name, err)
+				} else {
+					if err = task.WaitTaskCompletion(); err != nil {
+						return ctrl.Result{}, fmt.Errorf("error waiting for task completion after reconfiguring vm: [%v]", err)
+					}
+				}
+			}
+
+			// in any case try to delete the machine
 			log.Info("deleting the infra VM of the machine")
 			if err := vm.Delete(); err != nil {
 				return ctrl.Result{}, errors.Wrapf(err, "error deleting the machine [%s/%s]", vAppName, vm.VM.Name)
