@@ -33,7 +33,7 @@ import (
 
 const (
 	CAPVCDTypeVendor  = "vmware"
-	CAPVCDTypeNss     = "capvcdcluster"
+	CAPVCDTypeNss     = "capvcdCluster"
 	CAPVCDTypeVersion = "1.0.0"
 
 	CAPVCDClusterKind             = "CAPVCDCluster"
