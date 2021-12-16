@@ -544,6 +544,7 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 				"Error updating the load balancer pool [%s] for the "+
 					"control plane machine [%s] of the cluster [%s]", lbPoolName, machine.Name, vcdCluster.Name)
 		}
+		log.Info("updated the load balancer pool with the control plane machine IP", "lbpool", lbPoolName)
 	}
 
 	vmStatus, err := vm.GetStatus()
@@ -601,13 +602,13 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		if err = vApp.Refresh(); err != nil {
 			return ctrl.Result{}, errors.Wrapf(err, "Error while bootstrapping the machine [%s/%s]; unable to refresh vapp", vAppName, vm.VM.Name)
 		}
-		log.Info("Start: waiting for the bootstrapping phase to complete", "phase", phase)
+		log.Info(fmt.Sprintf("Start: waiting for the bootstrapping phase [%s] to complete", phase))
 		if err = r.waitForPostCustomizationPhase(ctx, workloadVCDClient, vm, phase); err != nil {
-			log.Error(err, "error waiting for the bootstrapping phase to complete", "phase", phase)
+			log.Error(err, fmt.Sprintf("Error waiting for the bootstrapping phase [%s] to complete", phase))
 			return ctrl.Result{}, errors.Wrapf(err, "Error while bootstrapping the machine [%s/%s]; unable to wait for post customization phase [%s]",
 				vAppName, vm.VM.Name, phase)
 		}
-		log.Info("End: waiting for the bootstrapping phase to complete", "phase", phase)
+		log.Info(fmt.Sprintf("End: waiting for the bootstrapping phase [%s] to complete", phase))
 	}
 
 	log.Info("Successfully bootstrapped the machine")

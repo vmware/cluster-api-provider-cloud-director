@@ -722,7 +722,7 @@ func (gateway *GatewayManager) updateLoadBalancerPool(ctx context.Context, lbPoo
 		return nil, fmt.Errorf("unable to query for loadbalancer pool [%s] that was updated: [%v]",
 			lbPoolName, err)
 	}
-	klog.Infof("Updated lb pool [%v] on gateway [%v]\n", lbPoolRef, client.GatewayRef.Name)
+	//klog.Infof("Updated lb pool [%v] on gateway [%v]\n", lbPoolRef, client.GatewayRef.Name)
 
 	return lbPoolRef, nil
 }
