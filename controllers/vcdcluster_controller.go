@@ -625,32 +625,32 @@ func (r *VCDClusterReconciler) reconcileDelete(ctx context.Context,
 				Filter: optional.NewString(fmt.Sprintf("id==%s", vcdCluster.Status.RDEId)),
 			})
 		if err != nil {
-			return ctrl.Result{}, errors.Wrapf(err, "Error occurred during cluster deletion; failed to fetch defined entities by entity type [%s] and ID [%s] for cluster [%s]", CAPVCDEntityTypeID, vcdCluster.Status.RDEId, vcdCluster.Name)
+			return ctrl.Result{}, errors.Wrapf(err, "Error occurred during RDE deletion; failed to fetch defined entities by entity type [%s] and ID [%s] for cluster [%s]", CAPVCDEntityTypeID, vcdCluster.Status.RDEId, vcdCluster.Name)
 		}
 		if resp.StatusCode != http.StatusOK {
-			return ctrl.Result{}, errors.Errorf("Error occurred during cluster deletion; error while fetching defined entities by entity type [%s] and ID [%s] for cluster [%s]", CAPVCDEntityTypeID, vcdCluster.Status.RDEId, vcdCluster.Name)
+			return ctrl.Result{}, errors.Errorf("Error occurred during RDE deletion; error while fetching defined entities by entity type [%s] and ID [%s] for cluster [%s]", CAPVCDEntityTypeID, vcdCluster.Status.RDEId, vcdCluster.Name)
 		}
 		if len(definedEntities.Values) > 0 {
 			// resolve defined entity before deleting
 			entityState, resp, err := workloadVCDClient.ApiClient.DefinedEntityApi.ResolveDefinedEntity(ctx,
 				vcdCluster.Status.RDEId)
 			if err != nil {
-				return ctrl.Result{}, errors.Wrapf(err, "Error occurred during cluster deletion; error occurred while resolving defined entity [%s] with ID [%s] before deleting", vcdCluster.Name, vcdCluster.Status.RDEId)
+				return ctrl.Result{}, errors.Wrapf(err, "Error occurred during RDE deletion; error occurred while resolving defined entity [%s] with ID [%s] before deleting", vcdCluster.Name, vcdCluster.Status.RDEId)
 			}
 			if resp.StatusCode != http.StatusOK {
-				log.Error(nil, "Error occurred during cluster deletion; failed to resolve RDE with ID [%s] for cluster [%s]: [%s]", vcdCluster.Status.RDEId, vcdCluster.Name, entityState.Message)
+				log.Error(nil, "Error occurred during RDE deletion; failed to resolve RDE with ID [%s] for cluster [%s]: [%s]", vcdCluster.Status.RDEId, vcdCluster.Name, entityState.Message)
 			}
 			resp, err = workloadVCDClient.ApiClient.DefinedEntityApi.DeleteDefinedEntity(ctx,
 				vcdCluster.Status.RDEId, nil)
 			if err != nil {
-				return ctrl.Result{}, errors.Wrapf(err, "Error occurred during cluster deletion; failed to execute delete defined entity call for RDE with ID [%s]", vcdCluster.Status.RDEId)
+				return ctrl.Result{}, errors.Wrapf(err, "Error occurred during RDE deletion; failed to execute delete defined entity call for RDE with ID [%s]", vcdCluster.Status.RDEId)
 			}
 			if resp.StatusCode != http.StatusNoContent {
-				return ctrl.Result{}, errors.Errorf("Error occurred during cluster deletion; error deleting defined entity associated with the cluster. RDE id: [%s]", vcdCluster.Status.RDEId)
+				return ctrl.Result{}, errors.Errorf("Error occurred during RDE deletion; error deleting defined entity associated with the cluster. RDE id: [%s]", vcdCluster.Status.RDEId)
 			}
-			log.Info("Successfully deleted the defined entity for cluster")
+			log.Info("Successfully deleted the (RDE) defined entity of the cluster")
 		} else {
-			log.Info("Attempting to delete RDE, but corresponding defined entity is not found", "RDEId", vcdCluster.Status.RDEId)
+			log.Info("Attempted deleting the RDE, but corresponding defined entity is not found", "RDEId", vcdCluster.Status.RDEId)
 		}
 	}
 	log.Info("Successfully deleted all the infra resources of the cluster")
