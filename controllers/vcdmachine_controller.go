@@ -6,15 +6,18 @@
 package controllers
 
 import (
+	"bytes"
 	"context"
 	_ "embed" // this needs go 1.16+
 	b64 "encoding/base64"
 	"fmt"
 	"github.com/pkg/errors"
+	"github.com/replicatedhq/troubleshoot/pkg/redact"
 	infrav1 "github.com/vmware/cluster-api-provider-cloud-director/api/v1alpha4"
 	"github.com/vmware/cluster-api-provider-cloud-director/pkg/vcdclient"
 	"github.com/vmware/go-vcloud-director/v2/govcd"
 	"gopkg.in/yaml.v2"
+	"io/ioutil"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/klog"
@@ -211,6 +214,17 @@ func strInSlice(findStr string, arr []string) bool {
 }
 
 const phaseSecondTimeout = 600
+
+func redactCloudInit(cloudInitYaml string, path []string) (string, error) {
+	yamlRunner := redact.NewYamlRedactor(strings.Join(path, "."), "", "cloudInitRedactor")
+	outReader := yamlRunner.Redact(bytes.NewReader([]byte(cloudInitYaml)), "")
+	gotBytes, err := ioutil.ReadAll(outReader)
+	if err != nil {
+		return cloudInitYaml, fmt.Errorf("failed to read redacted yaml output : %v", err)
+	}
+	return string(gotBytes), nil
+
+}
 
 func (r *VCDMachineReconciler) waitForPostCustomizationPhase(ctx context.Context, workloadVCDClient *vcdclient.Client, vm *govcd.VM, phase string) error {
 	startTime := time.Now()
@@ -461,7 +475,18 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 			vAppName, machine.Name, bootstrapJinjaScript)
 	}
 
-	log.Info(fmt.Sprintf("Cloud init Script: [%s]", mergedCloudInitBytes))
+	redactedCloudInit := string(mergedCloudInitBytes)
+	if util.IsControlPlaneMachine(machine) {
+		// redact secrets
+		// NOTE: the position of the key in cluster_scripts/cloud_init_control_plane.yaml is important as the following
+		// code expects the secret to be the first element in write_files.
+		redactedCloudInit, err = redactCloudInit(string(mergedCloudInitBytes), []string{"write_files", "0", "content"})
+		if err != nil {
+			log.Error(err, "failed to redact cloud init script")
+		}
+	}
+
+	log.Info(fmt.Sprintf("Cloud init Script: [%s]", redactedCloudInit))
 
 	vmExists := true
 	vm, err := vApp.GetVMByName(machine.Name, true)

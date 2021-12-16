@@ -651,6 +651,12 @@ func (gateway *GatewayManager) deleteLoadBalancerPool(ctx context.Context, lbPoo
 	}
 
 	resp, err := client.ApiClient.EdgeGatewayLoadBalancerPoolApi.DeleteLoadBalancerPool(ctx, lbPoolRef.Id)
+	if err != nil {
+		return fmt.Errorf("unable to delete lb pool; error calling DeleteLoadBalancerPool: [%v]", err)
+	}
+	if resp == nil {
+		return fmt.Errorf("error deleting load balancer pool; got an empty reponse while deleting load balancer pool: [%v]", err)
+	}
 	if resp.StatusCode != http.StatusAccepted {
 		return fmt.Errorf("unable to delete lb pool; expected http response [%v], obtained [%v]",
 			http.StatusAccepted, resp.StatusCode)
