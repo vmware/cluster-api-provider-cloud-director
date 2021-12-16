@@ -109,7 +109,7 @@ func getUnusedIPAddressInRange(startIPAddress string, endIPAddress string,
 	}
 
 	if freeIP != "" {
-		klog.Infof("Obtained unused IP [%s] in range [%s-%s]\n", freeIP, startIPAddress, endIPAddress)
+		//klog.Infof("Obtained unused IP [%s] in range [%s-%s]\n", freeIP, startIPAddress, endIPAddress)
 	}
 
 	return freeIP
@@ -214,7 +214,7 @@ func (gateway *GatewayManager) getUnusedExternalIPAddress(ctx context.Context, i
 		return "", fmt.Errorf("unable to obtain free IP from gateway [%s]; all are used",
 			client.GatewayRef.Name)
 	}
-	klog.Infof("Using unused IP [%s] on gateway [%v]\n", freeIP, client.GatewayRef.Name)
+	//klog.Infof("Using unused IP [%s] on gateway [%v]\n", freeIP, client.GatewayRef.Name)
 
 	return freeIP, nil
 }
@@ -260,7 +260,7 @@ func (gateway *GatewayManager) getLoadBalancerSEG(ctx context.Context) (*swagger
 		return nil, fmt.Errorf("unable to find service engine group with free instances")
 	}
 
-	klog.Infof("Using service engine group [%v] on gateway [%v]\n", chosenSEGAssignment.ServiceEngineGroupRef, client.GatewayRef.Name)
+	//klog.Infof("Using service engine group [%v] on gateway [%v]\n", chosenSEGAssignment.ServiceEngineGroupRef, client.GatewayRef.Name)
 
 	return chosenSEGAssignment.ServiceEngineGroupRef, nil
 }
@@ -625,7 +625,7 @@ func (gateway *GatewayManager) createLoadBalancerPool(ctx context.Context, lbPoo
 		return nil, fmt.Errorf("unable to query for loadbalancer pool [%s] that was freshly created: [%v]",
 			lbPoolName, err)
 	}
-	klog.Infof("Created lb pool [%v] on gateway [%v]\n", lbPoolRef, client.GatewayRef.Name)
+	//klog.Infof("Created lb pool [%v] on gateway [%v]\n", lbPoolRef, client.GatewayRef.Name)
 
 	return lbPoolRef, nil
 }
@@ -663,7 +663,7 @@ func (gateway *GatewayManager) deleteLoadBalancerPool(ctx context.Context, lbPoo
 		return fmt.Errorf("unable to delete lb pool; deletion task [%s] did not complete: [%v]",
 			taskURL, err)
 	}
-	klog.Infof("Deleted loadbalancer pool [%s]\n", lbPoolName)
+	//klog.Infof("Deleted loadbalancer pool [%s]\n", lbPoolName)
 
 	return nil
 }
@@ -946,7 +946,7 @@ func (gateway *GatewayManager) deleteVirtualService(ctx context.Context, virtual
 		return fmt.Errorf("unable to delete virtual service; deletion task [%s] did not complete: [%v]",
 			taskURL, err)
 	}
-	klog.Infof("Deleted virtual service [%s]\n", virtualServiceName)
+	//klog.Infof("Deleted virtual service [%s]\n", virtualServiceName)
 
 	return nil
 }
@@ -1101,7 +1101,7 @@ func (gateway *GatewayManager) CreateL4LoadBalancer(ctx context.Context, virtual
 		return "", fmt.Errorf("unable to get unused IP address from subnet [%s]: [%v]",
 			gateway.Client.IPAMSubnet, err)
 	}
-	klog.Infof("Using external IP [%s] for virtual service\n", externalIP)
+	//klog.Infof("Using external IP [%s] for virtual service\n", externalIP)
 
 	for _, portDetail := range portDetails {
 		if portDetail.internalPort == 0 {
