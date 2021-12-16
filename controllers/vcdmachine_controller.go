@@ -31,7 +31,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/source"
-	"sigs.k8s.io/kind/pkg/cluster/constants"
 	"strconv"
 	"strings"
 	"time"
@@ -363,12 +362,6 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		return ctrl.Result{}, nil
 	}
 
-	role := constants.WorkerNodeRoleValue
-	if util.IsControlPlaneMachine(machine) {
-		role = constants.ControlPlaneNodeRoleValue
-	}
-	log.Info("VCDMachine provisioning started", "role", role)
-
 	patchHelper, err := patch.NewHelper(vcdMachine, r.Client)
 	if err != nil {
 		return ctrl.Result{}, errors.Wrapf(err, "Error patching VCDMachine [%s] of cluster [%s]", vcdMachine.Name, vcdCluster.Name)
@@ -544,7 +537,7 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 				"Error updating the load balancer pool [%s] for the "+
 					"control plane machine [%s] of the cluster [%s]", lbPoolName, machine.Name, vcdCluster.Name)
 		}
-		log.Info("updated the load balancer pool with the control plane machine IP", "lbpool", lbPoolName)
+		log.Info("Updated the load balancer pool with the control plane machine IP", "lbpool", lbPoolName)
 	}
 
 	vmStatus, err := vm.GetStatus()
@@ -577,7 +570,7 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 				return ctrl.Result{}, errors.Wrapf(err, "Error while enabling cloudinit on the machine [%s/%s]; unable to refresh vapp", vAppName, vm.VM.Name)
 			}
 
-			log.Info("Configured the infra machine with one of the keys to enable cloud-init", "key", key)
+			log.Info(fmt.Sprintf("Configured the infra machine with variable [%s] to enable cloud-init", key))
 		}
 
 		task, err := vm.PowerOn()
@@ -591,6 +584,9 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		if err = vApp.Refresh(); err != nil {
 			return ctrl.Result{}, errors.Wrapf(err, "Error while deploying infra for the machine [%s/%s]; unable to refresh vapp after VM power-on", vAppName, vm.VM.Name)
 		}
+	}
+	if hasCloudInitFailedBefore, err := r.hasCloudInitExecutionFailedBefore(ctx, workloadVCDClient, vm); hasCloudInitFailedBefore {
+		return ctrl.Result{}, errors.Wrapf(err, "Error bootstrapping the machine [%s/%s]; machine is probably in unreconciliable state", vAppName, vm.VM.Name)
 	}
 
 	// wait for each vm phase
@@ -724,7 +720,6 @@ func (r *VCDMachineReconciler) reconcileDelete(ctx context.Context, cluster *clu
 					"Error while deleting the infra resources of the machine [%s/%s]; error deleting the control plane from the load balancer pool [%s]",
 					vcdCluster.Name, vcdMachine.Name, lbPoolName)
 			}
-			log.Info("Deleted the machine IP from the load balancer pool", "lbpool", lbPoolName)
 		}
 	}
 
@@ -840,6 +835,31 @@ func (r *VCDMachineReconciler) VCDClusterToVCDMachines(o client.Object) []ctrl.R
 	}
 
 	return result
+}
+
+func (r *VCDMachineReconciler) hasCloudInitExecutionFailedBefore(ctx context.Context, workloadVCDClient *vcdclient.Client, vm *govcd.VM) (bool, error) {
+	scriptExecutionStatus, err := workloadVCDClient.GetExtraConfigValue(vm, PostCustomizationScriptExecutionStatus)
+	if err != nil {
+		return false, errors.Wrapf(err, "unable to get extra config value for key [%s] for vm: [%s]: [%v]",
+			PostCustomizationScriptExecutionStatus, vm.VM.Name, err)
+	}
+	if scriptExecutionStatus != "" {
+		execStatus, err := strconv.Atoi(scriptExecutionStatus)
+		if err != nil {
+			return false, errors.Wrapf(err, "unable to convert script execution status [%s] to int: [%v]",
+				scriptExecutionStatus, err)
+		}
+		if execStatus != 0 {
+			scriptExecutionFailureReason, err := workloadVCDClient.GetExtraConfigValue(vm, PostCustomizationScriptFailureReason)
+			if err != nil {
+				return false, errors.Wrapf(err, "unable to get extra config value for key [%s] for vm, "+
+					"(script execution status [%d]): [%s]: [%v]",
+					PostCustomizationScriptFailureReason, execStatus, vm.VM.Name, err)
+			}
+			return true, fmt.Errorf("script failed with status [%d] and reason [%s]", execStatus, scriptExecutionFailureReason)
+		}
+	}
+	return false, nil
 }
 
 // MergeJinjaToCloudInitScript : merges the cloud init config with a jinja config and adds a
