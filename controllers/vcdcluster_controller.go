@@ -550,7 +550,7 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	}
 	_, err = vdcManager.GetOrCreateVApp(vcdCluster.Name, workloadVCDClient.NetworkName)
 	if err != nil {
-		return ctrl.Result{}, errors.Wrapf(err, "GetOrCreateVApp call failed with error: [%v]", vcdCluster.Name)
+		return ctrl.Result{}, errors.Wrapf(err, "Error creating Infra vApp for the cluster [%s]: [%v]", vcdCluster.Name, err)
 	}
 
 	// Update the vcdCluster resource with updated information
