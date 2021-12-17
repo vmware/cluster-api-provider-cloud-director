@@ -943,7 +943,7 @@ func (gateway *GatewayManager) waitForVirtualServiceStart(ctx context.Context, v
 		}
 		klog.Infof("Waiting for [%s] since healthStatus is still [%s]",
 			virtualServiceName, vsSummary.HealthStatus)
-		time.Sleep(10 * time.Second)
+		time.Sleep(5 * time.Second)
 	}
 
 	return fmt.Errorf("unable to start Virtual Service [%s] in time [%v]", virtualServiceName, duration)
