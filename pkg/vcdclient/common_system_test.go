@@ -13,6 +13,7 @@ package vcdclient
 import (
 	"fmt"
 	"github.com/vmware/cluster-api-provider-cloud-director/pkg/config"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 )
@@ -64,6 +65,11 @@ func getInt32ValStrict(val interface{}, defaultVal int32) int32 {
 func getTestVCDClient(inputMap map[string]interface{}) (*Client, error) {
 
 	testConfigFilePath := filepath.Join(gitRoot, "testdata/config_test.yaml")
+	capvcdVersionFile := filepath.Join(gitRoot, "release/version")
+	capvcdVersion, err := ioutil.ReadFile(capvcdVersionFile)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get CAPVCD version from file [%s]: [%v]", capvcdVersionFile, err)
+	}
 	configReader, err := os.Open(testConfigFilePath)
 	if err != nil {
 		return nil, fmt.Errorf("Unable to open file [%s]: [%v]", testConfigFilePath, err)
@@ -136,5 +142,6 @@ func getTestVCDClient(inputMap map[string]interface{}) (*Client, error) {
 		cloudConfig.ClusterResources.CsiVersion,
 		cloudConfig.ClusterResources.CpiVersion,
 		cloudConfig.ClusterResources.CniVersion,
+		string(capvcdVersion),
 	)
 }

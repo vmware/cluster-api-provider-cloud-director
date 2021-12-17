@@ -338,14 +338,15 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		vcdCluster.Spec.Ovdc, vcdCluster.Name, vcdCluster.Spec.OvdcNetwork, r.VcdClient.IPAMSubnet,
 		r.VcdClient.VcdAuthConfig.UserOrg, vcdCluster.Spec.UserCredentialsContext.Username,
 		vcdCluster.Spec.UserCredentialsContext.Password, vcdCluster.Spec.UserCredentialsContext.RefreshToken,
-		true, vcdCluster.Status.RDEId, r.VcdClient.OneArm, 0, 0, r.VcdClient.TCPPort,
-		true, "", r.VcdClient.CsiVersion, r.VcdClient.CpiVersion, r.VcdClient.CniVersion)
+		true, vcdCluster.Status.InfraId, r.VcdClient.OneArm, 0, 0, r.VcdClient.TCPPort,
+		true, "", r.VcdClient.CsiVersion, r.VcdClient.CpiVersion, r.VcdClient.CniVersion,
+		r.VcdClient.CAPVCDVersion)
 	if err != nil {
 		return ctrl.Result{}, errors.Wrapf(err, "unable to create VCD client to reconcile infrastructure for the Machine [%s]", machine.Name)
 	}
 
 	if vcdMachine.Spec.ProviderID != nil {
-		err := r.reconcileNodeStatusInRDE(ctx, vcdCluster.Status.RDEId, machine.Name, machine.Status.Phase,
+		err := r.reconcileNodeStatusInRDE(ctx, vcdCluster.Status.InfraId, machine.Name, machine.Status.Phase,
 			workloadVCDClient)
 		if err != nil {
 			log.Error(err, "error during RDE reconciliation of the Node status")
@@ -355,7 +356,7 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		return ctrl.Result{}, nil
 	}
 
-	err = r.reconcileNodeStatusInRDE(ctx, vcdCluster.Status.RDEId, machine.Name, machine.Status.Phase,
+	err = r.reconcileNodeStatusInRDE(ctx, vcdCluster.Status.InfraId, machine.Name, machine.Status.Phase,
 		workloadVCDClient)
 	if err != nil {
 		log.Error(err, "error during RDE reconciliation of the Node status")
@@ -406,9 +407,9 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 
 	// The vApp should have already been created, so this is more of a Get of the vApp
 	vAppName := cluster.Name
-	vApp, err := vdcManager.GetOrCreateVApp(vAppName, workloadVCDClient.NetworkName)
+	vApp, err := vdcManager.Vdc.GetVAppByName(vAppName, true)
 	if err != nil {
-		return ctrl.Result{}, errors.Wrapf(err, "error provisioning infrastructure for the machine [%s] of the cluster [%s]", machine.Name, vcdCluster.Name)
+		return ctrl.Result{}, errors.Wrapf(err, "unable to provision machine [%s]; failed to get vApp by name [%s]", machine.Name, vcdCluster.Name)
 	}
 
 	// We have control over the content in the guest Cloud Init Script. However, we can't control the content
@@ -549,7 +550,7 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	// Update loadbalancer pool with the IP of the control plane node as a new member.
 	// Note that this must be done before booting on the VM!
 	if util.IsControlPlaneMachine(machine) {
-		lbPoolName := vcdCluster.Name + "-" + vcdCluster.Status.RDEId + "-tcp"
+		lbPoolName := vcdCluster.Name + "-" + vcdCluster.Status.InfraId + "-tcp"
 		lbPoolRef, err := gateway.GetLoadBalancerPool(ctx, lbPoolName)
 		if err != nil {
 			return ctrl.Result{}, errors.Wrapf(err, "error retrieving/updating load balancer pool [%s] for the "+
@@ -652,9 +653,9 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	vcdMachine.Spec.ProviderID = &providerID
 	vcdMachine.Status.Ready = true
 	conditions.MarkTrue(vcdMachine, infrav1.ContainerProvisionedCondition)
-	err = r.reconcileNodeStatusInRDE(ctx, vcdCluster.Status.RDEId, machine.Name, machine.Status.Phase, workloadVCDClient)
+	err = r.reconcileNodeStatusInRDE(ctx, vcdCluster.Status.InfraId, machine.Name, machine.Status.Phase, workloadVCDClient)
 	if err != nil {
-		log.Error(err, "error reconciling node status of the RDE", "RDEId", vcdCluster.Status.RDEId, "nodeStatus", machine.Status.Phase)
+		log.Error(err, "error reconciling node status of the RDE", "InfraId", vcdCluster.Status.InfraId, "nodeStatus", machine.Status.Phase)
 	}
 
 	return ctrl.Result{}, nil
@@ -701,8 +702,9 @@ func (r *VCDMachineReconciler) reconcileDelete(ctx context.Context, cluster *clu
 		vcdCluster.Spec.Ovdc, vcdCluster.Name, vcdCluster.Spec.OvdcNetwork, r.VcdClient.IPAMSubnet,
 		r.VcdClient.VcdAuthConfig.UserOrg, vcdCluster.Spec.UserCredentialsContext.Username,
 		vcdCluster.Spec.UserCredentialsContext.Password, vcdCluster.Spec.UserCredentialsContext.RefreshToken,
-		true, vcdCluster.Status.RDEId, r.VcdClient.OneArm, 0, 0, r.VcdClient.TCPPort,
-		true, "", r.VcdClient.CsiVersion, r.VcdClient.CpiVersion, r.VcdClient.CniVersion)
+		true, vcdCluster.Status.InfraId, r.VcdClient.OneArm, 0, 0, r.VcdClient.TCPPort,
+		true, "", r.VcdClient.CsiVersion, r.VcdClient.CpiVersion, r.VcdClient.CniVersion,
+		r.VcdClient.CAPVCDVersion)
 	if err != nil {
 		return ctrl.Result{}, errors.Wrapf(err, "error creating VCD client to reconcile the machine [%s/%s] deletion", vcdCluster.Name, vcdMachine.Name)
 	}
@@ -716,7 +718,7 @@ func (r *VCDMachineReconciler) reconcileDelete(ctx context.Context, cluster *clu
 	if util.IsControlPlaneMachine(machine) {
 		// remove the address from the lbpool
 		log.Info("deleting the control plane IP from the load balancer pool")
-		lbPoolName := vcdCluster.Name + "-" + vcdCluster.Status.RDEId + "-tcp"
+		lbPoolName := vcdCluster.Name + "-" + vcdCluster.Status.InfraId + "-tcp"
 		lbPoolRef, err := gateway.GetLoadBalancerPool(ctx, lbPoolName)
 		if err != nil && err != govcd.ErrorEntityNotFound {
 			return ctrl.Result{}, errors.Wrapf(err, "error while deleting the infra resources of the machine [%s/%s]; failed to get load balancer pool [%s]", vcdCluster.Name, vcdMachine.Name, lbPoolName)
@@ -789,9 +791,9 @@ func (r *VCDMachineReconciler) reconcileDelete(ctx context.Context, cluster *clu
 		log.Info("successfully deleted infra resources of the machine")
 	}
 
-	err = r.reconcileNodeStatusInRDE(ctx, vcdCluster.Status.RDEId, machine.Name, machine.Status.Phase, workloadVCDClient)
+	err = r.reconcileNodeStatusInRDE(ctx, vcdCluster.Status.InfraId, machine.Name, machine.Status.Phase, workloadVCDClient)
 	if err != nil {
-		log.Error(err, "error reconciling the node status in the RDE", "RDEId", vcdCluster.Status.RDEId)
+		log.Error(err, "error reconciling the node status in the RDE", "InfraId", vcdCluster.Status.InfraId)
 	}
 
 	controllerutil.RemoveFinalizer(vcdMachine, infrav1.MachineFinalizer)
