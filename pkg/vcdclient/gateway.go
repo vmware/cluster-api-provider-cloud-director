@@ -87,8 +87,8 @@ func (gateway *GatewayManager) CacheGatewayDetails(ctx context.Context) error {
 	// Cache backing type
 	gateway.NetworkBackingType = *ovdcNetwork.BackingNetworkType
 
-	//klog.Infof("Obtained GatewayManager [%s] for Network Name [%s] of type [%v]\n",
-	//	gateway.GatewayRef.Name, gateway.NetworkName, gateway.NetworkBackingType)
+	klog.V(3).Infof("Obtained GatewayManager [%s] for Network Name [%s] of type [%v]\n",
+		gateway.GatewayRef.Name, gateway.NetworkName, gateway.NetworkBackingType)
 
 	return nil
 }
@@ -109,7 +109,7 @@ func getUnusedIPAddressInRange(startIPAddress string, endIPAddress string,
 	}
 
 	if freeIP != "" {
-		klog.Infof("Obtained unused IP [%s] in range [%s-%s]\n", freeIP, startIPAddress, endIPAddress)
+		klog.V(3).Infof("Obtained unused IP [%s] in range [%s-%s]\n", freeIP, startIPAddress, endIPAddress)
 	}
 
 	return freeIP
@@ -214,7 +214,7 @@ func (gateway *GatewayManager) getUnusedExternalIPAddress(ctx context.Context, i
 		return "", fmt.Errorf("unable to obtain free IP from gateway [%s]; all are used",
 			client.GatewayRef.Name)
 	}
-	klog.Infof("Using unused IP [%s] on gateway [%v]\n", freeIP, client.GatewayRef.Name)
+	klog.V(3).Infof("Using unused IP [%s] on gateway [%v]\n", freeIP, client.GatewayRef.Name)
 
 	return freeIP, nil
 }
@@ -260,7 +260,7 @@ func (gateway *GatewayManager) getLoadBalancerSEG(ctx context.Context) (*swagger
 		return nil, fmt.Errorf("unable to find service engine group with free instances")
 	}
 
-	klog.Infof("Using service engine group [%v] on gateway [%v]\n", chosenSEGAssignment.ServiceEngineGroupRef, client.GatewayRef.Name)
+	klog.V(3).Infof("Using service engine group [%v] on gateway [%v]\n", chosenSEGAssignment.ServiceEngineGroupRef, client.GatewayRef.Name)
 
 	return chosenSEGAssignment.ServiceEngineGroupRef, nil
 }
@@ -398,7 +398,7 @@ func (gateway *GatewayManager) createDNATRule(ctx context.Context, dnatRuleName 
 			dnatRuleName, client.GatewayRef.Name, err)
 	}
 	if dnatRuleRef != nil {
-		klog.Infof("DNAT Rule [%s] already exists", dnatRuleName)
+		klog.V(3).Infof("DNAT Rule [%s] already exists", dnatRuleName)
 		return nil
 	}
 
@@ -428,7 +428,7 @@ func (gateway *GatewayManager) createDNATRule(ctx context.Context, dnatRuleName 
 			dnatRuleName, externalIP, internalIP, taskURL, err)
 	}
 
-	klog.Infof("Created DNAT rule [%s]: [%s:%d] => [%s] on gateway [%s]\n", dnatRuleName,
+	klog.V(3).Infof("Created DNAT rule [%s]: [%s:%d] => [%s] on gateway [%s]\n", dnatRuleName,
 		externalIP, port, internalIP, client.GatewayRef.Name)
 
 	return nil
@@ -467,7 +467,7 @@ func (gateway *GatewayManager) deleteDNATRule(ctx context.Context, dnatRuleName 
 		return fmt.Errorf("unable to delete dnat rule [%s]: deletion task [%s] did not complete: [%v]",
 			dnatRuleName, taskURL, err)
 	}
-	klog.Infof("Deleted DNAT rule [%s] on gateway [%s]\n", dnatRuleName, client.GatewayRef.Name)
+	klog.V(3).Infof("Deleted DNAT rule [%s] on gateway [%s]\n", dnatRuleName, client.GatewayRef.Name)
 
 	return nil
 }
@@ -592,7 +592,7 @@ func (gateway *GatewayManager) createLoadBalancerPool(ctx context.Context, lbPoo
 			lbPoolName, err)
 	}
 	if lbPoolRef != nil {
-		klog.Infof("LoadBalancer Pool [%s] already exists", lbPoolName)
+		klog.V(3).Infof("LoadBalancer Pool [%s] already exists", lbPoolName)
 		return lbPoolRef, nil
 	}
 
@@ -625,7 +625,7 @@ func (gateway *GatewayManager) createLoadBalancerPool(ctx context.Context, lbPoo
 		return nil, fmt.Errorf("unable to query for loadbalancer pool [%s] that was freshly created: [%v]",
 			lbPoolName, err)
 	}
-	klog.Infof("Created lb pool [%v] on gateway [%v]\n", lbPoolRef, client.GatewayRef.Name)
+	klog.V(3).Infof("Created lb pool [%v] on gateway [%v]\n", lbPoolRef, client.GatewayRef.Name)
 
 	return lbPoolRef, nil
 }
@@ -669,7 +669,7 @@ func (gateway *GatewayManager) deleteLoadBalancerPool(ctx context.Context, lbPoo
 		return fmt.Errorf("unable to delete lb pool; deletion task [%s] did not complete: [%v]",
 			taskURL, err)
 	}
-	klog.Infof("Deleted loadbalancer pool [%s]\n", lbPoolName)
+	klog.V(3).Infof("Deleted loadbalancer pool [%s]\n", lbPoolName)
 
 	return nil
 }
@@ -728,7 +728,7 @@ func (gateway *GatewayManager) updateLoadBalancerPool(ctx context.Context, lbPoo
 		return nil, fmt.Errorf("unable to query for loadbalancer pool [%s] that was updated: [%v]",
 			lbPoolName, err)
 	}
-	klog.Infof("Updated lb pool [%v] on gateway [%v]\n", lbPoolRef, client.GatewayRef.Name)
+	klog.V(3).Infof("Updated lb pool [%v] on gateway [%v]\n", lbPoolRef, client.GatewayRef.Name)
 
 	return lbPoolRef, nil
 }
@@ -773,7 +773,7 @@ func (gateway *GatewayManager) createVirtualService(ctx context.Context, virtual
 			virtualServiceName, err)
 	}
 	if vsSummary != nil {
-		klog.Infof("LoadBalancer Virtual Service [%s] already exists", virtualServiceName)
+		klog.V(3).Infof("LoadBalancer Virtual Service [%s] already exists", virtualServiceName)
 		return &swaggerClient.EntityReference{
 			Name: vsSummary.Name,
 			Id:   vsSummary.Id,
@@ -913,7 +913,7 @@ func (gateway *GatewayManager) createVirtualService(ctx context.Context, virtual
 		Name: vsSummary.Name,
 		Id:   vsSummary.Id,
 	}
-	klog.Infof("Created virtual service [%v] on gateway [%v]\n", virtualServiceRef, client.GatewayRef.Name)
+	klog.V(3).Infof("Created virtual service [%v] on gateway [%v]\n", virtualServiceRef, client.GatewayRef.Name)
 
 	return virtualServiceRef, nil
 }
@@ -952,7 +952,7 @@ func (gateway *GatewayManager) deleteVirtualService(ctx context.Context, virtual
 		return fmt.Errorf("unable to delete virtual service; deletion task [%s] did not complete: [%v]",
 			taskURL, err)
 	}
-	klog.Infof("Deleted virtual service [%s]\n", virtualServiceName)
+	klog.V(3).Infof("Deleted virtual service [%s]\n", virtualServiceName)
 
 	return nil
 }
@@ -966,7 +966,7 @@ func (gateway *GatewayManager) CreateLoadBalancer(ctx context.Context, virtualSe
 
 	if httpPort == 0 && httpsPort == 0 {
 		// nothing to do here
-		klog.Infof("There is no port specified. Hence nothing to do.")
+		klog.V(3).Infof("There is no port specified. Hence nothing to do.")
 		return "", fmt.Errorf("nothing to do since http and https ports are not specified")
 	}
 
@@ -1003,11 +1003,11 @@ func (gateway *GatewayManager) CreateLoadBalancer(ctx context.Context, virtualSe
 		return "", fmt.Errorf("unable to get unused IP address from subnet [%s]: [%v]",
 			client.IPAMSubnet, err)
 	}
-	klog.Infof("Using external IP [%s] for virtual service\n", externalIP)
+	klog.V(3).Infof("Using external IP [%s] for virtual service\n", externalIP)
 
 	for _, portDetail := range portDetails {
 		if portDetail.internalPort == 0 {
-			klog.Infof("No internal port specified for [%s], hence loadbalancer not created\n", portDetail.portSuffix)
+			klog.V(3).Infof("No internal port specified for [%s], hence loadbalancer not created\n", portDetail.portSuffix)
 			continue
 		}
 
@@ -1025,7 +1025,7 @@ func (gateway *GatewayManager) CreateLoadBalancer(ctx context.Context, virtualSe
 					virtualServiceName, lbPoolName)
 			}
 
-			klog.Infof("LoadBalancer Virtual Service [%s] already exists", virtualServiceName)
+			klog.V(3).Infof("LoadBalancer Virtual Service [%s] already exists", virtualServiceName)
 			continue
 		}
 
@@ -1062,7 +1062,7 @@ func (gateway *GatewayManager) CreateLoadBalancer(ctx context.Context, virtualSe
 			return "", fmt.Errorf("unable to create virtual service [%s] with address [%s:%d]: [%v]",
 				virtualServiceName, virtualServiceIP, portDetail.externalPort, err)
 		}
-		klog.Infof("Created Load Balancer with virtual service [%v], pool [%v] on gateway [%s]\n",
+		klog.V(3).Infof("Created Load Balancer with virtual service [%v], pool [%v] on gateway [%s]\n",
 			virtualServiceRef, lbPoolRef, client.GatewayRef.Name)
 	}
 
@@ -1077,7 +1077,7 @@ func (gateway *GatewayManager) CreateL4LoadBalancer(ctx context.Context, virtual
 
 	if tcpPort == 0 {
 		// nothing to do here
-		klog.Infof("There is no tcp port specified. Cannot create L4 load balancer")
+		klog.V(3).Infof("There is no tcp port specified. Cannot create L4 load balancer")
 		return "", fmt.Errorf("there is no tcp port specified. Cannot create L4 load balancer")
 	}
 
@@ -1107,11 +1107,11 @@ func (gateway *GatewayManager) CreateL4LoadBalancer(ctx context.Context, virtual
 		return "", fmt.Errorf("unable to get unused IP address from subnet [%s]: [%v]",
 			gateway.Client.IPAMSubnet, err)
 	}
-	klog.Infof("Using external IP [%s] for virtual service\n", externalIP)
+	klog.V(3).Infof("Using external IP [%s] for virtual service\n", externalIP)
 
 	for _, portDetail := range portDetails {
 		if portDetail.internalPort == 0 {
-			klog.Infof("No internal port specified for [%s], hence loadbalancer not created\n", portDetail.portSuffix)
+			klog.V(3).Infof("No internal port specified for [%s], hence loadbalancer not created\n", portDetail.portSuffix)
 			continue
 		}
 
@@ -1129,7 +1129,7 @@ func (gateway *GatewayManager) CreateL4LoadBalancer(ctx context.Context, virtual
 					virtualServiceName, lbPoolName)
 			}
 
-			klog.Infof("LoadBalancer Virtual Service [%s] already exists", virtualServiceName)
+			klog.V(3).Infof("LoadBalancer Virtual Service [%s] already exists", virtualServiceName)
 			continue
 		}
 
@@ -1166,7 +1166,7 @@ func (gateway *GatewayManager) CreateL4LoadBalancer(ctx context.Context, virtual
 			return "", fmt.Errorf("unable to create virtual service [%s] with address [%s:%d]: [%v]",
 				virtualServiceName, virtualServiceIP, portDetail.externalPort, err)
 		}
-		klog.Infof("Created Load Balancer with virtual service [%v], pool [%v] on gateway [%s]\n",
+		klog.V(3).Infof("Created Load Balancer with virtual service [%v], pool [%v] on gateway [%s]\n",
 			virtualServiceRef, lbPoolRef, gateway.GatewayRef.Name)
 	}
 
