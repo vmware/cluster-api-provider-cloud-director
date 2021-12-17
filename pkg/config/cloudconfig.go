@@ -122,8 +122,9 @@ func SetAuthorization(config *CloudConfig) error {
 	if err != nil {
 		klog.Infof("Unable to get username: [%v]", err)
 	} else {
-		if string(username) != "" {
-			config.VCD.UserOrg, config.VCD.User, err = getUserAndOrg(string(username), config.VCD.Org)
+		trimmedUserName := strings.TrimSuffix(string(username), "\n")
+		if string(trimmedUserName) != "" {
+			config.VCD.UserOrg, config.VCD.User, err = getUserAndOrg(trimmedUserName, config.VCD.Org)
 			if err != nil {
 				return fmt.Errorf("unable to get user org and name: [%v]", err)
 			}
