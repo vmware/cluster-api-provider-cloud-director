@@ -79,8 +79,6 @@ spec:
           status:
             description: VCDClusterStatus defines the observed state of VCDCluster
             properties:
-              RDEId:
-                type: string
               conditions:
                 description: Conditions defines current service state of the VCDCluster.
                 items:
@@ -125,6 +123,8 @@ spec:
                   - type
                   type: object
                 type: array
+              infraId:
+                type: string
               ready:
                 description: Ready denotes that the vcd cluster (infrastructure) is
                   ready.
