@@ -486,7 +486,7 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	vm, err := vApp.GetVMByName(machine.Name, true)
 	if err != nil && err != govcd.ErrorEntityNotFound {
 		return ctrl.Result{}, errors.Wrapf(err, "Error provisioning infrastructure for the machine; unable to query for VM [%s] in vApp [%s]",
-			vm.VM.Name, vAppName)
+			machine.Name, vAppName)
 	} else if err == govcd.ErrorEntityNotFound {
 		vmExists = false
 	}
