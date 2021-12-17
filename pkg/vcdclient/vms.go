@@ -105,7 +105,7 @@ func (vdc *VdcManager) AddNewMultipleVM(vapp *govcd.VApp, vmNamePrefix string, v
 	catalogName string, templateName string, placementPolicyName string, computePolicyName string,
 	guestCustScript string, acceptAllEulas bool, powerOn bool) (govcd.Task, error) {
 
-	klog.Infof("start adding %d VMs\n", vmNum)
+	klog.V(3).Infof("start adding %d VMs\n", vmNum)
 
 	catalog, err := vdc.Client.GetCatalogByName(vdc.OrgName, catalogName)
 	if err != nil {
@@ -233,7 +233,7 @@ func (vdc *VdcManager) AddNewMultipleVM(vapp *govcd.VApp, vmNamePrefix string, v
 	apiEndpoint.Path += "/action/recomposeVApp"
 
 	// execute the task to recomposeVApp
-	klog.Infof("start to compose VApp [%s] with VMs prefix [%s]", vapp.VApp.Name, vmNamePrefix)
+	klog.V(3).Infof("start to compose VApp [%s] with VMs prefix [%s]", vapp.VApp.Name, vmNamePrefix)
 	task, err := vdc.Client.VcdClient.Client.ExecuteTaskRequest(apiEndpoint.String(),
 		http.MethodPost, types.MimeRecomposeVappParams, "error instantiating a new VM: %s",
 		vAppComposition)
@@ -261,14 +261,14 @@ func (vdc *VdcManager) AddNewMultipleVM(vapp *govcd.VApp, vmNamePrefix string, v
 	waitGroup := sync.WaitGroup{}
 
 	vmList := vAppRefreshed.VApp.Children.VM
-	klog.Infof("VApp [%v] has [%v] VMs in total", vAppRefreshed.VApp.Name, len(vmList))
+	klog.V(3).Infof("VApp [%v] has [%v] VMs in total", vAppRefreshed.VApp.Name, len(vmList))
 	var vmPowerOnList []*types.Vm
 	for i := 0; i < len(vmList); i++ {
 		if strings.HasPrefix(vmList[i].Name, vmNamePrefix) {
 			vmPowerOnList = append(vmPowerOnList, vmList[i])
 		}
 	}
-	klog.Infof("VApp [%v] will power on [%v] VMs with prefix [%v], suffix from [%v] to [%v]", vAppRefreshed.VApp.Name, vmNum, vmNamePrefix, 0, len(vmPowerOnList)-1)
+	klog.V(3).Infof("VApp [%v] will power on [%v] VMs with prefix [%v], suffix from [%v] to [%v]", vAppRefreshed.VApp.Name, vmNum, vmNamePrefix, 0, len(vmPowerOnList)-1)
 
 	waitGroup.Add(len(vmPowerOnList))
 
@@ -278,18 +278,18 @@ func (vdc *VdcManager) AddNewMultipleVM(vapp *govcd.VApp, vmNamePrefix string, v
 
 			defer waitGroup.Done()
 			startTime := time.Now()
-			klog.Infof("start powering on vm [%s] at time [%v]\n", vmPowerOnList[i].Name, startTime.Format("2006-01-02 15:04:05"))
+			klog.V(3).Infof("start powering on vm [%s] at time [%v]\n", vmPowerOnList[i].Name, startTime.Format("2006-01-02 15:04:05"))
 
 			govcdVM, err := vAppRefreshed.GetVMByName(vmPowerOnList[i].Name, false)
 			if err != nil {
-				klog.Infof("unable to find vm [%s] in vApp [%s]: [%v]",
+				klog.V(3).Infof("unable to find vm [%s] in vApp [%s]: [%v]",
 					vmList[i].Name, vAppRefreshed.VApp.Name, err)
 			}
 			for govcdVM == nil {
-				klog.Infof("wait to get vm [%s] in recompose VApp [%s]", vmPowerOnList[i].Name, vapp.VApp.Name)
+				klog.V(3).Infof("wait to get vm [%s] in recompose VApp [%s]", vmPowerOnList[i].Name, vapp.VApp.Name)
 				govcdVM, err = vAppRefreshed.GetVMByName(vmPowerOnList[i].Name, false)
 				if err != nil {
-					klog.Infof("unable to find vm [%s] in vApp [%s]: [%v]",
+					klog.V(3).Infof("unable to find vm [%s] in vApp [%s]: [%v]",
 						vmList[i].Name, vAppRefreshed.VApp.Name, err)
 				}
 			}
@@ -298,30 +298,30 @@ func (vdc *VdcManager) AddNewMultipleVM(vapp *govcd.VApp, vmNamePrefix string, v
 			if err != nil {
 				fmt.Printf("unable to get vm [%s] status before powering on: [%v]", govcdVM.VM.Name, err)
 			}
-			klog.Infof("recompose VApp done, vm [%v] status [%v] before powering on, href [%v]", govcdVM.VM.Name, vmStatus, govcdVM.VM.HREF)
+			klog.V(3).Infof("recompose VApp done, vm [%v] status [%v] before powering on, href [%v]", govcdVM.VM.Name, vmStatus, govcdVM.VM.HREF)
 
 			if err := govcdVM.PowerOnAndForceCustomization(); err != nil {
-				klog.Infof("unable to power on and force customization vm [%s]: [%v]", govcdVM.VM.Name, err)
+				klog.V(3).Infof("unable to power on and force customization vm [%s]: [%v]", govcdVM.VM.Name, err)
 			}
 
 			vmStatus, err = govcdVM.GetStatus()
 			if err != nil {
-				klog.Infof("unable to get vm [%s] status after powering on: [%v]", govcdVM.VM.Name, err)
+				klog.V(3).Infof("unable to get vm [%s] status after powering on: [%v]", govcdVM.VM.Name, err)
 			}
 			for vmStatus == "POWERED_OFF" || vmStatus == "PARTIALLY_POWERED_OFF" {
-				klog.Infof("wait powering on vm [%s] current status [%s]", govcdVM.VM.Name, vmStatus)
+				klog.V(3).Infof("wait powering on vm [%s] current status [%s]", govcdVM.VM.Name, vmStatus)
 				vmStatus, err = govcdVM.GetStatus()
 				if err != nil {
-					klog.Infof("unable to get vm [%s] status after powering on: [%v]", govcdVM.VM.Name, err)
+					klog.V(3).Infof("unable to get vm [%s] status after powering on: [%v]", govcdVM.VM.Name, err)
 				}
 			}
 
 			endTime := time.Now()
-			klog.Infof("end powering on vm [%s] status [%s] at time [%v]", govcdVM.VM.Name, vmStatus, endTime.Format("2006-01-02 15:04:05"))
+			klog.V(3).Infof("end powering on vm [%s] status [%s] at time [%v]", govcdVM.VM.Name, vmStatus, endTime.Format("2006-01-02 15:04:05"))
 			if vmStatus == "POWERED_ON" {
-				klog.Infof("succeed to power on vm [%s] took seconds [%v]", govcdVM.VM.Name, endTime.Sub(startTime).Seconds())
+				klog.V(3).Infof("succeed to power on vm [%s] took seconds [%v]", govcdVM.VM.Name, endTime.Sub(startTime).Seconds())
 			} else {
-				klog.Infof("fail to power on vm [%s] status [%s]", govcdVM.VM.Name, vmStatus)
+				klog.V(3).Infof("fail to power on vm [%s] status [%s]", govcdVM.VM.Name, vmStatus)
 			}
 
 		}(&waitGroup, i)
@@ -447,7 +447,7 @@ func (vdc *VdcManager) WaitForGuestScriptCompletion(vmName string, vAppName stri
 }
 
 func (client *Client) RebootVm(vm *govcd.VM) error {
-	klog.Infof("Rebooting VM. [%s]", vm.VM.Name)
+	klog.V(3).Infof("Rebooting VM. [%s]", vm.VM.Name)
 	rebootVmUrl, err := url.Parse(fmt.Sprintf("%s/power/action/reboot", vm.VM.HREF))
 	if err != nil {
 		return fmt.Errorf("failed to parse reboot VM api url for vm [%s]: [%v]", vm.VM.Name, err)
@@ -474,6 +474,6 @@ func (client *Client) RebootVm(vm *govcd.VM) error {
 	if err != nil {
 		return fmt.Errorf("failed to reboot vm [%s]: [%v]", vm.VM.Name, err)
 	}
-	klog.Infof("Reboot complete for VM [%s]", vm.VM.Name)
+	klog.V(3).Infof("Reboot complete for VM [%s]", vm.VM.Name)
 	return nil
 }

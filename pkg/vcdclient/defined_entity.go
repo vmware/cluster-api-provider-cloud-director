@@ -21,7 +21,7 @@ const (
 // SetIsManagementClusterInRDE: sets the isManagementCluster flag in RDE for the management cluster
 func (client *Client) SetIsManagementClusterInRDE(ctx context.Context) error {
 	if client.ManagementClusterRDEId == "" {
-		klog.Infof("RDE ID for the management cluster not found. Skip setting isManagementCluster flag for the RDE.")
+		klog.V(3).Infof("RDE ID for the management cluster not found. Skip setting isManagementCluster flag for the RDE.")
 		return nil
 	}
 	updatePatch := make(map[string]interface{})
@@ -67,7 +67,7 @@ func (client *Client) PatchRDE(ctx context.Context, patch map[string]interface{}
 		for k, v := range patch {
 			fields := strings.Split(k, ".")
 			updatedVal := reflect.ValueOf(v)
-			klog.Infof("Assigning value %v to key %s", v, k)
+			klog.V(4).Infof("Assigning value %v to key %s", v, k)
 			objVal := reflect.ValueOf(capvcdEntity).Elem()
 			for _, attr := range fields {
 				// cannot call fieldByName on a zero value
@@ -94,7 +94,7 @@ func (client *Client) PatchRDE(ctx context.Context, patch map[string]interface{}
 			klog.Errorf("error updating the defined entity with ID [%s]. failed with status code [%d]. Remaining retry attempts: [%d]", rdeID, resp.StatusCode, MaxUpdateRetries-retries+1)
 			continue
 		}
-		klog.Infof("successfully updated defined entity with ID [%s]", rdeID)
+		klog.V(4).Infof("successfully updated defined entity with ID [%s]", rdeID)
 		return &rde, nil
 	}
 	return nil, fmt.Errorf("failed to update defined entity with ID [%s]", rdeID)

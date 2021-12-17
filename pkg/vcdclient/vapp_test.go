@@ -24,8 +24,8 @@ func TestVApp(t *testing.T) {
 	// create vApp
 	vAppName := "manual-vapp"
 	vdcManager := VdcManager{
-		VdcName: vcdClient.VcdAuthConfig.VDC,
-		OrgName: vcdClient.VcdAuthConfig.UserOrg,
+		VdcName: vcdClient.ClusterOVDCName,
+		OrgName: vcdClient.ClusterOrgName,
 		Client:  vcdClient,
 		Vdc:     vcdClient.Vdc,
 	}
@@ -46,8 +46,8 @@ func TestDeleteVapp(t *testing.T) {
 	require.NotNil(t, vcdClient, "VCD Client should not be nil")
 
 	vdcManager := VdcManager{
-		VdcName: vcdClient.VcdAuthConfig.VDC,
-		OrgName: vcdClient.VcdAuthConfig.UserOrg,
+		VdcName: vcdClient.ClusterOVDCName,
+		OrgName: vcdClient.ClusterOrgName,
 		Client:  vcdClient,
 		Vdc:     vcdClient.Vdc,
 	}
@@ -66,8 +66,8 @@ func TestVdcManager_CacheVdcDetails(t *testing.T) {
 	assert.NoError(t, err, "Unable to get VCD client")
 	require.NotNil(t, vcdClient, "VCD Client should not be nil")
 	vdcManager := VdcManager{
-		VdcName: vcdClient.VcdAuthConfig.VDC,
-		OrgName: vcdClient.VcdAuthConfig.UserOrg,
+		VdcName: vcdClient.ClusterOVDCName,
+		OrgName: vcdClient.ClusterOrgName,
 		Client:  vcdClient,
 		Vdc:     vcdClient.Vdc,
 	}

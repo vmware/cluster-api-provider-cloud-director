@@ -55,12 +55,12 @@ type Client struct {
 }
 
 func (client *Client) RefreshBearerToken() error {
-	klog.Infof("Refreshing vcd client")
+	klog.V(3).Infof("Refreshing vcd client")
 
 	href := fmt.Sprintf("%s/api", client.VcdAuthConfig.Host)
 	client.VcdClient.Client.APIVersion = VCloudApiVersion
 
-	klog.Infof("Is user sysadmin: [%v]", client.VcdClient.Client.IsSysAdmin)
+	klog.V(3).Infof("Is user sysadmin: [%v]", client.VcdClient.Client.IsSysAdmin)
 	var token string
 	if client.VcdAuthConfig.RefreshToken != "" {
 		// Refresh vcd client using refresh token
@@ -121,7 +121,7 @@ func (client *Client) RefreshBearerToken() error {
 	}
 	client.ApiClient = swaggerClient.NewAPIClient(swaggerConfig)
 
-	klog.Info("successfully refreshed all clients")
+	klog.V(3).Info("successfully refreshed all clients")
 	return nil
 }
 
@@ -216,10 +216,10 @@ func NewVCDClientFromSecrets(host string, orgName string, vdcName string, vAppNa
 			return nil, fmt.Errorf("unable to get gateway edge from network name [%s]: [%v]",
 				client.NetworkName, err)
 		}
-		klog.Infof("Cached gateway details [%#v] successfully\n", client.GatewayRef)
+		klog.V(3).Infof("Cached gateway details [%#v] successfully\n", client.GatewayRef)
 	}
 	clientSingleton = client
 
-	klog.Infof("Client singleton is sysadmin: [%v]", clientSingleton.VcdClient.Client.IsSysAdmin)
+	klog.V(3).Infof("Client singleton is sysadmin: [%v]", clientSingleton.VcdClient.Client.IsSysAdmin)
 	return clientSingleton, nil
 }
