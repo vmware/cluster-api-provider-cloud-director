@@ -1,11 +1,11 @@
 vcd:
-  host: VCD_HOST
-  org: ORG
-  vdc: OVDC
-  user: USER
-  secret: PASSWORD
-  network: NETWORK
-  vipSubnet: VIP_SUBNET_CIDR
+  host: "https://bos1-vcloud-static-166-163.eng.vmware.com"
+  org: "org1"
+  vdc: "ovdc1"
+  user: "clusteradmin"
+  secret: "ca$hc0w"
+  network: "ovdc1_nw"
+  vipSubnet: "10.150.191.253/19"
 loadbalancer:
   oneArm:
     startIP: "192.168.8.2"
@@ -14,8 +14,8 @@ loadbalancer:
     http: 80
     https: 443
     tcp: 6443
-managementClusterRDEId: MANGEMENT_CLUSTER_RDE_ID
+managementClusterRDEId: "urn:vcloud:entity:cse:nativeCluster:6f98610a-0d70-4c7d-81e5-ba3efd0b5203"
 clusterResourceSet:
-  csi: 1.0.0
-  cpi: 1.0.0
+  csi: main
+  cpi: main
   cni: 0.11.3

@@ -189,8 +189,9 @@ var controlPlanePostCustPhases = []string{
 	KubeadmTokenGenerate,
 }
 
-var workerPostCustPhases = []string{
+var joinPostCustPhases = []string{
 	NetworkConfiguration,
+	KubeadmNodeJoin,
 	KubeadmNodeJoin,
 }
 
@@ -277,7 +278,7 @@ func (r *VCDMachineReconciler) waitForPostCustomizationPhase(ctx context.Context
 			return fmt.Errorf("time for postcustomization status [%s] exceeded timeout [%d]",
 				phase, phaseSecondTimeout)
 		}
-		time.Sleep(5 * time.Second)
+		time.Sleep(10 * time.Second)
 	}
 
 }
@@ -404,6 +405,18 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		return ctrl.Result{}, errors.Wrapf(err, "Error provisioning infrastructure for the machine [%s] of the cluster [%s]", machine.Name, vcdCluster.Name)
 	}
 
+	bootstrapJinjaScript, err := r.getBootstrapData(ctx, machine)
+	if err != nil {
+		return ctrl.Result{}, errors.Wrapf(err, "unable to get bootstrap data for machine [%s]",
+			machine.Name)
+	}
+	// although it is sufficient to just check if `kubeadm join` is in the bootstrap script, using the
+	// isControlPlaneMachine function is a simpler operation, so this function is called first
+	useControlPlaneScript := true
+	if !util.IsControlPlaneMachine(machine) || strings.Contains(bootstrapJinjaScript, "kubeadm join") {
+		useControlPlaneScript = false
+	}
+
 	// We have control over the content in the guest Cloud Init Script. However, we can't control the content
 	// in the Jinja script. Hence, do any fmt.Sprintf calls first and then merge the two scripts. This is cleaner
 	// than calling custom sanitization libraries since there doesn't seem to be a clearly good one. Also cleaner
@@ -411,12 +424,12 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	guestCloudInit := ""
 	if !vcdMachine.Spec.Bootstrapped {
 		guestCloudInitTemplate := controlPlaneCloudInitScriptTemplate
-		if !util.IsControlPlaneMachine(machine) {
+		if !useControlPlaneScript {
 			guestCloudInitTemplate = nodeCloudInitScriptTemplate
 		}
 
 		switch {
-		case util.IsControlPlaneMachine(machine):
+		case useControlPlaneScript:
 			orgUserStr := fmt.Sprintf("%s/%s", workloadVCDClient.VcdAuthConfig.UserOrg,
 				workloadVCDClient.VcdAuthConfig.User)
 			b64OrgUser := b64.StdEncoding.EncodeToString([]byte(orgUserStr))
@@ -453,12 +466,6 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 				machine.Name,           // vm host name
 			)
 		}
-	}
-
-	bootstrapJinjaScript, err := r.getBootstrapData(ctx, machine)
-	if err != nil {
-		return ctrl.Result{}, errors.Wrapf(err, "Error retrieving the auto-generated bootstrap data for the machine [%s]",
-			machine.Name)
 	}
 
 	mergedCloudInitBytes, err := MergeJinjaToCloudInitScript(guestCloudInit, bootstrapJinjaScript)
@@ -616,8 +623,8 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 
 	// wait for each vm phase
 	phases := controlPlanePostCustPhases
-	if !util.IsControlPlaneMachine(machine) {
-		phases = workerPostCustPhases
+	if !useControlPlaneScript {
+		phases = joinPostCustPhases
 	}
 	for _, phase := range phases {
 		if err = vApp.Refresh(); err != nil {
