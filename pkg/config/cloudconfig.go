@@ -148,6 +148,7 @@ func SetAuthorization(config *CloudConfig) error {
 		klog.Infof("Using username/secret based credentials.")
 		return nil
 	}
+
 	return fmt.Errorf("unable to get valid set of credentials from secrets")
 }
 
