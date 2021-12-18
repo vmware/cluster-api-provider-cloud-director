@@ -52,6 +52,7 @@ type Client struct {
 	CsiVersion             string
 	CpiVersion             string
 	CniVersion             string
+	CAPVCDVersion          string
 }
 
 func (client *Client) RefreshBearerToken() error {
@@ -130,7 +131,7 @@ func NewVCDClientFromSecrets(host string, orgName string, vdcName string, vAppNa
 	networkName string, ipamSubnet string, userOrg string, user string, password string,
 	refreshToken string, insecure bool, clusterID string, oneArm *OneArm, httpPort int32,
 	httpsPort int32, tcpPort int32, getVdcClient bool, managementClusterRDEId string,
-	csiVersion string, cpiVersion string, cniVersion string) (*Client, error) {
+	csiVersion string, cpiVersion string, cniVersion string, capvcdVersion string) (*Client, error) {
 
 	// TODO: validation of parameters
 
@@ -153,7 +154,8 @@ func NewVCDClientFromSecrets(host string, orgName string, vdcName string, vAppNa
 			clientSingleton.ManagementClusterRDEId == managementClusterRDEId &&
 			clientSingleton.CsiVersion == csiVersion &&
 			clientSingleton.CpiVersion == cpiVersion &&
-			clientSingleton.CniVersion == cniVersion {
+			clientSingleton.CniVersion == cniVersion &&
+			clientSingleton.CAPVCDVersion == capvcdVersion {
 			return clientSingleton, nil
 		}
 	}
@@ -184,6 +186,7 @@ func NewVCDClientFromSecrets(host string, orgName string, vdcName string, vAppNa
 		CsiVersion:             csiVersion,
 		CpiVersion:             cpiVersion,
 		CniVersion:             cniVersion,
+		CAPVCDVersion:          capvcdVersion,
 	}
 
 	if getVdcClient {

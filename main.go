@@ -7,10 +7,12 @@ package main
 
 import (
 	"context"
+	_ "embed"
 	"flag"
 	"fmt"
 	"os"
 	"sigs.k8s.io/cluster-api/bootstrap/kubeadm/api/v1alpha4"
+	"strings"
 	"time"
 
 	"k8s.io/klog"
@@ -37,6 +39,9 @@ import (
 	kcpv1 "sigs.k8s.io/cluster-api/controlplane/kubeadm/api/v1alpha4"
 	//+kubebuilder:scaffold:imports
 )
+
+//go:embed release/version
+var capVCDVersion string
 
 var (
 	myscheme = runtime.NewScheme()
@@ -85,6 +90,7 @@ func getVcdClientFromConfig(inputMap map[string]interface{}) (*vcdclient.Client,
 		EndIPAddress:   cloudConfig.LB.OneArm.EndIP,
 	}
 	getVdcClient := true
+	trimmedCapvcdVersion := strings.Trim(capVCDVersion, "\n")
 	// TODO (Sahithi: Let this method take the cloudConfig as a param instead of individual properties)
 	return vcdclient.NewVCDClientFromSecrets(
 		cloudConfig.VCD.Host,
@@ -108,6 +114,7 @@ func getVcdClientFromConfig(inputMap map[string]interface{}) (*vcdclient.Client,
 		cloudConfig.ClusterResources.CsiVersion,
 		cloudConfig.ClusterResources.CpiVersion,
 		cloudConfig.ClusterResources.CniVersion,
+		trimmedCapvcdVersion,
 	)
 }
 
