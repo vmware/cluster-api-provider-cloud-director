@@ -1059,9 +1059,6 @@ func (gateway *GatewayManager) CreateLoadBalancer(ctx context.Context, virtualSe
 			klog.V(3).Infof("LoadBalancer Virtual Service [%s] already exists", virtualServiceName)
 			continue
 		}
-		if err = gateway.waitForVirtualServiceStart(ctx, virtualServiceName); err != nil {
-			return "", fmt.Errorf("unable to wait for virtual service [%s]: [%v]", virtualServiceName, err)
-		}
 
 		virtualServiceIP := externalIP
 		if client.OneArm != nil {
@@ -1165,9 +1162,6 @@ func (gateway *GatewayManager) CreateL4LoadBalancer(ctx context.Context, virtual
 
 			klog.V(3).Infof("LoadBalancer Virtual Service [%s] already exists", virtualServiceName)
 			continue
-		}
-		if err = gateway.waitForVirtualServiceStart(ctx, virtualServiceName); err != nil {
-			return "", fmt.Errorf("unable to wait for virtual service [%s]: [%v]", virtualServiceName, err)
 		}
 
 		virtualServiceIP := externalIP

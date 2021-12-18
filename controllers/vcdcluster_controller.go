@@ -499,7 +499,6 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		vcdCluster.Status.InfraId = rdeID
 	}
 
-	// TODO: What should be the prefix if cluster creation fails here?
 	// create load balancer for the cluster. Only one-arm load balancer is fully tested.
 	virtualServiceNamePrefix := vcdCluster.Name + "-" + vcdCluster.Status.InfraId
 	lbPoolNamePrefix := vcdCluster.Name + "-" + vcdCluster.Status.InfraId
