@@ -108,8 +108,8 @@ func ParseCloudConfig(configReader io.Reader) (*CloudConfig, error) {
 			},
 		},
 		ClusterResources: ClusterResourcesConfig{
-			CsiVersion: "1.0.x",
-			CpiVersion: "1.0.x",
+			CsiVersion: "main",
+			CpiVersion: "main",
 			CniVersion: "0.11.3",
 		},
 	}
