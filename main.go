@@ -178,7 +178,9 @@ func main() {
 		Client:    mgr.GetClient(),
 		Scheme:    mgr.GetScheme(),
 		VcdClient: vcdClient,
-	}).SetupWithManager(mgr); err != nil {
+	}).SetupWithManager(mgr, controller.Options{
+		MaxConcurrentReconciles: concurrency,
+	}); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "VCDCluster")
 		os.Exit(1)
 	}

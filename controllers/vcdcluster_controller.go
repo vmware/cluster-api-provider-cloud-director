@@ -28,6 +28,7 @@ import (
 	"sigs.k8s.io/cluster-api/util/patch"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"strings"
 )
@@ -675,8 +676,9 @@ func (r *VCDClusterReconciler) reconcileDelete(ctx context.Context,
 }
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *VCDClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *VCDClusterReconciler) SetupWithManager(mgr ctrl.Manager, options controller.Options) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&infrav1.VCDCluster{}).
+		WithOptions(options).
 		Complete(r)
 }
