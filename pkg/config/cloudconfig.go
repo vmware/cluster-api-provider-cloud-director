@@ -39,9 +39,9 @@ type VCDConfig struct {
 
 // Ports :
 type Ports struct {
-	HTTP  int32 `yaml:"http" default:"80"`
-	HTTPS int32 `yaml:"https" default:"443"`
-	TCP   int32 `yaml:"tcp" default:"6443"`
+	HTTP  int32 `yaml:"http"`
+	HTTPS int32 `yaml:"https"`
+	TCP   int32 `yaml:"tcp"`
 }
 
 // OneArm :
@@ -58,9 +58,9 @@ type LBConfig struct {
 
 // ClusterResourcesConfig :
 type ClusterResourcesConfig struct {
-	CsiVersion string `yaml:"csi" default:"1.0.x"`
-	CpiVersion string `yaml:"cpi" default:"1.0.x"`
-	CniVersion string `yaml:"cni" default:"0.11.3"`
+	CsiVersion string `yaml:"csi"`
+	CpiVersion string `yaml:"cpi"`
+	CniVersion string `yaml:"cni"`
 }
 
 // CloudConfig contains the config that will be read from the secret
@@ -98,7 +98,21 @@ func getUserAndOrg(fullUserName string, clusterOrg string) (userOrg string, user
 // ParseCloudConfig : parses config and env to fill in the CloudConfig struct
 func ParseCloudConfig(configReader io.Reader) (*CloudConfig, error) {
 	var err error
-	config := &CloudConfig{}
+	config := &CloudConfig{
+		LB: LBConfig{
+			OneArm: nil,
+			Ports: Ports{
+				HTTP:  80,
+				HTTPS: 443,
+				TCP:   6443,
+			},
+		},
+		ClusterResources: ClusterResourcesConfig{
+			CsiVersion: "1.0.x",
+			CpiVersion: "1.0.x",
+			CniVersion: "0.11.3",
+		},
+	}
 
 	decoder := yaml.NewDecoder(configReader)
 	decoder.SetStrict(true)
