@@ -119,7 +119,7 @@ build-within-docker:
 	go build -ldflags "-X github.com/akrishnakuma/cluster-api-provider-cloud-director/version.Version=$(version)" -o /build/vcloud/cluster-api-provider-cloud-director main.go
 
 capi: generate fmt vet
-	docker build -f Dockerfile . -t cluster-api-provider-cloud-director:$(version).latest
-	docker tag cluster-api-provider-cloud-director:$(version).latest $(IMG)
+	docker build -f Dockerfile . -t cluster-api-provider-cloud-director:$(version)
+	docker tag cluster-api-provider-cloud-director:$(version) $(IMG)
 	docker push $(IMG)
 	touch out/$@

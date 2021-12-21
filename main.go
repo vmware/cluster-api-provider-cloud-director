@@ -133,7 +133,7 @@ func main() {
 	flag.DurationVar(&syncPeriod, "sync-period", 30*time.Second,
 		"The minimum interval at which watched resources are reconciled (e.g. 15m)")
 	flag.IntVar(&concurrency, "concurrency", 10,
-		"The number of docker machines to process simultaneously")
+		"The number of VCD machines to process simultaneously")
 
 	opts := zap.Options{
 		Development: true,

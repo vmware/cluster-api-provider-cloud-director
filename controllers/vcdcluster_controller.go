@@ -31,6 +31,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"strings"
+	"time"
 )
 
 const (
@@ -509,13 +510,18 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 
 	if err != nil {
 		if vsError, ok := err.(*vcdclient.VirtualServicePendingError); ok {
-			return ctrl.Result{}, errors.Wrapf(err, "Error getting load balancer. Virtual Service [%s] is pending", vsError.VirtualServiceName)
+			log.Error(err, "Error getting load balancer for cluster [%s]. Virtual Service [%s] is still pending", vcdCluster.Name, vsError.VirtualServiceName)
+			return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
 		}
 
 		log.Info("Creating load balancer for the cluster")
 		controlPlaneNodeIP, err = gateway.CreateL4LoadBalancer(ctx, virtualServiceNamePrefix, lbPoolNamePrefix,
-			[]string{}, 6443)
+			[]string{}, r.VcdClient.TCPPort)
 		if err != nil {
+			if vsError, ok := err.(*vcdclient.VirtualServicePendingError); ok {
+				log.Error(err, "Error creating load balancer for cluster [%s]. Virtual Service [%s] is still pending", vcdCluster.Name, vsError.VirtualServiceName)
+				return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
+			}
 			return ctrl.Result{}, errors.Wrapf(err, "Error creating create load balancer [%s] for the cluster [%s]: [%v]",
 				virtualServiceNamePrefix, vcdCluster.Name, err)
 		}

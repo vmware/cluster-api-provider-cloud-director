@@ -942,12 +942,12 @@ func (gateway *GatewayManager) checkIfVirtualServiceIsPending(ctx context.Contex
 		return fmt.Errorf("unable to get summary of virtual service [%s]: [%v]", virtualServiceName, err)
 	}
 	if vsSummary.HealthStatus == "UP" || vsSummary.HealthStatus == "DOWN" {
-		klog.Infof("Completed waiting for [%s] since healthStatus is [%s]",
+		klog.V(3).Infof("Completed waiting for [%s] since healthStatus is [%s]",
 			virtualServiceName, vsSummary.HealthStatus)
 		return nil
 	}
 
-	klog.Errorf("Virtual service [%s] is still pending", virtualServiceName)
+	klog.Errorf("Virtual service [%s] is still pending. Virtual service status: [%s]", virtualServiceName, vsSummary.HealthStatus)
 	return &VirtualServicePendingError{
 		VirtualServiceName: virtualServiceName,
 	}
