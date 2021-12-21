@@ -32,6 +32,14 @@ type GatewayManager struct {
 	Client             *Client
 }
 
+type VirtualServicePendingError struct {
+	VirtualServiceName string
+}
+
+func (vsError *VirtualServicePendingError) Error() string {
+	return fmt.Sprintf("virtual service [%s] is in Pending state", vsError.VirtualServiceName)
+}
+
 // CacheGatewayDetails : get gateway reference and cache some details in client object
 func (gateway *GatewayManager) CacheGatewayDetails(ctx context.Context) error {
 
@@ -898,7 +906,7 @@ func (gateway *GatewayManager) createVirtualService(ctx context.Context, virtual
 	}
 
 	if err = gateway.checkIfVirtualServiceIsPending(ctx, virtualServiceName); err != nil {
-		return nil, fmt.Errorf("unable to wait for virtual service [%s]: [%v]", virtualServiceName, err)
+		return nil, err
 	}
 
 	vsSummary, err = gateway.getVirtualService(ctx, virtualServiceName)
@@ -940,7 +948,9 @@ func (gateway *GatewayManager) checkIfVirtualServiceIsPending(ctx context.Contex
 	}
 
 	klog.Errorf("Virtual service [%s] is still pending", virtualServiceName)
-	return fmt.Errorf("unable to start Virtual Service [%s]; virtual service is still in pending state", virtualServiceName)
+	return &VirtualServicePendingError{
+		VirtualServiceName: virtualServiceName,
+	}
 }
 
 func (gateway *GatewayManager) deleteVirtualService(ctx context.Context, virtualServiceName string,
@@ -1051,7 +1061,7 @@ func (gateway *GatewayManager) CreateLoadBalancer(ctx context.Context, virtualSe
 			}
 			klog.V(3).Infof("LoadBalancer Virtual Service [%s] already exists", virtualServiceName)
 			if err = gateway.checkIfVirtualServiceIsPending(ctx, virtualServiceName); err != nil {
-				return "", fmt.Errorf("unable to wait for virtual service [%s]: [%v]", virtualServiceName, err)
+				return "", err
 			}
 			continue
 		}
@@ -1158,7 +1168,7 @@ func (gateway *GatewayManager) CreateL4LoadBalancer(ctx context.Context, virtual
 
 			klog.Infof("LoadBalancer Virtual Service [%s] already exists", virtualServiceName)
 			if err = gateway.checkIfVirtualServiceIsPending(ctx, virtualServiceName); err != nil {
-				return "", fmt.Errorf("unable to wait for virtual service [%s]: [%v]", virtualServiceName, err)
+				return "", err
 			}
 			continue
 		}
@@ -1264,6 +1274,9 @@ func (gateway *GatewayManager) GetLoadBalancer(ctx context.Context, virtualServi
 	}
 	if vsSummary == nil {
 		return "", fmt.Errorf("unable to get summary for LB Virtual Service [%s]", virtualServiceName)
+	}
+	if err = gateway.checkIfVirtualServiceIsPending(ctx, virtualServiceName); err != nil {
+		return "", err
 	}
 
 	vip := vsSummary.VirtualIpAddress

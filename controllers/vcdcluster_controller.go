@@ -436,7 +436,6 @@ func (r *VCDClusterReconciler) reconcileRDE(ctx context.Context, cluster *cluste
 
 func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clusterv1.Cluster,
 	vcdCluster *infrav1.VCDCluster) (ctrl.Result, error) {
-
 	log := ctrl.LoggerFrom(ctx)
 
 	workloadVCDClient, err := vcdclient.NewVCDClientFromSecrets(vcdCluster.Spec.Site, vcdCluster.Spec.Org,
@@ -456,7 +455,6 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		GatewayRef:         workloadVCDClient.GatewayRef,
 		NetworkBackingType: workloadVCDClient.NetworkBackingType,
 	}
-
 	// NOTE: Since RDE is used just as a book-keeping mechanism, we should not fail reconciliation if RDE operations fail
 	// create RDE for cluster
 	if vcdCluster.Status.InfraId == "" {
@@ -510,6 +508,10 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	// (if already present). Do not overwrite the existing control plane endpoint with a new endpoint.
 
 	if err != nil {
+		if vsError, ok := err.(*vcdclient.VirtualServicePendingError); ok {
+			return ctrl.Result{}, errors.Wrapf(err, "Error getting load balancer. Virtual Service [%s] is pending", vsError.VirtualServiceName)
+		}
+
 		log.Info("Creating load balancer for the cluster")
 		controlPlaneNodeIP, err = gateway.CreateL4LoadBalancer(ctx, virtualServiceNamePrefix, lbPoolNamePrefix,
 			[]string{}, 6443)
