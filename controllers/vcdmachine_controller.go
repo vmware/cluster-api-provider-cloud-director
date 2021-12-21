@@ -410,8 +410,10 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		return ctrl.Result{}, errors.Wrapf(err, "unable to get bootstrap data for machine [%s]",
 			machine.Name)
 	}
-	// although it is sufficient to just check if `kubeadm join` is in the bootstrap script, using the
-	// isControlPlaneMachine function is a simpler operation, so this function is called first
+	// In a multimaster cluster, the initial control plane node runs `kubeadm init`; additional control plane nodes
+	// run `kubeadm join`. The joining control planes run `kubeadm join`, so these nodes use the join script.
+	// Although it is sufficient to just check if `kubeadm join` is in the bootstrap script, using the
+	// isControlPlaneMachine function is a simpler operation, so this function is called first.
 	useControlPlaneScript := true
 	if !util.IsControlPlaneMachine(machine) || strings.Contains(bootstrapJinjaScript, "kubeadm join") {
 		useControlPlaneScript = false
