@@ -133,7 +133,7 @@ func main() {
 	flag.DurationVar(&syncPeriod, "sync-period", 30*time.Second,
 		"The minimum interval at which watched resources are reconciled (e.g. 15m)")
 	flag.IntVar(&concurrency, "concurrency", 10,
-		"The number of docker machines to process simultaneously")
+		"The number of VCD machines to process simultaneously")
 
 	opts := zap.Options{
 		Development: true,
@@ -178,7 +178,9 @@ func main() {
 		Client:    mgr.GetClient(),
 		Scheme:    mgr.GetScheme(),
 		VcdClient: vcdClient,
-	}).SetupWithManager(mgr); err != nil {
+	}).SetupWithManager(mgr, controller.Options{
+		MaxConcurrentReconciles: concurrency,
+	}); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "VCDCluster")
 		os.Exit(1)
 	}

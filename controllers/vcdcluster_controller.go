@@ -28,8 +28,10 @@ import (
 	"sigs.k8s.io/cluster-api/util/patch"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"strings"
+	"time"
 )
 
 const (
@@ -435,7 +437,6 @@ func (r *VCDClusterReconciler) reconcileRDE(ctx context.Context, cluster *cluste
 
 func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clusterv1.Cluster,
 	vcdCluster *infrav1.VCDCluster) (ctrl.Result, error) {
-
 	log := ctrl.LoggerFrom(ctx)
 
 	workloadVCDClient, err := vcdclient.NewVCDClientFromSecrets(vcdCluster.Spec.Site, vcdCluster.Spec.Org,
@@ -455,7 +456,6 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		GatewayRef:         workloadVCDClient.GatewayRef,
 		NetworkBackingType: workloadVCDClient.NetworkBackingType,
 	}
-
 	// NOTE: Since RDE is used just as a book-keeping mechanism, we should not fail reconciliation if RDE operations fail
 	// create RDE for cluster
 	if vcdCluster.Status.InfraId == "" {
@@ -509,10 +509,19 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	// (if already present). Do not overwrite the existing control plane endpoint with a new endpoint.
 
 	if err != nil {
+		if vsError, ok := err.(*vcdclient.VirtualServicePendingError); ok {
+			log.Error(err, "Error getting load balancer for cluster [%s]. Virtual Service [%s] is still pending", vcdCluster.Name, vsError.VirtualServiceName)
+			return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
+		}
+
 		log.Info("Creating load balancer for the cluster")
 		controlPlaneNodeIP, err = gateway.CreateL4LoadBalancer(ctx, virtualServiceNamePrefix, lbPoolNamePrefix,
-			[]string{}, 6443)
+			[]string{}, r.VcdClient.TCPPort)
 		if err != nil {
+			if vsError, ok := err.(*vcdclient.VirtualServicePendingError); ok {
+				log.Error(err, "Error creating load balancer for cluster [%s]. Virtual Service [%s] is still pending", vcdCluster.Name, vsError.VirtualServiceName)
+				return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
+			}
 			return ctrl.Result{}, errors.Wrapf(err, "Error creating create load balancer [%s] for the cluster [%s]: [%v]",
 				virtualServiceNamePrefix, vcdCluster.Name, err)
 		}
@@ -675,8 +684,9 @@ func (r *VCDClusterReconciler) reconcileDelete(ctx context.Context,
 }
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *VCDClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *VCDClusterReconciler) SetupWithManager(mgr ctrl.Manager, options controller.Options) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&infrav1.VCDCluster{}).
+		WithOptions(options).
 		Complete(r)
 }
