@@ -548,7 +548,6 @@ k8s.io/component-base/featuregate
 ## explicit
 k8s.io/klog
 # k8s.io/klog/v2 v2.9.0
-## explicit
 k8s.io/klog/v2
 # k8s.io/kube-openapi v0.0.0-20211109043538-20434351676c
 k8s.io/kube-openapi/pkg/util/proto
@@ -557,7 +556,7 @@ k8s.io/utils/buffer
 k8s.io/utils/integer
 k8s.io/utils/pointer
 k8s.io/utils/trace
-# sigs.k8s.io/cluster-api v0.4.1
+# sigs.k8s.io/cluster-api v0.4.2
 ## explicit
 sigs.k8s.io/cluster-api/api/v1alpha4
 sigs.k8s.io/cluster-api/bootstrap/kubeadm/api/v1alpha4
@@ -621,9 +620,6 @@ sigs.k8s.io/controller-runtime/pkg/webhook
 sigs.k8s.io/controller-runtime/pkg/webhook/admission
 sigs.k8s.io/controller-runtime/pkg/webhook/conversion
 sigs.k8s.io/controller-runtime/pkg/webhook/internal/metrics
-# sigs.k8s.io/kind v0.11.1
-## explicit
-sigs.k8s.io/kind/pkg/cluster/constants
 # sigs.k8s.io/structured-merge-diff/v4 v4.1.2
 sigs.k8s.io/structured-merge-diff/v4/fieldpath
 sigs.k8s.io/structured-merge-diff/v4/schema
