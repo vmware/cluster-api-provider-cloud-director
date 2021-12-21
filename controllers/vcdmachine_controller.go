@@ -192,7 +192,6 @@ var controlPlanePostCustPhases = []string{
 var joinPostCustPhases = []string{
 	NetworkConfiguration,
 	KubeadmNodeJoin,
-	KubeadmNodeJoin,
 }
 
 func removeFromSlice(remove string, arr []string) []string {
@@ -407,8 +406,8 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 
 	bootstrapJinjaScript, err := r.getBootstrapData(ctx, machine)
 	if err != nil {
-		return ctrl.Result{}, errors.Wrapf(err, "unable to get bootstrap data for machine [%s]",
-			machine.Name)
+		return ctrl.Result{}, errors.Wrapf(err, "Error retrieving bootstrap data for machine [%s] of the cluster [%s]",
+			machine.Name, vcdCluster.Name)
 	}
 	// In a multimaster cluster, the initial control plane node runs `kubeadm init`; additional control plane nodes
 	// run `kubeadm join`. The joining control planes run `kubeadm join`, so these nodes use the join script.
