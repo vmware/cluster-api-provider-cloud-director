@@ -16,6 +16,6 @@ loadbalancer:
     tcp: 6443
 managementClusterRDEId: MANGEMENT_CLUSTER_RDE_ID
 clusterResourceSet:
-  csi: 1.0.0
-  cpi: 1.0.0
+  csi: main
+  cpi: main
   cni: 0.11.3
