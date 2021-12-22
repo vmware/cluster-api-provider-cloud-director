@@ -510,7 +510,7 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 
 	if err != nil {
 		if vsError, ok := err.(*vcdclient.VirtualServicePendingError); ok {
-			log.Error(err, "Error getting load balancer for cluster [%s]. Virtual Service [%s] is still pending", vcdCluster.Name, vsError.VirtualServiceName)
+			log.Error(err, "Error getting load balancer. Virtual Service is still pending", "virtualServiceName", vsError.VirtualServiceName)
 			return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
 		}
 
@@ -519,7 +519,7 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 			[]string{}, r.VcdClient.TCPPort)
 		if err != nil {
 			if vsError, ok := err.(*vcdclient.VirtualServicePendingError); ok {
-				log.Error(err, "Error creating load balancer for cluster [%s]. Virtual Service [%s] is still pending", vcdCluster.Name, vsError.VirtualServiceName)
+				log.Error(err, "Error creating load balancer for cluster. Virtual Service is still pending", "virtualServiceName", vsError.VirtualServiceName)
 				return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
 			}
 			return ctrl.Result{}, errors.Wrapf(err, "Error creating create load balancer [%s] for the cluster [%s]: [%v]",
