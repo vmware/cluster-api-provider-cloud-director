@@ -103,6 +103,7 @@ func (r *VCDClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 				rerr = err
 			}
 		}
+		log.Info("Cleanly patched VCD cluster.", "infra ID", vcdCluster.Status.InfraId)
 	}()
 
 	if !controllerutil.ContainsFinalizer(vcdCluster, infrav1.ClusterFinalizer) {
@@ -358,7 +359,8 @@ func (r *VCDClusterReconciler) reconcileRDE(ctx context.Context, cluster *cluste
 	}
 	capiYaml, err := getCapiYaml(ctx, r.Client, *cluster, *vcdCluster)
 	if err != nil {
-		log.Error(err, "Error occurred during RDE reconciliation; failed to construct capi yaml using kubernetes resources for the cluster")
+		log.Error(err,
+			"failed to construct capi yaml using kubernetes resources for the cluster")
 	}
 
 	if err == nil && capvcdEntity.Spec.CapiYaml != capiYaml {
@@ -456,9 +458,11 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		GatewayRef:         workloadVCDClient.GatewayRef,
 		NetworkBackingType: workloadVCDClient.NetworkBackingType,
 	}
+
 	// NOTE: Since RDE is used just as a book-keeping mechanism, we should not fail reconciliation if RDE operations fail
 	// create RDE for cluster
-	if vcdCluster.Status.InfraId == "" {
+	infraID := vcdCluster.Status.InfraId
+	if infraID == "" {
 		nameFilter := &swagger.DefinedEntityApiGetDefinedEntitiesByEntityTypeOpts{
 			Filter: optional.NewString(fmt.Sprintf("name==%s", vcdCluster.Name)),
 		}
@@ -481,22 +485,35 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 				if err != nil {
 					log.Error(err, "Error creating RDE for the cluster")
 				} else {
-					vcdCluster.Status.InfraId = rdeID
+					infraID = rdeID
 				}
 			} else {
 				log.Info("RDE for the cluster is already present; skipping RDE creation", "InfraId",
 					definedEntities.Values[0].Id)
-				vcdCluster.Status.InfraId = definedEntities.Values[0].Id
+				infraID = definedEntities.Values[0].Id
 			}
 		}
+	} else {
+		log.Info("Reusing already available InfraID", "infraID", infraID)
 	}
 
 	// If there is no specified RDE ID, self-generate one and use. We need UUIDs to single-instance
 	// cleanly in the Virtual Services etc.
+	if infraID == "" {
+		noRDEID := NoRdePrefix + uuid.New().String()
+		log.Info("Error retrieving InfraId. Hence using a self-generated UUID", "UUID", noRDEID)
+		infraID = noRDEID
+	}
+
 	if vcdCluster.Status.InfraId == "" {
-		rdeID := NoRdePrefix + uuid.New().String()
-		log.Info("Error retrieving InfraId. Hence using a self-generated UUID", "UUID", rdeID)
-		vcdCluster.Status.InfraId = rdeID
+		// This implies we have to set the infraID into the vcdCluster Object.
+		vcdCluster.Status.InfraId = infraID
+		if err := r.Status().Update(ctx, vcdCluster); err != nil {
+			return ctrl.Result{}, errors.Wrapf(err, "unable to update vcdCluster status with InfraID [%s]",
+				infraID)
+		}
+		// Also update the client created already
+		workloadVCDClient.ClusterID = infraID
 	}
 
 	// create load balancer for the cluster. Only one-arm load balancer is fully tested.
@@ -507,10 +524,10 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	//TODO: Sahithi: Check if error is really because of missing virtual service.
 	// In any other error cases, force create the new load balancer with the original control plane endpoint
 	// (if already present). Do not overwrite the existing control plane endpoint with a new endpoint.
-
 	if err != nil {
 		if vsError, ok := err.(*vcdclient.VirtualServicePendingError); ok {
-			log.Error(err, "Error getting load balancer. Virtual Service is still pending", "virtualServiceName", vsError.VirtualServiceName)
+			log.Info("Error getting load balancer. Virtual Service is still pending",
+				"virtualServiceName", vsError.VirtualServiceName, "error", err)
 			return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
 		}
 
@@ -519,10 +536,12 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 			[]string{}, r.VcdClient.TCPPort)
 		if err != nil {
 			if vsError, ok := err.(*vcdclient.VirtualServicePendingError); ok {
-				log.Error(err, "Error creating load balancer for cluster. Virtual Service is still pending", "virtualServiceName", vsError.VirtualServiceName)
+				log.Info("Error creating load balancer for cluster. Virtual Service is still pending",
+					"virtualServiceName", vsError.VirtualServiceName, "error", err)
 				return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
 			}
-			return ctrl.Result{}, errors.Wrapf(err, "Error creating create load balancer [%s] for the cluster [%s]: [%v]",
+			return ctrl.Result{}, errors.Wrapf(err,
+				"Error creating create load balancer [%s] for the cluster [%s]: [%v]",
 				virtualServiceNamePrefix, vcdCluster.Name, err)
 		}
 	}
@@ -535,16 +554,20 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	if !strings.HasPrefix(vcdCluster.Status.InfraId, NoRdePrefix) {
 		_, resp, _, err := workloadVCDClient.ApiClient.DefinedEntityApi.GetDefinedEntity(ctx, vcdCluster.Status.InfraId)
 		if err != nil {
-			log.Error(err, "Error retrieving RDE for the cluster from VCD", "InfraId", vcdCluster.Status.InfraId)
+			log.Error(err, "error retrieving RDE for the cluster from VCD",
+				"InfraId", vcdCluster.Status.InfraId)
 		}
 		if resp == nil {
-			log.Error(nil, "Error retrieving RDE for the cluster from VCD; obtained an empty response", "InfraId", vcdCluster.Status.InfraId)
+			log.Error(nil, "error retrieving RDE for the cluster from VCD; obtained an empty response",
+				"InfraId", vcdCluster.Status.InfraId)
 		} else if resp.StatusCode != http.StatusOK {
-			log.Error(nil, "error retrieving RDE for the cluster from VCD", "InfraId", vcdCluster.Status.InfraId)
+			log.Info("error retrieving RDE for the cluster from VCD",
+				"InfraId", vcdCluster.Status.InfraId)
 		}
 		if err == nil && resp != nil && resp.StatusCode == http.StatusOK {
 			if err = r.reconcileRDE(ctx, cluster, vcdCluster, workloadVCDClient); err != nil {
-				log.Error(err, "Error occurred during RDE reconciliation", "InfraId", vcdCluster.Status.InfraId)
+				log.Error(err, "error occurred during RDE reconciliation",
+					"InfraId", vcdCluster.Status.InfraId)
 			}
 		}
 	}
@@ -594,7 +617,9 @@ func (r *VCDClusterReconciler) reconcileDelete(ctx context.Context,
 		true, "", r.VcdClient.CsiVersion, r.VcdClient.CpiVersion, r.VcdClient.CniVersion,
 		r.VcdClient.CAPVCDVersion)
 	if err != nil {
-		return ctrl.Result{}, errors.Wrapf(err, "Error occurred during cluster deletion; unable to create client for the workload cluster [%s]", vcdCluster.Name)
+		return ctrl.Result{}, errors.Wrapf(err,
+			"Error occurred during cluster deletion; unable to create client for the workload cluster [%s]",
+			vcdCluster.Name)
 	}
 
 	gateway := &vcdclient.GatewayManager{
@@ -609,7 +634,9 @@ func (r *VCDClusterReconciler) reconcileDelete(ctx context.Context,
 	lbPoolNamePrefix := vcdCluster.Name + "-" + vcdCluster.Status.InfraId
 	err = gateway.DeleteLoadBalancer(ctx, virtualServiceNamePrefix, lbPoolNamePrefix)
 	if err != nil {
-		return ctrl.Result{}, errors.Wrapf(err, "Error occurred during cluster [%s] deletion; unable to delete the load balancer [%s]: [%v]", vcdCluster.Name, virtualServiceNamePrefix, err)
+		return ctrl.Result{}, errors.Wrapf(err,
+			"Error occurred during cluster [%s] deletion; unable to delete the load balancer [%s]: [%v]",
+			vcdCluster.Name, virtualServiceNamePrefix, err)
 	}
 	log.Info("Deleted the load balancer components (virtual service, lb pool, dnat rule) of the cluster",
 		"virtual service", virtualServiceNamePrefix, "lb pool", lbPoolNamePrefix)
@@ -628,12 +655,15 @@ func (r *VCDClusterReconciler) reconcileDelete(ctx context.Context,
 	}
 	if vApp != nil {
 		if vApp.VApp.Children != nil {
-			return ctrl.Result{}, errors.Errorf("Error occurred during cluster deletion; %d VMs detected in the vApp %s", len(vApp.VApp.Children.VM), vcdCluster.Name)
+			return ctrl.Result{}, errors.Errorf(
+				"Error occurred during cluster deletion; %d VMs detected in the vApp %s",
+				len(vApp.VApp.Children.VM), vcdCluster.Name)
 		} else {
 			log.Info("Deleting vApp of the cluster", "vAppName", vcdCluster.Name)
 			err = vdcManager.DeleteVApp(vcdCluster.Name)
 			if err != nil {
-				return ctrl.Result{}, errors.Wrapf(err, "Error occurred during cluster deletion; failed to delete vApp [%s]", vcdCluster.Name)
+				return ctrl.Result{}, errors.Wrapf(err,
+					"Error occurred during cluster deletion; failed to delete vApp [%s]", vcdCluster.Name)
 			}
 			log.Info("Successfully deleted vApp of the cluster", "vAppName", vcdCluster.Name)
 		}
