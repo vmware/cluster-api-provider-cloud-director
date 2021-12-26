@@ -806,7 +806,7 @@ func (gateway *GatewayManager) createVirtualService(ctx context.Context, virtual
 				},
 			},
 			ApplicationProfile: &swaggerClient.EdgeLoadBalancerApplicationProfile{
-				Name:          "System-HTTP",
+				Name:          "System-L4-Application",
 				Type_:         vsType,
 				SystemDefined: true,
 			},

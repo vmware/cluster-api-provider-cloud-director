@@ -512,7 +512,7 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 			return ctrl.Result{}, errors.Wrapf(err, "unable to update vcdCluster status with InfraID [%s]",
 				infraID)
 		}
-		// Also update the client created already
+		// Also update the client created already so that the CPI etc. have the clusterID.
 		workloadVCDClient.ClusterID = infraID
 	}
 
@@ -553,20 +553,20 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 
 	if !strings.HasPrefix(vcdCluster.Status.InfraId, NoRdePrefix) {
 		_, resp, _, err := workloadVCDClient.ApiClient.DefinedEntityApi.GetDefinedEntity(ctx, vcdCluster.Status.InfraId)
-		if err != nil {
-			log.Error(err, "error retrieving RDE for the cluster from VCD",
-				"InfraId", vcdCluster.Status.InfraId)
-		}
-		if resp == nil {
-			log.Error(nil, "error retrieving RDE for the cluster from VCD; obtained an empty response",
-				"InfraId", vcdCluster.Status.InfraId)
-		} else if resp.StatusCode != http.StatusOK {
-			log.Info("error retrieving RDE for the cluster from VCD",
-				"InfraId", vcdCluster.Status.InfraId)
-		}
 		if err == nil && resp != nil && resp.StatusCode == http.StatusOK {
 			if err = r.reconcileRDE(ctx, cluster, vcdCluster, workloadVCDClient); err != nil {
-				log.Error(err, "error occurred during RDE reconciliation",
+				log.Error(err, "Error occurred during RDE reconciliation",
+					"InfraId", vcdCluster.Status.InfraId)
+			}
+		} else {
+			log.Error(err, "Unexpected error retrieving RDE for the cluster from VCD",
+				"InfraId", vcdCluster.Status.InfraId)
+			// Some additional checks to log non-sensitive content safely.
+			if resp == nil {
+				log.Error(nil, "Error retrieving RDE for the cluster from VCD; obtained an empty response",
+					"InfraId", vcdCluster.Status.InfraId)
+			} else if resp.StatusCode != http.StatusOK {
+				log.Error(nil, "Error retrieving RDE for the cluster from VCD",
 					"InfraId", vcdCluster.Status.InfraId)
 			}
 		}
@@ -696,7 +696,7 @@ func (r *VCDClusterReconciler) reconcileDelete(ctx context.Context,
 			resp, err = workloadVCDClient.ApiClient.DefinedEntityApi.DeleteDefinedEntity(ctx,
 				vcdCluster.Status.InfraId, nil)
 			if err != nil {
-				return ctrl.Result{}, errors.Wrapf(err, "Error occurred during RDE deletion; failed to execute delete defined entity call for RDE with ID [%s]", vcdCluster.Status.InfraId)
+				return ctrl.Result{}, errors.Wrapf(err, "error occurred during RDE deletion; failed to execute delete defined entity call for RDE with ID [%s]", vcdCluster.Status.InfraId)
 			}
 			if resp.StatusCode != http.StatusNoContent {
 				return ctrl.Result{}, errors.Errorf("Error occurred during RDE deletion; error deleting defined entity associated with the cluster. RDE id: [%s]", vcdCluster.Status.InfraId)
