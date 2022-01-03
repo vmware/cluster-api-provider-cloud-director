@@ -286,7 +286,7 @@ func (r *VCDMachineReconciler) reconcileNodeStatusInRDE(ctx context.Context, rde
 	workloadVCDClient *vcdclient.Client) error {
 
 	if rdeID == "" || strings.HasPrefix(rdeID, NoRdePrefix) {
-		return NewNoRDEError("RDE ID is generated and hence will not be updated")
+		return NewNoRDEError("RDE ID is empty or generated; hence will not be updated")
 	}
 
 	updatePatch := make(map[string]interface{})
@@ -349,7 +349,7 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 			workloadVCDClient)
 		if err != nil {
 			if _, ok := err.(*NoRDEError); ok {
-				log.Info("RDE NOT set up to track this cluster.",
+				log.V(3).Info("RDE NOT set up to track this cluster.",
 					"infraID", vcdCluster.Status.InfraId)
 			} else {
 				log.Error(err, "Error during RDE reconciliation of the Node status")
@@ -364,7 +364,7 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		workloadVCDClient)
 	if err != nil {
 		if _, ok := err.(*NoRDEError); ok {
-			log.Info("RDE NOT set up to track this cluster.", "infraID", vcdCluster.Status.InfraId)
+			log.V(3).Info("RDE NOT set up to track this cluster.", "infraID", vcdCluster.Status.InfraId)
 		} else {
 			log.Error(err, "Error during RDE reconciliation of the Node status")
 		}
@@ -670,7 +670,7 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	err = r.reconcileNodeStatusInRDE(ctx, vcdCluster.Status.InfraId, machine.Name, machine.Status.Phase, workloadVCDClient)
 	if err != nil {
 		if _, ok := err.(*NoRDEError); ok {
-			log.Info("RDE NOT set up to track this cluster.", "infraID", vcdCluster.Status.InfraId)
+			log.V(3).Info("RDE NOT set up to track this cluster.", "infraID", vcdCluster.Status.InfraId)
 		} else {
 			log.Error(err, "Error reconciling node status of the RDE",
 				"RDEId", vcdCluster.Status.InfraId, "nodeStatus", machine.Status.Phase)
@@ -829,7 +829,7 @@ func (r *VCDMachineReconciler) reconcileDelete(ctx context.Context, cluster *clu
 	err = r.reconcileNodeStatusInRDE(ctx, vcdCluster.Status.InfraId, machine.Name, machine.Status.Phase, workloadVCDClient)
 	if err != nil {
 		if _, ok := err.(*NoRDEError); ok {
-			log.Info("RDE NOT set up to track this cluster.", "infraID", vcdCluster.Status.InfraId)
+			log.V(3).Info("RDE NOT set up to track this cluster.", "infraID", vcdCluster.Status.InfraId)
 		} else {
 			log.Error(err, "Error reconciling the node status in the RDE",
 				"InfraId", vcdCluster.Status.InfraId)

@@ -360,7 +360,7 @@ func (r *VCDClusterReconciler) reconcileRDE(ctx context.Context, cluster *cluste
 	capiYaml, err := getCapiYaml(ctx, r.Client, *cluster, *vcdCluster)
 	if err != nil {
 		log.Error(err,
-			"failed to construct capi yaml using kubernetes resources for the cluster")
+			"error during RDE reconciliation: failed to construct capi yaml from kubernetes resources of cluster")
 	}
 
 	if err == nil && capvcdEntity.Spec.CapiYaml != capiYaml {
@@ -460,7 +460,7 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	}
 
 	// NOTE: Since RDE is used just as a book-keeping mechanism, we should not fail reconciliation if RDE operations fail
-	// create RDE for cluster
+	// Create or retrieve RDE for cluster
 	infraID := vcdCluster.Status.InfraId
 	if infraID == "" {
 		nameFilter := &swagger.DefinedEntityApiGetDefinedEntitiesByEntityTypeOpts{
@@ -509,8 +509,9 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		// This implies we have to set the infraID into the vcdCluster Object.
 		vcdCluster.Status.InfraId = infraID
 		if err := r.Status().Update(ctx, vcdCluster); err != nil {
-			return ctrl.Result{}, errors.Wrapf(err, "unable to update vcdCluster status with InfraID [%s]",
-				infraID)
+			return ctrl.Result{}, errors.Wrapf(err,
+				"unable to update status of vcdCluster [%s] with InfraID [%s]",
+				vcdCluster.Name, infraID)
 		}
 		// Also update the client created already so that the CPI etc. have the clusterID.
 		workloadVCDClient.ClusterID = infraID
