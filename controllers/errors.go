@@ -5,6 +5,7 @@ import (
 	"runtime/debug"
 )
 
+// NoRDEError is an error used when the InfraID value in the VCDCluster object does not point to a valid RDE in VCD
 type NoRDEError struct {
 	msg string
 }
