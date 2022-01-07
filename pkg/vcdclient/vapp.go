@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"github.com/vmware/go-vcloud-director/v2/govcd"
 	"github.com/vmware/go-vcloud-director/v2/types/v56"
+	"k8s.io/klog/v2"
 )
 
 type VdcManager struct {
@@ -99,21 +100,16 @@ func (vdc *VdcManager) GetOrCreateVApp(vAppName string, ovdcNetworkName string) 
 		return nil, fmt.Errorf("unable to get vApp [%s] from Vdc [%s]: [%v]",
 			vAppName, vdc.VdcName, err)
 	} else if vApp != nil {
-		if vApp.VApp == nil || vApp.VApp.NetworkConfigSection == nil {
-			return nil, fmt.Errorf("vApp [%s] already present but no network configured", vAppName)
+		if vApp.VApp == nil {
+			return nil, fmt.Errorf("vApp [%s] is invalid", vAppName)
 		}
-		networkFound := false
-		for _, networkName := range vApp.VApp.NetworkConfigSection.NetworkNames() {
-			if networkName == ovdcNetworkName {
-				networkFound = true
-				break
+		if !vdc.isVappNetworkPresentInVapp(vApp, ovdcNetworkName) {
+			// try adding ovdc network to the vApp
+			if err := vdc.addOvdcNetworkToVApp(vApp, ovdcNetworkName); err != nil {
+				return nil, fmt.Errorf("unable to add ovdc network [%s] to vApp [%s]: [%v]", ovdcNetworkName, vAppName, err)
 			}
+			klog.V(3).Infof("successfully added ovdc network [%s] to vApp [%s]", ovdcNetworkName, vAppName)
 		}
-		if !networkFound {
-			return nil, fmt.Errorf("vApp [%s] already present but network [%s] not found",
-				vAppName, ovdcNetworkName)
-		}
-
 		return vApp, nil
 	}
 
@@ -129,17 +125,41 @@ func (vdc *VdcManager) GetOrCreateVApp(vAppName string, ovdcNetworkName string) 
 			vAppName, vdc.VdcName, err)
 	}
 
-	ovdcNetwork, err := vdc.Vdc.GetOrgVdcNetworkByName(ovdcNetworkName, true)
-	if err != nil {
-		return nil, fmt.Errorf("unable to get ovdc network [%s]: [%v]", ovdcNetworkName, err)
-	}
-
-	_, err = vApp.AddOrgNetwork(&govcd.VappNetworkSettings{}, ovdcNetwork.OrgVDCNetwork,
-		false)
-	if err != nil {
-		return nil, fmt.Errorf("unable to add ovdc network [%s] to vApp [%s]: [%v]",
-			ovdcNetworkName, vAppName, err)
+	if err := vdc.addOvdcNetworkToVApp(vApp, ovdcNetworkName); err != nil {
+		return nil, fmt.Errorf("unable to add ovdc network [%s] to vApp [%s]: [%v]", ovdcNetworkName, vAppName, err)
 	}
 
 	return vApp, nil
+}
+
+func (vdc *VdcManager) addOvdcNetworkToVApp(vApp *govcd.VApp, ovdcNetworkName string) error {
+	if vApp == nil || vApp.VApp == nil {
+		return fmt.Errorf("cannot add ovdc network to a nil vApp")
+	}
+	ovdcNetwork, err := vdc.Vdc.GetOrgVdcNetworkByName(ovdcNetworkName, true)
+	if err != nil {
+		return fmt.Errorf("unable to get ovdc network [%s]: [%v]", ovdcNetworkName, err)
+	}
+	_, err = vApp.AddOrgNetwork(&govcd.VappNetworkSettings{}, ovdcNetwork.OrgVDCNetwork,
+		false)
+	if err != nil {
+		return fmt.Errorf("unable to add ovdc network [%s] to vApp [%s]: [%v]",
+			ovdcNetworkName, vApp.VApp.Name, err)
+	}
+	return nil
+}
+
+func (vdc *VdcManager) isVappNetworkPresentInVapp(vApp *govcd.VApp, ovdcNetworkName string) bool {
+	if vApp == nil || vApp.VApp == nil {
+		klog.Error("found nil value for vApp")
+		return false
+	}
+	if vApp.VApp.NetworkConfigSection != nil && vApp.VApp.NetworkConfigSection.NetworkConfig != nil {
+		for _, vAppNetwork := range vApp.VApp.NetworkConfigSection.NetworkNames() {
+			if vAppNetwork == ovdcNetworkName {
+				return true
+			}
+		}
+	}
+	return false
 }
