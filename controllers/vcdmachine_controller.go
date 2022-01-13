@@ -99,6 +99,8 @@ func (r *VCDMachineReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		return ctrl.Result{}, nil
 	}
 
+	machineBeingDeleted := !vcdMachine.ObjectMeta.DeletionTimestamp.IsZero()
+
 	// Fetch the VCD Cluster.
 	vcdCluster := &infrav1.VCDCluster{}
 	vcdClusterName := client.ObjectKey{
@@ -107,7 +109,11 @@ func (r *VCDMachineReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	}
 	if err := r.Client.Get(ctx, vcdClusterName, vcdCluster); err != nil {
 		log.Info("VCDCluster is not available yet")
-		return ctrl.Result{}, nil
+		if !machineBeingDeleted {
+			return ctrl.Result{}, nil
+		} else {
+			log.Info("Will continue and try to delete the machine")
+		}
 	}
 
 	// Initialize the patch helper
@@ -131,8 +137,9 @@ func (r *VCDMachineReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		return ctrl.Result{}, nil
 	}
 
-	// Check if the infrastructure is ready, otherwise return and wait for the cluster object to be updated
-	if !cluster.Status.InfrastructureReady {
+	// If the machine is not being deleted, check if the infrastructure is ready. If not ready, return and wait for
+	// the cluster object to be updated
+	if !machineBeingDeleted && !cluster.Status.InfrastructureReady {
 		log.Info("Waiting for VCDCluster Controller to create cluster infrastructure")
 		conditions.MarkFalse(vcdMachine, infrav1.ContainerProvisionedCondition,
 			infrav1.WaitingForClusterInfrastructureReason, clusterv1.ConditionSeverityInfo, "")
@@ -140,7 +147,7 @@ func (r *VCDMachineReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	}
 
 	// Handle deleted machines
-	if !vcdMachine.ObjectMeta.DeletionTimestamp.IsZero() {
+	if machineBeingDeleted {
 		return r.reconcileDelete(ctx, cluster, machine, vcdMachine, vcdCluster)
 	}
 
@@ -717,15 +724,22 @@ func (r *VCDMachineReconciler) reconcileDelete(ctx context.Context, cluster *clu
 		return ctrl.Result{}, errors.Wrapf(err, "Failed to patch VCDMachine [%s/%s]", vcdCluster.Name, vcdMachine.Name)
 	}
 
+	if vcdCluster.Spec.Site == "" {
+		controllerutil.RemoveFinalizer(vcdMachine, infrav1.MachineFinalizer)
+		return ctrl.Result{}, nil
+	}
+
 	workloadVCDClient, err := vcdclient.NewVCDClientFromSecrets(vcdCluster.Spec.Site, vcdCluster.Spec.Org,
 		vcdCluster.Spec.Ovdc, vcdCluster.Name, vcdCluster.Spec.OvdcNetwork, r.VcdClient.IPAMSubnet,
 		r.VcdClient.VcdAuthConfig.UserOrg, vcdCluster.Spec.UserCredentialsContext.Username,
 		vcdCluster.Spec.UserCredentialsContext.Password, vcdCluster.Spec.UserCredentialsContext.RefreshToken,
 		true, vcdCluster.Status.InfraId, r.VcdClient.OneArm, 0, 0, r.VcdClient.TCPPort,
-		true, "", r.VcdClient.CsiVersion, r.VcdClient.CpiVersion, r.VcdClient.CniVersion,
-		r.VcdClient.CAPVCDVersion)
+		true, "", r.VcdClient.CsiVersion, r.VcdClient.CpiVersion,
+		r.VcdClient.CniVersion, r.VcdClient.CAPVCDVersion)
 	if err != nil {
-		return ctrl.Result{}, errors.Wrapf(err, "Error creating VCD client to reconcile the machine [%s/%s] deletion", vcdCluster.Name, vcdMachine.Name)
+		return ctrl.Result{}, errors.Wrapf(err,
+			"Error creating VCD client to reconcile the machine [%s/%s] deletion",
+			vcdCluster.Name, vcdMachine.Name)
 	}
 
 	gateway := &vcdclient.GatewayManager{
