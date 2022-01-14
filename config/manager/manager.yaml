@@ -38,11 +38,11 @@ spec:
           periodSeconds: 10
         resources:
           limits:
-            cpu: 100m
-            memory: 30Mi
+            cpu: 1000m
+            memory: 2048Mi
           requests:
             cpu: 100m
-            memory: 20Mi
+            memory: 512Mi
         volumeMounts:
           - name: controller-manager-config-volume
             mountPath: /etc/kubernetes/vcloud
