@@ -82,6 +82,8 @@ func (r *VCDClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		return ctrl.Result{}, err
 	}
 
+	clusterBeingDeleted := !vcdCluster.DeletionTimestamp.IsZero()
+
 	// Fetch the Cluster.
 	cluster, err := util.GetOwnerCluster(ctx, r.Client, vcdCluster.ObjectMeta)
 	if err != nil {
@@ -89,7 +91,11 @@ func (r *VCDClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	}
 	if cluster == nil {
 		log.Info("Waiting for Cluster Controller to set OwnerRef on VCDCluster")
-		return ctrl.Result{}, nil
+		if !clusterBeingDeleted {
+			return ctrl.Result{}, nil
+		}
+
+		log.Info("Continuing to delete cluster since DeletionTimestamp is set")
 	}
 
 	patchHelper, err := patch.NewHelper(vcdCluster, r.Client)
@@ -111,7 +117,7 @@ func (r *VCDClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		return ctrl.Result{}, nil
 	}
 
-	if !vcdCluster.DeletionTimestamp.IsZero() {
+	if clusterBeingDeleted {
 		return r.reconcileDelete(ctx, vcdCluster)
 	}
 
@@ -606,6 +612,7 @@ func (r *VCDClusterReconciler) reconcileDelete(ctx context.Context,
 	}
 	conditions.MarkFalse(vcdCluster, infrav1.LoadBalancerAvailableCondition, clusterv1.DeletingReason,
 		clusterv1.ConditionSeverityInfo, "")
+
 	if err := patchVCDCluster(ctx, patchHelper, vcdCluster); err != nil {
 		return ctrl.Result{}, errors.Wrap(err, "Error occurred during cluster deletion; failed to patch VCDCluster")
 	}
