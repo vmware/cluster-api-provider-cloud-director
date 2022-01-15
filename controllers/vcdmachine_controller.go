@@ -112,7 +112,7 @@ func (r *VCDMachineReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		if !machineBeingDeleted {
 			return ctrl.Result{}, nil
 		} else {
-			log.Info("Will continue and try to delete the machine")
+			log.Info("Continuing to delete the VCDMachine, since deletion timestamp is set")
 		}
 	}
 
