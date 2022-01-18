@@ -7,8 +7,8 @@ generatorOptions:
 secretGenerator:
   - name: vcloud-basic-auth
     literals:
-      - username=USER
-      - password=PASSWORD
+      - username=clusteradmin
+      - password=ca$hc0w
 
 configMapGenerator:
 - files:
