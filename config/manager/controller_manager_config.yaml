@@ -14,6 +14,6 @@ loadbalancer:
     tcp: 6443
 managementClusterRDEId: MANGEMENT_CLUSTER_RDE_ID # RDE ID associated with the management cluster deployed from bootstrap cluster
 clusterResourceSet:
-  csi: CSI_VERSION # CSI version to be used in the workload cluster
-  cpi: CPI_VERSION # CPI version to be used in the workload cluster
+  csi: 1.1.0 # CSI version to be used in the workload cluster
+  cpi: 1.1.0 # CPI version to be used in the workload cluster
   cni: ANTREA_VERSION # Antrea version to be used in the workload cluster
