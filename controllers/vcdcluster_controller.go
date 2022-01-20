@@ -109,7 +109,7 @@ func (r *VCDClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 				rerr = err
 			}
 		}
-		log.Info("Cleanly patched VCD cluster.", "infra ID", vcdCluster.Status.InfraId)
+		log.V(3).Info("Cleanly patched VCD cluster.", "infra ID", vcdCluster.Status.InfraId)
 	}()
 
 	if !controllerutil.ContainsFinalizer(vcdCluster, infrav1.ClusterFinalizer) {
@@ -500,7 +500,7 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 			}
 		}
 	} else {
-		log.Info("Reusing already available InfraID", "infraID", infraID)
+		log.V(3).Info("Reusing already available InfraID", "infraID", infraID)
 	}
 
 	// If there is no specified RDE ID, self-generate one and use. We need UUIDs to single-instance
