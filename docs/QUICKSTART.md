@@ -34,36 +34,41 @@ Choose one of the options below to set up a management cluster:
 
 Refer [VCD SETUP](VCD_SETUP.md) for setting up AVI Controller, NSX-T cloud and CAPVCD user role.
 
-
+<a name="management_cluster_init"></a>
 ### Initialize the management cluster
 Now that we’ve got all the prerequisites in place, let’s transform the Kubernetes cluster into 
 a management cluster by using `clusterctl init`.
 
 The command lets us choose the infrastructure provider to install. However, CAPVCD 0.5 is not yet part of the provider list 
 supported by `clusterctl init`. Hence, we will provide separate set of commands to initialize the infrastructure provider component.
+Run below commands against the bootstrap Kubernetes cluster created above
 
 1. Install cluster-api core provider, kubeadm bootstrap and kubeadm control-plane providers
     1. `clusterctl init --core cluster-api:v0.4.2 -b kubeadm:v0.4.2 -c kubeadm:v0.4.2`
 2. Install Infrastructure provider - CAPVCD 
     1. Download CAPVCD repo - `git clone git@github.com:vmware/cluster-api-provider-cloud-director.git`
     2. Fill in the VCD details in `cluster-api-provider-cloud-director/config/manager/controller_manager_config.yaml`
-    3. Input username and password in `config/manager/kustomization.yaml`. Refer to the rights required for the role [here](CAPVCD_ROLE.md)
+    3. Input username and password in `config/manager/kustomization.yaml`. Refer to the rights required for the role [here](VCD_SETUP.md)
     4. Run the command `kubectl apply -k config/default`
    
 Wait until `kubectl get pods -A` shows below pods in Running state
 ```
-> k get pods -A
+> kubectl get pods -A
 NAMESPACE                           NAME                                                            READY   STATUS 
 capi-kubeadm-bootstrap-system       capi-kubeadm-bootstrap-controller-manager-7dc44947-v5nlv        1/1     Running 
 capi-kubeadm-control-plane-system   capi-kubeadm-control-plane-controller-manager-cb9d954f5-ct5cp   1/1     Running
 capi-system                         capi-controller-manager-7594c7bc57-smjtg                        1/1     Running 
 capvcd-system                       capvcd-controller-manager-769d64d4bf-54bf4                      1/1     Running
-```   
+```  
+Now that bootstrap management cluster is ready, you can use Cluster API to create multi control-plane workload clusters fronted by 
+load balancers. You can choose to re-transform the workload clusters into management clusters by repeating the 
+[CAPVCD initialization step](#management_cluster_init)
+
 ### Create your first workload cluster
 Once the management cluster is ready, you can create your first workload cluster.
 
-1. Generate the cluster configuration. `clusterctl generate` command doesn't yet support CAPVCD 0.5 CAPI yaml generation. Please use below steps.
-    1. Get the sample `capi-quickstart.yaml` from `cluster-api-provider-cloud-director/examples` github repo
+1. Generate the cluster configuration (`clusterctl generate` command doesn't yet support CAPVCD 0.5 CAPI yaml generation; please use below steps).
+    1. Get the sample [capi-quickstart.yaml](https://github.com/vmware/cluster-api-provider-cloud-director/blob/main/examples/capi-quickstart.yaml)
     2. Follow the comments and update the `capi-quickstart.yaml` with the desired configuration for the workload cluster.
 2. Apply the workload cluster configuration
     1. `kubectl apply -f capi-quickstart.yaml`. The output is similar to the below
