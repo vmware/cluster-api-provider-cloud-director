@@ -9,6 +9,13 @@ write_files:
        error_message="$(date) $(caller): $BASH_COMMAND"
        echo "$error_message" &>> /var/log/capvcd/customization/error.log
        vmtoolsd --cmd "info-set guestinfo.post_customization_script_execution_failure_reason $error_message"
+
+       cloud_init_output=""
+       if [[ -f /var/log/cloud-init-output.log ]]
+       then
+         cloud_init_output=$(</var/log/cloud-init-output.log)
+       fi
+       vmtoolsd --cmd "info-set guestinfo.post_customization_cloud_init_output $cloud_init_output"
     }
     mkdir -p /var/log/capvcd/customization
     trap 'catch $? $LINENO' ERR
@@ -33,6 +40,12 @@ write_files:
         ctr -n=k8s.io image tag $image_ref $ref_path:$new_tag_version
       done
       __JINJA_RUNCMD_REPLACE_ME__
+      if [[ ! -f /run/cluster-api/bootstrap-success.complete ]]
+      then
+        exit 1
+      fi
+      export KUBECONFIG=/etc/kubernetes/kubelet.conf
+      kubectl get po -A -owide
     vmtoolsd --cmd "info-set guestinfo.postcustomization.kubeadm.node.join.status successful"
 
     echo "$(date) post customization script execution completed" &>> /var/log/capvcd/customization/status.log
