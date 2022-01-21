@@ -78,6 +78,15 @@ Once the management cluster is ready, you can create your first workload cluster
        machinedeployment.cluster.x-k8s.io/capi-quickstart-md0 created
        ```
 3. Accessing the workload cluster
+   (Yet to be filled)
+4. Resize the workload cluster
+   (Yet to be filled)
+5. Upgrade the workload cluster
+   (Yet to be filled)
+   
+### Clean up
+1. Delete workload cluster (Yet to be filled)
+2. Delete Management cluster (Yet to be filled)
 
    
 
