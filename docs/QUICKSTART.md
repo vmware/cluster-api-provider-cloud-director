@@ -21,10 +21,9 @@ target management cluster on the selected infrastructure provider (CAPVCD in our
   
 Choose one of the options below to set up a management cluster:
 
-1. Existing Management cluster
-2. [Kind as a bootstrap cluster](https://cluster-api.sigs.k8s.io/user/quick-start.html#install-andor-configure-a-kubernetes-cluster) 
+1. [Kind as a bootstrap cluster](https://cluster-api.sigs.k8s.io/user/quick-start.html#install-andor-configure-a-kubernetes-cluster) 
    to create Management cluster in vCD tenant organization
-3. [CSE](https://github.com/vmware/container-service-extension) provisioned TKGm cluster as a bootstrap cluster to create Management cluster in vCD tenant organization.
+2. [CSE](https://github.com/vmware/container-service-extension) provisioned TKGm cluster as a bootstrap cluster to create Management cluster in vCD tenant organization.
 
 (It is recommended to have at least one management cluster per organization).
 
