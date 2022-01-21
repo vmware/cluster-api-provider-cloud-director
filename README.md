@@ -21,7 +21,7 @@ Support matrix between CAPVCD and Kubernetes versions:
 | CAPVCD v1alpha4 (v0.5) | ✓     | ✓     |       |
 
 ## Known Issues
-[KNOWN ISSUES](KNOWNISSUES.md)
+[KNOWN ISSUES](docs/KNOWNISSUES.md)
 
 ## FAQ
 [FAQ](docs/FAQ.md)
