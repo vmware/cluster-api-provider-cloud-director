@@ -36,10 +36,10 @@ Refer [VCD SETUP](VCD_SETUP.md) for setting up AVI Controller, NSX-T cloud and C
 
 
 ### Initialize the management cluster
-Now that we’ve got clusterctl installed and all the prerequisites in place, let’s transform the Kubernetes cluster into 
+Now that we’ve got all the prerequisites in place, let’s transform the Kubernetes cluster into 
 a management cluster by using `clusterctl init`.
 
-The command lets us choose the provider to install; however, CAPVCD 0.5 is not yet part of the provider list 
+The command lets us choose the infrastructure provider to install. However, CAPVCD 0.5 is not yet part of the provider list 
 supported by `clusterctl init`. Hence, we will provide separate set of commands to initialize the infrastructure provider component.
 
 1. Install cluster-api core provider, kubeadm bootstrap and kubeadm control-plane providers
