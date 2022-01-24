@@ -103,3 +103,55 @@ Notes:
 <a name="create_workload_cluster"></a>
 ## Create workload cluster on the Management cluster 
 
+1. John can access the management cluster using `kubectl --namespace ${NAMESPACE} --kubeconfig=John-management-kubeconfig.conf get machines`
+2. John edits the [sample CAPI.yaml](https://github.com/vmware/cluster-api-provider-cloud-director/blob/main/examples/capi-quickstart.yaml) to ensure every object gets created in the namespace allocated to him. The user 
+   credentials/refresh token should also be embedded into the CAPI yaml file
+    1. The user section in the Cluster object that contains the secrets used to log into VCD. For creation of the VMs, the LoadBalancer etc, the credentials passed will be used.
+    2. In production cluster scenarios we recommend strongly that the refreshToken parameter be used, The username and password fields should be omitted or set as empty strings.
+```yaml
+apiVersion: cluster.x-k8s.io/v1alpha4
+kind: Cluster
+metadata:
+name: capi-john
+namespace: john-ns
+spec:
+clusterNetwork:
+pods:
+cidrBlocks:
+- 100.96.0.0/11
+serviceDomain: k8s.test
+services:
+cidrBlocks:
+- 100.64.0.0/13
+controlPlaneRef:
+apiVersion: controlplane.cluster.x-k8s.io/v1alpha4
+kind: KubeadmControlPlane
+name: capi-control-plane-john
+namespace: john-ns
+infrastructureRef:
+apiVersion: infrastructure.cluster.x-k8s.io/v1alpha4
+kind: VCDCluster
+name: capi-john
+namespace: john-ns
+---
+apiVersion: infrastructure.cluster.x-k8s.io/v1alpha4
+kind: VCDCluster
+metadata:
+name: capi-john
+namespace: john-ns
+context:
+username: john
+password: password
+refreshToken: ""
+---
+```
+3. John creates the workload cluster 
+    1. `kubectl --namespace=${NAMESPACE} --kubeconfig=John-management-kubeconfig.conf apply -f capi.yaml`
+    2. Wait for control plane to be initialized `kubectl --namespace=${NAMESPACE} --kubeconfig=John-management-kubeconfig.conf describe cluster capi-john`
+4. John retrieves the Admin Kubeconfig of the workload cluster 
+    1. `CLUSTERNAME="capi-john"`
+    2. `kubectl -n ${NAMESPACE} --kubeconfig=user-management-kubeconfig.conf get secret ${CLUSTERNAME}-kubeconfig -o json | jq ".data.value" | tr -d '"' | base64 -d > ${CLUSTERNAME}-workload-kubeconfig.conf`
+    3. `kubectl --kubeconfig=${CLUSTERNAME}-workload-kubeconfig.conf get pods -A -owide`
+5. John can do other operations like resize, upgrade on the workload cluster by editing the capi.yaml. 
+   For delete, it is recommended to delete the cluster object directly - `kubectl --namespace=${NAMESPACE} --kubeconfig=user-management-kubeconfig.conf delete cluster ${CLUSTERNAME}`
+
