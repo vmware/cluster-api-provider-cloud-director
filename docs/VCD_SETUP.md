@@ -7,6 +7,7 @@ The LoadBalancers fronting the Multimaster workload clusters will need a preconf
 The Service Engine Group (SEG) should be created as Dedicated and one SEG should be allocated per Edge Gateway in order to ensure that Load Balancers used by Tenants are well-isolated from each other.
 The LoadBalancer section of the Edge Gateway for a Tenant should be enabled, and the appropriate Service Engine Group(s) should be configured into the Edge Gateway. This will be used to create Virtual Services when a LoadBalancer request is made from Kubernetes.
 
+<a name="user_role"></a>
 ### CAPVCD RDE registration and right bundles publishment
 CAPVCD RDE registration a) via CSE b) REST API
 * Publish CAPVCD right bundle to the tenant organizations

@@ -1,7 +1,7 @@
 # Quick start guide to create Kubernetes workload cluster on vCloud Director
 
 In this tutorial we’ll cover the basics of how to use Cluster API provider - CAPVCD to create one or more Kubernetes 
-clusters on vCloud Director.
+clusters on Cloud Director.
 
 ## Installation
 
@@ -63,6 +63,9 @@ capvcd-system                       capvcd-controller-manager-769d64d4bf-54bf4  
 Now that bootstrap management cluster is ready, you can use Cluster API to create multi control-plane workload clusters fronted by 
 load balancers. You can choose to re-transform the workload clusters into management clusters by repeating the 
 [CAPVCD initialization step](#management_cluster_init)
+
+See here to enable [VCD tenant user management on the management cluster](USER_MANAGEMENT.md). This enables tenant users to deploy the
+workload clusters in their own private namespaces, while adhering to VCD's  tenant/user quota management.
 
 ### Create your first workload cluster
 Once the management cluster is ready, you can create your first workload cluster.
