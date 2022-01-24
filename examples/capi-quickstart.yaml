@@ -21,12 +21,12 @@ spec:
     apiVersion: infrastructure.cluster.x-k8s.io/v1alpha4
     kind: VCDCluster
     name: capi-cluster # name of the VCDCluster object associated with the cluster.
-    namespace: default # kubernetes namespace in which the VCDCluster object. Ideally should be the same namespace as that of the Cluster object
+    namespace: default # kubernetes namespace in which the VCDCluster object resides. Ideally should be the same namespace as that of the Cluster object
 ---
 apiVersion: infrastructure.cluster.x-k8s.io/v1alpha4
 kind: VCDCluster
 metadata:
-  name: capi-cluster # name of the VCDCluster object. It is Recommended to keep the VCDCluster object name to match the Cluster object name to avoid confusion.
+  name: capi-cluster # name of the VCDCluster object. It is recommended to keep the VCDCluster object name to match the Cluster object name to avoid confusion.
   namespace: default # kubernetes namespace in which the VCDCluster object will be created. Ideally should be the same namespace as that of the Cluster object
 spec:
   site: https://bos1-vcloud-static-170-210.eng.vmware.com # VCD endpoint with the format https://VCD_HOST. No trailing '/'
