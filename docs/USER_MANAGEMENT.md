@@ -6,10 +6,10 @@
 Refer to rights required for the above roles [here](VCD_SETUP.md#user_role)
 
 1. Amy creates a management cluster and she has access to Admin Kubeconfig of the management cluster.
-2. John wants to create a workload cluster; asks Amy for the access to management cluster.
-3. Amy creates a [new Kubernetes namespace and service account](#create_K8s_svc_account) for John and hands over the 
-   respective Kubeconfig file with limited privileges to the John.
-4. John uses the Kubeconfig to access the management cluster and [creates his first workload cluster](#create_workload_cluster).
+2. John wants to create a workload cluster; John asks Amy for the access to management cluster.
+3. Amy [prepares the management cluster](#create_K8s_svc_account) by creating a new Kubernetes namespace and service account for John.
+4. Amy hands over the newly generated Kubeconfig file with limited privileges to the John.
+5. John uses the Kubeconfig to access the management cluster and [creates his first workload cluster](#create_workload_cluster).
 
 <a name="create_K8s_svc_account"></a>
 ## Prepare Management cluster to enable tenant users' access
