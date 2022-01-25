@@ -1,18 +1,19 @@
-# Quick start guide to create Kubernetes workload cluster on vCloud Director
+# Quick start guide to create Kubernetes workload cluster on Cloud Director
 
 In this tutorial we’ll cover the basics of how to use Cluster API provider - CAPVCD to create one or more Kubernetes 
-clusters on Cloud Director. This document expects the readers to be familiar with the Core CAPI terminology like 
-management cluster and workload cluster.
+clusters on Cloud Director. This document expects the readers to be familiar with the 
+[Core CAPI](https://cluster-api.sigs.k8s.io/introduction.html) terminology like management cluster and workload cluster.
 
 ### Cloud Director Set up
 
-Refer [VCD SETUP](VCD_SETUP.md) for setting up infrastructure for AVI Controller, NSX-T cloud and CAPVCD user role.
+Refer to [Cloud Director setup](VCD_SETUP.md) for setting up the infrastructure and user roles.
 
 ### Common Prerequisites
 
-* Install [kubectl](https://kubernetes.io/docs/tasks/tools/) in your local environment
-* Install [Kind](https://kind.sigs.k8s.io/) and [Docker](https://www.docker.com/)
-* Install [clusterctl](https://cluster-api.sigs.k8s.io/user/quick-start.html#install-clusterctl)
+Install below in your local environment
+* [Kubectl](https://kubernetes.io/docs/tasks/tools/) 
+* [Kind](https://kind.sigs.k8s.io/) and [Docker](https://www.docker.com/)
+* [Clusterctl](https://cluster-api.sigs.k8s.io/user/quick-start.html#install-clusterctl)
 
 <a name="management_cluster_setup"></a>
 ### Create Management cluster
@@ -38,7 +39,7 @@ Personas:
 ### Create workload cluster
 Once the management cluster is created and prepared for tenants' access, tenants can create their workload cluster(s).
 
-Refer [workload cluster operations](WORKLOAD_CLUSTER.md) for more details.
+Refer to [workload cluster operations](WORKLOAD_CLUSTER.md) for more details.
    
 ### Clean up
 1. Delete workload cluster (Yet to be filled)

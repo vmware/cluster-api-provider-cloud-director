@@ -4,9 +4,9 @@ Personas:
 * Amy - Management Cluster Author ([Tenant Admin](VCD_SETUP.md#user_role))
 * John - Workload Cluster Author ([Tenant user](VCD_SETUP.md#user_role))
 
-Refer to the rights required for the above roles [here](VCD_SETUP.md#user_role)
-
 ## Create Management cluster
+
+All the below steps are expected to be performed by the user Amy (Management Cluster Author).
 
 ### Install and/or configure a bootstrap Kubernetes cluster
 
@@ -60,8 +60,11 @@ workload clusters in their own private namespaces, while adhering to VCD's  tena
 
 <a name="tenant_user_management"></a>
 ## Prepare Management cluster to enable VCD tenant users' access
+Personas:
+* Amy - Management Cluster Author ([Tenant Admin](VCD_SETUP.md#user_role))
+* John - Workload Cluster Author ([Tenant user](VCD_SETUP.md#user_role))
 
-Amy (Management Cluster Author (Org Admin)) creates a new and unique Kubernetes namespace for John and creates Kubernetes configuration with access to only the
+Amy creates a new and unique Kubernetes namespace for John and creates Kubernetes configuration with access to only the
 required CRDs in only this namespace. This is a one-time operation per VCD tenant user.
 
 Below are the commands to be run. The USERNAME parameter should be changed as per your requirements.

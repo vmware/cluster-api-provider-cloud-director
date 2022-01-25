@@ -17,6 +17,8 @@ CAPVCD RDE registration a) via CSE 3.1.2 b) REST API
 * vApp > Preserve all ExtraConfig Elements during OVA Import and Export
 * General > Manage Certificates Library
 
+### Upload TKGm template
+
 ## Tenant Setup
 A ServiceEngineGroup needs to be added to the gateway of the OVDC within which the Kubernetes cluster is to be created. The overall steps to achieve that are documented at Enable Load Balancer on an NSX-T Data Center Edge Gateway
 Create and publish the desired sizing policies on the chosen ovdc(s)
