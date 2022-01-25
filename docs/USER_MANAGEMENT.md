@@ -1,9 +1,9 @@
-# VCD tenant user management on the Management cluster
+# Enable VCD tenant users to create workload cluster(s) on the management cluster
 
 * Amy - Management Cluster Author (Org Admin)
 * John - Workload Cluster Author (Tenant user)
 
-Refer to rights required for the above roles [here](VCD_SETUP.md#user_role)
+Refer to the rights required for the above roles [here](VCD_SETUP.md#user_role)
 
 1. Amy creates a management cluster and she has access to Admin Kubeconfig of the management cluster.
 2. John wants to create a workload cluster; John asks Amy for the access to management cluster.
@@ -157,6 +157,12 @@ refreshToken: ""
     3. `kubectl --kubeconfig=${CLUSTERNAME}-workload-kubeconfig.conf get pods -A -owide`
 5. John can do other operations like resize, upgrade on the workload cluster by editing the capi.yaml. 
    For delete, it is recommended to delete the cluster object directly - `kubectl --namespace=${NAMESPACE} --kubeconfig=user-management-kubeconfig.conf delete cluster ${CLUSTERNAME}`
+
+## Resize workload cluster
+
+## Upgrade workload cluster
+
+## Delete workload cluster
 
 <a name="create_refresh_token"></a>
 ## How to create refreshToken?

@@ -9,7 +9,7 @@ The LoadBalancer section of the Edge Gateway for a Tenant should be enabled, and
 
 <a name="user_role"></a>
 ### CAPVCD RDE registration and right bundles publishment
-CAPVCD RDE registration a) via CSE b) REST API
+CAPVCD RDE registration a) via CSE 3.1.2 b) REST API
 * Publish CAPVCD right bundle to the tenant organizations
 * Using UI, Create a right bundle and publish to the org (or) add the below rights to the Default Right Bundle
 * User > Manage user's own API token
