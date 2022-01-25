@@ -1,8 +1,8 @@
 # Management Cluster Setup
 
 Personas:
-* Amy - Management Cluster Author (Org Admin)
-* John - Workload Cluster Author (Tenant user)
+* Amy - Management Cluster Author ([Tenant Admin](VCD_SETUP.md#user_role))
+* John - Workload Cluster Author ([Tenant user](VCD_SETUP.md#user_role))
 
 Refer to the rights required for the above roles [here](VCD_SETUP.md#user_role)
 

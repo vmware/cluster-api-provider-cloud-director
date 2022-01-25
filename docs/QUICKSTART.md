@@ -20,46 +20,25 @@ Cluster API requires an existing Kubernetes cluster accessible via kubectl. Duri
 process the Kubernetes cluster will be transformed into a [management cluster](https://cluster-api.sigs.k8s.io/reference/glossary.html#management-cluster)
 by installing the Core CAPI and Cluster API provider components, so it is recommended to keep it separated from any application workload.
 
-At high-level, below describes the interaction between VCD tenant administrator and tenant user.
-
-Personas:
-* Amy - Management Cluster Author (Tenant Admin)
-* John - Workload Cluster Author (Tenant user)
-
-Refer to the rights required for the above roles [here](VCD_SETUP.md#user_role)
-
-1. Amy creates a management cluster, and she has access to Admin Kubeconfig of the management cluster.
-2. John wants to create a workload cluster; John asks Amy for the access to management cluster.
-3. Amy [prepares the management cluster](#create_K8s_svc_account) by creating a new Kubernetes namespace and service account for John.
-4. Amy hands over the newly generated Kubeconfig file with limited privileges to the John.
-5. John uses the Kubeconfig to access the management cluster and [creates his first workload cluster](#create_workload_cluster).
-
 It is recommended for VCD organization administrator to create at least one management cluster per tenant.
 Refer to [Management cluster set up](MANAGEMENT_CLUSTER.md) for the detailed steps.
 
-### Create workload cluster
-Once the management cluster is ready, tenants can create their first workload cluster.
+At high-level, below describes the interaction between VCD tenant administrator and tenant user.
 
-1. Generate the cluster configuration (`clusterctl generate` command doesn't yet support CAPVCD 0.5 CAPI yaml generation; please use below steps).
-    1. Get the sample [capi-quickstart.yaml](https://github.com/vmware/cluster-api-provider-cloud-director/blob/main/examples/capi-quickstart.yaml)
-    2. Follow the comments and update the `capi-quickstart.yaml` with the desired configuration for the workload cluster.
-2. Apply the workload cluster configuration
-    1. `kubectl apply -f capi-quickstart.yaml`. The output is similar to the below
-    2. ```
-       cluster.cluster.x-k8s.io/capi-quickstart created
-       vcdcluster.infrastructure.cluster.x-k8s.io/capi-quickstart created
-       vcdmachinetemplate.infrastructure.cluster.x-k8s.io/capi-quickstart-control-plane created
-       kubeadmcontrolplane.controlplane.cluster.x-k8s.io/capi-quickstart-control-plane created
-       vcdmachinetemplate.infrastructure.cluster.x-k8s.io/capi-quickstart-md0 created
-       kubeadmconfigtemplate.bootstrap.cluster.x-k8s.io/capi-quickstart-md0 created
-       machinedeployment.cluster.x-k8s.io/capi-quickstart-md0 created
-       ```
-3. Accessing the workload cluster
-   (Yet to be filled)
-4. Resize the workload cluster
-   (Yet to be filled)
-5. Upgrade the workload cluster
-   (Yet to be filled)
+Personas:
+* Amy - Management Cluster Author ([Tenant Admin](VCD_SETUP.md#user_role))
+* John - Workload Cluster Author ([Tenant user](VCD_SETUP.md#user_role))
+
+1. Amy creates a management cluster, and she has access to Admin Kubeconfig of the management cluster.
+2. John wants to create a workload cluster; John asks Amy for the access to management cluster.
+3. Amy prepares the management cluster by creating a new Kubernetes namespace and service account for John.
+4. Amy hands over the newly generated Kubeconfig file with limited privileges to the John.
+5. John uses the Kubeconfig to access the management cluster and creates his first workload cluster.
+
+### Create workload cluster
+Once the management cluster is created and prepared for tenants' access, tenants can create their workload cluster(s).
+
+Refer [workload cluster operations](WORKLOAD_CLUSTER.md) for more details.
    
 ### Clean up
 1. Delete workload cluster (Yet to be filled)

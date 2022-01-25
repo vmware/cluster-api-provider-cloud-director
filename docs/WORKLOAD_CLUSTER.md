@@ -1,8 +1,8 @@
 # Workload cluster operations
 
 Personas:
-* Amy - Management Cluster Author (Org Administrator)
-* John - Workload Cluster Author (Tenant user)
+* Amy - Management Cluster Author ([Tenant Admin](VCD_SETUP.md#user_role))
+* John - Workload Cluster Author ([Tenant user](VCD_SETUP.md#user_role))
 
 Refer to the rights required for the above roles [here](VCD_SETUP.md#user_role)
 
@@ -13,11 +13,13 @@ In order for John to create workload cluster, Amy should have  already enabled t
 John on the management cluster. See [management cluster setup](QUICKSTART.md#management_cluster_setup) and 
 [tenant_user_management](MANAGEMENT_CLUSTER.md#tenant_user_management) for more details on the Amy's steps).
 
-1. John (Workload Cluster Author (Tenant user)) can now access the management cluster using `kubectl --namespace ${NAMESPACE} --kubeconfig=John-management-kubeconfig.conf get machines`
-2. John edits the [sample CAPI.yaml](https://github.com/vmware/cluster-api-provider-cloud-director/blob/main/examples/capi-quickstart.yaml) to ensure every object gets created in the namespace allocated to him. The user 
-   credentials/refresh token should also be embedded into the CAPI yaml file. Refer [how to create refreshToken](#create_refresh_token)
-    1. The user section in the Cluster object that contains the secrets used to log into VCD. For creation of the VMs, the LoadBalancer etc, the credentials passed will be used.
-    2. In production cluster scenarios we recommend strongly that the refreshToken parameter be used, The username and password fields should be omitted or set as empty strings.
+1. John (Workload Cluster Author (Tenant user)) can now access the management cluster - `kubectl --namespace ${NAMESPACE} --kubeconfig=John-management-kubeconfig.conf get machines`
+2. Generate the cluster configuration (`clusterctl generate` command doesn't yet support CAPVCD 0.5 CAPI yaml generation; please use below steps).
+   1. Get the sample [capi-quickstart.yaml](https://github.com/vmware/cluster-api-provider-cloud-director/blob/main/examples/capi-quickstart.yaml)
+   2. Follow the comments and update the `capi-quickstart.yaml` with the desired configuration for the workload cluster.
+   3. Ensure every object gets created in the namespace allocated to him by updating the `namespace` property of all the objects.
+   4. User credentials/refresh token should also be embedded into the CAPI yaml file. Refer [how to create refreshToken](#create_refresh_token). 
+      In production cluster scenarios we recommend strongly that the refreshToken parameter be used, The username and password fields should be omitted or set as empty strings.
 ```yaml
 apiVersion: cluster.x-k8s.io/v1alpha4
 kind: Cluster
@@ -56,8 +58,17 @@ refreshToken: ""
 ---
 ```
 3. John creates the workload cluster 
-    1. `kubectl --namespace=${NAMESPACE} --kubeconfig=John-management-kubeconfig.conf apply -f capi.yaml`
-    2. Wait for control plane to be initialized `kubectl --namespace=${NAMESPACE} --kubeconfig=John-management-kubeconfig.conf describe cluster capi-john`
+    1. `kubectl --namespace=${NAMESPACE} --kubeconfig=John-management-kubeconfig.conf apply -f capi.yaml`. The output is similar to the below
+    2. ```sh
+       cluster.cluster.x-k8s.io/capi-quickstart created
+       vcdcluster.infrastructure.cluster.x-k8s.io/capi-quickstart created
+       vcdmachinetemplate.infrastructure.cluster.x-k8s.io/capi-quickstart-control-plane created
+       kubeadmcontrolplane.controlplane.cluster.x-k8s.io/capi-quickstart-control-plane created
+       vcdmachinetemplate.infrastructure.cluster.x-k8s.io/capi-quickstart-md0 created
+       kubeadmconfigtemplate.bootstrap.cluster.x-k8s.io/capi-quickstart-md0 created
+       machinedeployment.cluster.x-k8s.io/capi-quickstart-md0 created
+       ```
+    3. Wait for control plane to be initialized `kubectl --namespace=${NAMESPACE} --kubeconfig=John-management-kubeconfig.conf describe cluster capi-john`
 4. John retrieves the Admin Kubeconfig of the workload cluster 
     1. `CLUSTERNAME="capi-john"`
     2. `kubectl -n ${NAMESPACE} --kubeconfig=user-management-kubeconfig.conf get secret ${CLUSTERNAME}-kubeconfig -o json | jq ".data.value" | tr -d '"' | base64 -d > ${CLUSTERNAME}-workload-kubeconfig.conf`
