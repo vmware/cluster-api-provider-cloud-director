@@ -137,6 +137,7 @@ func patchVCDCluster(ctx context.Context, patchHelper *patch.Helper, vcdCluster 
 		vcdCluster,
 		patch.WithOwnedConditions{Conditions: []clusterv1.ConditionType{
 			clusterv1.ReadyCondition,
+			clusterv1.ControlPlaneInitializedCondition,
 			infrav1.LoadBalancerAvailableCondition,
 		}},
 	)
@@ -550,8 +551,9 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		}
 
 		log.Info("Creating load balancer for the cluster")
+		suppliedExternalIP := "10.150.166.101"
 		controlPlaneNodeIP, err = gateway.CreateL4LoadBalancer(ctx, virtualServiceNamePrefix, lbPoolNamePrefix,
-			[]string{}, r.VcdClient.TCPPort)
+			suppliedExternalIP, []string{}, r.VcdClient.TCPPort)
 		if err != nil {
 			if vsError, ok := err.(*vcdclient.VirtualServicePendingError); ok {
 				log.Info("Error creating load balancer for cluster. Virtual Service is still pending",
@@ -608,6 +610,12 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 
 	vcdCluster.Status.Ready = true
 	conditions.MarkTrue(vcdCluster, infrav1.LoadBalancerAvailableCondition)
+
+	existingCluster := true
+	if existingCluster {
+		// don't run the init
+		conditions.MarkTrue(cluster, clusterv1.ControlPlaneInitializedCondition)
+	}
 
 	return ctrl.Result{}, nil
 }

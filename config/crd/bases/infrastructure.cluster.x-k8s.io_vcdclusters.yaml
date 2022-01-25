@@ -76,6 +76,8 @@ spec:
                 type: string
               rdeId:
                 type: string
+              r1Cluster:
+                type: boolean
               site:
                 type: string
               userContext:

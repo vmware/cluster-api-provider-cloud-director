@@ -68,6 +68,8 @@ type VCDClusterSpec struct {
 	DefaultComputePolicy string `json:"defaultComputePolicy,omitempty"`
 	// + optional
 	RDEId string `json:"rdeId"`
+	// +optional
+	R1Cluster bool `json:"r1Cluster,omitempty"`
 }
 
 // VCDClusterStatus defines the observed state of VCDCluster
