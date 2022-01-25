@@ -1,110 +1,17 @@
-# Enable VCD tenant users to create workload cluster(s) on the management cluster
+# Workload cluster operations
 
-* Amy - Management Cluster Author (Org Admin)
+Personas:
+* Amy - Management Cluster Author (Org Administrator)
 * John - Workload Cluster Author (Tenant user)
 
 Refer to the rights required for the above roles [here](VCD_SETUP.md#user_role)
 
-1. Amy creates a management cluster and she has access to Admin Kubeconfig of the management cluster.
-2. John wants to create a workload cluster; John asks Amy for the access to management cluster.
-3. Amy [prepares the management cluster](#create_K8s_svc_account) by creating a new Kubernetes namespace and service account for John.
-4. Amy hands over the newly generated Kubeconfig file with limited privileges to the John.
-5. John uses the Kubeconfig to access the management cluster and [creates his first workload cluster](#create_workload_cluster).
-
-<a name="create_K8s_svc_account"></a>
-## Prepare Management cluster to enable tenant users' access
-
-Amy (Management Cluster Author (Org Admin)) creates a new and unique Kubernetes namespace for John and creates Kubernetes configuration with access to only the 
-required CRDs in only this namespace. This is a one-time operation per VCD tenant user.
-
-Below are the commands to be run. The USERNAME parameter should be changed as per your requirements.
-
-```sh
-USERNAME="john"
- 
-NAMESPACE=${USERNAME}-ns
-kubectl create ns ${NAMESPACE}
- 
-cat > user-rbac.yaml << END
----
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: ${USERNAME}
-  namespace: ${NAMESPACE}
----
-kind: Role
-apiVersion: rbac.authorization.k8s.io/v1
-metadata:
-  namespace: ${NAMESPACE}
-  name: ${USERNAME}-full-access
-rules:
-- apiGroups: ["", "extensions", "apps", "cluster.x-k8s.io", "infrastructure.cluster.x-k8s.io", "bootstrap.cluster.x-k8s.io", "controlplane.cluster.x-k8s.io", "apiextensions.k8s.io"]
-  resources: ["*"]
-  verbs: ["*"]
-- apiGroups: ["batch"]
-  resources:
-  - jobs
-  - cronjobs
-  verbs: ["*"]
----
-kind: RoleBinding
-apiVersion: rbac.authorization.k8s.io/v1
-metadata:
-  name: ${USERNAME}-view-${NAMESPACE}
-  namespace: ${NAMESPACE}
-subjects:
-- kind: ServiceAccount
-  name: ${USERNAME}
-  namespace: ${NAMESPACE}
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: Role
-  name: ${USERNAME}-full-access
----
-END
- 
-kubectl create -f user-rbac.yaml
- 
- 
-SECRETNAME=$(kubectl -n ${NAMESPACE} describe sa ${USERNAME} | grep "Tokens" | cut -f2 -d: | tr -d " ")
-USERTOKEN=$(kubectl -n ${NAMESPACE} get secret ${SECRETNAME} -o "jsonpath={.data.token}" | base64 -d)
-CERT=$(kubectl -n ${NAMESPACE} get secret ${SECRETNAME} -o "jsonpath={.data['ca\.crt']}")
-KUBE_APISERVER_ADDRESS=https://127.0.0.1:64265
- 
-cat > John-management-kubeconfig.conf <<END
-apiVersion: v1
-kind: Config
-users:
-- name: ${USERNAME}
-  user:
-    token: ${USERTOKEN}
-clusters:
-- cluster:
-    certificate-authority-data: ${CERT}
-    server: ${KUBE_APISERVER_ADDRESS}
-  name: my-cluster
-contexts:
-- context:
-    cluster: my-cluster
-    user: ${USERNAME}
-  name: ${USERNAME}-context
-current-context: ${USERNAME}-context
-END
-```
-The "John-management-kubeconfig.conf" generated at the end ensures that the user 'John' can only access CRDs for 
-CAPVCD Workload Cluster Creation in the Management Cluster in a newly-created namespace ${NAMESPACE} (John-ns).
-
-Notes:
-* Once the above operation is complete, there is no need of further interaction between Amy and John.
-* The mechanism used above to generate a Kubernetes Config has a default lifetime of one year.
-* We recommend strongly that the USERNAME match that of VCD tenant username.
-
 <a name="create_workload_cluster"></a>
 ## Create workload cluster on the Management cluster 
 
-(Management cluster needs to be prepared for enabling tenant users' access, before this workflow can be run as a VCD tenant 
-user. See [prepare management cluster for tenant users' access](#create_K8s_svc_account) for more details).
+In order for John to create workload cluster, Amy should have  already enabled the user access for 
+John on the management cluster. See [management cluster setup](QUICKSTART.md#management_cluster_setup) and 
+[tenant_user_management](MANAGEMENT_CLUSTER.md#tenant_user_management) for more details on the Amy's steps).
 
 1. John (Workload Cluster Author (Tenant user)) can now access the management cluster using `kubectl --namespace ${NAMESPACE} --kubeconfig=John-management-kubeconfig.conf get machines`
 2. John edits the [sample CAPI.yaml](https://github.com/vmware/cluster-api-provider-cloud-director/blob/main/examples/capi-quickstart.yaml) to ensure every object gets created in the namespace allocated to him. The user 
