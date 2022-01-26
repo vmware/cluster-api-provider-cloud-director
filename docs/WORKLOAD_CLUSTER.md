@@ -32,37 +32,24 @@ John on the management cluster. See [management cluster setup](QUICKSTART.md#man
     3. `kubectl --kubeconfig=${CLUSTERNAME}-workload-kubeconfig.conf get pods -A -owide`
    
 ## Resize workload cluster
+Update the below properties in the CAPI Yaml and re-apply it.
+1. Update the property `KubeadmControlPlane.spec.replicas` of desired KubeadmControlPlane objects to resize the control 
+plane count. The value must be odd number.
+2. Update the property `MachineDeployment.spec.replicas` of desired MachineDeployment objects to resize the worker count.
 
 ## Upgrade workload cluster
-
+Update the below properties in the CAPI Yaml and re-apply it.
+1. Upgrade Control plane version
+    1. Update `VCDMachineTemplate` object(s) with the new version of TKGm template details.
+    2. Update `KubeadmControlPlane` object(s) with the newer versions of Kubernetes components. The values must match the Kubernetes version of the corresponding template specified in (1). See here on [how to retrieve the versions from respective TKGm bill of materials](#tkgm_bom).
+        * Update `KubeadmControlPlane.spec.version`, `KubeadmControlPlane.spec.kubeadmConfigSpec.dns`, `KubeadmControlPlane.spec.kubeadmConfigSpec.etcd`, `KubeadmControlPlane.spec.kubeadmConfigSpec.imageRepository`.
+2. Upgrade Worker node version
+    1. Update `VCDMachineTemplate` objects with the new version of TKGm template details.
+    2. Update `MachineDeployment` objects with the newer version of the property `MachineDeployment.spec.version`. The values must match the Kubernetes version of the corresponding template specified in (1). See here on [how to retrieve the versions from respective TKGm bill of materials](#tkgm_bom).
+   
 ## Delete workload cluster
-For delete, it is recommended to delete the cluster object directly - `kubectl --namespace=${NAMESPACE} --kubeconfig=user-management-kubeconfig.conf delete cluster ${CLUSTERNAME}`
-
-<a name="create_refresh_token"></a>
-## How to create refreshToken?
-Step 1: Register a client:
-```sh
-curl --location --request POST 'https://<vcd-fqdn>>/oauth/tenant/<org-name>/register' \
---header 'Accept: application/json;version=36.0' \
---header 'Authorization: Bearer eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiJvcmdhZG1pbiIsImlzcyI6ImZlZTYxOTI3LTU1NTUtNDY4Zi1iMTZiLWU2NDgxZDcyM2IwMUAyMDQ0ZmUwNC1jNTg5LTRjMmItODUxNC1hNTlkMWFhOTE1NGUiLCJleHAiOjE2NDQwMDg5ODMsInZlcnNpb24iOiJ2Y2xvdWRfMS4wIiwianRpIjoiYzNkODZhNDU5ODhlNDM1NDlmOTA3YzFhN2MxYTAxNDgifQ.aRLO7W_lrhQyWGDuwdY0sELCNn7bPXn2Aryz-mUhaSWrZuRHDayTL1vN3Y70Q3XnV8ayP_uBoa-7R-9qTj5hNHhydyvRCAxeXoAFz-3BEYo0hDAZ0S6OAy5iMcYQNmmFIdjIUwsrb3nFvrA2e8tqQI4X2UdnHPe-ZdCcnYsq7QCeiD4_vUfH3rJVAutuuSxWD6Uk_JukncxwgDpHi9HSqMTqZ6rOUlZiaOfgsILTm8lVZvzQhlMmrcyrc3ysiKoDtQjc2BJwaJ4Qxgb22_FjQwCzc0ixENRBpiY4Iiqyo44nKvaHutkRA9WNmJyR2HFLFuSqE8oi-WkML0gneEJz_A' \
---header 'Content-Type: application/json' \
---data-raw '{
-"client_name": "management-cluster"
-}'
-```
-Client ID will be obtained as part of the response
-
-Step 2: Create a refresh token
-Use client ID from the response from Step 1
-```sh
-curl --location --request POST 'https://<vcd-fqdn>/oauth/tenant/<org-name>/token' \
---header 'Accept: application/json;version=36.0' \
---header 'Content-Type: application/x-www-form-urlencoded' \
---data-urlencode 'client_id=1447f90a-2ca7-4b9c-ac9d-a42e529a870b' \
---data-urlencode 'grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer' \
---data-urlencode 'assertion=eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiJvcmdhZG1pbiIsImlzcyI6ImZlZTYxOTI3LTU1NTUtNDY4Zi1iMTZiLWU2NDgxZDcyM2IwMUAyMDQ0ZmUwNC1jNTg5LTRjMmItODUxNC1hNTlkMWFhOTE1NGUiLCJleHAiOjE2NDQwMDg5ODMsInZlcnNpb24iOiJ2Y2xvdWRfMS4wIiwianRpIjoiYzNkODZhNDU5ODhlNDM1NDlmOTA3YzFhN2MxYTAxNDgifQ.aRLO7W_lrhQyWGDuwdY0sELCNn7bPXn2Aryz-mUhaSWrZuRHDayTL1vN3Y70Q3XnV8ayP_uBoa-7R-9qTj5hNHhydyvRCAxeXoAFz-3BEYo0hDAZ0S6OAy5iMcYQNmmFIdjIUwsrb3nFvrA2e8tqQI4X2UdnHPe-ZdCcnYsq7QCeiD4_vUfH3rJVAutuuSxWD6Uk_JukncxwgDpHi9HSqMTqZ6rOUlZiaOfgsILTm8lVZvzQhlMmrcyrc3ysiKoDtQjc2BJwaJ4Qxgb22_FjQwCzc0ixENRBpiY4Iiqyo44nKvaHutkRA9WNmJyR2HFLFuSqE8oi-WkML0gneEJz_A'Use Access token as value for assertion
-```
-Refresh token will be present as part of the response
+It is recommended to delete the cluster object directly - `kubectl --namespace=${NAMESPACE} --kubeconfig=user-management-kubeconfig.conf delete cluster ${CLUSTERNAME}` 
+rather than `kubectl --namespace=${NAMESPACE} --kubeconfig=user-management-kubeconfig.conf delete -f capi-quickstart.yaml`
 
 <a name="capi_yaml"></a>
 ## CAPI YAML configuration
@@ -76,7 +63,7 @@ configure the YAML
 3. Update the `VCDCluster.spec` with the VCD site, names of the organization, virtual datacenter, virtual datacenter network and userContext.
    In production cluster scenarios we recommend strongly that the refreshToken parameter be used, the username and 
    password fields should be omitted or set as empty strings. Refer to [how to create refreshToken](#create_refresh_token).
-4. Update `VCDMachineTemplate` objects with the TKGm template details.
+4. Update `VCDMachineTemplate` objects of both Controlplane and workers with the TKGm template details.
 5. Update `KubeadmControlPlane` object(s) with the below details of Kubernetes components. The values must match the Kubernetes 
    version of the corresponding template specified in (4). See here on [how to retrieve the versions from respective TKGm bill of materials](#tkgm_bom).
     1. Update `KubeadmControlPlane.spec.version`, `KubeadmControlPlane.spec.kubeadmConfigSpec.dns`, 
@@ -163,7 +150,31 @@ COREDNS_VERSION=$(yq e ".components.coredns[0].version" tkr-bom-${K8S_VERSION_RA
 COREDNS_IMAGE_PATH="projects.registry.vmware.com/tkg/$(yq e ".components.coredns[0].images.coredns.imagePath" tkr-bom-${K8S_VERSION_RAW}.yaml)"
 COREDNS_IMAGE_TAG=$(yq e ".components.coredns[0].images.coredns.tag" tkr-bom-${K8S_VERSION_RAW}.yaml)
 ```
+<a name="create_refresh_token"></a>
+## How to create refreshToken?
+Step 1: Register a client:
+```sh
+curl --location --request POST 'https://<vcd-fqdn>>/oauth/tenant/<org-name>/register' \
+--header 'Accept: application/json;version=36.0' \
+--header 'Authorization: Bearer eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiJvcmdhZG1pbiIsImlzcyI6ImZlZTYxOTI3LTU1NTUtNDY4Zi1iMTZiLWU2NDgxZDcyM2IwMUAyMDQ0ZmUwNC1jNTg5LTRjMmItODUxNC1hNTlkMWFhOTE1NGUiLCJleHAiOjE2NDQwMDg5ODMsInZlcnNpb24iOiJ2Y2xvdWRfMS4wIiwianRpIjoiYzNkODZhNDU5ODhlNDM1NDlmOTA3YzFhN2MxYTAxNDgifQ.aRLO7W_lrhQyWGDuwdY0sELCNn7bPXn2Aryz-mUhaSWrZuRHDayTL1vN3Y70Q3XnV8ayP_uBoa-7R-9qTj5hNHhydyvRCAxeXoAFz-3BEYo0hDAZ0S6OAy5iMcYQNmmFIdjIUwsrb3nFvrA2e8tqQI4X2UdnHPe-ZdCcnYsq7QCeiD4_vUfH3rJVAutuuSxWD6Uk_JukncxwgDpHi9HSqMTqZ6rOUlZiaOfgsILTm8lVZvzQhlMmrcyrc3ysiKoDtQjc2BJwaJ4Qxgb22_FjQwCzc0ixENRBpiY4Iiqyo44nKvaHutkRA9WNmJyR2HFLFuSqE8oi-WkML0gneEJz_A' \
+--header 'Content-Type: application/json' \
+--data-raw '{
+"client_name": "management-cluster"
+}'
+```
+Client ID will be obtained as part of the response
 
+Step 2: Create a refresh token
+Use client ID from the response from Step 1
+```sh
+curl --location --request POST 'https://<vcd-fqdn>/oauth/tenant/<org-name>/token' \
+--header 'Accept: application/json;version=36.0' \
+--header 'Content-Type: application/x-www-form-urlencoded' \
+--data-urlencode 'client_id=1447f90a-2ca7-4b9c-ac9d-a42e529a870b' \
+--data-urlencode 'grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer' \
+--data-urlencode 'assertion=eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiJvcmdhZG1pbiIsImlzcyI6ImZlZTYxOTI3LTU1NTUtNDY4Zi1iMTZiLWU2NDgxZDcyM2IwMUAyMDQ0ZmUwNC1jNTg5LTRjMmItODUxNC1hNTlkMWFhOTE1NGUiLCJleHAiOjE2NDQwMDg5ODMsInZlcnNpb24iOiJ2Y2xvdWRfMS4wIiwianRpIjoiYzNkODZhNDU5ODhlNDM1NDlmOTA3YzFhN2MxYTAxNDgifQ.aRLO7W_lrhQyWGDuwdY0sELCNn7bPXn2Aryz-mUhaSWrZuRHDayTL1vN3Y70Q3XnV8ayP_uBoa-7R-9qTj5hNHhydyvRCAxeXoAFz-3BEYo0hDAZ0S6OAy5iMcYQNmmFIdjIUwsrb3nFvrA2e8tqQI4X2UdnHPe-ZdCcnYsq7QCeiD4_vUfH3rJVAutuuSxWD6Uk_JukncxwgDpHi9HSqMTqZ6rOUlZiaOfgsILTm8lVZvzQhlMmrcyrc3ysiKoDtQjc2BJwaJ4Qxgb22_FjQwCzc0ixENRBpiY4Iiqyo44nKvaHutkRA9WNmJyR2HFLFuSqE8oi-WkML0gneEJz_A'Use Access token as value for assertion
+```
+Refresh token will be present as part of the response
 
 
 
