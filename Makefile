@@ -14,7 +14,7 @@ GITROOT := $(shell git rev-parse --show-toplevel)
 GO_CODE := $(shell ls go.mod go.sum **/*.go)
 version := $(shell cat ${GITROOT}/release/version)
 
-REGISTRY ?= harbor-repo.vmware.com/vcloud
+REGISTRY ?= projects.registry.vmware.com/vmware-cloud-director
 # Image URL to use all building/pushing image targets
 IMG ?= ${REGISTRY}/cluster-api-provider-cloud-director:${version}
 
@@ -116,7 +116,7 @@ endef
 
 build-within-docker:
 	mkdir -p /build/cluster-api-provider-cloud-director
-	go build -ldflags "-X github.com/akrishnakuma/cluster-api-provider-cloud-director/version.Version=$(version)" -o /build/vcloud/cluster-api-provider-cloud-director main.go
+	go build -ldflags "-X github.com/vmware/cluster-api-provider-cloud-director/version.Version=$(version)" -o /build/vcloud/cluster-api-provider-cloud-director main.go
 
 capi: generate fmt vet
 	docker build -f Dockerfile . -t cluster-api-provider-cloud-director:$(version)
