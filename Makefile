@@ -122,4 +122,3 @@ capi: generate fmt vet
 	docker build -f Dockerfile . -t cluster-api-provider-cloud-director:$(version)
 	docker tag cluster-api-provider-cloud-director:$(version) $(IMG)
 	docker push $(IMG)
-	touch out/$@
