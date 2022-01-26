@@ -11,8 +11,8 @@ In order for John to create workload cluster, Amy should have already enabled th
 John on the management cluster. See [management cluster setup](QUICKSTART.md#management_cluster_setup) and 
 [tenant_user_management](MANAGEMENT_CLUSTER.md#tenant_user_management) for more details on the Amy's steps).
 
-1. John can now access the management cluster via kubeconfig specifically generated for him.
-    1.`kubectl --namespace ${NAMESPACE} --kubeconfig=John-management-kubeconfig.conf get machines`
+1. John can now access the management cluster via kubeconfig specifically generated for him
+    1. `kubectl --namespace ${NAMESPACE} --kubeconfig=John-management-kubeconfig.conf get machines`
 2. John generates the cluster configuration. Refer to [CAPI Yaml configuration](#capi_yaml) on how to fill the details.
 3. John creates the workload cluster 
     1. `kubectl --namespace=${NAMESPACE} --kubeconfig=John-management-kubeconfig.conf apply -f capi.yaml`. The output is similar to the below
@@ -88,7 +88,7 @@ configure the YAML
 7. Update `MachineDeployment.spec` with the below
     1. `MachineDeployment.spec.replicas` to specify the worker count
     2. `MachineDeployment.spec.version` to specify the Kubernetes version matching the corresponding template used for 
-       the `MachineDeployment`. This value must be extracted from the [TKGm Bill of materials](#tkgm_bom).
+       the `MachineDeployment`. See here on [how to retrieve the versions from respective TKGm bill of materials](#tkgm_bom).
        
 Sample sub-section of the YAML
 ```yaml
