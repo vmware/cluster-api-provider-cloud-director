@@ -42,8 +42,7 @@ Once the management cluster is created and prepared for tenants' access, tenants
 Refer to [workload cluster operations](WORKLOAD_CLUSTER.md) for more details.
    
 ### Clean up
-1. Delete workload cluster (Yet to be filled)
-2. Delete Management cluster (Yet to be filled)
+Delete Management cluster (Yet to be filled)
 
    
 

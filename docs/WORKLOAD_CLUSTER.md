@@ -41,12 +41,15 @@ plane count. The value must be odd number.
 Update the below properties in the CAPI Yaml and re-apply it.
 1. Upgrade Control plane version
     1. Update `VCDMachineTemplate` object(s) with the new version of TKGm template details.
-    2. Update `KubeadmControlPlane` object(s) with the newer versions of Kubernetes components. The values must match the Kubernetes version of the corresponding template specified in (1). See here on [how to retrieve the versions from respective TKGm bill of materials](#tkgm_bom).
+    2. Update `KubeadmControlPlane` object(s) with the newer versions of Kubernetes components. 
         * Update `KubeadmControlPlane.spec.version`, `KubeadmControlPlane.spec.kubeadmConfigSpec.dns`, `KubeadmControlPlane.spec.kubeadmConfigSpec.etcd`, `KubeadmControlPlane.spec.kubeadmConfigSpec.imageRepository`.
 2. Upgrade Worker node version
     1. Update `VCDMachineTemplate` objects with the new version of TKGm template details.
-    2. Update `MachineDeployment` objects with the newer version of the property `MachineDeployment.spec.version`. The values must match the Kubernetes version of the corresponding template specified in (1). See here on [how to retrieve the versions from respective TKGm bill of materials](#tkgm_bom).
-   
+    2. Update `MachineDeployment` objects with the newer version of the property `MachineDeployment.spec.version`. 
+
+Note that all the values must match the Kubernetes version of the corresponding template specified in (1). See here on [how to retrieve the versions from respective TKGm bill of materials](#tkgm_bom).
+<Yet to be filled on manual configmap changed for etcd and coredns>
+
 ## Delete workload cluster
 It is recommended to delete the cluster object directly - `kubectl --namespace=${NAMESPACE} --kubeconfig=user-management-kubeconfig.conf delete cluster ${CLUSTERNAME}` 
 rather than `kubectl --namespace=${NAMESPACE} --kubeconfig=user-management-kubeconfig.conf delete -f capi-quickstart.yaml`
