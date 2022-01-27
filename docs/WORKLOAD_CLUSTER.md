@@ -44,12 +44,12 @@ In order to upgrade a workload cluster,
 In the CAPI yaml, update the below properties and run `kubectl --namespace=${NAMESPACE} --kubeconfig=user1-management-kubeconfig.conf apply -f capi.yaml`
  on the management cluster.
 1. Upgrade Control plane version
-    1. Update `VCDMachineTemplate` object(s) with the new version of TKGm template details
+    1. Update `VCDMachineTemplate` object(s) with the new version of TKG template details
         * Update `VCDMachineTemplate.spec.template.spec.template` and other properties under `VCDMachineTemplate.spec.template.spec` if needed.
     2. Update `KubeadmControlPlane` object(s) with the newer versions of Kubernetes components. 
         * Update `KubeadmControlPlane.spec.version`, `KubeadmControlPlane.spec.kubeadmConfigSpec.dns`, `KubeadmControlPlane.spec.kubeadmConfigSpec.etcd`, `KubeadmControlPlane.spec.kubeadmConfigSpec.imageRepository`.
 2. Upgrade Worker node version
-    1. Update `VCDMachineTemplate` objects with the new version of TKGm template details.
+    1. Update `VCDMachineTemplate` objects with the new version of TKG template details.
         * * Update `VCDMachineTemplate.spec.template.spec.template` and other properties under `VCDMachineTemplate.spec.template.spec` if needed.
     2. Update `MachineDeployment` objects with the newer version of the property `MachineDeployment.spec.version`. 
 
@@ -84,7 +84,7 @@ provided below configure the CAPI Yaml file
    version of the corresponding template specified in `VCDMachineTemplate` object(s). See the [script to extract Kubernetes component versions from TKG Bill of materials](#tkgm_bom).
     1. Update `KubeadmControlPlane.spec.version`, `KubeadmControlPlane.spec.kubeadmConfigSpec.dns`, 
        `KubeadmControlPlane.spec.kubeadmConfigSpec.etcd`, `KubeadmControlPlane.spec.kubeadmConfigSpec.imageRepository`.
-       The above sample file has the values corresponding to v1.20.8 Kubernetes version of TKGm template.
+       The above sample file has the values corresponding to v1.20.8 Kubernetes version of TKG template.
     2. Update `KubeadmControlPlane.spec.replicas` to specify the control plane count. The value must be odd number.
     3. Update `KubeadmControlPlane.spec.kubeadmConfigSpec.users` with the ssh keys to access the control plane node VMs.
 6. Update your ssh keys at `KubeadmConfigTemplate.spec.template.spec.users` to access the worker node VMs.
