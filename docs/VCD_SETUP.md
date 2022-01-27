@@ -16,8 +16,7 @@ Body: [payload](#capvcd_rde_schema)
 1. Publish the `vmware:capvcdCluster:1.0.0` right bundle to the desired tenant organizations
 2. Below are the rights required for the Cluster API. Assign additional rights to the desired tenant organizations
     * User > Manage user's own API token
-    * vApp > Preserve all ExtraConfig Elements during OVA Import and Export
-    * General > Manage Certificates Library, Administration control
+    * vApp > Preserve ExtraConfig Elements during OVA Import and Export
     * Gateway > View Gateway
     * Gateway Services > NAT Configure, LoadBalancer Configure
     * Rights from default `vApp Author` role
