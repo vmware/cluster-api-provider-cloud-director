@@ -56,10 +56,11 @@ Basically, tenant administrator (or) the management cluster author, creates a ne
 each tenant user and creates respective Kubernetes configuration with access to only the
 required CRDs. This is a one-time operation per VCD tenant user.
 
-Below are the commands to be run for each tenant user. The USERNAME parameter should be changed as per your requirements.
+Below are the commands to be run for each tenant user. The USERNAME and KUBE_APISERVER_ADDRESS parameter should be 
+changed as per your requirements.
 
 ```sh
-USERNAME="user"
+USERNAME="user1"
  
 NAMESPACE=${USERNAME}-ns
 kubectl create ns ${NAMESPACE}
@@ -110,7 +111,7 @@ USERTOKEN=$(kubectl -n ${NAMESPACE} get secret ${SECRETNAME} -o "jsonpath={.data
 CERT=$(kubectl -n ${NAMESPACE} get secret ${SECRETNAME} -o "jsonpath={.data['ca\.crt']}")
 KUBE_APISERVER_ADDRESS=https://127.0.0.1:64265
  
-cat > user-management-kubeconfig.conf <<END
+cat > user1-management-kubeconfig.conf <<END
 apiVersion: v1
 kind: Config
 users:
@@ -130,8 +131,8 @@ contexts:
 current-context: ${USERNAME}-context
 END
 ```
-The "user-management-kubeconfig.conf" generated at the end ensures that the user can only access CRDs of the
-workload cluster in a newly-created namespace ${NAMESPACE} (user-ns) of the management cluster.
+The "user1-management-kubeconfig.conf" generated at the end ensures that the user can only access CRDs of the
+workload cluster in a newly-created namespace ${NAMESPACE} (user1-ns) of the management cluster.
 
 Notes:
 * Once the above operation is complete, there is no need of further interaction between tenant admin and tenant user.

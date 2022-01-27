@@ -1,88 +1,97 @@
 # Workload cluster operations
 
 <a name="create_workload_cluster"></a>
-## Create workload cluster on the Management cluster 
+## Create a workload cluster
 
-In order for tenant user to create workload cluster, tenant admin should have already enabled the user access on the management cluster. 
-See [management cluster setup](QUICKSTART.md#management_cluster_setup) and 
-[tenant_user_management](MANAGEMENT_CLUSTER.md#tenant_user_management) for more details on the tenant admin (or) management cluster author steps.
+Assuming a [management cluster is already setup](MANAGEMENT_CLUSTER.md#tenant_user_management) for use by the tenant user 'User1'
 
-1. User can now access the management cluster via kubeconfig specifically generated for him/her
+1. User1 can now access the management cluster via kubeconfig specifically generated for him/her
     1. `kubectl --namespace ${NAMESPACE} --kubeconfig=John-management-kubeconfig.conf get machines`
-2. User generates the cluster configuration. Refer to [CAPI Yaml configuration](#capi_yaml) on how to fill the details.
-3. User creates the workload cluster 
-    1. `kubectl --namespace=${NAMESPACE} --kubeconfig=John-management-kubeconfig.conf apply -f capi.yaml`. The output is similar to the below
-    2. ```sh
-       cluster.cluster.x-k8s.io/capi-quickstart created
-       vcdcluster.infrastructure.cluster.x-k8s.io/capi-quickstart created
-       vcdmachinetemplate.infrastructure.cluster.x-k8s.io/capi-quickstart-control-plane created
-       kubeadmcontrolplane.controlplane.cluster.x-k8s.io/capi-quickstart-control-plane created
-       vcdmachinetemplate.infrastructure.cluster.x-k8s.io/capi-quickstart-md0 created
-       kubeadmconfigtemplate.bootstrap.cluster.x-k8s.io/capi-quickstart-md0 created
-       machinedeployment.cluster.x-k8s.io/capi-quickstart-md0 created
-       ```
-    3. Wait for control plane to be initialized `kubectl --namespace=${NAMESPACE} --kubeconfig=John-management-kubeconfig.conf describe cluster capi-john`
-4. User retrieves the Admin Kubeconfig of the workload cluster 
+2. User1 generates the cluster configuration. Refer to [CAPI Yaml configuration](#capi_yaml) on how to fill the details.
+3. User1 creates the workload cluster 
+    1. `kubectl --namespace=${NAMESPACE} --kubeconfig=user1-management-kubeconfig.conf apply -f capi.yaml`. The output is similar to the below
+        * ```sh
+           cluster.cluster.x-k8s.io/capi-quickstart created
+           vcdcluster.infrastructure.cluster.x-k8s.io/capi-quickstart created
+           vcdmachinetemplate.infrastructure.cluster.x-k8s.io/capi-quickstart-control-plane created
+           kubeadmcontrolplane.controlplane.cluster.x-k8s.io/capi-quickstart-control-plane created
+           vcdmachinetemplate.infrastructure.cluster.x-k8s.io/capi-quickstart-md0 created
+           kubeadmconfigtemplate.bootstrap.cluster.x-k8s.io/capi-quickstart-md0 created
+           machinedeployment.cluster.x-k8s.io/capi-quickstart-md0 created
+           ```
+    2. Waits for control plane to be initialized `kubectl --namespace=${NAMESPACE} --kubeconfig=user1-management-kubeconfig.conf describe cluster capi-john`
+4. User1 retrieves the Admin Kubeconfig of the workload cluster 
     1. `CLUSTERNAME="capi-john"`
     2. `kubectl -n ${NAMESPACE} --kubeconfig=user-management-kubeconfig.conf get secret ${CLUSTERNAME}-kubeconfig -o json | jq ".data.value" | tr -d '"' | base64 -d > ${CLUSTERNAME}-workload-kubeconfig.conf`
     3. `kubectl --kubeconfig=${CLUSTERNAME}-workload-kubeconfig.conf get pods -A -owide`
    
-## Resize workload cluster
-Update the below properties in the CAPI Yaml and re-apply it.
-1. Update the property `KubeadmControlPlane.spec.replicas` of desired KubeadmControlPlane objects to resize the control 
-plane count. The value must be odd number.
-2. Update the property `MachineDeployment.spec.replicas` of desired MachineDeployment objects to resize the worker count.
+## Resize a workload cluster
+In the CAPI yaml, update the below properties in the CAPI Yaml and run `kubectl --namespace=${NAMESPACE} --kubeconfig=user1-management-kubeconfig.conf apply -f capi.yaml`.
+1. To resize the control plane nodes of the workload cluster, update the property `KubeadmControlPlane.spec.replicas` 
+   of desired KubeadmControlPlane objects to resize the control plane count. The value must be an odd number.
+2. To resize the worker nodes, update the property `MachineDeployment.spec.replicas` of desired MachineDeployment objects to resize the worker count.
 
-## Upgrade workload cluster
-Update the below properties in the CAPI Yaml and re-apply it.
+## Upgrade a workload cluster
+In order to upgrade a workload cluster, Cloud Provider must upload the new Kubernetes version of Ubuntu 20.04 TKG OVA into VCD using VCD UI.
+The upgrade of a Kubernetes cluster can only be done to the next incremental version, say from K8s 1.20 to K8s 1.21.
+
+In the CAPI yaml, update the below properties in the CAPI Yaml and run `kubectl --namespace=${NAMESPACE} --kubeconfig=user1-management-kubeconfig.conf apply -f capi.yaml`.
 1. Upgrade Control plane version
-    1. Update `VCDMachineTemplate` object(s) with the new version of TKGm template details.
+    1. Update `VCDMachineTemplate` object(s) with the new version of TKGm template details
+        * Update `VCDMachineTemplate.spec.template.spec.template` and other properties under `VCDMachineTemplate.spec.template.spec` if needed.
     2. Update `KubeadmControlPlane` object(s) with the newer versions of Kubernetes components. 
         * Update `KubeadmControlPlane.spec.version`, `KubeadmControlPlane.spec.kubeadmConfigSpec.dns`, `KubeadmControlPlane.spec.kubeadmConfigSpec.etcd`, `KubeadmControlPlane.spec.kubeadmConfigSpec.imageRepository`.
 2. Upgrade Worker node version
     1. Update `VCDMachineTemplate` objects with the new version of TKGm template details.
+        * * Update `VCDMachineTemplate.spec.template.spec.template` and other properties under `VCDMachineTemplate.spec.template.spec` if needed.
     2. Update `MachineDeployment` objects with the newer version of the property `MachineDeployment.spec.version`. 
 
-Note that all the values must match the Kubernetes version of the corresponding template soecified in `VCDMachineTemplate` object(s).
+All the versions specified above must match the Kubernetes version of the TKG OVA specified in `VCDMachineTemplate` object(s).
 See here on [how to retrieve the versions from respective TKGm bill of materials](#tkgm_bom).
 
 ## Delete workload cluster
-It is recommended to delete the cluster object directly - `kubectl --namespace=${NAMESPACE} --kubeconfig=user-management-kubeconfig.conf delete cluster ${CLUSTERNAME}` 
-rather than `kubectl --namespace=${NAMESPACE} --kubeconfig=user-management-kubeconfig.conf delete -f capi-quickstart.yaml`
+To delete the cluster, use this command
+* `kubectl --namespace=${NAMESPACE} --kubeconfig=user-management-kubeconfig.conf delete cluster ${CLUSTERNAME}`
+    
+It is not recommended using this command
+* `kubectl --namespace=${NAMESPACE} --kubeconfig=user-management-kubeconfig.conf delete -f capi-quickstart.yaml`
 
 <a name="capi_yaml"></a>
 ## CAPI YAML configuration
 
-`clusterctl generate` command doesn't yet support CAPVCD 0.5 CAPI yaml generation; please use below guidelines to 
-configure the YAML
+`clusterctl generate` command doesn't support the generation of CAPI yaml for Cloud Director; Follow the guidelines 
+provided below configure the CAPI Yaml file
 
 1. Retrieve the [sample YAML](https://github.com/vmware/cluster-api-provider-cloud-director/blob/main/examples/capi-quickstart.yaml) from github repo.
-2. Update the name of the cluster carefully in all the relevant objects. 
-3. Update the `namespace` property of all the objects with the allocated namespace to you (tenant user) on the management cluster.
-3. Update the `VCDCluster.spec` with the VCD site, names of the organization, virtual datacenter, virtual datacenter network and userContext.
-   In production cluster scenarios we recommend strongly that the refreshToken parameter be used, the username and 
-   password fields should be omitted or set as empty strings. Refer to [how to create refreshToken](https://docs.vmware.com/en/VMware-Cloud-Director/10.3/VMware-Cloud-Director-Tenant-Portal-Guide/GUID-A1B3B2FA-7B2C-4EE1-9D1B-188BE703EEDE.html).
-4. Update `VCDMachineTemplate` objects of both Controlplane and workers with the TKGm template details.
+2. Update the name of the cluster 
+    * Retrieve the value of `Cluster.metadata.name` and replace-all the value with the new cluster name.
+3. Update the `namespace` property of all the objects with the namespace assigned to you (tenant user) on the management
+   cluster by the tenant administrator.
+3. Update the `VCDCluster.spec` parameters using the informational comments in the sample yaml. It is strongly recommended
+   that the `refreshToken` parameter be used, the username and password fields should be omitted or set as empty strings. 
+   Refer to [how to create refreshToken](https://docs.vmware.com/en/VMware-Cloud-Director/10.3/VMware-Cloud-Director-Tenant-Portal-Guide/GUID-A1B3B2FA-7B2C-4EE1-9D1B-188BE703EEDE.html).
+4. Update `VCDMachineTemplate` objects of both Control plane and workers with the TKG OVA details.
 5. Update `KubeadmControlPlane` object(s) with the below details of Kubernetes components. The values must match the Kubernetes 
-   version of the corresponding template specified in (4). See here on [how to retrieve the versions from respective TKGm bill of materials](#tkgm_bom).
+   version of the corresponding template specified in `VCDMachineTemplate` object(s). See here on [how to retrieve the versions from respective TKGm bill of materials](#tkgm_bom).
     1. Update `KubeadmControlPlane.spec.version`, `KubeadmControlPlane.spec.kubeadmConfigSpec.dns`, 
        `KubeadmControlPlane.spec.kubeadmConfigSpec.etcd`, `KubeadmControlPlane.spec.kubeadmConfigSpec.imageRepository`.
        The above sample file has the values corresponding to v1.20.8 Kubernetes version of TKGm template.
     2. Update `KubeadmControlPlane.spec.replicas` to specify the control plane count. The value must be odd number.
     3. Update `KubeadmControlPlane.spec.kubeadmConfigSpec.users` with the ssh keys to access the control plane node VMs.
-6. Update `KubeadmConfigTemplate.spec.template.spec.users` with ssh keys to access the worker node VMs.
+6. Update your ssh keys at `KubeadmConfigTemplate.spec.template.spec.users` to access the worker node VMs.
 7. Update `MachineDeployment.spec` with the below
-    1. `MachineDeployment.spec.replicas` to specify the worker count
-    2. `MachineDeployment.spec.version` to specify the Kubernetes version matching the corresponding template used for 
-       the `MachineDeployment`. See here on [how to retrieve the versions from respective TKGm bill of materials](#tkgm_bom).
+    1. To specify the worker count, update the property `MachineDeployment.spec.replicas`.
+    2. To specify the Kubernetes version, update the property `MachineDeployment.spec.version` to specify the Kubernetes version.
+       The values must match the Kubernetes version of the corresponding template specified in `VCDMachineTemplate` object(s).
+       See here on [how to retrieve the versions from respective TKGm bill of materials](#tkgm_bom).
        
 Sample sub-section of the YAML
 ```yaml
 apiVersion: cluster.x-k8s.io/v1alpha4
 kind: Cluster
 metadata:
-name: capi-john
-namespace: john-ns
+name: user1-cluster
+namespace: user1-ns
 spec:
 clusterNetwork:
 pods:
@@ -95,21 +104,21 @@ cidrBlocks:
 controlPlaneRef:
 apiVersion: controlplane.cluster.x-k8s.io/v1alpha4
 kind: KubeadmControlPlane
-name: capi-control-plane-john
-namespace: john-ns
+name: user1-cluster-control-plane
+namespace: user1-ns
 infrastructureRef:
 apiVersion: infrastructure.cluster.x-k8s.io/v1alpha4
 kind: VCDCluster
-name: capi-john
-namespace: john-ns
+name: user1-cluster
+namespace: user1-ns
 ---
 apiVersion: infrastructure.cluster.x-k8s.io/v1alpha4
 kind: VCDCluster
 metadata:
-name: capi-john
-namespace: john-ns
+name: user1-cluster
+namespace: user1-ns
 context:
-username: john
+username: user1
 password: password
 refreshToken: ""
 ---
