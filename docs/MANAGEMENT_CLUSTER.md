@@ -1,8 +1,8 @@
 # Management Cluster Setup
 
-## Create Management cluster
+## Create a Management cluster
 
-All the below steps are expected to be performed by the Tenant administrator level persona.
+All the below steps are expected to be performed by an organization administrator.
 
 ### Create a bootstrap Kubernetes cluster
 
@@ -11,8 +11,8 @@ management cluster on the Cloud Director (infrastructure provider).
 
 Choose one of the options below to set up a management cluster on VMware Cloud Director:
 
-1. [CSE](https://github.com/vmware/container-service-extension) provisioned TKGm cluster as a bootstrap cluster to 
-   create Management cluster in VCD tenant organization.
+1. [CSE](https://github.com/vmware/container-service-extension) provisioned TKG cluster as a bootstrap cluster to 
+   further create a Management cluster in VCD tenant organization.
 2. [Kind as a bootstrap cluster](https://cluster-api.sigs.k8s.io/user/quick-start.html#install-andor-configure-a-kubernetes-cluster)
    to create Management cluster in VCD tenant organization
 
@@ -20,9 +20,9 @@ We recommend CSE provisioned TKG cluster as bootstrap cluster.
 
 <a name="management_cluster_init"></a>
 ### Initialize the cluster with Cluster API
-Using `clusterctl init` command, we initialize the Cluster API. The command lets us choose the infrastructure provider to install. However, CAPVCD 0.5 is not yet part of the provider list
-supported by `clusterctl init`. Hence, we will provide separate set of commands to initialize the infrastructure provider component.
-Run below commands against the bootstrap Kubernetes cluster created above
+Typically, command `clusterctl init` enables the initialization of the core Cluster API and allows the installation of 
+infrastructure provider specific Cluster API (in this case, CAPVCD). CAPVCD, as of now, is not yet available via 
+`clusterctl init`. Therefore, a separate set of commands are provided below for the installation purposes.
 
 1. Install cluster-api core provider, kubeadm bootstrap and kubeadm control-plane providers
     1. `clusterctl init --core cluster-api:v0.4.2 -b kubeadm:v0.4.2 -c kubeadm:v0.4.2`
@@ -31,16 +31,15 @@ Run below commands against the bootstrap Kubernetes cluster created above
     2. Fill in the VCD details in `cluster-api-provider-cloud-director/config/manager/controller_manager_config.yaml`
     3. Input username and password in `config/manager/kustomization.yaml`. Refer to the rights required for the role [here](VCD_SETUP.md)
     4. Run the command `kubectl apply -k config/default`
-
-Wait until `kubectl get pods -A` shows below pods in Running state
-```
-> kubectl get pods -A
-NAMESPACE                           NAME                                                            READY   STATUS 
-capi-kubeadm-bootstrap-system       capi-kubeadm-bootstrap-controller-manager-7dc44947-v5nlv        1/1     Running 
-capi-kubeadm-control-plane-system   capi-kubeadm-control-plane-controller-manager-cb9d954f5-ct5cp   1/1     Running
-capi-system                         capi-controller-manager-7594c7bc57-smjtg                        1/1     Running 
-capvcd-system                       capvcd-controller-manager-769d64d4bf-54bf4                      1/1     Running
-```  
+3. Wait until `kubectl get pods -A` shows below pods in Running state
+    1. ```
+       > kubectl get pods -A
+       NAMESPACE                           NAME                                                            READY   STATUS
+       capi-kubeadm-bootstrap-system       capi-kubeadm-bootstrap-controller-manager-7dc44947-v5nlv        1/1     Running
+       capi-kubeadm-control-plane-system   capi-kubeadm-control-plane-controller-manager-cb9d954f5-ct5cp   1/1     Running
+       capi-system                         capi-controller-manager-7594c7bc57-smjtg                        1/1     Running
+       capvcd-system                       capvcd-controller-manager-769d64d4bf-54bf4                      1/1     Running
+       ```  
 
 ### Create multi-controlplane management cluster
 1. Now that bootstrap management cluster is ready, you can use Cluster API to create multi control-plane workload cluster 

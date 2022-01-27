@@ -4,10 +4,10 @@
 
 ### NSX-T and Avi Setup
 The LoadBalancers fronting the multi-controlplane workload clusters need a preconfigured Avi Controller, NSX-T Cloud and Avi Service Engine Group.
-Refer to [load balancer set up](https://github.com/vmware/cloud-provider-for-cloud-director#provider-setup) here.
+Refer to [load balancer set up](https://github.com/vmware/cloud-provider-for-cloud-director#provider-setup).
 
 ### Register Cluster API schema
-Using Postman, provider needs to register the Cluster API schema with Cloud Director.
+Using Postman, register the Cluster API schema with Cloud Director.
 
 POST `https://<vcd>/cloudapi/1.0.0/entityTypes` with the below payload.
 
@@ -22,11 +22,11 @@ Body: [payload](#capvcd_rde_schema)
     * Gateway > View Gateway
     * Gateway Services > NAT Configure, LoadBalancer Configure
     * Rights from the default `vApp Author` role
-    * CAPVCD Cluster FullControl
+    * Right 'Full Control: VMWARE:CAPVCDCLUSTER'
     * [Rights required for CPI](https://github.com/vmware/cloud-provider-for-cloud-director#additional-rights-for-cpi)
     * [Rights required for CSI](https://github.com/vmware/cloud-director-named-disk-csi-driver#additional-rights-for-csi)
 
-### Upload TKG templates
+### Upload VMware Tanzu Kubernetes Grid Kubernetes Templates
 Import Ubuntu 20.04 Kubernetes OVAs from VMware Tanzu Kubernetes Grid Versions 1.4.0, 1.3.1 to VCD using VCD UI. 
 These will serve as templates for Cluster API to create Kubernetes Clusters.
 
@@ -39,8 +39,6 @@ Create and publish the desired sizing policies on the chosen ovdc(s)
 
 <a name="capvcd_rde_schema"></a>
 **Payload of the Cluster API schema**
-
-Using Postman, provider needs to register the Cluster API schema with Cloud Director.
 
 POST `https://<vcd>/cloudapi/1.0.0/entityTypes` with the provided payload
 ```json

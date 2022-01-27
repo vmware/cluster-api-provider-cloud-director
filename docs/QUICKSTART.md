@@ -23,7 +23,7 @@ Refer to the detailed steps for [setting up a management cluster](MANAGEMENT_CLU
 
 ### Create a workload cluster
 Once the management cluster is set up for tenant users, individual tenant users can create their Kubernetes workload 
-cluster(s) using Cluster API. Refer to the detailed steps for [operating workload clusters](WORKLOAD_CLUSTER.md).
+cluster(s) using Cluster API. Refer to the detailed steps for [operating the workload clusters](WORKLOAD_CLUSTER.md).
 
    
 
