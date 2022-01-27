@@ -41,24 +41,27 @@ infrastructure provider specific Cluster API (in this case, CAPVCD). CAPVCD, as 
        capvcd-system                       capvcd-controller-manager-769d64d4bf-54bf4                      1/1     Running
        ```  
 
-### Create multi-controlplane management cluster
-1. Now that bootstrap management cluster is ready, you can use Cluster API to create multi control-plane workload cluster 
+### Create a multi-controlplane management cluster
+1. Now that bootstrap cluster is ready, you can use Cluster API to create multi control-plane workload cluster 
    fronted by load balancer. Run the below command
     * `kubectl --kubeconfig=bootstrap_cluster.conf apply -f capi.yaml`. To configure the CAPI yaml, refer to [CAPI Yaml configuration](WORKLOAD_CLUSTER.md#capi_yaml).
-2. Retrieve the workload cluster Kubeconfig 
+2. Retrieve the cluster Kubeconfig 
     * `clusterctl get kubeconfig {cluster-name} > capi.kubeconfig`
-3. Transform the resultant workload cluster into management cluster by repeating the [initialize Cluster API](#management_cluster_init) step.
+3. Transform this cluster into management cluster by [initializing it with CAPVCD](#management_cluster_init).
+4. This cluster is now a fully functional multi-control plane management cluster. The next section walks you through 
+   the steps to make management cluster ready for individual tenant users use
+
 
 <a name="tenant_user_management"></a>
-## Prepare Management cluster to enable VCD tenant users' access
-Below set up enables tenant users to deploy the workload clusters in their own private namespaces of a given management 
-cluster, while adhering to VCD's tenant/user quota management.
+## Prepare the Management cluster to enable VCD tenant users' access
+Below steps enable tenant users to deploy the workload clusters in their own private namespaces of a given management 
+cluster, while adhering to their own user quota in VCD.
 
 Basically, tenant administrator (or) the management cluster author, creates a new and unique Kubernetes namespace for 
-each tenant user and creates respective Kubernetes configuration with access to only the
+each tenant user and creates a respective Kubernetes configuration with access to only the
 required CRDs. This is a one-time operation per VCD tenant user.
 
-Below are the commands to be run for each tenant user. The USERNAME and KUBE_APISERVER_ADDRESS parameter should be 
+Run below commands for each tenant user. The USERNAME and KUBE_APISERVER_ADDRESS parameter should be 
 changed as per your requirements.
 
 ```sh
@@ -133,11 +136,12 @@ contexts:
 current-context: ${USERNAME}-context
 END
 ```
-The "user1-management-kubeconfig.conf" generated at the end ensures that the user can only access CRDs of the
-workload cluster in a newly-created namespace ${NAMESPACE} (user1-ns) of the management cluster.
+The "user1-management-kubeconfig.conf" generated at the end ensures that the user, user1, can only access CRDs of the
+workload cluster in his/her own created namespace ${NAMESPACE} (user1-ns) of the management cluster.
 
 Notes:
-* Once the above operation is complete, there is no need of further interaction between tenant admin and tenant user.
+* Organization administrator relays the "user1-management-kubeconfig.conf" to the tenant user "user1"
+* Once the above operation is complete, there is no need of further interaction between organization administrator and the tenant user.
 * The mechanism used above to generate a Kubernetes Config has a default lifetime of one year.
 * We recommend strongly that the USERNAME match that of VCD tenant username.
 
