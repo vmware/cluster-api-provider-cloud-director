@@ -1,13 +1,14 @@
 # Workload cluster operations
 
+Assuming a [management cluster is already setup](MANAGEMENT_CLUSTER.md#tenant_user_management) for use by the tenant user 'User1',
+the User1 will use his/her kubeconfig of the management cluster `user1-management-kubeconfig.conf` to create and
+operate all his/her workload clusters in his/her namespace
+
 <a name="create_workload_cluster"></a>
 ## Create a workload cluster
-
-Assuming a [management cluster is already setup](MANAGEMENT_CLUSTER.md#tenant_user_management) for use by the tenant user 'User1'
-
 1. User1 can now access the management cluster via kubeconfig specifically generated for him/her
     1. `kubectl --namespace ${NAMESPACE} --kubeconfig=user1-management-kubeconfig.conf get machines`
-2. User1 generates the cluster configuration. Refer to [CAPI Yaml configuration](#capi_yaml) on how to fill the details.
+2. User1 generates the cluster configuration `capi.yaml`. Refer to [CAPI Yaml configuration](#capi_yaml) on how to generate the file.
 3. User1 creates the workload cluster 
     1. `kubectl --namespace=${NAMESPACE} --kubeconfig=user1-management-kubeconfig.conf apply -f capi.yaml`. The output is similar to the below
         * ```sh
@@ -19,15 +20,17 @@ Assuming a [management cluster is already setup](MANAGEMENT_CLUSTER.md#tenant_us
            kubeadmconfigtemplate.bootstrap.cluster.x-k8s.io/capi-quickstart-md0 created
            machinedeployment.cluster.x-k8s.io/capi-quickstart-md0 created
            ```
-    2. Waits for control plane to be initialized `kubectl --namespace=${NAMESPACE} --kubeconfig=user1-management-kubeconfig.conf describe cluster capi-john`
+    2. Waits for control plane to be initialized `kubectl --namespace=${NAMESPACE} --kubeconfig=user1-management-kubeconfig.conf describe cluster user1-cluster`
 4. User1 retrieves the Admin Kubeconfig of the workload cluster 
-    1. `CLUSTERNAME="capi-john"`
-    2. `kubectl -n ${NAMESPACE} --kubeconfig=user-management-kubeconfig.conf get secret ${CLUSTERNAME}-kubeconfig -o json | jq ".data.value" | tr -d '"' | base64 -d > ${CLUSTERNAME}-workload-kubeconfig.conf`
-    3. `kubectl --kubeconfig=${CLUSTERNAME}-workload-kubeconfig.conf get pods -A -owide`
+    1. `CLUSTERNAME="user1-cluster"`
+    2. `kubectl -n ${NAMESPACE} --kubeconfig=user1-management-kubeconfig.conf get secret ${CLUSTERNAME}-kubeconfig -o json | jq ".data.value" | tr -d '"' | base64 -d > ${CLUSTERNAME}-workload-kubeconfig.conf`
+5. User1 accesses his/her workload cluster
+    1. `kubectl --kubeconfig=${CLUSTERNAME}-workload-kubeconfig.conf get pods -A -owide`
 
 <a name="resize_workload_cluster"></a> 
 ## Resize a workload cluster
-In the CAPI yaml, update the below properties and run `kubectl --namespace=${NAMESPACE} --kubeconfig=user1-management-kubeconfig.conf apply -f capi.yaml`.
+In the CAPI yaml, update the below properties and run `kubectl --namespace=${NAMESPACE} --kubeconfig=user1-management-kubeconfig.conf apply -f capi.yaml` 
+on the management cluster.
 1. To resize the control plane nodes of the workload cluster, update the property `KubeadmControlPlane.spec.replicas` 
    of desired `KubeadmControlPlane` objects to resize the control plane count. The value must be an odd number.
 2. To resize the worker nodes, update the property `MachineDeployment.spec.replicas` of desired `MachineDeployment` objects to resize the worker count.
@@ -37,7 +40,8 @@ In the CAPI yaml, update the below properties and run `kubectl --namespace=${NAM
 In order to upgrade a workload cluster, Cloud Provider must upload the new Kubernetes version of Ubuntu 20.04 TKG OVA into VCD using VCD UI.
 The upgrade of a Kubernetes cluster can only be done to the next incremental version, say from K8s 1.20 to K8s 1.21.
 
-In the CAPI yaml, update the below properties and run `kubectl --namespace=${NAMESPACE} --kubeconfig=user1-management-kubeconfig.conf apply -f capi.yaml`.
+In the CAPI yaml, update the below properties and run `kubectl --namespace=${NAMESPACE} --kubeconfig=user1-management-kubeconfig.conf apply -f capi.yaml`
+ on the management cluster.
 1. Upgrade Control plane version
     1. Update `VCDMachineTemplate` object(s) with the new version of TKGm template details
         * Update `VCDMachineTemplate.spec.template.spec.template` and other properties under `VCDMachineTemplate.spec.template.spec` if needed.
@@ -53,7 +57,7 @@ See here on [how to retrieve the versions from respective TKGm bill of materials
 
 <a name="delete_workload_cluster"></a>
 ## Delete workload cluster
-To delete the cluster, use this command
+To delete the cluster, run this command on the management cluster
 * `kubectl --namespace=${NAMESPACE} --kubeconfig=user-management-kubeconfig.conf delete cluster ${CLUSTERNAME}`
     
 It is not recommended using this command
