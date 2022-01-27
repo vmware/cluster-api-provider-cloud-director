@@ -142,17 +142,12 @@ Notes:
 * The mechanism used above to generate a Kubernetes Config has a default lifetime of one year.
 * We recommend strongly that the USERNAME match that of VCD tenant username.
 
-## Resize a Management cluster
-The [resize workflow](WORKLOAD_CLUSTER.md#resize_workload_cluster) needs to be run from the bootstrap cluster (the parent of the management cluster).
-In the `kubectl` commands specified in the above workflow, update the `namespace` parameter to the value `default` 
+## Resize, Upgrade and Delete Management cluster
+These workflows need to be run from the bootstrap cluster (the parent of the management cluster).
+
+In the `kubectl` commands specified in the below workflows, update the `namespace` parameter to the value `default`
 and `kubeconfig` to the value of bootstrap cluster's admin Kubeconfig
+* [Resize workflow](WORKLOAD_CLUSTER.md#resize_workload_cluster)
+* [Upgrade workflow](WORKLOAD_CLUSTER.md#upgrade_workload_cluster)
+* [Delete workflow](WORKLOAD_CLUSTER.md#delete_workload_cluster)
 
-## Upgrade a Management cluster
-The [upgrade workflow](WORKLOAD_CLUSTER.md#upgrade_workload_cluster) needs to be run from the bootstrap cluster (the parent of the management cluster).
-In the `kubectl` commands specified in the above workflow, update the `namespace` parameter to the value `default`
-and `kubeconfig` to the value of bootstrap cluster's admin Kubeconfig.
-
-## Delete a Management cluster
-The [delete workflow](WORKLOAD_CLUSTER.md#delete_workload_cluster) needs to be run from the bootstrap cluster (the parent of the management cluster).
-In the `kubectl` commands specified in the above workflow, update the `namespace` parameter to the value `default`
-and `kubeconfig` to the value of bootstrap cluster's admin Kubeconfig.
