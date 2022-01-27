@@ -1,6 +1,6 @@
 # Workload cluster operations
 
-Assuming a [management cluster is already setup](MANAGEMENT_CLUSTER.md#tenant_user_management) for use by the tenant user 'User1',
+Assuming the [management cluster is already setup](MANAGEMENT_CLUSTER.md#tenant_user_management) for use by the tenant user 'User1',
 the User1 will use his/her kubeconfig of the management cluster `user1-management-kubeconfig.conf` to create and
 operate all his/her workload clusters in his/her namespace
 
