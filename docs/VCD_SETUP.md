@@ -36,7 +36,8 @@ Create and publish the desired sizing policies on the chosen ovdc(s)
 * Create tenant user role with the above mentioned [rights](#user_role)
 
 <a name="capvcd_rde_schema"></a>
-## Payload of the Cluster API schema
+**Payload of the Cluster API schema**
+
 Using Postman, register the schema
 POST `https://<vcd>/cloudapi/1.0.0/entityTypes` with the below payload
 ```json
