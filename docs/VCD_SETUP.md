@@ -2,8 +2,8 @@
 
 ## Provider steps
 
-### Avi controller, NSX-T Cloud Setup
-The LoadBalancers fronting the Multimaster workload clusters will need a preconfigured Avi Controller, NSX-T Cloud and Avi Service Engine Group. This is a provider operation.
+### NSX-T and Avi Setup
+The LoadBalancers fronting the multi-controlplane workload clusters need a preconfigured Avi Controller, NSX-T Cloud and Avi Service Engine Group. This is a provider operation.
 Refer to [load balancer set up](https://github.com/vmware/cloud-provider-for-cloud-director#provider-setup) here.
 
 ### Register Cluster API schema
@@ -33,6 +33,7 @@ Upload the TKG ovas using via VCD UI
 Create and publish the desired sizing policies on the chosen ovdc(s)
 * Ensure the OVDC gateway has outbound access. If required, set an SNAT rule with the internal IP range of the VMs.
 * Set up DNS on the desired virtual datacenter networks.
+* Create tenant user role with the above mentioned [rights](#user_role)
 
 <a name="capvcd_rde_schema"></a>
 ## Payload of the Cluster API schema
