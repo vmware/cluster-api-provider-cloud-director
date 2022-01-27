@@ -43,9 +43,12 @@ capvcd-system                       capvcd-controller-manager-769d64d4bf-54bf4  
 ```  
 
 ### Create multi-controlplane management cluster
-Now that bootstrap management cluster is ready, you can use Cluster API to create multi control-plane workload cluster fronted by
-load balancer. Transform the resultant workload cluster into management cluster by repeating the
-[Initialize Cluster API](#management_cluster_init) step.
+1. Now that bootstrap management cluster is ready, you can use Cluster API to create multi control-plane workload cluster 
+   fronted by load balancer. Run the below command
+    * `kubectl --kubeconfig=bootstrap_cluster.conf apply -f capi.yaml`. To configure the CAPI yaml, refer to [CAPI Yaml configuration](WORKLOAD_CLUSTER.md#capi_yaml).
+2. Retrieve the workload cluster Kubeconfig 
+    * `clusterctl get kubeconfig {cluster-name} > capi.kubeconfig`
+3. Transform the resultant workload cluster into management cluster by repeating the [initialize Cluster API](#management_cluster_init) step.
 
 <a name="tenant_user_management"></a>
 ## Prepare Management cluster to enable VCD tenant users' access
@@ -138,3 +141,18 @@ Notes:
 * Once the above operation is complete, there is no need of further interaction between tenant admin and tenant user.
 * The mechanism used above to generate a Kubernetes Config has a default lifetime of one year.
 * We recommend strongly that the USERNAME match that of VCD tenant username.
+
+## Resize a Management cluster
+The [resize workflow](WORKLOAD_CLUSTER.md#resize_workload_cluster) needs to be run from the bootstrap cluster (the parent of the management cluster).
+In the `kubectl` commands specified in the above workflow, update the `namespace` parameter to the value `default` 
+and `kubeconfig` to the value of bootstrap cluster's admin Kubeconfig
+
+## Upgrade a Management cluster
+The [upgrade workflow](WORKLOAD_CLUSTER.md#upgrade_workload_cluster) needs to be run from the bootstrap cluster (the parent of the management cluster).
+In the `kubectl` commands specified in the above workflow, update the `namespace` parameter to the value `default`
+and `kubeconfig` to the value of bootstrap cluster's admin Kubeconfig.
+
+## Delete a Management cluster
+The [delete workflow](WORKLOAD_CLUSTER.md#delete_workload_cluster) needs to be run from the bootstrap cluster (the parent of the management cluster).
+In the `kubectl` commands specified in the above workflow, update the `namespace` parameter to the value `default`
+and `kubeconfig` to the value of bootstrap cluster's admin Kubeconfig.
