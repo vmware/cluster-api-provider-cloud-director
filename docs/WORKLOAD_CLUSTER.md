@@ -27,17 +27,17 @@ Assuming a [management cluster is already setup](MANAGEMENT_CLUSTER.md#tenant_us
 
 <a name="resize_workload_cluster"></a> 
 ## Resize a workload cluster
-In the CAPI yaml, update the below properties in the CAPI Yaml and run `kubectl --namespace=${NAMESPACE} --kubeconfig=user1-management-kubeconfig.conf apply -f capi.yaml`.
+In the CAPI yaml, update the below properties and run `kubectl --namespace=${NAMESPACE} --kubeconfig=user1-management-kubeconfig.conf apply -f capi.yaml`.
 1. To resize the control plane nodes of the workload cluster, update the property `KubeadmControlPlane.spec.replicas` 
-   of desired KubeadmControlPlane objects to resize the control plane count. The value must be an odd number.
-2. To resize the worker nodes, update the property `MachineDeployment.spec.replicas` of desired MachineDeployment objects to resize the worker count.
+   of desired `KubeadmControlPlane` objects to resize the control plane count. The value must be an odd number.
+2. To resize the worker nodes, update the property `MachineDeployment.spec.replicas` of desired `MachineDeployment` objects to resize the worker count.
 
 <a name="upgrade_workload_cluster"></a>
 ## Upgrade a workload cluster
 In order to upgrade a workload cluster, Cloud Provider must upload the new Kubernetes version of Ubuntu 20.04 TKG OVA into VCD using VCD UI.
 The upgrade of a Kubernetes cluster can only be done to the next incremental version, say from K8s 1.20 to K8s 1.21.
 
-In the CAPI yaml, update the below properties in the CAPI Yaml and run `kubectl --namespace=${NAMESPACE} --kubeconfig=user1-management-kubeconfig.conf apply -f capi.yaml`.
+In the CAPI yaml, update the below properties and run `kubectl --namespace=${NAMESPACE} --kubeconfig=user1-management-kubeconfig.conf apply -f capi.yaml`.
 1. Upgrade Control plane version
     1. Update `VCDMachineTemplate` object(s) with the new version of TKGm template details
         * Update `VCDMachineTemplate.spec.template.spec.template` and other properties under `VCDMachineTemplate.spec.template.spec` if needed.

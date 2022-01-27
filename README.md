@@ -24,10 +24,6 @@ Kubernetes versions:
 ## Known Issues
 [KNOWN ISSUES](docs/KNOWNISSUES.md)
 
-## FAQ
-[FAQ](docs/FAQ.md)
-
-
 ## Contributing
 
 The cluster-api-provider-cloud-director project team welcomes contributions from the community. Before you start working with cluster-api-provider-cloud-director, please refer to [CONTRIBUTING.md](CONTRIBUTING.md).
