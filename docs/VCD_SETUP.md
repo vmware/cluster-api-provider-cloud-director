@@ -26,7 +26,7 @@ Body: [payload](#capvcd_rde_schema)
     * CAPVCD Cluster FullControl
 
 ### Upload TKG templates
-Upload the TKG ovas using via VCD UI
+Upload the TKG ovas via VCD UI
 
 ## Tenant Admin steps
 * A ServiceEngineGroup needs to be added to the gateway of the OVDC within which the Kubernetes cluster is to be created. The overall steps to achieve that are documented at Enable Load Balancer on an NSX-T Data Center Edge Gateway
