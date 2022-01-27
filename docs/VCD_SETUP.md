@@ -3,7 +3,7 @@
 ## Provider steps
 
 ### NSX-T and Avi Setup
-The LoadBalancers fronting the multi-controlplane workload clusters need a preconfigured Avi Controller, NSX-T Cloud and Avi Service Engine Group. This is a provider operation.
+The LoadBalancers fronting the multi-controlplane workload clusters need a preconfigured Avi Controller, NSX-T Cloud and Avi Service Engine Group.
 Refer to [load balancer set up](https://github.com/vmware/cloud-provider-for-cloud-director#provider-setup) here.
 
 ### Register Cluster API schema
@@ -14,19 +14,20 @@ Body: [payload](#capvcd_rde_schema)
 <a name="user_role"></a>  
 ### Publish the rights to the tenant organizations
 1. Publish the `vmware:capvcdCluster:1.0.0` right bundle to the desired tenant organizations
-2. Below are the rights required for the Cluster API. Ensure they are available to the desired tenant organizations
+2. Below are the rights required for the Cluster API. Assign additional rights to the desired tenant organizations
     * User > Manage user's own API token
     * vApp > Preserve all ExtraConfig Elements during OVA Import and Export
     * General > Manage Certificates Library, Administration control
     * Gateway > View Gateway
     * Gateway Services > NAT Configure, LoadBalancer Configure
-    * [Rights required for CPI](https://github.com/vmware/cloud-provider-for-cloud-director#additional-rights-for-cpi)
-    * [Rights required for CSI](https://github.com/vmware/cloud-director-named-disk-csi-driver#additional-rights-for-csi)
     * Rights from default `vApp Author` role
     * CAPVCD Cluster FullControl
+    * [Rights required for CPI](https://github.com/vmware/cloud-provider-for-cloud-director#additional-rights-for-cpi)
+    * [Rights required for CSI](https://github.com/vmware/cloud-director-named-disk-csi-driver#additional-rights-for-csi)
 
 ### Upload TKG templates
-Upload the TKG ovas via VCD UI
+Import Ubuntu 20.04 Kubernetes OVAs from VMware Tanzu Kubernetes Grid Versions 1.4.0, 1.3.1 to VCD using VCD UI. 
+These will serve as templates for Cluster API to create Kubernetes Clusters.
 
 ## Tenant Admin steps
 * A ServiceEngineGroup needs to be added to the gateway of the OVDC within which the Kubernetes cluster is to be created. The overall steps to achieve that are documented at Enable Load Balancer on an NSX-T Data Center Edge Gateway
