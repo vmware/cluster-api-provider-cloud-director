@@ -4,7 +4,7 @@ Personas:
 * Amy - Management Cluster Author ~ tenant admin
 * John - Workload Cluster Author ~ tenant user
 
-See the [rights required](VCD_SETUP.md#user_role) here
+See the [rights required](VCD_SETUP.md#user_role) for the above personas here.
 
 <a name="create_workload_cluster"></a>
 ## Create workload cluster on the Management cluster 
@@ -49,8 +49,8 @@ Update the below properties in the CAPI Yaml and re-apply it.
     1. Update `VCDMachineTemplate` objects with the new version of TKGm template details.
     2. Update `MachineDeployment` objects with the newer version of the property `MachineDeployment.spec.version`. 
 
-Note that all the values must match the Kubernetes version of the corresponding template specified in (1). See here on [how to retrieve the versions from respective TKGm bill of materials](#tkgm_bom).
-<Yet to be filled on manual configmap changed for etcd and coredns>
+Note that all the values must match the Kubernetes version of the corresponding template soecified in `VCDMachineTemplate` object(s).
+See here on [how to retrieve the versions from respective TKGm bill of materials](#tkgm_bom).
 
 ## Delete workload cluster
 It is recommended to delete the cluster object directly - `kubectl --namespace=${NAMESPACE} --kubeconfig=user-management-kubeconfig.conf delete cluster ${CLUSTERNAME}` 
@@ -123,7 +123,7 @@ refreshToken: ""
 
 <a name="tkgm_bom"></a>
 ### Script to extract Kubernetes component versions from TKGm Bill of materials
-
+Ensure docker and yq are pre-installed on your local machine.
 ```shell
 
 # Extract etcd and coredns info for capi.yaml
@@ -156,7 +156,9 @@ COREDNS_IMAGE_PATH="projects.registry.vmware.com/tkg/$(yq e ".components.coredns
 COREDNS_IMAGE_TAG=$(yq e ".components.coredns[0].images.coredns.tag" tkr-bom-${K8S_VERSION_RAW}.yaml)
 ```
 <a name="create_refresh_token"></a>
-## How to create refreshToken?
+## How to create Refresh Token?
+Log in as a tenant user.
+
 Step 1: Register a client:
 ```sh
 curl --location --request POST 'https://<vcd-fqdn>>/oauth/tenant/<org-name>/register' \
