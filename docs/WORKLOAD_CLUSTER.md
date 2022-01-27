@@ -1,8 +1,10 @@
 # Workload cluster operations
 
 Personas:
-* Amy - Management Cluster Author ([Tenant Admin](VCD_SETUP.md#user_role))
-* John - Workload Cluster Author ([Tenant user](VCD_SETUP.md#user_role))
+* Amy - Management Cluster Author ~ tenant admin
+* John - Workload Cluster Author ~ tenant user
+
+See the [rights required](VCD_SETUP.md#user_role) here
 
 <a name="create_workload_cluster"></a>
 ## Create workload cluster on the Management cluster 

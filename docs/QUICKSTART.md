@@ -27,9 +27,10 @@ Refer to [Management cluster set up](MANAGEMENT_CLUSTER.md) for the detailed ste
 At high-level, below describes the interaction between VCD tenant administrator and tenant user.
 
 Personas:
-* Amy - Management Cluster Author ([Tenant Admin](VCD_SETUP.md#user_role))
-* John - Workload Cluster Author ([Tenant user](VCD_SETUP.md#user_role))
-
+* Amy - Management Cluster Author ~ tenant admin
+* John - Workload Cluster Author ~ tenant user
+See the [rights required](VCD_SETUP.md#user_role) here
+  
 1. Amy creates a management cluster, and she has access to Admin Kubeconfig of the management cluster.
 2. John wants to create a workload cluster; John asks Amy for the access to management cluster.
 3. Amy prepares the management cluster by creating a new Kubernetes namespace and service account for John.
