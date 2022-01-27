@@ -1,56 +1,43 @@
-# Cloud Director Setup
+# Setting up Cloud Director environment
 
 ## Provider steps
 
 ### Avi controller, NSX-T Cloud Setup
 The LoadBalancers fronting the Multimaster workload clusters will need a preconfigured Avi Controller, NSX-T Cloud and Avi Service Engine Group. This is a provider operation.
-The Service Engine Group (SEG) should be created as Dedicated and one SEG should be allocated per Edge Gateway in order to ensure that Load Balancers used by Tenants are well-isolated from each other.
-The LoadBalancer section of the Edge Gateway for a Tenant should be enabled, and the appropriate Service Engine Group(s) should be configured into the Edge Gateway. This will be used to create Virtual Services when a LoadBalancer request is made from Kubernetes.
+Refer to [load balancer set up](https://github.com/vmware/cloud-provider-for-cloud-director#provider-setup) here.
 
-### CAPVCD RDE registration and right bundles publishment
-1. Bookkeeping of the CAPVCD based workload clusters is done through RDEs in VCD. Provider needs to [register the CAPVCD 
-RDE schema with VCD](#capvcd_rde_schema).
-2. Publish CAPVCD right bundle `vmware:capvcdCluster:1.0.0` to the tenant organizations
-3. Ensure below rights are published to the chosen tenant organizations
+### Register Cluster API schema
+Using Postman, provider needs to register the Cluster API schema with Cloud Director
+POST `https://<vcd>/cloudapi/1.0.0/entityTypes` with the below payload
+Body: [payload](#capvcd_rde_schema)
+
+<a name="user_role"></a>  
+### Publish the rights to the tenant organizations
+1. Publish the `vmware:capvcdCluster:1.0.0` right bundle to the desired tenant organizations
+2. Below are the rights required for the Cluster API. Ensure they are available to the desired tenant organizations
     * User > Manage user's own API token
-    * Organization VDC > Create a Shared Disk
     * vApp > Preserve all ExtraConfig Elements during OVA Import and Export
-    * General > Manage Certificates Library
+    * General > Manage Certificates Library, Administration control
+    * Gateway > View Gateway
+    * Gateway Services > NAT Configure, LoadBalancer Configure
+    * [Rights required for CPI](https://github.com/vmware/cloud-provider-for-cloud-director#additional-rights-for-cpi)
+    * [Rights required for CSI](https://github.com/vmware/cloud-director-named-disk-csi-driver#additional-rights-for-csi)
+    * Rights from default `vApp Author` role
+    * CAPVCD Cluster FullControl
 
-### Upload TKGm template
-Upload the TKGm ovas using either VCD UI (or) `cse template upload` of CSE versions greater than or equal to 3.1.1
+### Upload TKG templates
+Upload the TKG ovas using via VCD UI
 
 ## Tenant Admin steps
 * A ServiceEngineGroup needs to be added to the gateway of the OVDC within which the Kubernetes cluster is to be created. The overall steps to achieve that are documented at Enable Load Balancer on an NSX-T Data Center Edge Gateway
 Create and publish the desired sizing policies on the chosen ovdc(s)
 * Ensure the OVDC gateway has outbound access. If required, set an SNAT rule with the internal IP range of the VMs.
 * Set up DNS on the desired virtual datacenter networks.
-  <a name="user_role"></a>
-* Tenant Admin Persona: Add the below mentioned rights to the Tenant administrator role. This persona will be used to 
-  create the management cluster.
-    * CAPVCD Cluster FullControl
-    * User > Manage user's own API token
-    * Organization VDC > Create a Shared Disk
-    * vApp > Preserve all ExtraConfig Elements during OVA Import and Export
-    * General > Manage Certificates Library
-* Tenant User Persona: Create a role with the below mentioned rights in addition to the vApp Author privileges. Tenant users 
-  eligible to deploy CAPVCD based workload clusters must be assigned with this role.
-   * CAPVCD Cluster FullControl 
-   * User > Manage user's own API token
-   * Organization VDC > Create a Shared Disk
-   * vApp > Preserve all ExtraConfig Elements during OVA Import and Export
-   * General > Manage Certificates Library
 
 <a name="capvcd_rde_schema"></a>
-## Register CAPVCD RDE schema
-Persona: Provider
-
-Use one of the two ways to register CAPVCD RDE schema with VCD
-1. CSE 3.1.2 can be used to register the schema 
-    1. Update CSE config file with `register_capvcd_schema: True` under `service` section.
-    2. Run either `cse install` (or) `cse upgrade`
-2. Register the CAPVCD RDE schema through API call via Postman
-   POST `https://<vcd>/cloudapi/1.0.0/entityTypes` with the below payload
+## Payload of the Cluster API schema
+Using Postman, register the schema
+POST `https://<vcd>/cloudapi/1.0.0/entityTypes` with the below payload
 ```json
 {
     "name": "CAPVCD Cluster",

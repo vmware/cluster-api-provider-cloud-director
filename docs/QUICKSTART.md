@@ -1,6 +1,6 @@
-# Quick start guide to create Kubernetes workload cluster on Cloud Director
+# Quick Start
 
-In this tutorial we’ll cover the basics of how to use Cluster API provider - CAPVCD to create one or more Kubernetes 
+In this tutorial we’ll cover the basics of how to use Cluster API to create one or more Kubernetes 
 clusters on VMware Cloud Director. This document expects the readers to be familiar with the 
 [Core CAPI](https://cluster-api.sigs.k8s.io/introduction.html) terminology like management cluster and workload cluster.
 
