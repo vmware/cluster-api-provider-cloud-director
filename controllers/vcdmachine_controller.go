@@ -814,6 +814,19 @@ func (r *VCDMachineReconciler) reconcileDelete(ctx context.Context, cluster *clu
 			}
 		}
 		if vm != nil {
+			// check if there are any disks attached to the VM
+			if vm.VM.VmSpecSection != nil && vm.VM.VmSpecSection.DiskSection != nil {
+				for _, diskSettings := range vm.VM.VmSpecSection.DiskSection.DiskSettings {
+					if diskSettings.Disk != nil {
+						log.Info("Cannot delete VM until named disk is detached from VM (by CSI)",
+							"vm", vm.VM.Name, "disk", diskSettings.Disk.Name)
+						return ctrl.Result{}, fmt.Errorf(
+							"error deleting VM [%s] since named disk [%s] is attached to VM (by CSI)",
+							vm.VM.Name, diskSettings.Disk.Name)
+					}
+				}
+			}
+
 			// power-off the VM if it is powered on
 			vmStatus, err := vm.GetStatus()
 			if err != nil {

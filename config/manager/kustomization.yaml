@@ -7,8 +7,8 @@ generatorOptions:
 secretGenerator:
   - name: vcloud-basic-auth
     literals:
-      - username=clusteradmin
-      - password=ca$hc0w
+      - username=USER # VCD username to initialize the CAPVCD
+      - password=PASSWORD # Password
 
 configMapGenerator:
 - files:
