@@ -9,7 +9,7 @@ Refer to [load balancer set up](https://github.com/vmware/cloud-provider-for-clo
 ### Register Cluster API schema
 Using Postman, register the Cluster API schema with Cloud Director.
 
-POST `https://<vcd>/cloudapi/1.0.0/entityTypes` with the below payload.
+POST `https://<vcd>/cloudapi/1.0.0/entityTypes` 
 
 Body: [payload](#capvcd_rde_schema)
 
