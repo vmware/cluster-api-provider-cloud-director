@@ -7,8 +7,10 @@ The LoadBalancers fronting the multi-controlplane workload clusters need a preco
 Refer to [load balancer set up](https://github.com/vmware/cloud-provider-for-cloud-director#provider-setup) here.
 
 ### Register Cluster API schema
-Using Postman, provider needs to register the Cluster API schema with Cloud Director
-POST `https://<vcd>/cloudapi/1.0.0/entityTypes` with the below payload
+Using Postman, provider needs to register the Cluster API schema with Cloud Director.
+
+POST `https://<vcd>/cloudapi/1.0.0/entityTypes` with the below payload.
+
 Body: [payload](#capvcd_rde_schema)
 
 <a name="user_role"></a>  
@@ -19,7 +21,7 @@ Body: [payload](#capvcd_rde_schema)
     * vApp > Preserve ExtraConfig Elements during OVA Import and Export (follow the [KB](https://kb.vmware.com/s/article/2148573) to enable this right on VCD)
     * Gateway > View Gateway
     * Gateway Services > NAT Configure, LoadBalancer Configure
-    * Rights from default `vApp Author` role
+    * Rights from the default `vApp Author` role
     * CAPVCD Cluster FullControl
     * [Rights required for CPI](https://github.com/vmware/cloud-provider-for-cloud-director#additional-rights-for-cpi)
     * [Rights required for CSI](https://github.com/vmware/cloud-director-named-disk-csi-driver#additional-rights-for-csi)

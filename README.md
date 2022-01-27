@@ -22,7 +22,7 @@ Kubernetes versions:
 | CAPVCD v1alpha4 (v0.5) | ✓     | ✓     |       |
 
 ## Troubleshooting
-See [how to collect CAPI logs for Cloud Director?](https://github.com/vmware/cluster-api-provider-cloud-director/tree/main/scripts)
+[Collect CAPI log bundle for Cloud Director](https://github.com/vmware/cluster-api-provider-cloud-director/tree/main/scripts)
 
 ## Contributing
 The cluster-api-provider-cloud-director project team welcomes contributions from the community. Before you start working with cluster-api-provider-cloud-director, please refer to [CONTRIBUTING.md](CONTRIBUTING.md).
