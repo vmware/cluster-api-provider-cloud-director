@@ -1,22 +1,16 @@
 # Workload cluster operations
 
-Personas:
-* Amy - Management Cluster Author ~ tenant admin
-* John - Workload Cluster Author ~ tenant user
-
-See the [rights required](VCD_SETUP.md#user_role) for the above personas here.
-
 <a name="create_workload_cluster"></a>
 ## Create workload cluster on the Management cluster 
 
-In order for John to create workload cluster, Amy should have already enabled the user access for 
-John on the management cluster. See [management cluster setup](QUICKSTART.md#management_cluster_setup) and 
-[tenant_user_management](MANAGEMENT_CLUSTER.md#tenant_user_management) for more details on the Amy's steps).
+In order for tenant user to create workload cluster, tenant admin should have already enabled the user access on the management cluster. 
+See [management cluster setup](QUICKSTART.md#management_cluster_setup) and 
+[tenant_user_management](MANAGEMENT_CLUSTER.md#tenant_user_management) for more details on the tenant admin (or) management cluster author steps.
 
-1. John can now access the management cluster via kubeconfig specifically generated for him
+1. User can now access the management cluster via kubeconfig specifically generated for him/her
     1. `kubectl --namespace ${NAMESPACE} --kubeconfig=John-management-kubeconfig.conf get machines`
-2. John generates the cluster configuration. Refer to [CAPI Yaml configuration](#capi_yaml) on how to fill the details.
-3. John creates the workload cluster 
+2. User generates the cluster configuration. Refer to [CAPI Yaml configuration](#capi_yaml) on how to fill the details.
+3. User creates the workload cluster 
     1. `kubectl --namespace=${NAMESPACE} --kubeconfig=John-management-kubeconfig.conf apply -f capi.yaml`. The output is similar to the below
     2. ```sh
        cluster.cluster.x-k8s.io/capi-quickstart created
@@ -28,7 +22,7 @@ John on the management cluster. See [management cluster setup](QUICKSTART.md#man
        machinedeployment.cluster.x-k8s.io/capi-quickstart-md0 created
        ```
     3. Wait for control plane to be initialized `kubectl --namespace=${NAMESPACE} --kubeconfig=John-management-kubeconfig.conf describe cluster capi-john`
-4. John retrieves the Admin Kubeconfig of the workload cluster 
+4. User retrieves the Admin Kubeconfig of the workload cluster 
     1. `CLUSTERNAME="capi-john"`
     2. `kubectl -n ${NAMESPACE} --kubeconfig=user-management-kubeconfig.conf get secret ${CLUSTERNAME}-kubeconfig -o json | jq ".data.value" | tr -d '"' | base64 -d > ${CLUSTERNAME}-workload-kubeconfig.conf`
     3. `kubectl --kubeconfig=${CLUSTERNAME}-workload-kubeconfig.conf get pods -A -owide`
@@ -67,7 +61,7 @@ configure the YAML
 3. Update the `namespace` property of all the objects with the allocated namespace to you (tenant user) on the management cluster.
 3. Update the `VCDCluster.spec` with the VCD site, names of the organization, virtual datacenter, virtual datacenter network and userContext.
    In production cluster scenarios we recommend strongly that the refreshToken parameter be used, the username and 
-   password fields should be omitted or set as empty strings. Refer to [how to create refreshToken](#create_refresh_token).
+   password fields should be omitted or set as empty strings. Refer to [how to create refreshToken](https://docs.vmware.com/en/VMware-Cloud-Director/10.3/VMware-Cloud-Director-Tenant-Portal-Guide/GUID-A1B3B2FA-7B2C-4EE1-9D1B-188BE703EEDE.html).
 4. Update `VCDMachineTemplate` objects of both Controlplane and workers with the TKGm template details.
 5. Update `KubeadmControlPlane` object(s) with the below details of Kubernetes components. The values must match the Kubernetes 
    version of the corresponding template specified in (4). See here on [how to retrieve the versions from respective TKGm bill of materials](#tkgm_bom).
@@ -155,33 +149,5 @@ COREDNS_VERSION=$(yq e ".components.coredns[0].version" tkr-bom-${K8S_VERSION_RA
 COREDNS_IMAGE_PATH="projects.registry.vmware.com/tkg/$(yq e ".components.coredns[0].images.coredns.imagePath" tkr-bom-${K8S_VERSION_RAW}.yaml)"
 COREDNS_IMAGE_TAG=$(yq e ".components.coredns[0].images.coredns.tag" tkr-bom-${K8S_VERSION_RAW}.yaml)
 ```
-<a name="create_refresh_token"></a>
-## How to create Refresh Token?
-Log in as a tenant user.
-
-Step 1: Register a client:
-```sh
-curl --location --request POST 'https://<vcd-fqdn>>/oauth/tenant/<org-name>/register' \
---header 'Accept: application/json;version=36.0' \
---header 'Authorization: Bearer eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiJvcmdhZG1pbiIsImlzcyI6ImZlZTYxOTI3LTU1NTUtNDY4Zi1iMTZiLWU2NDgxZDcyM2IwMUAyMDQ0ZmUwNC1jNTg5LTRjMmItODUxNC1hNTlkMWFhOTE1NGUiLCJleHAiOjE2NDQwMDg5ODMsInZlcnNpb24iOiJ2Y2xvdWRfMS4wIiwianRpIjoiYzNkODZhNDU5ODhlNDM1NDlmOTA3YzFhN2MxYTAxNDgifQ.aRLO7W_lrhQyWGDuwdY0sELCNn7bPXn2Aryz-mUhaSWrZuRHDayTL1vN3Y70Q3XnV8ayP_uBoa-7R-9qTj5hNHhydyvRCAxeXoAFz-3BEYo0hDAZ0S6OAy5iMcYQNmmFIdjIUwsrb3nFvrA2e8tqQI4X2UdnHPe-ZdCcnYsq7QCeiD4_vUfH3rJVAutuuSxWD6Uk_JukncxwgDpHi9HSqMTqZ6rOUlZiaOfgsILTm8lVZvzQhlMmrcyrc3ysiKoDtQjc2BJwaJ4Qxgb22_FjQwCzc0ixENRBpiY4Iiqyo44nKvaHutkRA9WNmJyR2HFLFuSqE8oi-WkML0gneEJz_A' \
---header 'Content-Type: application/json' \
---data-raw '{
-"client_name": "management-cluster"
-}'
-```
-Client ID will be obtained as part of the response
-
-Step 2: Create a refresh token
-Use client ID from the response from Step 1
-```sh
-curl --location --request POST 'https://<vcd-fqdn>/oauth/tenant/<org-name>/token' \
---header 'Accept: application/json;version=36.0' \
---header 'Content-Type: application/x-www-form-urlencoded' \
---data-urlencode 'client_id=1447f90a-2ca7-4b9c-ac9d-a42e529a870b' \
---data-urlencode 'grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer' \
---data-urlencode 'assertion=eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiJvcmdhZG1pbiIsImlzcyI6ImZlZTYxOTI3LTU1NTUtNDY4Zi1iMTZiLWU2NDgxZDcyM2IwMUAyMDQ0ZmUwNC1jNTg5LTRjMmItODUxNC1hNTlkMWFhOTE1NGUiLCJleHAiOjE2NDQwMDg5ODMsInZlcnNpb24iOiJ2Y2xvdWRfMS4wIiwianRpIjoiYzNkODZhNDU5ODhlNDM1NDlmOTA3YzFhN2MxYTAxNDgifQ.aRLO7W_lrhQyWGDuwdY0sELCNn7bPXn2Aryz-mUhaSWrZuRHDayTL1vN3Y70Q3XnV8ayP_uBoa-7R-9qTj5hNHhydyvRCAxeXoAFz-3BEYo0hDAZ0S6OAy5iMcYQNmmFIdjIUwsrb3nFvrA2e8tqQI4X2UdnHPe-ZdCcnYsq7QCeiD4_vUfH3rJVAutuuSxWD6Uk_JukncxwgDpHi9HSqMTqZ6rOUlZiaOfgsILTm8lVZvzQhlMmrcyrc3ysiKoDtQjc2BJwaJ4Qxgb22_FjQwCzc0ixENRBpiY4Iiqyo44nKvaHutkRA9WNmJyR2HFLFuSqE8oi-WkML0gneEJz_A'Use Access token as value for assertion
-```
-Refresh token will be present as part of the response
-
 
 

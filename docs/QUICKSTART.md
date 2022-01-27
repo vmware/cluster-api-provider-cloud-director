@@ -16,28 +16,12 @@ Install below in your local environment
 * [Clusterctl](https://cluster-api.sigs.k8s.io/user/quick-start.html#install-clusterctl)
 
 <a name="management_cluster_setup"></a>
-### Create Management cluster
-Cluster API requires an existing Kubernetes cluster accessible via kubectl. During the installation
-process the Kubernetes cluster will be transformed into a [management cluster](https://cluster-api.sigs.k8s.io/reference/glossary.html#management-cluster)
-by installing the Core CAPI and Cluster API provider components, so it is recommended to keep it separated from any application workload.
+### Create a Management cluster
 
 It is recommended for VCD organization administrator to create at least one management cluster per tenant.
 Refer to [Management cluster set up](MANAGEMENT_CLUSTER.md) for the detailed steps.
 
-At high-level, below describes the interaction between VCD tenant administrator and tenant user.
-
-Personas:
-* Amy - Management Cluster Author ~ tenant admin
-* John - Workload Cluster Author ~ tenant user
-See the [rights required](VCD_SETUP.md#user_role) here
-  
-1. Amy creates a management cluster, and she has access to Admin Kubeconfig of the management cluster.
-2. John wants to create a workload cluster; John asks Amy for the access to management cluster.
-3. Amy prepares the management cluster by creating a new Kubernetes namespace and service account for John.
-4. Amy hands over the newly generated Kubeconfig file with limited privileges to the John.
-5. John uses the Kubeconfig to access the management cluster and creates his first workload cluster.
-
-### Create workload cluster
+### Create a workload cluster
 Once the management cluster is created and prepared for tenants' access, tenants can create their workload cluster(s).
 
 Refer to [workload cluster operations](WORKLOAD_CLUSTER.md) for more details.
