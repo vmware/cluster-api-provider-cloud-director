@@ -32,13 +32,14 @@ operate all his/her workload clusters in his/her namespace
 In the CAPI yaml, update the below properties and run `kubectl --namespace=${NAMESPACE} --kubeconfig=user1-management-kubeconfig.conf apply -f capi.yaml` 
 on the management cluster.
 1. To resize the control plane nodes of the workload cluster, update the property `KubeadmControlPlane.spec.replicas` 
-   of desired `KubeadmControlPlane` objects to resize the control plane count. The value must be an odd number.
-2. To resize the worker nodes, update the property `MachineDeployment.spec.replicas` of desired `MachineDeployment` objects to resize the worker count.
+   of desired `KubeadmControlPlane` objects. The value must be an odd number.
+2. To resize the worker nodes, update the property `MachineDeployment.spec.replicas` of desired `MachineDeployment` objects to the desired worker count.
 
 <a name="upgrade_workload_cluster"></a>
 ## Upgrade a workload cluster
-In order to upgrade a workload cluster, Cloud Provider must upload the new Kubernetes version of Ubuntu 20.04 TKG OVA into VCD using VCD UI.
-The upgrade of a Kubernetes cluster can only be done to the next incremental version, say from K8s 1.20 to K8s 1.21.
+In order to upgrade a workload cluster, 
+* Cloud Provider must upload the new Kubernetes version of Ubuntu 20.04 TKG OVA into VCD using VCD UI.
+* The upgrade of a Kubernetes cluster can only be done to the next incremental version, say from K8s 1.20 to K8s 1.21.
 
 In the CAPI yaml, update the below properties and run `kubectl --namespace=${NAMESPACE} --kubeconfig=user1-management-kubeconfig.conf apply -f capi.yaml`
  on the management cluster.
@@ -53,7 +54,7 @@ In the CAPI yaml, update the below properties and run `kubectl --namespace=${NAM
     2. Update `MachineDeployment` objects with the newer version of the property `MachineDeployment.spec.version`. 
 
 All the versions specified above must match the Kubernetes version of the TKG OVA specified in `VCDMachineTemplate` object(s).
-See here on [how to retrieve the versions from respective TKGm bill of materials](#tkgm_bom).
+See the [script to extract Kubernetes component versions from TKG Bill of materials](#tkgm_bom).
 
 <a name="delete_workload_cluster"></a>
 ## Delete workload cluster
@@ -73,13 +74,14 @@ provided below configure the CAPI Yaml file
 2. Update the name of the cluster 
     * Retrieve the value of `Cluster.metadata.name` and replace-all the value with the new cluster name.
 3. Update the `namespace` property of all the objects with the namespace assigned to you (tenant user) on the management
-   cluster by the tenant administrator.
+   cluster by the organization administrator.
 3. Update the `VCDCluster.spec` parameters using the informational comments in the sample yaml. It is strongly recommended
    that the `refreshToken` parameter be used, the username and password fields should be omitted or set as empty strings. 
    Refer to [how to create refreshToken](https://docs.vmware.com/en/VMware-Cloud-Director/10.3/VMware-Cloud-Director-Tenant-Portal-Guide/GUID-A1B3B2FA-7B2C-4EE1-9D1B-188BE703EEDE.html).
-4. Update `VCDMachineTemplate` objects of both Control plane and workers with the TKG OVA details.
+4. Update `VCDMachineTemplate` objects of both Control plane and workers with the whereabouts of TKG OVA, which will be 
+   used as a template for the cluster VMs. Refer to the informational comments of the example YAML.
 5. Update `KubeadmControlPlane` object(s) with the below details of Kubernetes components. The values must match the Kubernetes 
-   version of the corresponding template specified in `VCDMachineTemplate` object(s). See here on [how to retrieve the versions from respective TKGm bill of materials](#tkgm_bom).
+   version of the corresponding template specified in `VCDMachineTemplate` object(s). See the [script to extract Kubernetes component versions from TKG Bill of materials](#tkgm_bom).
     1. Update `KubeadmControlPlane.spec.version`, `KubeadmControlPlane.spec.kubeadmConfigSpec.dns`, 
        `KubeadmControlPlane.spec.kubeadmConfigSpec.etcd`, `KubeadmControlPlane.spec.kubeadmConfigSpec.imageRepository`.
        The above sample file has the values corresponding to v1.20.8 Kubernetes version of TKGm template.
@@ -88,9 +90,9 @@ provided below configure the CAPI Yaml file
 6. Update your ssh keys at `KubeadmConfigTemplate.spec.template.spec.users` to access the worker node VMs.
 7. Update `MachineDeployment.spec` with the below
     1. To specify the worker count, update the property `MachineDeployment.spec.replicas`.
-    2. To specify the Kubernetes version, update the property `MachineDeployment.spec.version` to specify the Kubernetes version.
-       The values must match the Kubernetes version of the corresponding template specified in `VCDMachineTemplate` object(s).
-       See here on [how to retrieve the versions from respective TKGm bill of materials](#tkgm_bom).
+    2. To specify the Kubernetes version, update the property `MachineDeployment.spec.version`.
+       The value must match the Kubernetes version of the corresponding template specified in `VCDMachineTemplate` object(s).
+       See the [script to extract Kubernetes component versions from TKG Bill of materials](#tkgm_bom).
        
 Sample sub-section of the YAML
 ```yaml
@@ -132,7 +134,7 @@ refreshToken: ""
 ```
 
 <a name="tkgm_bom"></a>
-### Script to extract Kubernetes component versions from TKGm Bill of materials
+### Script to extract Kubernetes component versions from TKG Bill of materials
 Ensure docker and yq are pre-installed on your local machine.
 ```shell
 
