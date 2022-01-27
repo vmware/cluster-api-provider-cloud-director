@@ -70,7 +70,7 @@ It is not recommended using this command
 `clusterctl generate` command doesn't support the generation of CAPI yaml for Cloud Director; Follow the guidelines 
 provided below configure the CAPI Yaml file
 
-1. Retrieve the [sample YAML](https://github.com/vmware/cluster-api-provider-cloud-director/blob/main/examples/capi-quickstart.yaml) from github repo.
+1. Retrieve the [sample YAML](https://github.com/vmware/cluster-api-provider-cloud-director/blob/0.5.0/examples/capi-quickstart.yaml) from github repo.
 2. Update the name of the cluster 
     * Retrieve the value of `Cluster.metadata.name` and replace-all the value with the new cluster name.
 3. Update the `namespace` property of all the objects with the namespace assigned to you (tenant user) on the management
