@@ -38,8 +38,9 @@ Create and publish the desired sizing policies on the chosen ovdc(s)
 <a name="capvcd_rde_schema"></a>
 **Payload of the Cluster API schema**
 
-Using Postman, register the schema
-POST `https://<vcd>/cloudapi/1.0.0/entityTypes` with the below payload
+Using Postman, provider needs to register the Cluster API schema with Cloud Director.
+
+POST `https://<vcd>/cloudapi/1.0.0/entityTypes` with the provided payload
 ```json
 {
     "name": "CAPVCD Cluster",
