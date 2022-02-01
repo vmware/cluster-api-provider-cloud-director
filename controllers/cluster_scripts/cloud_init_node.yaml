@@ -42,6 +42,7 @@ write_files:
       __JINJA_RUNCMD_REPLACE_ME__
       if [[ ! -f /run/cluster-api/bootstrap-success.complete ]]
       then
+        echo "file /run/cluster-api/bootstrap-success.complete not found" &>> /var/log/capvcd/customization/error.log
         exit 1
       fi
       export KUBECONFIG=/etc/kubernetes/kubelet.conf
