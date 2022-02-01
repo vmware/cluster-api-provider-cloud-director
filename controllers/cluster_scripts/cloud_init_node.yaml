@@ -18,7 +18,7 @@ write_files:
        vmtoolsd --cmd "info-set guestinfo.post_customization_cloud_init_output $cloud_init_output"
     }
     mkdir -p /var/log/capvcd/customization
-    trap 'catch $? $LINENO' ERR
+    trap 'catch $? $LINENO' ERR EXIT
     set -ex
 
     vmtoolsd --cmd "info-set guestinfo.postcustomization.networkconfiguration.status in_progress"
