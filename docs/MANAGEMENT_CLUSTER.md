@@ -57,7 +57,7 @@ infrastructure provider specific Cluster API (in this case, CAPVCD). CAPVCD, as 
 Below steps enable tenant users to deploy the workload clusters in their own private namespaces of a given management 
 cluster, while adhering to their own user quota in VCD.
 
-Basically, tenant administrator (or) the management cluster author, creates a new and unique Kubernetes namespace for 
+The organization administrator creates a new and unique Kubernetes namespace for 
 each tenant user and creates a respective Kubernetes configuration with access to only the
 required CRDs. This is a one-time operation per VCD tenant user.
 
