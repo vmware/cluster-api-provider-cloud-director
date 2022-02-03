@@ -2,8 +2,6 @@ vcd:
   host: VCD_HOST
   org: ORG
   vdc: OVDC
-  user: USER
-  secret: PASSWORD
   network: NETWORK
   vipSubnet: VIP_SUBNET_CIDR
 loadbalancer:

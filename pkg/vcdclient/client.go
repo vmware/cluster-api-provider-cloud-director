@@ -62,26 +62,13 @@ func (client *Client) RefreshBearerToken() error {
 	client.VcdClient.Client.APIVersion = VCloudApiVersion
 
 	klog.V(3).Infof("Is user sysadmin: [%v]", client.VcdClient.Client.IsSysAdmin)
-	var token string
 	if client.VcdAuthConfig.RefreshToken != "" {
 		// Refresh vcd client using refresh token
-		accessTokenResponse, _, err := client.VcdAuthConfig.getAccessTokenFromRefreshToken(
-			client.VcdClient.Client.IsSysAdmin)
-		if err != nil {
-			return fmt.Errorf(
-				"failed to get access token from refresh token for user [%s/%s] for url [%s]: [%v]",
-				client.VcdAuthConfig.UserOrg, client.VcdAuthConfig.User, href, err)
-		}
-
-		err = client.VcdClient.SetToken(client.VcdAuthConfig.UserOrg,
-			"Authorization", fmt.Sprintf("Bearer %s", accessTokenResponse.AccessToken))
+		err := client.VcdClient.SetToken(client.VcdAuthConfig.UserOrg,
+			govcd.ApiTokenHeader, client.VcdAuthConfig.RefreshToken)
 		if err != nil {
 			return fmt.Errorf("failed to set authorization header: [%v]", err)
 		}
-		// The previous function call will unset IsSysAdmin boolean for administrator because govcd makes a hard check
-		// on org name. Set the boolean back
-		client.VcdClient.Client.IsSysAdmin = client.VcdAuthConfig.IsSysAdmin
-		token = accessTokenResponse.AccessToken
 	} else if client.VcdAuthConfig.User != "" && client.VcdAuthConfig.Password != "" {
 		// Refresh vcd client using username and password
 		resp, err := client.VcdClient.GetAuthResponse(client.VcdAuthConfig.User, client.VcdAuthConfig.Password,
@@ -90,7 +77,6 @@ func (client *Client) RefreshBearerToken() error {
 			return fmt.Errorf("unable to authenticate [%s/%s] for url [%s]: [%+v] : [%v]",
 				client.VcdAuthConfig.UserOrg, client.VcdAuthConfig.User, href, resp, err)
 		}
-		token = client.VcdClient.Client.VCDToken
 	} else {
 		return fmt.Errorf(
 			"unable to find refresh token or secret to refresh vcd client for user [%s/%s] and url [%s]",
@@ -114,7 +100,7 @@ func (client *Client) RefreshBearerToken() error {
 	// reset swagger client
 	swaggerConfig := swaggerClient.NewConfiguration()
 	swaggerConfig.BasePath = fmt.Sprintf("%s/cloudapi", client.VcdAuthConfig.Host)
-	swaggerConfig.AddDefaultHeader("Authorization", fmt.Sprintf("Bearer %s", token))
+	swaggerConfig.AddDefaultHeader("Authorization", fmt.Sprintf("Bearer %s", client.VcdClient.Client.VCDToken))
 	swaggerConfig.HTTPClient = &http.Client{
 		Transport: &http.Transport{
 			TLSClientConfig: &tls.Config{InsecureSkipVerify: client.VcdAuthConfig.Insecure},
