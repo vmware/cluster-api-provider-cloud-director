@@ -125,6 +125,9 @@ write_files:
 runcmd:
 - '[ ! -f /root/vcloud-basic-auth.yaml ] && cloud-init clean && sudo reboot'
 - '[ ! -f /root/control_plane.sh ] && cloud-init clean && sudo reboot'
+# Only checking if /run/kubeadm/kubeadm.yaml as it is the main file needed for kubeadm init.
+# Ignoring checks for .cert and .key files
+- '[ ! -f /run/kubeadm/kubeadm.yaml ] && cloud-init clean && sudo reboot'
 - bash /root/control_plane.sh
 timezone: UTC
 disable_root: false

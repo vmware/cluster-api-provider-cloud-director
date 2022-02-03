@@ -53,6 +53,9 @@ write_files:
     exit 0
 runcmd:
 - '[ ! -f /root/node.sh ] && cloud-init clean && sudo reboot'
+# Only checking if /run/kubeadm/kubeadm-join-config.yaml as this is the main file needed to execute kubeadm join.
+# Ignoring checks for .cert and .key files
+- '[ ! -f /run/kubeadm/kubeadm-join-config.yaml ] && cloud-init clean && sudo reboot'
 - bash /root/node.sh
 timezone: UTC
 disable_root: false
