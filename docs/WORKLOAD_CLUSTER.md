@@ -144,17 +144,24 @@ export K8S_VERSION_RAW=v1.20.8+vmware.1-tkg.1
 export K8S_VERSION=$(echo ${K8S_VERSION_RAW} | tr -s "+" "_")
  
 # We need to loop through the last value after `tkg.` because of some TKR unexpected design
+no_tkg_found=false
+last=$(echo ${K8S_VERSION//*.})  # get last value after `tkg.`
 until docker pull projects.registry.vmware.com/tkg/tkr-bom:${K8S_VERSION}
 do
-  last=$(echo ${K8S_VERSION} | rev | cut -f1 -d".")
   last=$((last+1))
   export K8S_VERSION=$(echo ${K8S_VERSION} | sed "s/.$/"$last"/")
-  if [ $last -gt 10 ]
-  then
+  if [ $last -gt 10 ]; then
+    no_tkg_found=true
     break
   fi
+  last=$(echo ${K8S_VERSION//*.})  # get last value after `tkg.`
 done
- 
+
+if $no_tkg_found; then
+	echo "'no valid tkg.X version found"
+	exit 1
+fi
+
 export K8S_VERSION_RAW=$(echo ${K8S_VERSION_RAW} | sed "s/.$/"$last"/")
 docker save projects.registry.vmware.com/tkg/tkr-bom:${K8S_VERSION} | tar Oxf - --strip-components 1 */layer.tar | tar xf -
  
