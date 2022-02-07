@@ -9,6 +9,12 @@ type OpenAPIEdgeGateway struct {
 	Name string `json:"name"`
 	// Description of edge gateway
 	Description string `json:"description"`
+	// OwnerRef defines Org VDC or VDC Group that this network belongs to. If the ownerRef is set to a VDC Group, this
+	// network will be available across all the VDCs in the vDC Group. If the VDC Group is backed by a NSX-V network
+	// provider, the Org VDC network is automatically connected to the distributed router associated with the VDC Group
+	// and the "connection" field does not need to be set. For API version 35.0 and above, this field should be set for
+	// network creation.
+	OwnerRef *OpenApiReference `json:"ownerRef,omitempty"`
 	// OrgVdc holds the organization vDC or vDC Group that this edge gateway belongs to. If the ownerRef is set to a VDC
 	// Group, this gateway will be available across all the participating Organization vDCs in the VDC Group.
 	OrgVdc *OpenApiReference `json:"orgVdc,omitempty"`
@@ -289,4 +295,814 @@ type NsxtFirewallGroupMemberVms struct {
 	VappRef *OpenApiReference `json:"vappRef"`
 	VdcRef  *OpenApiReference `json:"vdcRef"`
 	OrgRef  *OpenApiReference `json:"orgRef"`
+}
+
+// NsxtFirewallRule defines single NSX-T Firewall Rule
+type NsxtFirewallRule struct {
+	// ID contains UUID (e.g. d0bf5d51-f83a-489a-9323-1661024874b8)
+	ID string `json:"id,omitempty"`
+	// Name - API does not enforce uniqueness
+	Name string `json:"name"`
+	// Action 'ALLOW', 'DROP'
+	Action string `json:"action"`
+	// Enabled allows to enable or disable the rule
+	Enabled bool `json:"enabled"`
+	// SourceFirewallGroups contains a list of references to Firewall Groups. Empty list means 'Any'
+	SourceFirewallGroups []OpenApiReference `json:"sourceFirewallGroups,omitempty"`
+	// DestinationFirewallGroups contains a list of references to Firewall Groups. Empty list means 'Any'
+	DestinationFirewallGroups []OpenApiReference `json:"destinationFirewallGroups,omitempty"`
+	// ApplicationPortProfiles contains a list of references to Application Port Profiles. Empty list means 'Any'
+	ApplicationPortProfiles []OpenApiReference `json:"applicationPortProfiles,omitempty"`
+	// IpProtocol 'IPV4', 'IPV6', 'IPV4_IPV6'
+	IpProtocol string `json:"ipProtocol"`
+	Logging    bool   `json:"logging"`
+	// Direction 'IN_OUT', 'OUT', 'IN'
+	Direction string `json:"direction"`
+	// Version of firewall rule. Must not be set when creating.
+	Version *struct {
+		// Version is incremented after each update
+		Version *int `json:"version,omitempty"`
+	} `json:"version,omitempty"`
+}
+
+// NsxtFirewallRuleContainer wraps NsxtFirewallRule for user-defined and default and system Firewall Rules suitable for
+// API. Only UserDefinedRules are writeable. Others are read-only.
+type NsxtFirewallRuleContainer struct {
+	// SystemRules contain ordered list of system defined edge firewall rules. System rules are applied before user
+	// defined rules in the order in which they are returned.
+	SystemRules []*NsxtFirewallRule `json:"systemRules"`
+	// DefaultRules contain ordered list of user defined edge firewall rules. Users are allowed to add/modify/delete rules
+	// only to this list.
+	DefaultRules []*NsxtFirewallRule `json:"defaultRules"`
+	// UserDefinedRules ordered list of default edge firewall rules. Default rules are applied after the user defined
+	// rules in the order in which they are returned.
+	UserDefinedRules []*NsxtFirewallRule `json:"userDefinedRules"`
+}
+
+// NsxtAppPortProfile allows user to set custom application port definitions so that these can later be used
+// in NSX-T Firewall rules in combination with IP Sets and Security Groups.
+type NsxtAppPortProfile struct {
+	ID string `json:"id,omitempty"`
+	// Name must be unique per Scope
+	Name        string `json:"name,omitempty"`
+	Description string `json:"description,omitempty"`
+	// ApplicationPorts contains one or more protocol and port definitions
+	ApplicationPorts []NsxtAppPortProfilePort `json:"applicationPorts,omitempty"`
+	// OrgRef must contain at least Org ID when SCOPE==TENANT
+	OrgRef *OpenApiReference `json:"orgRef,omitempty"`
+	// ContextEntityId must contain:
+	// * NSX-T Manager URN (when scope==PROVIDER)
+	// * VDC or VDC Group ID (when scope==TENANT)
+	ContextEntityId string `json:"contextEntityId,omitempty"`
+	// Scope can be one of the following:
+	// * SYSTEM - Read-only (The ones that are provided by SYSTEM). Constant `types.ApplicationPortProfileScopeSystem`
+	// * PROVIDER - Created by Provider on a particular network provider (NSX-T manager). Constant `types.ApplicationPortProfileScopeProvider`
+	// * TENANT (Created by Tenant at Org VDC level). Constant `types.ApplicationPortProfileScopeTenant`
+	//
+	// When scope==PROVIDER:
+	//   OrgRef is not required
+	//   ContextEntityId must have NSX-T Managers URN
+	// When scope==TENANT
+	//   OrgRef ID must be specified
+	//   ContextEntityId must be set to VDC or VDC group URN
+	Scope string `json:"scope,omitempty"`
+}
+
+// NsxtAppPortProfilePort allows user to set protocol and one or more ports
+type NsxtAppPortProfilePort struct {
+	// Protocol can be one of the following:
+	// * "ICMPv4"
+	// * "ICMPv6"
+	// * "TCP"
+	// * "UDP"
+	Protocol string `json:"protocol"`
+	// DestinationPorts is optional, but can define list of ports ("1000", "1500") or port ranges ("1200-1400")
+	DestinationPorts []string `json:"destinationPorts,omitempty"`
+}
+
+// NsxtNatRule describes a single NAT rule of 4 diferent RuleTypes - DNAT`, `NO_DNAT`, `SNAT`, `NO_SNAT`.
+//
+// A SNAT or a DNAT rule on an Edge Gateway in the VMware Cloud Director environment, you always configure the rule
+// from the perspective of your organization VDC.
+// DNAT and NO_DNAT - outside traffic going inside
+// SNAT and NO_SNAT - inside traffic going outside
+// More docs in https://docs.vmware.com/en/VMware-Cloud-Director/10.2/VMware-Cloud-Director-Tenant-Portal-Guide/GUID-9E43E3DC-C028-47B3-B7CA-59F0ED40E0A6.html
+type NsxtNatRule struct {
+	ID string `json:"id,omitempty"`
+	// Name holds a meaningful name for the rule. (API does not enforce uniqueness)
+	Name string `json:"name"`
+	// Description holds optional description for the rule
+	Description string `json:"description"`
+	// Enabled defines if the rule is active
+	Enabled bool `json:"enabled"`
+
+	// RuleType - one of the following: `DNAT`, `NO_DNAT`, `SNAT`, `NO_SNAT`
+	// * An SNAT rule translates an internal IP to an external IP and is used for outbound traffic
+	// * A NO SNAT rule prevents the translation of the internal IP address of packets sent from an organization VDC out
+	// to an external network or to another organization VDC network.
+	// * A DNAT rule translates the external IP to an internal IP and is used for inbound traffic.
+	// * A NO DNAT rule prevents the translation of the external IP address of packets received by an organization VDC
+	// from an external network or from another organization VDC network.
+	// Deprecated in API V36.0
+	RuleType string `json:"ruleType,omitempty"`
+	// Type replaces RuleType in V36.0 and adds a new Rule - REFLEXIVE
+	Type string `json:"type,omitempty"`
+
+	// ExternalAddresses
+	// * SNAT - enter the public IP address of the edge gateway for which you are configuring the SNAT rule.
+	// * NO_SNAT - leave empty (but field cannot be skipped at all, therefore it does not have 'omitempty' tag)
+	//
+	// * DNAT - public IP address of the edge gateway for which you are configuring the DNAT rule. The IP
+	// addresses that you enter must belong to the suballocated IP range of the edge gateway.
+	// * NO_DNAT - leave empty
+	ExternalAddresses string `json:"externalAddresses"`
+
+	// InternalAddresses
+	// * SNAT - the IP address or a range of IP addresses of the virtual machines for which you are configuring SNAT, so
+	// that they can send traffic to the external network.
+	//
+	// * DNAT - enter the IP address or a range of IP addresses of the virtual machines for which you are configuring
+	// DNAT, so that they can receive traffic from the external network.
+	// * NO_DNAT - leave empty
+	InternalAddresses      string            `json:"internalAddresses"`
+	ApplicationPortProfile *OpenApiReference `json:"applicationPortProfile,omitempty"`
+
+	// InternalPort specifies port number or port range for incoming network traffic. If Any Traffic is selected for the
+	// Application Port Profile, the default internal port is "ANY".
+	// Deprecated since API V35.0 and is replaced by DnatExternalPort
+	InternalPort string `json:"internalPort,omitempty"`
+
+	// DnatExternalPort can set a port into which the DNAT rule is translating for the packets inbound to the virtual
+	// machines.
+	DnatExternalPort string `json:"dnatExternalPort,omitempty"`
+
+	// SnatDestinationAddresses applies only for RuleTypes `SNAT`, `NO_SNAT`
+	// If you want the rule to apply only for traffic to a specific domain, enter an IP address for this domain or an IP
+	// address range in CIDR format. If you leave this text box blank, the SNAT rule applies to all destinations outside
+	// of the local subnet.
+	SnatDestinationAddresses string `json:"snatDestinationAddresses,omitempty"`
+
+	// Logging enabled or disabled logging of that rule
+	Logging bool `json:"logging"`
+
+	// Below two fields are only supported in VCD 10.2.2+ (API v35.2)
+
+	// FirewallMatch determines how the firewall matches the address during NATing if firewall stage is not skipped.
+	// * MATCH_INTERNAL_ADDRESS indicates the firewall will be applied to internal address of a NAT rule. For SNAT, the
+	// internal address is the original source address before NAT is done. For DNAT, the internal address is the translated
+	// destination address after NAT is done. For REFLEXIVE, to egress traffic, the internal address is the original
+	// source address before NAT is done; to ingress traffic, the internal address is the translated destination address
+	// after NAT is done.
+	// * MATCH_EXTERNAL_ADDRESS indicates the firewall will be applied to external address of a NAT rule. For SNAT, the
+	// external address is the translated source address after NAT is done. For DNAT, the external address is the original
+	// destination address before NAT is done. For REFLEXIVE, to egress traffic, the external address is the translated
+	// internal address after NAT is done; to ingress traffic, the external address is the original destination address
+	// before NAT is done.
+	// * BYPASS firewall stage will be skipped.
+	FirewallMatch string `json:"firewallMatch,omitempty"`
+	// Priority helps to select rule with highest priority if an address has multiple NAT rules. A lower value means a
+	// higher precedence for this rule. Maximum value 2147481599
+	Priority *int `json:"priority,omitempty"`
+
+	// Version of NAT rule. Must not be set when creating.
+	Version *struct {
+		// Version is incremented after each update
+		Version *int `json:"version,omitempty"`
+	} `json:"version,omitempty"`
+}
+
+// NsxtIpSecVpnTunnel defines the IPsec VPN Tunnel configuration
+// Some of the fields like AuthenticationMode and ConnectorInitiationMode are meant for future, because they have only
+// one default value at the moment.
+type NsxtIpSecVpnTunnel struct {
+	// ID unique for IPsec VPN tunnel. On updates, the ID is required for the tunnel, while for create a new ID will be
+	// generated.
+	ID string `json:"id,omitempty"`
+	// Name for the IPsec VPN Tunnel
+	Name string `json:"name"`
+	// Description for the IPsec VPN Tunnel
+	Description string `json:"description,omitempty"`
+	// Enabled describes whether the IPsec VPN Tunnel is enabled or not. The default is true.
+	Enabled bool `json:"enabled"`
+	// LocalEndpoint which corresponds to the Edge Gateway the IPsec VPN Tunnel is being configured on. Local Endpoint
+	// requires an IP. That IP must be sub-allocated to the edge gateway
+	LocalEndpoint NsxtIpSecVpnTunnelLocalEndpoint `json:"localEndpoint"`
+	// RemoteEndpoint corresponds to the device on the remote site terminating the VPN tunnel
+	RemoteEndpoint NsxtIpSecVpnTunnelRemoteEndpoint `json:"remoteEndpoint"`
+	// PreSharedKey is key used for authentication. It must be the same on the other end of IPsec VPN Tunnel
+	PreSharedKey string `json:"preSharedKey"`
+	// SecurityType is the security type used for the IPsec VPN Tunnel. If nothing is specified, this will be set to
+	// DEFAULT in which the default settings in NSX will be used. For custom settings, one should use the
+	// NsxtIpSecVpnTunnelSecurityProfile and UpdateTunnelConnectionProperties(), GetTunnelConnectionProperties() endpoint to
+	// specify custom settings. The security type will then appropriately reflect itself as CUSTOM.
+	// To revert back to system default, this field must be set to "DEFAULT"
+	SecurityType string `json:"securityType,omitempty"`
+	// Logging sets whether logging for the tunnel is enabled or not. The default is false.
+	Logging bool `json:"logging"`
+
+	// AuthenticationMode is authentication mode this IPsec tunnel will use to authenticate with the peer endpoint. The
+	// default is a pre-shared key (PSK).
+	// * PSK - A known key is shared between each site before the tunnel is established.
+	// * CERTIFICATE - Incoming connections are required to present an identifying digital certificate, which VCD verifies
+	// has been signed by a trusted certificate authority.
+	//
+	// Note. Up to version 10.3 VCD only supports PSK
+	AuthenticationMode string `json:"authenticationMode,omitempty"`
+
+	// ConnectorInitiationMode is the mode used by the local endpoint to establish an IKE Connection with the remote site.
+	// The default is INITIATOR.
+	// Possible values are: INITIATOR , RESPOND_ONLY , ON_DEMAND
+	//
+	// Note. Up to version 10.3 VCD only supports INITIATOR
+	ConnectorInitiationMode string `json:"connectorInitiationMode,omitempty"`
+
+	// Version of IPsec VPN Tunnel configuration. Must not be set when creating, but required for updates
+	Version *struct {
+		// Version is incremented after each update
+		Version *int `json:"version,omitempty"`
+	} `json:"version,omitempty"`
+}
+
+// NsxtIpSecVpnTunnelLocalEndpoint which corresponds to the Edge Gateway the IPsec VPN Tunnel is being configured on.
+// Local Endpoint requires an IP. That IP must be sub-allocated to the edge gateway
+type NsxtIpSecVpnTunnelLocalEndpoint struct {
+	// LocalId is the optional local identifier for the endpoint. It is usually the same as LocalAddress
+	LocalId string `json:"localId,omitempty"`
+	// LocalAddress is the IPv4 Address for the endpoint. This has to be a sub-allocated IP on the Edge Gateway. This is
+	// required
+	LocalAddress string `json:"localAddress"`
+	// LocalNetworks is the list of local networks. These must be specified in normal Network CIDR format. At least one is
+	// required
+	LocalNetworks []string `json:"localNetworks,omitempty"`
+}
+
+// NsxtIpSecVpnTunnelRemoteEndpoint corresponds to the device on the remote site terminating the VPN tunnel
+type NsxtIpSecVpnTunnelRemoteEndpoint struct {
+	// RemoteId is needed to uniquely identify the peer site. If this tunnel is using PSK authentication,
+	// the Remote ID is the public IP Address of the remote device terminating the VPN Tunnel. When NAT is configured on
+	// the Remote ID, enter the private IP Address of the Remote Site. If the remote ID is not set, VCD will set the
+	// remote ID to the remote address.
+	RemoteId string `json:"remoteId,omitempty"`
+	// RemoteAddress is IPv4 Address of the remote endpoint on the remote site. This is the Public IPv4 Address of the
+	// remote device terminating the IPsec VPN Tunnel connection. This is required
+	RemoteAddress string `json:"remoteAddress"`
+	// RemoteNetworks is the list of remote networks. These must be specified in normal Network CIDR format.
+	// Specifying no value is interpreted as 0.0.0.0/0
+	RemoteNetworks []string `json:"remoteNetworks,omitempty"`
+}
+
+// NsxtIpSecVpnTunnelStatus helps to read IPsec VPN Tunnel Status
+type NsxtIpSecVpnTunnelStatus struct {
+	// TunnelStatus gives the overall IPsec VPN Tunnel Status. If IKE is properly set and the tunnel is up, the tunnel
+	// status will be UP
+	TunnelStatus string `json:"tunnelStatus"`
+	IkeStatus    struct {
+		// IkeServiceStatus status for the actual IKE Session for the given tunnel.
+		IkeServiceStatus string `json:"ikeServiceStatus"`
+		// FailReason contains more details of failure if the IKE service is not UP
+		FailReason string `json:"failReason"`
+	} `json:"ikeStatus"`
+}
+
+// NsxtIpSecVpnTunnelSecurityProfile specifies the given security profile/connection properties of a given IP Sec VPN
+// Tunnel, such as Dead Probe Interval and IKE settings. If a security type is set to 'CUSTOM', then ike, tunnel, and/or
+// dpd configurations can be specified. Otherwise, those fields are read only and are set to the values based on the
+// specific security type.
+type NsxtIpSecVpnTunnelSecurityProfile struct {
+	// SecurityType is the security type used for the IPSec Tunnel. If nothing is specified, this will be set to DEFAULT
+	// in which the default settings in NSX will be used. If CUSTOM is specified, then IKE, Tunnel, and DPD
+	// configurations can be set.
+	// To "RESET" configuration to DEFAULT, the NsxtIpSecVpnTunnel.SecurityType field should be changed instead of this
+	SecurityType string `json:"securityType,omitempty"`
+	// IkeConfiguration is the IKE Configuration to be used for the tunnel. If nothing is explicitly set, the system
+	// defaults will be used.
+	IkeConfiguration NsxtIpSecVpnTunnelProfileIkeConfiguration `json:"ikeConfiguration,omitempty"`
+	// TunnelConfiguration contains parameters such as encryption algorithm to be used. If nothing is explicitly set,
+	// the system defaults will be used.
+	TunnelConfiguration NsxtIpSecVpnTunnelProfileTunnelConfiguration `json:"tunnelConfiguration,omitempty"`
+	// DpdConfiguration contains Dead Peer Detection configuration. If nothing is explicitly set, the system defaults
+	// will be used.
+	DpdConfiguration NsxtIpSecVpnTunnelProfileDpdConfiguration `json:"dpdConfiguration,omitempty"`
+}
+
+// NsxtIpSecVpnTunnelProfileIkeConfiguration is the Internet Key Exchange (IKE) profiles provide information about the
+// algorithms that are used to authenticate, encrypt, and establish a shared secret between network sites when you
+// establish an IKE tunnel.
+//
+// Note. While quite a few fields accepts a []string it actually supports single values only.
+type NsxtIpSecVpnTunnelProfileIkeConfiguration struct {
+	// IkeVersion IKE Protocol Version to use.
+	// The default is IKE_V2.
+	//
+	// Possible values are: IKE_V1 , IKE_V2 , IKE_FLEX
+	IkeVersion string `json:"ikeVersion"`
+	// EncryptionAlgorithms contains list of Encryption algorithms for IKE. This is used during IKE negotiation.
+	// Default is AES_128.
+	//
+	// Possible values are: AES_128 , AES_256 , AES_GCM_128 , AES_GCM_192 , AES_GCM_256
+	EncryptionAlgorithms []string `json:"encryptionAlgorithms"`
+	// DigestAlgorithms contains list of Digest algorithms - secure hashing algorithms to use during the IKE negotiation.
+	//
+	// Default is SHA2_256.
+	//
+	// Possible values are: SHA1 , SHA2_256 , SHA2_384 , SHA2_512
+	DigestAlgorithms []string `json:"digestAlgorithms"`
+	// DhGroups contains list of Diffie-Hellman groups to be used if Perfect Forward Secrecy is enabled. These are
+	// cryptography schemes that allows the peer site and the edge gateway to establish a shared secret over an insecure
+	// communications channel
+	//
+	// Default is GROUP14.
+	//
+	// Possible values are: GROUP2, GROUP5, GROUP14, GROUP15, GROUP16, GROUP19, GROUP20, GROUP21
+	DhGroups []string `json:"dhGroups"`
+	// SaLifeTime is the Security Association life time in seconds. It is number of seconds before the IPsec tunnel needs
+	// to reestablish
+	//
+	// Default is 86400 seconds (1 day).
+	SaLifeTime *int `json:"saLifeTime"`
+}
+
+// NsxtIpSecVpnTunnelProfileTunnelConfiguration adjusts IPsec VPN Tunnel settings
+//
+// Note. While quite a few fields accepts a []string it actually supports single values only.
+type NsxtIpSecVpnTunnelProfileTunnelConfiguration struct {
+	// PerfectForwardSecrecyEnabled enabled or disabled. PFS (Perfect Forward Secrecy) ensures the same key will not be
+	// generated and used again, and because of this, the VPN peers negotiate a new Diffie-Hellman key exchange. This
+	// would ensure if a hacker\criminal was to compromise the private key, they would only be able to access data in
+	// transit protected by that key. Any future data will not be compromised, as future data would not be associated
+	// with that compromised key. Both sides of the VPN must be able to support PFS in order for PFS to work.
+	//
+	// The default value is true.
+	PerfectForwardSecrecyEnabled bool `json:"perfectForwardSecrecyEnabled"`
+	// DfPolicy Policy for handling defragmentation bit. The default is COPY.
+	//
+	// Possible values are: COPY, CLEAR
+	// * COPY Copies the defragmentation bit from the inner IP packet to the outer packet.
+	// * CLEAR Ignores the defragmentation bit present in the inner packet.
+	DfPolicy string `json:"dfPolicy"`
+
+	// EncryptionAlgorithms contains list of Encryption algorithms to use in IPSec tunnel establishment.
+	// Default is AES_GCM_128.
+	// * NO_ENCRYPTION_AUTH_AES_GMAC_XX (XX is 128, 192, 256) enables authentication on input data without encryption.
+	// If one of these options is used, digest algorithm should be empty.
+	//
+	// Possible values are: AES_128, AES_256, AES_GCM_128, AES_GCM_192, AES_GCM_256, NO_ENCRYPTION_AUTH_AES_GMAC_128,
+	// NO_ENCRYPTION_AUTH_AES_GMAC_192, NO_ENCRYPTION_AUTH_AES_GMAC_256, NO_ENCRYPTION
+	EncryptionAlgorithms []string `json:"encryptionAlgorithms"`
+
+	// DigestAlgorithms contains list of Digest algorithms to be used for message digest. The default digest algorithm is
+	// implicitly covered by default encryption algorithm AES_GCM_128.
+	//
+	// Possible values are: SHA1 , SHA2_256 , SHA2_384 , SHA2_512
+	// Note. Only one value can be set inside the slice
+	DigestAlgorithms []string `json:"digestAlgorithms"`
+
+	// DhGroups contains list of Diffie-Hellman groups to be used is PFS is enabled. Default is GROUP14.
+	//
+	// Possible values are: GROUP2, GROUP5, GROUP14, GROUP15, GROUP16, GROUP19, GROUP20, GROUP21
+	// Note. Only one value can be set inside the slice
+	DhGroups []string `json:"dhGroups"`
+
+	// SaLifeTime is the Security Association life time in seconds.
+	//
+	// Default is 3600 seconds.
+	SaLifeTime *int `json:"saLifeTime"`
+}
+
+// NsxtIpSecVpnTunnelProfileDpdConfiguration specifies the Dead Peer Detection Profile. This configurations determines
+// the number of seconds to wait in time between probes to detect if an IPSec peer is alive or not. The default value
+// for the DPD probe interval is 60 seconds.
+type NsxtIpSecVpnTunnelProfileDpdConfiguration struct {
+	// ProbeInternal is value of the probe interval in seconds. This defines a periodic interval for DPD probes. The
+	// minimum is 3 seconds and the maximum is 60 seconds.
+	ProbeInterval int `json:"probeInterval"`
+}
+
+// NsxtAlbController helps to integrate VMware Cloud Director with NSX-T Advanced Load Balancer deployment.
+// Controller instances are registered with VMware Cloud Director instance. Controller instances serve as a central
+// control plane for the load-balancing services provided by NSX-T Advanced Load Balancer.
+// To configure an NSX-T ALB one needs to supply AVI Controller endpoint, credentials and license to be used.
+type NsxtAlbController struct {
+	// ID holds URN for load balancer controller (e.g. urn:vcloud:loadBalancerController:aa23ef66-ba32-48b2-892f-7acdffe4587e)
+	ID string `json:"id,omitempty"`
+	// Name as shown in VCD
+	Name string `json:"name"`
+	// Description as shown in VCD
+	Description string `json:"description,omitempty"`
+	// Url of ALB controller
+	Url string `json:"url"`
+	// Username of user
+	Username string `json:"username"`
+	// Password (will not be returned on read)
+	Password string `json:"password,omitempty"`
+	// LicenseType By enabling this feature, the provider acknowledges that they have independently licensed the
+	// enterprise version of the NSX AVI LB.
+	// Possible options: 'BASIC', 'ENTERPRISE'
+	LicenseType string `json:"licenseType,omitempty"`
+	// Version of ALB (e.g. 20.1.3). Read-only
+	Version string `json:"version,omitempty"`
+}
+
+// NsxtAlbImportableCloud allows user to list importable NSX-T ALB Clouds. Each importable cloud can only be imported
+// once. It has a flag AlreadyImported which hints if it is already consumed or not.
+type NsxtAlbImportableCloud struct {
+	// ID (e.g. 'cloud-43726181-f73e-41f2-bf1d-8a9609502586')
+	ID string `json:"id"`
+
+	DisplayName string `json:"displayName"`
+	// AlreadyImported shows if this ALB Cloud is already imported
+	AlreadyImported bool `json:"alreadyImported"`
+
+	// NetworkPoolRef contains a reference to NSX-T network pool
+	NetworkPoolRef OpenApiReference `json:"networkPoolRef"`
+
+	// TransportZoneName contains transport zone name
+	TransportZoneName string `json:"transportZoneName"`
+}
+
+// NsxtAlbCloud helps to use the virtual infrastructure provided by NSX Advanced Load Balancer, register NSX-T Cloud
+// instances with VMware Cloud Director by consuming NsxtAlbImportableCloud.
+type NsxtAlbCloud struct {
+	// ID (e.g. 'urn:vcloud:loadBalancerCloud:947ea2ba-e448-4249-91f7-1432b3d2fcbf')
+	ID     string `json:"id,omitempty"`
+	Status string `json:"status,omitempty"`
+	// Name of NSX-T ALB Cloud
+	Name string `json:"name"`
+	// Description of NSX-T ALB Cloud
+	Description string `json:"description,omitempty"`
+	// LoadBalancerCloudBacking uniquely identifies a Load Balancer Cloud configured within a Load Balancer Controller. At
+	// the present, VCD only supports NSX-T Clouds configured within an NSX-ALB Controller deployment.
+	LoadBalancerCloudBacking NsxtAlbCloudBacking `json:"loadBalancerCloudBacking"`
+	// NetworkPoolRef for the Network Pool associated with this Cloud
+	NetworkPoolRef *OpenApiReference `json:"networkPoolRef"`
+	// HealthStatus contains status of the Load Balancer Cloud. Possible values are:
+	// UP - The cloud is healthy and ready to enable Load Balancer for an Edge Gateway.
+	// DOWN - The cloud is in a failure state. Enabling Load balancer on an Edge Gateway may not be possible.
+	// RUNNING - The cloud is currently processing. An example is if it's enabling a Load Balancer for an Edge Gateway.
+	// UNAVAILABLE - The cloud is unavailable.
+	// UNKNOWN - The cloud state is unknown.
+	HealthStatus string `json:"healthStatus,omitempty"`
+	// DetailedHealthMessage contains detailed message on the health of the Cloud.
+	DetailedHealthMessage string `json:"detailedHealthMessage,omitempty"`
+}
+
+// NsxtAlbCloudBacking is embedded into NsxtAlbCloud
+type NsxtAlbCloudBacking struct {
+	// BackingId is the ID of NsxtAlbImportableCloud
+	BackingId string `json:"backingId"`
+	// BackingType contains type of ALB (The only supported now is 'NSXALB_NSXT')
+	BackingType string `json:"backingType,omitempty"`
+	// LoadBalancerControllerRef contains reference to NSX-T ALB Controller
+	LoadBalancerControllerRef OpenApiReference `json:"loadBalancerControllerRef"`
+}
+
+// NsxtAlbServiceEngineGroup provides virtual service management capabilities for tenants. This entity can be created
+// by referencing a backing importable service engine group - NsxtAlbImportableServiceEngineGroups.
+//
+// A service engine group is an isolation domain that also defines shared service engine properties, such as size,
+// network access, and failover. Resources in a service engine group can be used for different virtual services,
+// depending on your tenant needs. These resources cannot be shared between different service engine groups.
+type NsxtAlbServiceEngineGroup struct {
+	// ID of the Service Engine Group
+	ID string `json:"id,omitempty"`
+	// Name of the Service Engine Group
+	Name string `json:"name"`
+	// Description of the Service Engine Group
+	Description string `json:"description"`
+	// ServiceEngineGroupBacking holds backing details that uniquely identifies a Load Balancer Service Engine Group
+	// configured within a load balancer cloud.
+	ServiceEngineGroupBacking ServiceEngineGroupBacking `json:"serviceEngineGroupBacking"`
+	// HaMode defines High Availability Mode for Service Engine Group
+	// * ELASTIC_N_PLUS_M_BUFFER - Service Engines will scale out to N active nodes with M nodes as buffer.
+	// * ELASTIC_ACTIVE_ACTIVE - Active-Active with scale out.
+	// * LEGACY_ACTIVE_STANDBY - Traditional single Active-Standby configuration
+	HaMode string `json:"haMode,omitempty"`
+	// ReservationType can be `DEDICATED` or `SHARED`
+	// * DEDICATED - Dedicated to a single Edge Gateway and can only be assigned to a single Edge Gateway
+	// * SHARED - Shared between multiple Edge Gateways. Can be assigned to multiple Edge Gateways
+	ReservationType string `json:"reservationType"`
+	// MaxVirtualServices holds  maximum number of virtual services supported on the Load Balancer Service Engine Group
+	MaxVirtualServices *int `json:"maxVirtualServices,omitempty"`
+	// NumDeployedVirtualServices shows number of virtual services currently deployed on the Load Balancer Service Engine
+	// Group
+	NumDeployedVirtualServices *int `json:"numDeployedVirtualServices,omitempty"`
+	// ReservedVirtualServices holds number of virtual services already reserved on the Load Balancer Service Engine Group.
+	// This value is the sum of the guaranteed virtual services given to Edge Gateways assigned to the Load Balancer
+	// Service Engine Group.
+	ReservedVirtualServices *int `json:"reservedVirtualServices,omitempty"`
+	// OverAllocated indicates whether the maximum number of virtual services supported on the Load Balancer Service
+	// Engine Group has been surpassed by the current number of reserved virtual services.
+	OverAllocated *bool `json:"overAllocated,omitempty"`
+}
+
+type ServiceEngineGroupBacking struct {
+	BackingId            string            `json:"backingId"`
+	BackingType          string            `json:"backingType,omitempty"`
+	LoadBalancerCloudRef *OpenApiReference `json:"loadBalancerCloudRef"`
+}
+
+// NsxtAlbImportableServiceEngineGroups provides capability to list all Importable Service Engine Groups available in
+// ALB Controller so that they can be consumed by NsxtAlbServiceEngineGroup
+//
+// Note. The API does not return Importable Service Engine Group once it is consumed.
+type NsxtAlbImportableServiceEngineGroups struct {
+	// ID (e.g. 'serviceenginegroup-b633f16f-2733-4bf5-b552-3a6c4949caa4')
+	ID string `json:"id"`
+	// DisplayName is the name of
+	DisplayName string `json:"displayName"`
+	// HaMode (e.g. 'ELASTIC_N_PLUS_M_BUFFER')
+	HaMode string `json:"haMode"`
+}
+
+// NsxtAlbConfig describes Load Balancer Service configuration on an NSX-T Edge Gateway
+type NsxtAlbConfig struct {
+	// Enabled is a mandatory flag indicating whether Load Balancer Service is enabled or not
+	Enabled bool `json:"enabled"`
+	// LicenseType of the backing Load Balancer Cloud.
+	// * BASIC - Basic edition of the NSX Advanced Load Balancer.
+	// * ENTERPRISE - Full featured edition of the NSX Advanced Load Balancer.
+	LicenseType string `json:"licenseType,omitempty"`
+	// LoadBalancerCloudRef
+	LoadBalancerCloudRef *OpenApiReference `json:"loadBalancerCloudRef,omitempty"`
+
+	// ServiceNetworkDefinition in Gateway CIDR format which will be used by Load Balancer service. All the load balancer
+	// service engines associated with the Service Engine Group will be attached to this network. The subnet prefix length
+	// must be 25. If nothing is set, the default is 192.168.255.1/25. Default CIDR can be configured. This field cannot
+	// be updated.
+	ServiceNetworkDefinition string `json:"serviceNetworkDefinition,omitempty"`
+}
+
+// NsxtAlbServiceEngineGroupAssignment configures Service Engine Group assignments to Edge Gateway. The only mandatory
+// fields are `GatewayRef` and `ServiceEngineGroupRef`. `MinVirtualServices` and `MaxVirtualServices` are only available
+// for SHARED Service Engine Groups.
+type NsxtAlbServiceEngineGroupAssignment struct {
+	ID string `json:"id,omitempty"`
+	// GatewayRef contains reference to Edge Gateway
+	GatewayRef *OpenApiReference `json:"gatewayRef"`
+	// ServiceEngineGroupRef contains a reference to Service Engine Group
+	ServiceEngineGroupRef *OpenApiReference `json:"serviceEngineGroupRef"`
+	// GatewayOrgRef optional Org reference for gateway
+	GatewayOrgRef *OpenApiReference `json:"gatewayOrgRef,omitempty"`
+	// GatewayOwnerRef can be a VDC or VDC group
+	GatewayOwnerRef    *OpenApiReference `json:"gatewayOwnerRef,omitempty"`
+	MaxVirtualServices *int              `json:"maxVirtualServices,omitempty"`
+	MinVirtualServices *int              `json:"minVirtualServices,omitempty"`
+	// NumDeployedVirtualServices is a read only value
+	NumDeployedVirtualServices int `json:"numDeployedVirtualServices,omitempty"`
+}
+
+// NsxtAlbPool defines configuration of a single NSX-T ALB Pool. Pools maintain the list of servers assigned to them and
+// perform health monitoring, load balancing, persistence. A pool may only be used or referenced by only one virtual
+// service at a time.
+type NsxtAlbPool struct {
+	ID string `json:"id,omitempty"`
+	// Name is mandatory
+	Name string `json:"name"`
+	// Description is optional
+	Description string `json:"description,omitempty"`
+
+	// GatewayRef is mandatory and associates NSX-T Edge Gateway with this Load Balancer Pool.
+	GatewayRef OpenApiReference `json:"gatewayRef"`
+
+	// Enabled defines if the Pool is enabled
+	Enabled *bool `json:"enabled,omitempty"`
+
+	// Algorithm for choosing a member within the pools list of available members for each new connection.
+	// Default value is LEAST_CONNECTIONS
+	// Supported algorithms are:
+	// * LEAST_CONNECTIONS
+	// * ROUND_ROBIN
+	// * CONSISTENT_HASH (uses Source IP Address hash)
+	// * FASTEST_RESPONSE
+	// * LEAST_LOAD
+	// * FEWEST_SERVERS
+	// * RANDOM
+	// * FEWEST_TASKS
+	// * CORE_AFFINITY
+	Algorithm string `json:"algorithm,omitempty"`
+
+	// DefaultPort defines destination server port used by the traffic sent to the member.
+	DefaultPort *int `json:"defaultPort,omitempty"`
+
+	// GracefulTimeoutPeriod sets maximum time (in minutes) to gracefully disable a member. Virtual service waits for the
+	// specified time before terminating the existing connections to the pool members that are disabled.
+	//
+	// Special values: 0 represents Immediate, -1 represents Infinite.
+	GracefulTimeoutPeriod *int `json:"gracefulTimeoutPeriod,omitempty"`
+
+	// PassiveMonitoringEnabled sets if client traffic should be used to check if pool member is up or down.
+	PassiveMonitoringEnabled *bool `json:"passiveMonitoringEnabled,omitempty"`
+
+	// HealthMonitors check member servers health. It can be monitored by using one or more health monitors. Active
+	// monitors generate synthetic traffic and mark a server up or down based on the response.
+	HealthMonitors []NsxtAlbPoolHealthMonitor `json:"healthMonitors,omitempty"`
+
+	// Members field defines list of destination servers which are used by the Load Balancer Pool to direct load balanced
+	// traffic.
+	Members []NsxtAlbPoolMember `json:"members,omitempty"`
+
+	// CaCertificateRefs point to root certificates to use when validating certificates presented by the pool members.
+	CaCertificateRefs []OpenApiReference `json:"caCertificateRefs,omitempty"`
+
+	// CommonNameCheckEnabled specifies whether to check the common name of the certificate presented by the pool member.
+	// This cannot be enabled if no caCertificateRefs are specified.
+	CommonNameCheckEnabled *bool `json:"commonNameCheckEnabled,omitempty"`
+
+	// DomainNames holds a list of domain names which will be used to verify the common names or subject alternative
+	// names presented by the pool member certificates. It is performed only when common name check
+	// (CommonNameCheckEnabled) is enabled. If common name check is enabled, but domain names are not specified then the
+	// incoming host header will be used to check the certificate.
+	DomainNames []string `json:"domainNames,omitempty"`
+
+	// PersistenceProfile of a Load Balancer Pool. Persistence profile will ensure that the same user sticks to the same
+	// server for a desired duration of time. If the persistence profile is unmanaged by Cloud Director, updates that
+	// leave the values unchanged will continue to use the same unmanaged profile. Any changes made to the persistence
+	// profile will cause Cloud Director to switch the pool to a profile managed by Cloud Director.
+	PersistenceProfile *NsxtAlbPoolPersistenceProfile `json:"persistenceProfile,omitempty"`
+
+	// MemberCount is a read only value that reports number of members added
+	MemberCount int `json:"memberCount,omitempty"`
+
+	// EnabledMemberCount is a read only value that reports number of enabled members
+	EnabledMemberCount int `json:"enabledMemberCount,omitempty"`
+
+	// UpMemberCount is a read only value that reports number of members that are serving traffic
+	UpMemberCount int `json:"upMemberCount,omitempty"`
+
+	// HealthMessage shows a pool health status (e.g. "The pool is unassigned.")
+	HealthMessage string `json:"healthMessage,omitempty"`
+
+	// VirtualServiceRefs holds list of Load Balancer Virtual Services associated with this Load balancer Pool.
+	VirtualServiceRefs []OpenApiReference `json:"virtualServiceRefs,omitempty"`
+}
+
+// NsxtAlbPoolHealthMonitor checks member servers health. Active monitor generates synthetic traffic and mark a server
+// up or down based on the response.
+type NsxtAlbPoolHealthMonitor struct {
+	Name string `json:"name,omitempty"`
+	// SystemDefined is a boolean value
+	SystemDefined bool `json:"systemDefined,omitempty"`
+	// Type
+	// * HTTP - HTTP request/response is used to validate health.
+	// * HTTPS - Used against HTTPS encrypted web servers to validate health.
+	// * TCP - TCP connection is used to validate health.
+	// * UDP - A UDP datagram is used to validate health.
+	// * PING - An ICMP ping is used to validate health.
+	Type string `json:"type"`
+}
+
+// NsxtAlbPoolMember defines a single destination server which is used by the Load Balancer Pool to direct load balanced
+// traffic.
+type NsxtAlbPoolMember struct {
+	// Enabled defines if member is enabled (will receive incoming requests) or not
+	Enabled bool `json:"enabled"`
+	// IpAddress of the Load Balancer Pool member.
+	IpAddress string `json:"ipAddress"`
+
+	// Port number of the Load Balancer Pool member. If unset, the port that the client used to connect will be used.
+	Port int `json:"port,omitempty"`
+
+	// Ratio of selecting eligible servers in the pool.
+	Ratio *int `json:"ratio,omitempty"`
+
+	// MarkedDownBy gives the names of the health monitors that marked the member as down when it is DOWN. If a monitor
+	// cannot be determined, the value will be UNKNOWN.
+	MarkedDownBy []string `json:"markedDownBy,omitempty"`
+
+	// HealthStatus of the pool member. Possible values are:
+	// * UP - The member is operational
+	// * DOWN - The member is down
+	// * DISABLED - The member is disabled
+	// * UNKNOWN - The state is unknown
+	HealthStatus string `json:"healthStatus,omitempty"`
+
+	// DetailedHealthMessage contains non-localized detailed message on the health of the pool member.
+	DetailedHealthMessage string `json:"detailedHealthMessage,omitempty"`
+}
+
+// NsxtAlbPoolPersistenceProfile holds Persistence Profile of a Load Balancer Pool. Persistence profile will ensure that
+// the same user sticks to the same server for a desired duration of time. If the persistence profile is unmanaged by
+// Cloud Director, updates that leave the values unchanged will continue to use the same unmanaged profile. Any changes
+// made to the persistence profile will cause Cloud Director to switch the pool to a profile managed by Cloud Director.
+type NsxtAlbPoolPersistenceProfile struct {
+	// Name field is tricky. It remains empty in some case, but if it is sent it can become computed.
+	// (e.g. setting 'CUSTOM_HTTP_HEADER' results in value being
+	// 'VCD-LoadBalancer-3510eae9-53bb-49f1-b7aa-7aedf5ce3a77-CUSTOM_HTTP_HEADER')
+	Name string `json:"name,omitempty"`
+
+	// Type of persistence strategy to use. Supported values are:
+	//  * CLIENT_IP - The clients IP is used as the identifier and mapped to the server
+	//  * HTTP_COOKIE - Load Balancer inserts a cookie into HTTP responses. Cookie name must be provided as value
+	//  * CUSTOM_HTTP_HEADER - Custom, static mappings of header values to specific servers are used. Header name must be
+	// provided as value
+	//  * APP_COOKIE - Load Balancer reads existing server cookies or URI embedded data such as JSessionID. Cookie name
+	// must be provided as value
+	//  * TLS - Information is embedded in the client's SSL/TLS ticket ID. This will use default system profile
+	// System-Persistence-TLS
+	Type string `json:"type,omitempty"`
+
+	// Value of attribute based on selected persistence type.
+	// This is required for HTTP_COOKIE, CUSTOM_HTTP_HEADER and APP_COOKIE persistence types.
+	//
+	// HTTP_COOKIE, APP_COOKIE must have cookie name set as the value and CUSTOM_HTTP_HEADER must have header name set as
+	// the value.
+	Value string `json:"value,omitempty"`
+}
+
+// NsxtAlbVirtualService combines Load Balancer Pools with Service Engine Groups and exposes a virtual service on
+// defined VIP (virtual IP address) while optionally allowing to use encrypted traffic
+type NsxtAlbVirtualService struct {
+	ID string `json:"id,omitempty"`
+
+	// Name contains meaningful name
+	Name string `json:"name,omitempty"`
+
+	// Description is optional
+	Description string `json:"description,omitempty"`
+
+	// Enabled defines if the virtual service is enabled to accept traffic
+	Enabled *bool `json:"enabled"`
+
+	// ApplicationProfile sets protocol for load balancing by using NsxtAlbVirtualServiceApplicationProfile
+	ApplicationProfile NsxtAlbVirtualServiceApplicationProfile `json:"applicationProfile"`
+
+	// GatewayRef contains NSX-T Edge Gateway reference
+	GatewayRef OpenApiReference `json:"gatewayRef"`
+	//LoadBalancerPoolRef contains Pool reference
+	LoadBalancerPoolRef OpenApiReference `json:"loadBalancerPoolRef"`
+	// ServiceEngineGroupRef points to service engine group (which must be assigned to NSX-T Edge Gateway)
+	ServiceEngineGroupRef OpenApiReference `json:"serviceEngineGroupRef"`
+
+	// CertificateRef contains certificate reference if serving encrypted traffic
+	CertificateRef *OpenApiReference `json:"certificateRef,omitempty"`
+
+	// ServicePorts define one or more ports (or port ranges) of the virtual service
+	ServicePorts []NsxtAlbVirtualServicePort `json:"servicePorts"`
+
+	// VirtualIpAddress to be used for exposing this virtual service
+	VirtualIpAddress string `json:"virtualIpAddress"`
+
+	// HealthStatus contains status of the Load Balancer Cloud. Possible values are:
+	// UP - The cloud is healthy and ready to enable Load Balancer for an Edge Gateway.
+	// DOWN - The cloud is in a failure state. Enabling Load balancer on an Edge Gateway may not be possible.
+	// RUNNING - The cloud is currently processing. An example is if it's enabling a Load Balancer for an Edge Gateway.
+	// UNAVAILABLE - The cloud is unavailable.
+	// UNKNOWN - The cloud state is unknown.
+	HealthStatus string `json:"healthStatus,omitempty"`
+
+	// HealthMessage shows a pool health status (e.g. "The pool is unassigned.")
+	HealthMessage string `json:"healthMessage,omitempty"`
+
+	// DetailedHealthMessage containes a more in depth health message
+	DetailedHealthMessage string `json:"detailedHealthMessage,omitempty"`
+}
+
+// NsxtAlbVirtualServicePort port (or port ranges) of the virtual service
+type NsxtAlbVirtualServicePort struct {
+	// PortStart is always required
+	PortStart *int `json:"portStart"`
+	// PortEnd is only required if a port range is specified. For single port cases PortStart is sufficient
+	PortEnd *int `json:"portEnd,omitempty"`
+	// SslEnabled defines if traffic is served as secure. CertificateRef must be specified in NsxtAlbVirtualService when
+	// true
+	SslEnabled *bool `json:"sslEnabled,omitempty"`
+	// TcpUdpProfile defines
+	TcpUdpProfile *NsxtAlbVirtualServicePortTcpUdpProfile `json:"tcpUdpProfile,omitempty"`
+}
+
+// NsxtAlbVirtualServicePortTcpUdpProfile profile determines the type and settings of the network protocol that a
+// subscribing virtual service will use. It sets a number of parameters, such as whether the virtual service is a TCP
+// proxy versus a pass-through via fast path. A virtual service can have both TCP and UDP enabled, which is useful for
+// protocols such as DNS or syslog.
+type NsxtAlbVirtualServicePortTcpUdpProfile struct {
+	SystemDefined bool `json:"systemDefined"`
+	// Type defines L4 or L4_TLS profiles:
+	// * TCP_PROXY (the only possible type when L4_TLS is used). Enabling TCP Proxy causes ALB to terminate an inbound
+	// connection from a client. Any application data from the client that is destined for a server is forwarded to that
+	// server over a new TCP connection. Separating (or proxying) the client-to-server connections enables ALB to provide
+	// enhanced security, such as TCP protocol sanitization or DoS mitigation. It also provides better client and server
+	// performance, such as maximizing client and server TCP MSS or window sizes independently and buffering server
+	// responses. One must use a TCP/UDP profile with the type set to Proxy for application profiles such as HTTP.
+	//
+	// * TCP_FAST_PATH profile does not proxy TCP connections - rather, it directly connects clients to the
+	// destination server and translates the client's destination virtual service address with the chosen destination
+	// server's IP address. The client's source IP address is still translated to the Service Engine address to ensure
+	// that server response traffic returns symmetrically.
+	//
+	// * UDP_FAST_PATH profile enables a virtual service to support UDP. Avi Vantage translates the client's destination
+	// virtual service address to the destination server and rewrites the client's source IP address to the Service
+	// Engine's address when forwarding the packet to the server. This ensures that server response traffic traverses
+	// symmetrically through the original SE.
+	Type string `json:"type"`
+}
+
+// NsxtAlbVirtualServiceApplicationProfile sets protocol for load balancing. Type field defines possible options.
+type NsxtAlbVirtualServiceApplicationProfile struct {
+	SystemDefined bool `json:"systemDefined,omitempty"`
+	// Type defines Traffic
+	// * HTTP
+	// * HTTPS (certificate reference is mandatory)
+	// * L4
+	// * L4 TLS (certificate reference is mandatory)
+	Type string `json:"type"`
 }

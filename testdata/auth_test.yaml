@@ -1,0 +1,7 @@
+username: "tenant-user-name"
+password: "tenant-password"
+userOrg: "tenant-org"
+refreshToken: "tenant-user-refresh-token"
+systemUser: "administrator"
+systemUserPassword: "system-administrator-password"
+systemUserRefreshToken: "system-administrator-refresh-token"
