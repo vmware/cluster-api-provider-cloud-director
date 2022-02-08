@@ -1,3 +1,11 @@
+# This file needs to be copied to ~/cluster-api/ for clusterctl init and generate commands to work.
+# Replace the providers.url to your local repo
+#
+# Below are the sample commands
+# clusterctl init --infrastructure vcd
+# clusterctl generate cluster demo -i vcd:v0.5.1
+# clusterctl generate cluster demo -i vcd:v0.5.1 -f v1.20.8
+
 LatestRelease:
   URL: https://github.com/kubernetes-sigs/cluster-api/releases/tag/v1.0.2
   Version: v1.0.2
@@ -8,6 +16,7 @@ providers:
     url: "~/go/cluster-api-provider-cloud-director/infrastructure-vcd/v0.5.1/infrastructure-components.yaml"
     type: "InfrastructureProvider"
 
+# VCD specific variables
 CLUSTER_NAME: "myCluster"
 VCD_SITE: "https://bos1-vcloud-static-171-140.eng.vmware.com"
 VCD_ORGANIZATION: "tenant1"
@@ -18,12 +27,13 @@ VCD_CONTROL_PLANE_SIZING_POLICY: "2core4gb"
 VCD_WORKER_SIZING_POLICY: "2core2gb"
 VCD_VIP_CIDR: 10.150.191.253/19
 
-
+# VCD credentials
 VCD_USERNAME: "clusteradminuser"
 VCD_PASSWORD: "ca$hc0w"
 VCD_REFRESH_TOKEN: ""
 
-
+# Kubernetes specific properties
+TARGET_NAMESPACE: default
 CONTROL_PLANE_MACHINE_COUNT: 1
 WORKER_MACHINE_COUNT: 1
 KUBERNETES_VERSION: v1.20.8+vmware.1
