@@ -116,7 +116,7 @@ write_files:
           wget https://github.com/mikefarah/yq/releases/download/v4.2.0/yq_linux_amd64 -O $yq_path
           chmod +x $yq_path
           antrea_version=$($yq_path e ".components.antrea[0].version" $components_path | sed 's/+.*//')
-          if [[ ! -z "$antrea_version" ]]; then
+          if [[ -z "$antrea_version" ]] || [[ "$antrea_version" = "null" ]] || [[ "$antrea_version" = "false" ]]; then
             antrea_version=$default_antrea_version
           else
             antrea_version=$(echo ${antrea_version} | sed "s/v//") # remove leading `v`, which will be added later
