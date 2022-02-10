@@ -16,20 +16,24 @@ providers:
     url: "~/go/cluster-api-provider-cloud-director/infrastructure-vcd/v0.5.1/infrastructure-components.yaml"
     type: "InfrastructureProvider"
 
+# clusterctl init specific variables.
+VCD_PASSWORD_B64: ""
+VCD_USERNAME_B64: ""
+
 # VCD specific variables
 CLUSTER_NAME: "myCluster"
-VCD_SITE: "https://bos1-vcloud-static-171-140.eng.vmware.com"
-VCD_ORGANIZATION: "tenant1"
-VCD_ORGANIZATION_VDC: "tenant1_ovdc"
-VCD_ORGANIZATION_VDC_NETWORK: "tenant1_ovdc_nw"
-VCD_CATALOG: "cse"
-VCD_CONTROL_PLANE_SIZING_POLICY: "2core4gb"
-VCD_WORKER_SIZING_POLICY: "2core2gb"
+VCD_SITE: "https://VCD_FQDN"
+VCD_ORGANIZATION: "test_org"
+VCD_ORGANIZATION_VDC: "test_ovdc"
+VCD_ORGANIZATION_VDC_NETWORK: "test_ovdc_nw"
+VCD_CATALOG: "test_catalog"
+VCD_CONTROL_PLANE_SIZING_POLICY: "large_4core16gb"
+VCD_WORKER_SIZING_POLICY: "medium_2core8gb"
 VCD_VIP_CIDR: 10.150.191.253/19
 
 # VCD credentials
-VCD_USERNAME: "clusteradminuser"
-VCD_PASSWORD: "ca$hc0w"
+VCD_USERNAME: "vcduser"
+VCD_PASSWORD: "password"
 VCD_REFRESH_TOKEN: ""
 
 # Kubernetes specific properties

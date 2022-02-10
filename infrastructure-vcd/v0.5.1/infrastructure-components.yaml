@@ -679,8 +679,9 @@ metadata:
 ---
 apiVersion: v1
 data:
-  password: ${VCD_PASSWORD}
-  username: ${VCD_USERNAME}
+  password: ${VCD_PASSWORD_B64}
+  username: ${VCD_USERNAME_B64}
+  refreshToken: ${VCD_REFRESH_TOKEN_B64}
 kind: Secret
 metadata:
   labels:
