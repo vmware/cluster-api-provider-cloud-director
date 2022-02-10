@@ -76,10 +76,13 @@ write_files:
     antrea_version=%s
     vmtoolsd --cmd "info-set guestinfo.postcustomization.tkr.get_versions.status in_progress"
       if [[ -z "$antrea_version" ]]; then
-        bom_path=/tmp/bom
+        tkr_bom_dir=/tmp/tkr_bom
+        mkdir $tkr_bom_dir
+        bom_path=$tkr_bom_dir/bom
+        mkdir $bom_path
         components_path=$bom_path/components.yaml
-        imgpkg_path=/tmp/imgpkg
-        yq_path=/tmp/yq
+        imgpkg_path=$tkr_bom_dir/imgpkg
+        yq_path=$tkr_bom_dir/yq
         default_antrea_version="0.11.3"
 
         xml_version_property=$(vmtoolsd --cmd "info-get guestinfo.ovfenv" | grep "oe:key=\"VERSION\"")
@@ -87,7 +90,7 @@ write_files:
         k8s_version=$(echo ${init_k8s_version} | tr -s "+" "_")
 
         # install imgpkg, which is needed for getting the components yaml file
-        wget -nv -O- github.com/vmware-tanzu/carvel-imgpkg/releases/download/v0.24.0/imgpkg-linux-amd64 > $imgpkg_path
+        wget -nv github.com/vmware-tanzu/carvel-imgpkg/releases/download/v0.24.0/imgpkg-linux-amd64 > $imgpkg_path
         chmod +x $imgpkg_path
 
         # We need to loop through the `X` value in `tkg.X` because of some TKR unexpected design.
@@ -105,7 +108,7 @@ write_files:
         done
 
         if [[ "$no_tkr_found" = true ]] ; then
-          echo "no tkr bom found, will use default component versions"  > /var/log/capvcd/customization/status.log
+          echo "no tkr bom found, will use default component versions"  &>> /var/log/capvcd/customization/status.log
           antrea_version=$default_antrea_version
         fi
 
@@ -118,17 +121,15 @@ write_files:
           antrea_version=$($yq_path e ".components.antrea[0].version" $components_path | sed 's/+.*//')
           if [[ -z "$antrea_version" ]] || [[ "$antrea_version" = "null" ]] || [[ "$antrea_version" = "false" ]]; then
             antrea_version=$default_antrea_version
+            echo "no antrea version found in tkr bom, will use default antrea version: ${default_antrea_version}" &>> /var/log/capvcd/customization/status.log
           else
             antrea_version=$(echo ${antrea_version} | sed "s/v//") # remove leading `v`, which will be added later
           fi
-
-          rm $yq_path
         fi
 
         # cleanup components downloads
-        rm -rf $bom_path $imgpkg_path
+        rm -rf $tkr_bom_dir
       fi
-      echo "antrea_version: ${antrea_version}"  > /var/log/capvcd/customization/status.log
     vmtoolsd --cmd "info-set guestinfo.postcustomization.tkr.get_versions.status successful"
 
     vmtoolsd --cmd "info-set guestinfo.postcustomization.kubectl.cni.install.status in_progress"
