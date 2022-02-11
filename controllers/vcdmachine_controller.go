@@ -39,6 +39,13 @@ import (
 	"time"
 )
 
+const (
+	DEFAULT_STORAGE_CLASS_NAME  = "cloud-director-default"
+	DEFAULT_VCD_STORAGE_PROFILE = "*"
+	DEFAULT_FILESYSTEM          = "ext4"
+	DEFAULT_RECLAIM_POLICY      = "Delete"
+)
+
 // The following `embed` directives read the file in the mentioned path and copy the content into the declared variable.
 // These variables need to be global within the package.
 //go:embed cluster_scripts/cloud_init_control_plane.yaml
@@ -183,6 +190,7 @@ const (
 	KubectlApplyCpi                        = "guestinfo.postcustomization.kubectl.cpi.install.status"
 	KubectlApplyCsi                        = "guestinfo.postcustomization.kubectl.csi.install.status"
 	KubeadmTokenGenerate                   = "guestinfo.postcustomization.kubeadm.token.generate.status"
+	KubectlApplyStorageClass               = "guestinfo.postcustomization.kubectl.default_storage_class.install.status"
 	KubeadmNodeJoin                        = "guestinfo.postcustomization.kubeadm.node.join.status"
 	PostCustomizationScriptExecutionStatus = "guestinfo.post_customization_script_execution_status"
 	PostCustomizationScriptFailureReason   = "guestinfo.post_customization_script_execution_failure_reason"
@@ -196,6 +204,7 @@ var controlPlanePostCustPhases = []string{
 	KubectlApplyCpi,
 	KubectlApplyCsi,
 	KubeadmTokenGenerate,
+	KubectlApplyStorageClass,
 }
 
 var joinPostCustPhases = []string{
@@ -232,6 +241,13 @@ func redactCloudInit(cloudInitYaml string, path []string) (string, error) {
 	}
 	return string(gotBytes), nil
 
+}
+
+func getOrDefault(val string, defaultVal string) string {
+	if val != "" {
+		return val
+	}
+	return defaultVal
 }
 
 func (r *VCDMachineReconciler) waitForPostCustomizationPhase(ctx context.Context, workloadVCDClient *vcdclient.Client, vm *govcd.VM, phase string) error {
@@ -457,6 +473,10 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 			b64RefreshToken := b64.StdEncoding.EncodeToString([]byte(
 				vcdCluster.Spec.UserCredentialsContext.RefreshToken))
 			vcdHostFormatted := strings.Replace(vcdCluster.Spec.Site, "/", "\\/", -1)
+			k8sStorageClassName := getOrDefault(vcdCluster.Spec.DefaultStorageClassOptions.StorageClassName, DEFAULT_STORAGE_CLASS_NAME)
+			vcdStorageProfileName := getOrDefault(vcdCluster.Spec.DefaultStorageClassOptions.VCDStorageProfile, DEFAULT_VCD_STORAGE_PROFILE)
+			reclaimPolicy := getOrDefault(vcdCluster.Spec.DefaultStorageClassOptions.StorageClassName, DEFAULT_RECLAIM_POLICY)
+			fileSystemFormat := getOrDefault(vcdCluster.Spec.DefaultStorageClassOptions.FileSystemFormat, DEFAULT_FILESYSTEM)
 			guestCloudInit = fmt.Sprintf(
 				guestCloudInitTemplate,            // template script
 				b64OrgUser,                        // base 64 org/username
@@ -477,7 +497,12 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 				workloadVCDClient.ClusterOVDCName, // ovdc
 				vAppName,                          // vApp
 				workloadVCDClient.ClusterID,       // cluster id
-				machine.Name,                      // vm host name
+				strconv.FormatBool(vcdCluster.Spec.DefaultStorageClassOptions.EnableDefaultStorageClass), // storage_class_enabled
+				k8sStorageClassName,   // storage_class_name
+				vcdStorageProfileName, // vcd_storage_profile_name
+				reclaimPolicy,         // reclaim_policy
+				fileSystemFormat,      // filesystem
+				machine.Name,          // vm host name
 			)
 
 		default:
