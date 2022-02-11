@@ -34,7 +34,7 @@ spec:
   ovdc: test_orgvdc # VCD virtual datacenter name where the cluster should be deployed
   ovdcNetwork: test_orgvdc_net # VCD virtual datacenter network to be used by the cluster
   userContext:
-    username: username # username of the VCD persona creating the cluster
+    username: username # username of the VCD persona creating the cluster. If system administrator is the user, please use 'system/administrator' as the username.
     password: vmware # password associated with the user creating the cluster
     refreshToken: "" # refresh token of the client registered with VCD for creating clusters. username and password can be left blank if refresh token is provided
 ---
