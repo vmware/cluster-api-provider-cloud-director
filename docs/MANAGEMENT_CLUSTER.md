@@ -25,7 +25,7 @@ infrastructure provider specific Cluster API (in this case, CAPVCD). CAPVCD, as 
 `clusterctl init`. Therefore, a separate set of commands are provided below for the installation purposes.
 
 1. Install cluster-api core provider, kubeadm bootstrap and kubeadm control-plane providers
-    1. `clusterctl init --core cluster-api:v0.4.2 -b kubeadm:v0.4.2 -c kubeadm:v0.4.2`
+    1. `clusterctl init --core cluster-api:v0.4.7 -b kubeadm:v0.4.7 -c kubeadm:v0.4.7`
 2. Install Infrastructure provider - CAPVCD
     1. Download CAPVCD repo - `git clone --branch 0.5.0 https://github.com/vmware/cluster-api-provider-cloud-director.git`
     2. Fill in the VCD details in `cluster-api-provider-cloud-director/config/manager/controller_manager_config.yaml`
@@ -40,13 +40,6 @@ infrastructure provider specific Cluster API (in this case, CAPVCD). CAPVCD, as 
        capi-system                         capi-controller-manager-7594c7bc57-smjtg                        1/1     Running
        capvcd-system                       capvcd-controller-manager-769d64d4bf-54bf4                      1/1     Running
        ```  
-
-**NOTE**: `clusterctl init` command is being affected by an open bug where cert-manager is moved to a new org in github. The workaround for this issue is to pass the cert-manager new org using the [clusterctl config](https://cluster-api.sigs.k8s.io/clusterctl/configuration.html#cert-manager-configuration) file. Please create `clusterctl.yaml` file in `$HOME/.cluster-api` directory with the following content (or) if the file is already present, please add the following content -
-```
-cert-manager:
-url: "https://github.com/cert-manager/cert-manager/releases/latest/cert-manager.yaml"
-```
-
 
 ### Create a multi-controlplane management cluster
 1. Now that bootstrap cluster is ready, you can use Cluster API to create multi control-plane workload cluster

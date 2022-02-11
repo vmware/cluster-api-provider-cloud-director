@@ -11,7 +11,7 @@ The version of Cluster API Provider Cloud Director and Installation that are com
 
 | CAPVCD Version | VMware Cloud Director API | VMware Cloud Director Installation | clusterctl CLI version | Kubernetes Versions |
 | :---------: | :-----------------------: | :--------------------------------: | :---: | :------------------ |
-| [0.5.0](https://github.com/vmware/cluster-api-provider-cloud-director/tree/0.5.0) | 36.0+ | 10.3.1+ <br/>(10.3.1 needs hot-patch to prevent VCD cell crashes in multi-cell environments) | 0.4.2 |<ul><li>1.21</li><li>1.20</li></ul>|
+| [0.5.0](https://github.com/vmware/cluster-api-provider-cloud-director/tree/0.5.0) | 36.0+ | 10.3.1+ <br/>(10.3.1 needs hot-patch to prevent VCD cell crashes in multi-cell environments) | 0.4.7 |<ul><li>1.21</li><li>1.20</li></ul>|
 
 Cluster API versions:
 
