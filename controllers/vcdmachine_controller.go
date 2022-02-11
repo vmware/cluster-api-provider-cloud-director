@@ -178,6 +178,7 @@ func patchVCDMachine(ctx context.Context, patchHelper *patch.Helper, vcdMachine 
 const (
 	NetworkConfiguration                   = "guestinfo.postcustomization.networkconfiguration.status"
 	KubeadmInit                            = "guestinfo.postcustomization.kubeinit.status"
+	TkrGetVersions                         = "guestinfo.postcustomization.tkr.get_versions.status"
 	KubectlApplyCni                        = "guestinfo.postcustomization.kubectl.cni.install.status"
 	KubectlApplyCpi                        = "guestinfo.postcustomization.kubectl.cpi.install.status"
 	KubectlApplyCsi                        = "guestinfo.postcustomization.kubectl.csi.install.status"
@@ -190,6 +191,7 @@ const (
 var controlPlanePostCustPhases = []string{
 	NetworkConfiguration,
 	KubeadmInit,
+	TkrGetVersions,
 	KubectlApplyCni,
 	KubectlApplyCpi,
 	KubectlApplyCsi,

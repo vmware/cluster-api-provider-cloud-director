@@ -110,7 +110,7 @@ func ParseCloudConfig(configReader io.Reader) (*CloudConfig, error) {
 		ClusterResources: ClusterResourcesConfig{
 			CsiVersion: "1.1.0",
 			CpiVersion: "1.1.0",
-			CniVersion: "0.11.3",
+			CniVersion: "", // no default for antrea
 		},
 	}
 
