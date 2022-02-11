@@ -11,7 +11,7 @@ management cluster on the Cloud Director (infrastructure provider).
 
 Choose one of the options below to set up a management cluster on VMware Cloud Director:
 
-1. [CSE](https://github.com/vmware/container-service-extension) provisioned TKG cluster as a bootstrap cluster to 
+1. [CSE](https://github.com/vmware/container-service-extension) provisioned TKG cluster as a bootstrap cluster to
    further create a Management cluster in VCD tenant organization.
 2. [Kind as a bootstrap cluster](https://cluster-api.sigs.k8s.io/user/quick-start.html#install-andor-configure-a-kubernetes-cluster)
    to create Management cluster in VCD tenant organization
@@ -20,8 +20,8 @@ We recommend CSE provisioned TKG cluster as bootstrap cluster.
 
 <a name="management_cluster_init"></a>
 ### Initialize the cluster with Cluster API
-Typically, command `clusterctl init` enables the initialization of the core Cluster API and allows the installation of 
-infrastructure provider specific Cluster API (in this case, CAPVCD). CAPVCD, as of now, is not yet available via 
+Typically, command `clusterctl init` enables the initialization of the core Cluster API and allows the installation of
+infrastructure provider specific Cluster API (in this case, CAPVCD). CAPVCD, as of now, is not yet available via
 `clusterctl init`. Therefore, a separate set of commands are provided below for the installation purposes.
 
 1. Install cluster-api core provider, kubeadm bootstrap and kubeadm control-plane providers
@@ -29,7 +29,7 @@ infrastructure provider specific Cluster API (in this case, CAPVCD). CAPVCD, as 
 2. Install Infrastructure provider - CAPVCD
     1. Download CAPVCD repo - `git clone --branch 0.5.0 https://github.com/vmware/cluster-api-provider-cloud-director.git`
     2. Fill in the VCD details in `cluster-api-provider-cloud-director/config/manager/controller_manager_config.yaml`
-    3. Input username and password in `config/manager/kustomization.yaml`. Refer to the rights required for the role [here](VCD_SETUP.md)
+    3. Input username and password in `config/manager/kustomization.yaml`. Refer to the rights required for the role [here](VCD_SETUP.md). If system administrator is the user, please use 'system/administrator' as the username.
     4. Run the command `kubectl apply -k config/default`
 3. Wait until `kubectl get pods -A` shows below pods in Running state
     1. ```
@@ -41,35 +41,42 @@ infrastructure provider specific Cluster API (in this case, CAPVCD). CAPVCD, as 
        capvcd-system                       capvcd-controller-manager-769d64d4bf-54bf4                      1/1     Running
        ```  
 
+**NOTE**: `clusterctl init` command is being affected by an open bug where cert-manager is moved to a new org in github. The workaround for this issue is to pass the cert-manager new org using the [clusterctl config](https://cluster-api.sigs.k8s.io/clusterctl/configuration.html#cert-manager-configuration) file. Please create `clusterctl.yaml` file in `$HOME/.cluster-api` directory with the following content (or) if the file is already present, please add the following content -
+```
+cert-manager:
+url: "https://github.com/cert-manager/cert-manager/releases/latest/cert-manager.yaml"
+```
+
+
 ### Create a multi-controlplane management cluster
-1. Now that bootstrap cluster is ready, you can use Cluster API to create multi control-plane workload cluster 
+1. Now that bootstrap cluster is ready, you can use Cluster API to create multi control-plane workload cluster
    fronted by load balancer. Run the below command
     * `kubectl --kubeconfig=bootstrap_cluster.conf apply -f capi.yaml`. To configure the CAPI yaml, refer to [CAPI Yaml configuration](WORKLOAD_CLUSTER.md#capi_yaml).
-2. Retrieve the cluster Kubeconfig 
+2. Retrieve the cluster Kubeconfig
     * `clusterctl get kubeconfig {cluster-name} > capi.kubeconfig`
 3. Transform this cluster into management cluster by [initializing it with CAPVCD](#management_cluster_init).
-4. This cluster is now a fully functional multi-control plane management cluster. The next section walks you through 
+4. This cluster is now a fully functional multi-control plane management cluster. The next section walks you through
    the steps to make management cluster ready for individual tenant users use
 
 
 <a name="tenant_user_management"></a>
 ## Prepare the Management cluster to enable VCD tenant users' access
-Below steps enable tenant users to deploy the workload clusters in their own private namespaces of a given management 
+Below steps enable tenant users to deploy the workload clusters in their own private namespaces of a given management
 cluster, while adhering to their own user quota in VCD.
 
-The organization administrator creates a new and unique Kubernetes namespace for 
+The organization administrator creates a new and unique Kubernetes namespace for
 each tenant user and creates a respective Kubernetes configuration with access to only the
 required CRDs. This is a one-time operation per VCD tenant user.
 
-Run below commands for each tenant user. The USERNAME and KUBE_APISERVER_ADDRESS parameter should be 
+Run below commands for each tenant user. The USERNAME and KUBE_APISERVER_ADDRESS parameter should be
 changed as per your requirements.
 
 ```sh
 USERNAME="user1"
- 
+
 NAMESPACE=${USERNAME}-ns
 kubectl create ns ${NAMESPACE}
- 
+
 cat > user-rbac.yaml << END
 ---
 apiVersion: v1
@@ -108,14 +115,14 @@ roleRef:
   name: ${USERNAME}-full-access
 ---
 END
- 
+
 kubectl create -f user-rbac.yaml
- 
+
 SECRETNAME=$(kubectl -n ${NAMESPACE} describe sa ${USERNAME} | grep "Tokens" | cut -f2 -d: | tr -d " ")
 USERTOKEN=$(kubectl -n ${NAMESPACE} get secret ${SECRETNAME} -o "jsonpath={.data.token}" | base64 -d)
 CERT=$(kubectl -n ${NAMESPACE} get secret ${SECRETNAME} -o "jsonpath={.data['ca\.crt']}")
 KUBE_APISERVER_ADDRESS=https://127.0.0.1:64265
- 
+
 cat > user1-management-kubeconfig.conf <<END
 apiVersion: v1
 kind: Config
@@ -153,4 +160,3 @@ and `kubeconfig` to the value of bootstrap cluster's admin Kubeconfig
 * [Resize workflow](WORKLOAD_CLUSTER.md#resize_workload_cluster)
 * [Upgrade workflow](WORKLOAD_CLUSTER.md#upgrade_workload_cluster)
 * [Delete workflow](WORKLOAD_CLUSTER.md#delete_workload_cluster)
-
