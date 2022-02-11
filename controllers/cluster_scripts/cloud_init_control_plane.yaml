@@ -90,7 +90,7 @@ write_files:
         k8s_version=$(echo ${init_k8s_version} | tr -s "+" "_")
 
         # install imgpkg, which is needed for getting the components yaml file
-        wget -nv github.com/vmware-tanzu/carvel-imgpkg/releases/download/v0.24.0/imgpkg-linux-amd64 > $imgpkg_path
+        wget -nv github.com/vmware-tanzu/carvel-imgpkg/releases/download/v0.24.0/imgpkg-linux-amd64 -O $imgpkg_path
         chmod +x $imgpkg_path
 
         # We need to loop through the `X` value in `tkg.X` because of some TKR unexpected design.
