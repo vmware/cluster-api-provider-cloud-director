@@ -4,8 +4,7 @@
 The Cluster API brings declarative, Kubernetes-style APIs to cluster creation, configuration and management. Cluster API Provider for Cloud Director is a concrete implementation of Cluster API for VMware Cloud Director.
 
 ## Quick start
-Check out our [Cluster API quick start guide](docs/QUICKSTART.md) to create a Kubernetes cluster on VMware Cloud Director
-using Cluster API.
+Check out our [Cluster API quick start guide](docs/QUICKSTART.md) to create a Kubernetes cluster on VMware Cloud Director using Cluster API.
 
 ## Support Policy
 The version of Cluster API Provider Cloud Director and Installation that are compatible for a given CAPVCD container image are described in the following compatibility matrix:
@@ -16,7 +15,7 @@ The version of Cluster API Provider Cloud Director and Installation that are com
 
 Cluster API versions:
 
-|                        | v1beta1 (v1.0) |
+|                        | v1alpha4 (v1.0) |
 | -----------------------| -------------- |
 | CAPVCD v1alpha4 (v0.5) |     ✓          |
 
