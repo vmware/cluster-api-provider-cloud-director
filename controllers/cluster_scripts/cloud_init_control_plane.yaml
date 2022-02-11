@@ -120,6 +120,29 @@ write_files:
       vmtoolsd --cmd "info-set guestinfo.postcustomization.kubeadm.token.info $kubeadm_join_info"
     vmtoolsd --cmd "info-set guestinfo.postcustomization.kubeadm.token.generate.status successful"
 
+    vmtoolsd --cmd "info-set guestinfo.postcustomization.kubectl.default_storage_class.install.status in_progress"
+    storage_class_enabled=%s
+    if [[ "$storage_class_enabled" == "true" ]]; then
+        storage_class_name=%s
+        vcd_storage_profile_name=%s
+        reclaim_policy=%s
+        filesystem=%s
+        cat << EOF | kubectl apply -f -
+    kind: StorageClass
+    apiVersion: storage.k8s.io/v1
+    metadata:
+      annotations:
+        storageclass.kubernetes.io/is-default-class: "false"
+      name: ${storage_class_name}
+    provisioner: named-disk.csi.cloud-director.vmware.com
+    reclaimPolicy: ${reclaim_policy}
+    parameters:
+      storageProfile: "${vcd_storage_profile_name}"
+      filesystem: ${filesystem}
+    EOF
+    fi
+    vmtoolsd --cmd "info-set guestinfo.postcustomization.kubectl.default_storage_class.install.status successful"
+
     echo "$(date) post customization script execution completed" &>> /var/log/capvcd/customization/status.log
     exit 0
 runcmd:

@@ -52,6 +52,21 @@ spec:
                 type: object
               defaultComputePolicy:
                 type: string
+              defaultStorageClassOptions:
+                properties:
+                  VCDStorageProfile:
+                    type: string
+                  enableDefaultStorageClass:
+                    type: boolean
+                  fileSystemFormat:
+                    type: string
+                  reclaimPolicy:
+                    type: string
+                  storageClassName:
+                    type: string
+                required:
+                - enableDefaultStorageClass
+                type: object
               org:
                 type: string
               ovdc:
