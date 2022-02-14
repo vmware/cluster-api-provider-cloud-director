@@ -83,12 +83,6 @@ spec:
           cloud-provider: external
           eviction-hard: nodefs.available<0%,nodefs.inodesFree<0%,imagefs.available<0%
     joinConfiguration:
-      discovery:
-        bootstrapToken:
-          apiServerEndpoint: 10.150.166.101:6443
-          token: 5zwuwr.i2qx6bxid1biox39
-          caCertHashes: 
-          - sha256:6add650c421c42cfe3e3f7996ab84c93f9968383d3531befb376e47e3deec761
       nodeRegistration:
         criSocket: unix:///run/containerd/containerd.sock
         kubeletExtraArgs:
