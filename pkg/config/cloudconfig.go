@@ -146,6 +146,9 @@ func SetAuthorization(config *CloudConfig) error {
 			config.VCD.UserOrg = strings.TrimSuffix(config.VCD.Org, "\n")
 		}
 	}
+	if config.VCD.UserOrg == "" {
+		config.VCD.UserOrg = strings.TrimSuffix(config.VCD.Org, "\n")
+	}
 
 	secret, err := ioutil.ReadFile("/etc/kubernetes/vcloud/basic-auth/password")
 	if err != nil {
