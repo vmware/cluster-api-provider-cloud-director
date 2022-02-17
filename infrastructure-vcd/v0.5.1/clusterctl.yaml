@@ -16,27 +16,25 @@ providers:
     url: "~/go/cluster-api-provider-cloud-director/infrastructure-vcd/v0.5.1/infrastructure-components.yaml"
     type: "InfrastructureProvider"
 
-# clusterctl init specific variables.
+# Variables specific to "clusterctl init"
 VCD_PASSWORD_B64: ""
 VCD_USERNAME_B64: ""
 
-# VCD specific variables
-CLUSTER_NAME: "myCluster"
+# Variables specific to both "cluster init" and "clusterctl generate"
 VCD_SITE: "https://VCD_FQDN"
 VCD_ORGANIZATION: "test_org"
 VCD_ORGANIZATION_VDC: "test_ovdc"
 VCD_ORGANIZATION_VDC_NETWORK: "test_ovdc_nw"
-VCD_CATALOG: "test_catalog"
-VCD_CONTROL_PLANE_SIZING_POLICY: "large_4core16gb"
-VCD_WORKER_SIZING_POLICY: "medium_2core8gb"
 VCD_VIP_CIDR: 10.X.X.X/19
 
-# VCD credentials
+# Variables specific to "clusterctl generate" only
 VCD_USERNAME: "vcduser"
 VCD_PASSWORD: "password"
 VCD_REFRESH_TOKEN: ""
-
-# Kubernetes specific properties
+VCD_CATALOG: "test_catalog"
+VCD_CONTROL_PLANE_SIZING_POLICY: "large_4core16gb"
+VCD_WORKER_SIZING_POLICY: "medium_2core8gb"
+CLUSTER_NAME: "myCluster"
 TARGET_NAMESPACE: default
 CONTROL_PLANE_MACHINE_COUNT: 1
 WORKER_MACHINE_COUNT: 1
