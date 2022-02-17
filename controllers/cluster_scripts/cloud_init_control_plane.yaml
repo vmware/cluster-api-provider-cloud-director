@@ -136,7 +136,7 @@ write_files:
       antrea_path=/root/antrea-v$antrea_version.yaml
       wget -O $antrea_path https://github.com/vmware-tanzu/antrea/releases/download/v$antrea_version/antrea.yml
       # This does not need to be done from v0.12.0 onwards inclusive
-      sed -i 's/antrea\/antrea-ubuntu:v$antrea_version/projects.registry.vmware.com\/antrea\/antrea-ubuntu:v$antrea_version/g' $antrea_path
+      sed -i 's/image: antrea\/antrea-ubuntu:v$antrea_version/image: projects.registry.vmware.com\/antrea\/antrea-ubuntu:v$antrea_version/g' $antrea_path
       kubectl apply -f $antrea_path
     vmtoolsd --cmd "info-set guestinfo.postcustomization.kubectl.cni.install.status successful"
 
