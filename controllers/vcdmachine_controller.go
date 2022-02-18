@@ -188,7 +188,7 @@ const (
 	KubectlApplyCpi                        = "guestinfo.postcustomization.kubectl.cpi.install.status"
 	KubectlApplyCsi                        = "guestinfo.postcustomization.kubectl.csi.install.status"
 	KubeadmTokenGenerate                   = "guestinfo.postcustomization.kubeadm.token.generate.status"
-	KubectlApplyStorageClass               = "guestinfo.postcustomization.kubectl.default_storage_class.install.status"
+	KubectlApplyDefaultStorageClass        = "guestinfo.postcustomization.kubectl.default_storage_class.install.status"
 	KubeadmNodeJoin                        = "guestinfo.postcustomization.kubeadm.node.join.status"
 	PostCustomizationScriptExecutionStatus = "guestinfo.post_customization_script_execution_status"
 	PostCustomizationScriptFailureReason   = "guestinfo.post_customization_script_execution_failure_reason"
@@ -202,7 +202,7 @@ var controlPlanePostCustPhases = []string{
 	KubectlApplyCpi,
 	KubectlApplyCsi,
 	KubeadmTokenGenerate,
-	KubectlApplyStorageClass,
+	KubectlApplyDefaultStorageClass,
 }
 
 var joinPostCustPhases = []string{
@@ -482,6 +482,10 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 				b64OrgUser,                        // base 64 org/username
 				b64Password,                       // base64 password
 				b64RefreshToken,                   // refresh token
+				k8sStorageClassName,               // default storage class name
+				reclaimPolicy,                     // reclaim policy
+				vcdStorageProfileName,             // vcd storage profile
+				fileSystemFormat,                  // filesystem
 				workloadVCDClient.CniVersion,      // cni version
 				workloadVCDClient.CpiVersion,      // cpi version
 				vcdHostFormatted,                  // vcd host
@@ -498,11 +502,7 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 				vAppName,                          // vApp
 				workloadVCDClient.ClusterID,       // cluster id
 				strconv.FormatBool(enableDefaultStorageClass), // storage_class_enabled
-				k8sStorageClassName,                           // storage_class_name
-				vcdStorageProfileName,                         // vcd_storage_profile_name
-				reclaimPolicy,                                 // reclaim_policy
-				fileSystemFormat,                              // filesystem
-				machine.Name,                                  // vm host name
+				machine.Name, // vm host name
 			)
 
 		default:
