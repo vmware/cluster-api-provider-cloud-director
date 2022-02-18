@@ -35,10 +35,13 @@ type UserCredentialsContext struct {
 }
 
 type DefaultStorageClassOptions struct {
-	VCDStorageProfileName  string `json:"vcdStorageProfileName"`
-	K8sStorageClassName    string `json:"k8sStorageClassName"`
-	UseDeleteReclaimPolicy bool   `json:"useDeleteReclaimPolicy"`
-	FileSystemFormat       string `json:"fileSystemFormat"`
+	VCDStorageProfileName string `json:"vcdStorageProfileName"`
+	// +kubebuilder:default=cloud-director-default
+	K8sStorageClassName string `json:"k8sStorageClassName,omitempty"`
+	// +kubebuilder:default=false
+	UseDeleteReclaimPolicy bool `json:"useDeleteReclaimPolicy,omitempty"`
+	// +kubebuilder:default=ext4
+	FileSystemFormat string `json:"fileSystemFormat,omitempty"`
 }
 
 // VCDClusterSpec defines the desired state of VCDCluster
