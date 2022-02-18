@@ -40,10 +40,8 @@ import (
 )
 
 const (
-	DEFAULT_STORAGE_CLASS_NAME  = "cloud-director-default"
-	DEFAULT_VCD_STORAGE_PROFILE = "*"
-	DEFAULT_FILESYSTEM          = "ext4"
-	DEFAULT_RECLAIM_POLICY      = "Delete"
+	ReclaimPolicyDelete = "Delete"
+	ReclaimPolicyRetain = "Retain"
 )
 
 // The following `embed` directives read the file in the mentioned path and copy the content into the declared variable.
@@ -241,13 +239,6 @@ func redactCloudInit(cloudInitYaml string, path []string) (string, error) {
 	}
 	return string(gotBytes), nil
 
-}
-
-func getOrDefault(val string, defaultVal string) string {
-	if val != "" {
-		return val
-	}
-	return defaultVal
 }
 
 func (r *VCDMachineReconciler) waitForPostCustomizationPhase(ctx context.Context, workloadVCDClient *vcdclient.Client, vm *govcd.VM, phase string) error {
@@ -472,11 +463,20 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 			b64Password := b64.StdEncoding.EncodeToString([]byte(vcdCluster.Spec.UserCredentialsContext.Password))
 			b64RefreshToken := b64.StdEncoding.EncodeToString([]byte(
 				vcdCluster.Spec.UserCredentialsContext.RefreshToken))
+			enableDefaultStorageClass := vcdCluster.Spec.DefaultStorageClassOptions != nil
+			k8sStorageClassName := ""
+			fileSystemFormat := ""
+			vcdStorageProfileName := ""
+			reclaimPolicy := ReclaimPolicyRetain
+			if enableDefaultStorageClass {
+				k8sStorageClassName = vcdCluster.Spec.DefaultStorageClassOptions.K8sStorageClassName
+				if vcdCluster.Spec.DefaultStorageClassOptions.UseDeleteReclaimPolicy {
+					reclaimPolicy = ReclaimPolicyDelete
+				}
+				fileSystemFormat = vcdCluster.Spec.DefaultStorageClassOptions.FileSystemFormat
+				vcdStorageProfileName = vcdCluster.Spec.DefaultStorageClassOptions.VCDStorageProfileName
+			}
 			vcdHostFormatted := strings.Replace(vcdCluster.Spec.Site, "/", "\\/", -1)
-			k8sStorageClassName := getOrDefault(vcdCluster.Spec.DefaultStorageClassOptions.StorageClassName, DEFAULT_STORAGE_CLASS_NAME)
-			vcdStorageProfileName := getOrDefault(vcdCluster.Spec.DefaultStorageClassOptions.VCDStorageProfile, DEFAULT_VCD_STORAGE_PROFILE)
-			reclaimPolicy := getOrDefault(vcdCluster.Spec.DefaultStorageClassOptions.StorageClassName, DEFAULT_RECLAIM_POLICY)
-			fileSystemFormat := getOrDefault(vcdCluster.Spec.DefaultStorageClassOptions.FileSystemFormat, DEFAULT_FILESYSTEM)
 			guestCloudInit = fmt.Sprintf(
 				guestCloudInitTemplate,            // template script
 				b64OrgUser,                        // base 64 org/username
@@ -497,12 +497,12 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 				workloadVCDClient.ClusterOVDCName, // ovdc
 				vAppName,                          // vApp
 				workloadVCDClient.ClusterID,       // cluster id
-				strconv.FormatBool(vcdCluster.Spec.DefaultStorageClassOptions.EnableDefaultStorageClass), // storage_class_enabled
-				k8sStorageClassName,   // storage_class_name
-				vcdStorageProfileName, // vcd_storage_profile_name
-				reclaimPolicy,         // reclaim_policy
-				fileSystemFormat,      // filesystem
-				machine.Name,          // vm host name
+				enableDefaultStorageClass,         // storage_class_enabled
+				k8sStorageClassName,               // storage_class_name
+				vcdStorageProfileName,             // vcd_storage_profile_name
+				reclaimPolicy,                     // reclaim_policy
+				fileSystemFormat,                  // filesystem
+				machine.Name,                      // vm host name
 			)
 
 		default:

@@ -54,18 +54,19 @@ spec:
                 type: string
               defaultStorageClassOptions:
                 properties:
-                  VCDStorageProfile:
-                    type: string
-                  enableDefaultStorageClass:
-                    type: boolean
                   fileSystemFormat:
                     type: string
-                  reclaimPolicy:
+                  k8sStorageClassName:
                     type: string
-                  storageClassName:
+                  useDeleteReclaimPolicy:
+                    type: boolean
+                  vcdStorageProfileName:
                     type: string
                 required:
-                - enableDefaultStorageClass
+                - fileSystemFormat
+                - k8sStorageClassName
+                - useDeleteReclaimPolicy
+                - vcdStorageProfileName
                 type: object
               org:
                 type: string
