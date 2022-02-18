@@ -35,11 +35,10 @@ type UserCredentialsContext struct {
 }
 
 type DefaultStorageClassOptions struct {
-	VCDStorageProfile         string `json:"VCDStorageProfile,omitempty"`
-	StorageClassName          string `json:"storageClassName,omitempty"`
-	ReclaimPolicy             string `json:"reclaimPolicy,omitempty"`
-	FileSystemFormat          string `json:"fileSystemFormat,omitempty"`
-	EnableDefaultStorageClass bool   `json:"enableDefaultStorageClass"`
+	VCDStorageProfileName string `json:"vcdStorageProfileName"`
+	K8sStorageClassName    string `json:"k8sStorageClassName"`
+	UseDeleteReclaimPolicy bool `json:"useDeleteReclaimPolicy"`
+	FileSystemFormat       string `json:"fileSystemFormat"`
 }
 
 // VCDClusterSpec defines the desired state of VCDCluster
@@ -61,7 +60,7 @@ type VCDClusterSpec struct {
 	UserCredentialsContext UserCredentialsContext `json:"userContext"`
 
 	// +optional
-	DefaultStorageClassOptions DefaultStorageClassOptions `json:"defaultStorageClassOptions"`
+	DefaultStorageClassOptions *DefaultStorageClassOptions `json:"defaultStorageClassOptions"`
 	// +optional
 	DefaultComputePolicy string `json:"defaultComputePolicy,omitempty"`
 }
