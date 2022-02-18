@@ -35,9 +35,9 @@ type UserCredentialsContext struct {
 }
 
 type DefaultStorageClassOptions struct {
-	VCDStorageProfileName string `json:"vcdStorageProfileName"`
+	VCDStorageProfileName  string `json:"vcdStorageProfileName"`
 	K8sStorageClassName    string `json:"k8sStorageClassName"`
-	UseDeleteReclaimPolicy bool `json:"useDeleteReclaimPolicy"`
+	UseDeleteReclaimPolicy bool   `json:"useDeleteReclaimPolicy"`
 	FileSystemFormat       string `json:"fileSystemFormat"`
 }
 
