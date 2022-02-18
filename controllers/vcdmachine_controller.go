@@ -495,12 +495,12 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 				workloadVCDClient.ClusterOVDCName, // ovdc
 				vAppName,                          // vApp
 				workloadVCDClient.ClusterID,       // cluster id
-				enableDefaultStorageClass,         // storage_class_enabled
-				k8sStorageClassName,               // storage_class_name
-				vcdStorageProfileName,             // vcd_storage_profile_name
-				reclaimPolicy,                     // reclaim_policy
-				fileSystemFormat,                  // filesystem
-				machine.Name,                      // vm host name
+				strconv.FormatBool(enableDefaultStorageClass), // storage_class_enabled
+				k8sStorageClassName,                           // storage_class_name
+				vcdStorageProfileName,                         // vcd_storage_profile_name
+				reclaimPolicy,                                 // reclaim_policy
+				fileSystemFormat,                              // filesystem
+				machine.Name,                                  // vm host name
 			)
 
 		default:
