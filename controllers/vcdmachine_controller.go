@@ -39,6 +39,11 @@ import (
 	"time"
 )
 
+const (
+	ReclaimPolicyDelete = "Delete"
+	ReclaimPolicyRetain = "Retain"
+)
+
 // The following `embed` directives read the file in the mentioned path and copy the content into the declared variable.
 // These variables need to be global within the package.
 //go:embed cluster_scripts/cloud_init_control_plane.yaml
@@ -183,6 +188,7 @@ const (
 	KubectlApplyCpi                        = "guestinfo.postcustomization.kubectl.cpi.install.status"
 	KubectlApplyCsi                        = "guestinfo.postcustomization.kubectl.csi.install.status"
 	KubeadmTokenGenerate                   = "guestinfo.postcustomization.kubeadm.token.generate.status"
+	KubectlApplyDefaultStorageClass        = "guestinfo.postcustomization.kubectl.default_storage_class.install.status"
 	KubeadmNodeJoin                        = "guestinfo.postcustomization.kubeadm.node.join.status"
 	PostCustomizationScriptExecutionStatus = "guestinfo.post_customization_script_execution_status"
 	PostCustomizationScriptFailureReason   = "guestinfo.post_customization_script_execution_failure_reason"
@@ -196,6 +202,7 @@ var controlPlanePostCustPhases = []string{
 	KubectlApplyCpi,
 	KubectlApplyCsi,
 	KubeadmTokenGenerate,
+	KubectlApplyDefaultStorageClass,
 }
 
 var joinPostCustPhases = []string{
@@ -456,12 +463,29 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 			b64Password := b64.StdEncoding.EncodeToString([]byte(vcdCluster.Spec.UserCredentialsContext.Password))
 			b64RefreshToken := b64.StdEncoding.EncodeToString([]byte(
 				vcdCluster.Spec.UserCredentialsContext.RefreshToken))
+			enableDefaultStorageClass := vcdCluster.Spec.DefaultStorageClassOptions != nil
+			k8sStorageClassName := ""
+			fileSystemFormat := ""
+			vcdStorageProfileName := ""
+			reclaimPolicy := ReclaimPolicyRetain
+			if enableDefaultStorageClass {
+				k8sStorageClassName = vcdCluster.Spec.DefaultStorageClassOptions.K8sStorageClassName
+				if vcdCluster.Spec.DefaultStorageClassOptions.UseDeleteReclaimPolicy {
+					reclaimPolicy = ReclaimPolicyDelete
+				}
+				fileSystemFormat = vcdCluster.Spec.DefaultStorageClassOptions.FileSystemFormat
+				vcdStorageProfileName = vcdCluster.Spec.DefaultStorageClassOptions.VCDStorageProfileName
+			}
 			vcdHostFormatted := strings.Replace(vcdCluster.Spec.Site, "/", "\\/", -1)
 			guestCloudInit = fmt.Sprintf(
 				guestCloudInitTemplate,            // template script
 				b64OrgUser,                        // base 64 org/username
 				b64Password,                       // base64 password
 				b64RefreshToken,                   // refresh token
+				k8sStorageClassName,               // default storage class name
+				reclaimPolicy,                     // reclaim policy
+				vcdStorageProfileName,             // vcd storage profile
+				fileSystemFormat,                  // filesystem
 				workloadVCDClient.CniVersion,      // cni version
 				workloadVCDClient.CpiVersion,      // cpi version
 				vcdHostFormatted,                  // vcd host
@@ -477,7 +501,8 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 				workloadVCDClient.ClusterOVDCName, // ovdc
 				vAppName,                          // vApp
 				workloadVCDClient.ClusterID,       // cluster id
-				machine.Name,                      // vm host name
+				strconv.FormatBool(enableDefaultStorageClass), // storage_class_enabled
+				machine.Name, // vm host name
 			)
 
 		default:

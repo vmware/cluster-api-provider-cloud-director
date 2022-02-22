@@ -15,6 +15,22 @@ write_files:
       name: vcloud-basic-auth
       namespace: kube-system
     ---
+- path: /root/default-storage-class.yaml
+  owner: root
+  content: |
+    ---
+    kind: StorageClass
+    apiVersion: storage.k8s.io/v1
+    metadata:
+      annotations:
+        storageclass.kubernetes.io/is-default-class: "true"
+      name: "%s"
+    provisioner: named-disk.csi.cloud-director.vmware.com
+    reclaimPolicy: "%s"
+    parameters:
+      storageProfile: "%s"
+      filesystem: "%s"
+    ---
 - path: /root/control_plane.sh
   owner: root
   content: |
@@ -177,6 +193,13 @@ write_files:
       kubeadm_join_info=$(kubeadm token create --print-join-command 2> /dev/null)
       vmtoolsd --cmd "info-set guestinfo.postcustomization.kubeadm.token.info $kubeadm_join_info"
     vmtoolsd --cmd "info-set guestinfo.postcustomization.kubeadm.token.generate.status successful"
+
+    vmtoolsd --cmd "info-set guestinfo.postcustomization.kubectl.default_storage_class.install.status in_progress"
+    storage_class_enabled=%s
+    if [[ "$storage_class_enabled" == "true" ]]; then
+      kubectl apply -f /root/default-storage-class.yaml
+    fi
+    vmtoolsd --cmd "info-set guestinfo.postcustomization.kubectl.default_storage_class.install.status successful"
 
     echo "$(date) post customization script execution completed" &>> /var/log/capvcd/customization/status.log
     exit 0

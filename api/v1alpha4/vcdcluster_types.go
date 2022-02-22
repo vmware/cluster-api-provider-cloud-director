@@ -34,6 +34,16 @@ type UserCredentialsContext struct {
 	RefreshToken string `json:"refreshToken,omitempty"`
 }
 
+type DefaultStorageClassOptions struct {
+	VCDStorageProfileName string `json:"vcdStorageProfileName"`
+	// +kubebuilder:default=cloud-director-default
+	K8sStorageClassName string `json:"k8sStorageClassName,omitempty"`
+	// +kubebuilder:default=false
+	UseDeleteReclaimPolicy bool `json:"useDeleteReclaimPolicy,omitempty"`
+	// +kubebuilder:default=ext4
+	FileSystemFormat string `json:"fileSystemFormat,omitempty"`
+}
+
 // VCDClusterSpec defines the desired state of VCDCluster
 type VCDClusterSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
@@ -51,6 +61,9 @@ type VCDClusterSpec struct {
 	OvdcNetwork string `json:"ovdcNetwork"`
 	// +kubebuilder:validation:Required
 	UserCredentialsContext UserCredentialsContext `json:"userContext"`
+
+	// +optional
+	DefaultStorageClassOptions *DefaultStorageClassOptions `json:"defaultStorageClassOptions"`
 	// +optional
 	DefaultComputePolicy string `json:"defaultComputePolicy,omitempty"`
 }

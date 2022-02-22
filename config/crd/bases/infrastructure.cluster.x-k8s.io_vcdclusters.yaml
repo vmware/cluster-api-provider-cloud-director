@@ -52,6 +52,22 @@ spec:
                 type: object
               defaultComputePolicy:
                 type: string
+              defaultStorageClassOptions:
+                properties:
+                  fileSystemFormat:
+                    default: ext4
+                    type: string
+                  k8sStorageClassName:
+                    default: cloud-director-default
+                    type: string
+                  useDeleteReclaimPolicy:
+                    default: false
+                    type: boolean
+                  vcdStorageProfileName:
+                    type: string
+                required:
+                - vcdStorageProfileName
+                type: object
               org:
                 type: string
               ovdc:
