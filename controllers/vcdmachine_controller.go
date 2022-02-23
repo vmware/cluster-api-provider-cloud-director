@@ -473,7 +473,7 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 				if vcdCluster.Spec.DefaultStorageClassOptions.UseDeleteReclaimPolicy {
 					reclaimPolicy = ReclaimPolicyDelete
 				}
-				fileSystemFormat = vcdCluster.Spec.DefaultStorageClassOptions.FileSystemFormat
+				fileSystemFormat = vcdCluster.Spec.DefaultStorageClassOptions.FileSystem
 				vcdStorageProfileName = vcdCluster.Spec.DefaultStorageClassOptions.VCDStorageProfileName
 			}
 			vcdHostFormatted := strings.Replace(vcdCluster.Spec.Site, "/", "\\/", -1)
