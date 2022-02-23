@@ -41,7 +41,7 @@ spec:
     vcdStorageProfileName: "*" # name of the VCD storage profile used to create the storage class
     k8sStorageClassName: "vcd-dev-disk" # name of the storage class in kubernetes
     useDeleteReclaimPolicy: true # if set to true, Delete will be used as the Reclaim policy for the storage class. Else, Retain will be used as the reclaim policy
-    fileSystemFormat: "ext4" # file system format for the persistent volumes created from the storage class
+    fileSystem: "ext4" # file system format for the persistent volumes created from the storage class
 ---
 apiVersion: infrastructure.cluster.x-k8s.io/v1alpha4
 kind: VCDMachineTemplate

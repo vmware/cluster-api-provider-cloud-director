@@ -41,7 +41,7 @@ type DefaultStorageClassOptions struct {
 	// +kubebuilder:default=false
 	UseDeleteReclaimPolicy bool `json:"useDeleteReclaimPolicy,omitempty"`
 	// +kubebuilder:default=ext4
-	FileSystemFormat string `json:"fileSystemFormat,omitempty"`
+	FileSystem string `json:"fileSystem,omitempty"`
 }
 
 // VCDClusterSpec defines the desired state of VCDCluster
