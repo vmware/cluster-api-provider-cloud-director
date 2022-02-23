@@ -110,7 +110,7 @@ func ParseCloudConfig(configReader io.Reader) (*CloudConfig, error) {
 		ClusterResources: ClusterResourcesConfig{
 			CsiVersion: "1.1.0",
 			CpiVersion: "1.1.0",
-			CniVersion: "0.11.3",
+			CniVersion: "", // no default for antrea
 		},
 	}
 
@@ -145,6 +145,9 @@ func SetAuthorization(config *CloudConfig) error {
 		} else {
 			config.VCD.UserOrg = strings.TrimSuffix(config.VCD.Org, "\n")
 		}
+	}
+	if config.VCD.UserOrg == "" {
+		config.VCD.UserOrg = strings.TrimSuffix(config.VCD.Org, "\n")
 	}
 
 	secret, err := ioutil.ReadFile("/etc/kubernetes/vcloud/basic-auth/password")
