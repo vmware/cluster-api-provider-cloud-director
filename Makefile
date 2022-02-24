@@ -122,3 +122,6 @@ capi: generate fmt vet
 	docker build -f Dockerfile . -t cluster-api-provider-cloud-director:$(version)
 	docker tag cluster-api-provider-cloud-director:$(version) $(IMG)
 	docker push $(IMG)
+
+infrastructure-components: kustomize
+	${KUSTOMIZE} build config/default > infrastructure-vcd/v0.5.1/infrastructure-components.yaml
