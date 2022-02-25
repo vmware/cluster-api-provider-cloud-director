@@ -465,9 +465,14 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		NetworkBackingType: workloadVCDClient.NetworkBackingType,
 	}
 
-	// NOTE: Since RDE is used just as a book-keeping mechanism, we should not fail reconciliation if RDE operations fail
-	// Create or retrieve RDE for cluster
 	infraID := vcdCluster.Status.InfraId
+
+	// Use the pre-created RDEId specified in the CAPI yaml specification.
+	if infraID == "" && len(vcdCluster.Spec.RDEId) > 0 {
+		infraID = vcdCluster.Spec.RDEId
+	}
+
+	// Create a new RDE if it was not already created or assigned.
 	if infraID == "" {
 		nameFilter := &swagger.DefinedEntityApiGetDefinedEntitiesByEntityTypeOpts{
 			Filter: optional.NewString(fmt.Sprintf("name==%s", vcdCluster.Name)),
@@ -503,8 +508,8 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		log.V(3).Info("Reusing already available InfraID", "infraID", infraID)
 	}
 
-	// If there is no specified RDE ID, self-generate one and use. We need UUIDs to single-instance
-	// cleanly in the Virtual Services etc.
+	// If there is no RDE ID specified (or) created for any reason, self-generate one and use.
+	// We need UUIDs to single-instance cleanly in the Virtual Services etc.
 	if infraID == "" {
 		noRDEID := NoRdePrefix + uuid.New().String()
 		log.Info("Error retrieving InfraId. Hence using a self-generated UUID", "UUID", noRDEID)
@@ -519,7 +524,7 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 				"unable to update status of vcdCluster [%s] with InfraID [%s]",
 				vcdCluster.Name, infraID)
 		}
-		// Also update the client created already so that the CPI etc. have the clusterID.
+		// Also update the client created already so that the CPI etc have the clusterID.
 		workloadVCDClient.ClusterID = infraID
 	}
 

@@ -33,6 +33,7 @@ spec:
   org: ${VCD_ORGANIZATION} # VCD organization name where the cluster should be deployed
   ovdc: ${VCD_ORGANIZATION_VDC} # VCD virtual datacenter name where the cluster should be deployed
   ovdcNetwork: ${VCD_ORGANIZATION_VDC_NETWORK} # VCD virtual datacenter network to be used by the cluster
+  rdeId: ${VCD_RDE_ID} # rdeId if it is already created. If empty, CAPVCD will create one for the cluster.
   userContext:
     username: ${VCD_USERNAME} # username of the VCD persona creating the cluster
     password: ${VCD_PASSWORD} # password associated with the user creating the cluster

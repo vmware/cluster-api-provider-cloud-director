@@ -74,6 +74,8 @@ spec:
                 type: string
               ovdcNetwork:
                 type: string
+              rdeId:
+                type: string
               site:
                 type: string
               userContext:
