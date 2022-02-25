@@ -468,6 +468,7 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	infraID := vcdCluster.Status.InfraId
 
 	// Use the pre-created RDEId specified in the CAPI yaml specification.
+	// TODO validate if the RDE ID format is correct.
 	if infraID == "" && len(vcdCluster.Spec.RDEId) > 0 {
 		infraID = vcdCluster.Spec.RDEId
 	}
