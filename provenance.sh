@@ -41,15 +41,17 @@ function getComponents {
 # Script init
 # ---------------
 
-if [ $# != 1 ]
+if [ $# != 2 ]
 then
-    echo "Usage: ./provenance.sh <PROJECT NAME>"
+    echo "Usage: ./provenance.sh <PROJECT NAME> <RELEASE_TAG>"
     echo ""
     echo "PROJECT NAME: Either 'terraform-provider-vcd' or 'go-vcloud-director' or 'cluster-api-provider-cloud-director'"
+    echo "RELEASE_TAG: Release tag for which the provenance data should be genereated"
     exit 1
 fi
 
 project="$1"
+release_tag="$2"
 
 if [[ "$project" != 'terraform-provider-vcd' ]] && [[ "$project" != 'go-vcloud-director' ]] && [[ "$project" != 'cluster-api-provider-cloud-director' ]]
 then
@@ -61,7 +63,7 @@ tmpDir='tmp'
 rm -rf $tmpDir
 git clone https://github.com/vmware/$project.git $tmpDir
 pushd $tmpDir
-git checkout 0.5.0 -b 0.5.0
+git checkout $release_tag -b $release_tag
 
 head=$(git log -1 --pretty=format:%H)
 version=$(git describe --tags --abbrev=0)
