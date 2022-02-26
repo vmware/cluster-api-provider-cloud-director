@@ -34,6 +34,7 @@ VCD_REFRESH_TOKEN: ""
 VCD_CATALOG: "test_catalog"
 VCD_CONTROL_PLANE_SIZING_POLICY: "large_4core16gb"
 VCD_WORKER_SIZING_POLICY: "medium_2core8gb"
+VCD_RDE_ID: "urn:vcloud:entity:vmware:capvcdCluster:UUID"
 CLUSTER_NAME: "myCluster"
 TARGET_NAMESPACE: default
 CONTROL_PLANE_MACHINE_COUNT: 1
