@@ -467,6 +467,9 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 
 	infraID := vcdCluster.Status.InfraId
 
+	// General note on RDE operations, always ensure CAPVCD cluster reconciliation progress
+	//is not affected by any RDE operation failures.
+
 	// Use the pre-created RDEId specified in the CAPI yaml specification.
 	// TODO validate if the RDE ID format is correct.
 	if infraID == "" && len(vcdCluster.Spec.RDEId) > 0 {
