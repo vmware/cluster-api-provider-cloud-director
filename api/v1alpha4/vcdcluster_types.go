@@ -66,6 +66,8 @@ type VCDClusterSpec struct {
 	DefaultStorageClassOptions *DefaultStorageClassOptions `json:"defaultStorageClassOptions"`
 	// +optional
 	DefaultComputePolicy string `json:"defaultComputePolicy,omitempty"`
+	// + optional
+	RDEId string `json:"rdeId"`
 }
 
 // VCDClusterStatus defines the observed state of VCDCluster

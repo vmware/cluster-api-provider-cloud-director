@@ -37,6 +37,7 @@ spec:
     username: ${VCD_USERNAME} # username of the VCD persona creating the cluster
     password: ${VCD_PASSWORD} # password associated with the user creating the cluster
     refreshToken: ${VCD_REFRESH_TOKEN} # refresh token of the client registered with VCD for creating clusters. username and password can be left blank if refresh token is provided
+  rdeId: ${VCD_RDE_ID} # rdeId if it is already created. If empty, CAPVCD will create one for the cluster.
 # uncomment the following section to create a default storage class upon cluster creation
 #  defaultStorageClassOptions:
 #    vcdStorageProfileName: "${VCD_STORAGE_PROFILE}" # name of the VCD storage profile used to create the storage class
