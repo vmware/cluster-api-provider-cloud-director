@@ -82,7 +82,7 @@ provenanceJsonTemplate="
             \"source_repositories\": [
                 {
                     \"content\": \"source\",
-                    \"branch\": \"main\",
+                    \"branch\": \"0.5.x\",
                     \"host\": \"github.com\",
                     \"path\": \"vmware/$project\",
                     \"ref\": \"$head\",
@@ -91,11 +91,11 @@ provenanceJsonTemplate="
             ],
             \"target_repositories\": [
                 {
-                    \"content\": \"binary\",
+                    \"content\": \"docker image\",
                     \"protocol\": \"https\",
-                    \"host\": \"github.com\",
+                    \"host\": \"projects.registry.vmware.com\",
                     \"path\": [
-                        \"vmware/$project/releases/tag/$version\"
+                        \"vmware-cloud-director/cluster-api-provider-cloud-director:$version\"
                     ]
                 }
             ],
