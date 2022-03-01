@@ -43,19 +43,19 @@ function getComponents {
 
 if [ $# != 2 ]
 then
-    echo "Usage: ./provenance.sh <PROJECT NAME> <RELEASE_TAG>"
+    echo "Usage: ./provenance.sh <PROJECT NAME> <BRANCH>"
     echo ""
     echo "PROJECT NAME: Either 'terraform-provider-vcd' or 'go-vcloud-director' or 'cluster-api-provider-cloud-director'"
-    echo "RELEASE_TAG: Release tag for which the provenance data should be genereated"
+    echo "BRANCH: Branch from which provenance data should be generated"
     exit 1
 fi
 
 project="$1"
-release_tag="$2"
+branch="$2"
 
 if [[ "$project" != 'terraform-provider-vcd' ]] && [[ "$project" != 'go-vcloud-director' ]] && [[ "$project" != 'cluster-api-provider-cloud-director' ]]
 then
-    echo "PROJECT NAME must be either 'terraform-provider-vcd' or 'go-vcloud-director'"
+    echo "PROJECT NAME must be either 'terraform-provider-vcd' or 'go-vcloud-director' or 'cluster-api-provider-cloud-director'"
     exit 1
 fi
 
@@ -63,7 +63,7 @@ tmpDir='tmp'
 rm -rf $tmpDir
 git clone https://github.com/vmware/$project.git $tmpDir
 pushd $tmpDir
-git checkout $release_tag -b $release_tag
+git checkout origin/$branch -b $branch
 
 head=$(git log -1 --pretty=format:%H)
 version=$(git describe --tags --abbrev=0)
@@ -82,7 +82,7 @@ provenanceJsonTemplate="
             \"source_repositories\": [
                 {
                     \"content\": \"source\",
-                    \"branch\": \"0.5.x\",
+                    \"branch\": \"$branch\",
                     \"host\": \"github.com\",
                     \"path\": \"vmware/$project\",
                     \"ref\": \"$head\",
@@ -101,21 +101,7 @@ provenanceJsonTemplate="
             ],
             \"components\": [
                 ${components%,}
-            ],
-            \"actions\": {
-                \"edit-changelog\": {
-                    \"typename\": \"action\"
-                },
-                \"create-zipped-binaries\": {
-                    \"typename\": \"action\"
-                },
-                \"create-github-tag\": {
-                    \"typename\": \"action\"
-                },
-                \"prepare-next-version\": {
-                    \"typename\": \"action\"
-                }
-            }
+            ]
         }
     }
 }"
