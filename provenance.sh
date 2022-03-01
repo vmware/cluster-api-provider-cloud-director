@@ -93,9 +93,9 @@ provenanceJsonTemplate="
                 {
                     \"content\": \"docker image\",
                     \"protocol\": \"https\",
-                    \"host\": \"projects.registry.vmware.com\",
+                    \"host\": \"harbor-repo.vmware.com\",
                     \"path\": [
-                        \"vmware-cloud-director/cluster-api-provider-cloud-director:$version\"
+                        \"vcloud/$project:$version\"
                     ]
                 }
             ],
