@@ -54,7 +54,7 @@ spec:
                 type: string
               defaultStorageClassOptions:
                 properties:
-                  fileSystemFormat:
+                  fileSystem:
                     default: ext4
                     type: string
                   k8sStorageClassName:
