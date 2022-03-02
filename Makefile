@@ -24,6 +24,9 @@ IMG ?= ${REGISTRY}/cluster-api-provider-cloud-director:${version}
 SHELL = /usr/bin/env bash -o pipefail
 .SHELLFLAGS = -ec
 
+RELEASE_DIR := out
+BUILD_DIR := .build
+
 all: build
 
 ##@ General
@@ -123,5 +126,45 @@ capi: generate fmt vet
 	docker tag cluster-api-provider-cloud-director:$(version) $(IMG)
 	docker push $(IMG)
 
-infrastructure-components: kustomize
+# clean-up targets
+.PHONY: clean
+clean: ## Run all the clean targets
+	$(MAKE) clean-release
+	$(MAKE) clean-build
+
+.PHONY: clean-build
+clean-build:
+	rm -rf $(BUILD_DIR)
+
+.PHONY: clean-release
+clean-release: ## Remove the release folder
+	rm -rf $(RELEASE_DIR)
+
+# Release targets
+# Include the following in the releases
+# infrastructure-components.yaml
+# metadata.yaml
+# cluster-template.yaml
+# clusterctl.yaml
+# cluster-template-v1.20.8.yaml
+$(RELEASE_DIR):
+	@mkdir -p $(RELEASE_DIR)
+
+$(BUILD_DIR):
+	@mkdir -p $(BUILD_DIR)
+
+release: kustomize
 	${KUSTOMIZE} build config/default > infrastructure-vcd/v0.5.1/infrastructure-components.yaml
+
+.PHONY: release-manifests
+release-manifests:
+	$(MAKE) manifests STAGE=release MANIFEST_DIR=$(RELEASE_DIR)
+	cp metadata.yaml $(RELEASE_DIR)/metadata.yaml
+	cp clusterctl.yaml $(RELEASE_DIR)/clusterctl.yaml
+	cp templates/cluster-template* $(RELEASE_DIR)
+
+.PHONY: manifests
+manifests: $(MANIFEST_DIR) $(BUILD_DIR) $(KUSTOMIZE)
+	rm -rf $(BUILD_DIR)/config
+	cp -R config $(BUILD_DIR)
+	"$(KUSTOMIZE)" build $(BUILD_DIR)/config/default > $(MANIFEST_DIR)/infrastructure-components.yaml

@@ -14,6 +14,7 @@ commonLabels:
 
 resources:
   - namespace.yaml
+  - secrets.yaml
 
 bases:
 - ../crd

@@ -19,6 +19,7 @@ providers:
 # Variables specific to "clusterctl init"
 VCD_PASSWORD_B64: ""
 VCD_USERNAME_B64: ""
+VCD_REFRESH_TOKEN_B64: ""
 
 # Variables specific to both "cluster init" and "clusterctl generate"
 VCD_SITE: "https://VCD_FQDN"
