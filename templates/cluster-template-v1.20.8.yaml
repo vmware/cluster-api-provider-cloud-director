@@ -7,11 +7,11 @@ spec:
   clusterNetwork:
     pods:
       cidrBlocks:
-      - 100.96.0.0/11 # pod CIDR for the cluster
+        - 100.96.0.0/11 # pod CIDR for the cluster
     serviceDomain: k8s.test
     services:
       cidrBlocks:
-      - 100.64.0.0/13 # service CIDR for the cluster
+        - 100.64.0.0/13 # service CIDR for the cluster
   controlPlaneRef:
     apiVersion: controlplane.cluster.x-k8s.io/v1alpha4
     kind: KubeadmControlPlane
@@ -67,8 +67,8 @@ spec:
     clusterConfiguration:
       apiServer:
         certSANs:
-        - localhost
-        - 127.0.0.1
+          - localhost
+          - 127.0.0.1
       controllerManager:
         extraArgs:
           enable-hostpath-provisioner: "true"
@@ -81,9 +81,9 @@ spec:
           imageTag: v3.4.13_vmware.14 # etcd image tag associated with the TKGm OVA used. The values must be retrieved from the TKGm ova BOM. Refer to the github documentation for more details
       imageRepository: projects.registry.vmware.com/tkg # image repository to use for the rest of kubernetes images
     users:
-    - name: root
-      sshAuthorizedKeys:
-      - ${SSH_PUBLIC_KEY_B64} # ssh public key to log in to the control plane VMs in VCD
+      - name: root
+        sshAuthorizedKeys:
+          - ${SSH_PUBLIC_KEY_B64} # ssh public key to log in to the control plane VMs in VCD
     initConfiguration:
       nodeRegistration:
         criSocket: /run/containerd/containerd.sock
@@ -126,9 +126,9 @@ spec:
   template:
     spec:
       users:
-      - name: root
-        sshAuthorizedKeys:
-        - ${SSH_PUBLIC_KEY_B64} # ssh public key to log in to the worker VMs in VCD
+        - name: root
+          sshAuthorizedKeys:
+            - ${SSH_PUBLIC_KEY_B64} # ssh public key to log in to the worker VMs in VCD
       joinConfiguration:
         nodeRegistration:
           criSocket: /run/containerd/containerd.sock
