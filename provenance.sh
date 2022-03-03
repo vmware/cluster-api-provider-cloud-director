@@ -10,7 +10,7 @@ set -ex
 # Reads go.sum and returns its contents with the following syntax:
 # <module>:<version>
 function getGoModules {
-    grep -v 'go.mod' go.sum | awk '{print "\""$1 ":" $2 "\","}'
+    cat go.sum | sed s:/go.mod:: | awk '{print "\""$1 ":" $2 "\","}'
 }
 
 # Returns the given amount of spaces, intended for JSON identation
