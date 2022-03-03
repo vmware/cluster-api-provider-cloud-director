@@ -9,6 +9,11 @@ import (
 	"context"
 	_ "embed"
 	"fmt"
+	"net/http"
+	"reflect"
+	"strings"
+	"time"
+
 	"github.com/antihax/optional"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
@@ -21,8 +26,6 @@ import (
 	"github.com/vmware/go-vcloud-director/v2/govcd"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
-	"net/http"
-	"reflect"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1alpha4"
 	"sigs.k8s.io/cluster-api/util"
 	"sigs.k8s.io/cluster-api/util/conditions"
@@ -32,17 +35,15 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-	"strings"
-	"time"
 )
 
 const (
 	CAPVCDTypeVendor  = "vmware"
 	CAPVCDTypeNss     = "capvcdCluster"
-	CAPVCDTypeVersion = "1.0.0"
+	CAPVCDTypeVersion = "1.1.0"
 
 	CAPVCDClusterKind             = "CAPVCDCluster"
-	CAPVCDClusterEntityApiVersion = "capvcd.vmware.com/v1.0"
+	CAPVCDClusterEntityApiVersion = "capvcd.vmware.com/v1.1"
 	CAPVCDClusterCniName          = "antrea" // TODO: Get the correct value for CNI name
 	VcdCsiName                    = "cloud-director-named-disk-csi-driver"
 	VcdCpiName                    = "cloud-provider-for-cloud-director"
@@ -145,49 +146,50 @@ func patchVCDCluster(ctx context.Context, patchHelper *patch.Helper, vcdCluster 
 	)
 }
 
+// TODO: Remove uncommented code when decision to only keep capi.yaml as part of RDE spec is finalized
 func (r *VCDClusterReconciler) constructCapvcdRDE(ctx context.Context, cluster *clusterv1.Cluster,
 	vcdCluster *infrav1.VCDCluster) (*swagger.DefinedEntity, error) {
 	org := vcdCluster.Spec.Org
 	vdc := vcdCluster.Spec.Ovdc
-	ovdcNetwork := vcdCluster.Spec.OvdcNetwork
+	//ovdcNetwork := vcdCluster.Spec.OvdcNetwork
 
 	kcpList, err := getAllKubeadmControlPlaneForCluster(ctx, r.Client, *cluster)
 	if err != nil {
 		return nil, fmt.Errorf("error getting KubeadmControlPlane objects for cluster [%s]: [%v]", vcdCluster.Name, err)
 	}
-	topologyControlPlanes := make([]vcdtypes.ControlPlane, len(kcpList.Items))
+	//topologyControlPlanes := make([]vcdtypes.ControlPlane, len(kcpList.Items))
 	kubernetesVersion := ""
 	for _, kcp := range kcpList.Items {
-		vcdMachineTemplate, err := getVCDMachineTemplateFromKCP(ctx, r.Client, kcp)
-		if err != nil {
-			return nil, fmt.Errorf("error getting the VCDMachineTemplate object from KCP [%s] for cluster [%s]: [%v]", kcp.Name, cluster.Name, err)
-		}
-		topologyControlPlane := vcdtypes.ControlPlane{
-			Count:        *kcp.Spec.Replicas,
-			SizingClass:  vcdMachineTemplate.Spec.Template.Spec.SizingPolicy,
-			TemplateName: vcdMachineTemplate.Spec.Template.Spec.Template,
-		}
-		topologyControlPlanes = append(topologyControlPlanes, topologyControlPlane)
+		//vcdMachineTemplate, err := getVCDMachineTemplateFromKCP(ctx, r.Client, kcp)
+		//if err != nil {
+		//	return nil, fmt.Errorf("error getting the VCDMachineTemplate object from KCP [%s] for cluster [%s]: [%v]", kcp.Name, cluster.Name, err)
+		//}
+		//topologyControlPlane := vcdtypes.ControlPlane{
+		//	Count:        *kcp.Spec.Replicas,
+		//	SizingClass:  vcdMachineTemplate.Spec.Template.Spec.ComputePolicy,
+		//	TemplateName: vcdMachineTemplate.Spec.Template.Spec.Template,
+		//}
+		//topologyControlPlanes = append(topologyControlPlanes, topologyControlPlane)
 		kubernetesVersion = kcp.Spec.Version
 	}
 
-	mdList, err := getAllMachineDeploymentsForCluster(ctx, r.Client, *cluster)
-	if err != nil {
-		return nil, fmt.Errorf("error getting the MachineDeployments for cluster [%s]: [%v]", vcdCluster.Name, err)
-	}
-	topologyWorkers := make([]vcdtypes.Workers, len(mdList.Items))
-	for _, md := range mdList.Items {
-		vcdMachineTemplate, err := getVCDMachineTemplateFromMachineDeployment(ctx, r.Client, md)
-		if err != nil {
-			return nil, fmt.Errorf("error getting the VCDMachineTemplate object from MachineDeployment [%s] for cluster [%s]: [%v]", md.Name, cluster.Name, err)
-		}
-		topologyWorker := vcdtypes.Workers{
-			Count:        *md.Spec.Replicas,
-			SizingClass:  vcdMachineTemplate.Spec.Template.Spec.SizingPolicy,
-			TemplateName: vcdMachineTemplate.Spec.Template.Spec.Template,
-		}
-		topologyWorkers = append(topologyWorkers, topologyWorker)
-	}
+	//mdList, err := getAllMachineDeploymentsForCluster(ctx, r.Client, *cluster)
+	//if err != nil {
+	//	return nil, fmt.Errorf("error getting the MachineDeployments for cluster [%s]: [%v]", vcdCluster.Name, err)
+	//}
+	//topologyWorkers := make([]vcdtypes.Workers, len(mdList.Items))
+	//for _, md := range mdList.Items {
+	//	vcdMachineTemplate, err := getVCDMachineTemplateFromMachineDeployment(ctx, r.Client, md)
+	//	if err != nil {
+	//		return nil, fmt.Errorf("error getting the VCDMachineTemplate object from MachineDeployment [%s] for cluster [%s]: [%v]", md.Name, cluster.Name, err)
+	//	}
+	//	topologyWorker := vcdtypes.Workers{
+	//		Count:        *md.Spec.Replicas,
+	//		SizingClass:  vcdMachineTemplate.Spec.Template.Spec.ComputePolicy,
+	//		TemplateName: vcdMachineTemplate.Spec.Template.Spec.Template,
+	//	}
+	//	topologyWorkers = append(topologyWorkers, topologyWorker)
+	//}
 	rde := &swagger.DefinedEntity{
 		EntityType: CAPVCDEntityTypeID,
 		Name:       vcdCluster.Name,
@@ -202,27 +204,27 @@ func (r *VCDClusterReconciler) constructCapvcdRDE(ctx context.Context, cluster *
 			Site: vcdCluster.Spec.Site,
 		},
 		Spec: vcdtypes.ClusterSpec{
-			Settings: vcdtypes.Settings{
-				OvdcNetwork: ovdcNetwork,
-				Network: vcdtypes.Network{
-					Cni: vcdtypes.Cni{
-						Name: CAPVCDClusterCniName,
-					},
-					Pods: vcdtypes.Pods{
-						CidrBlocks: cluster.Spec.ClusterNetwork.Pods.CIDRBlocks,
-					},
-					Services: vcdtypes.Services{
-						CidrBlocks: cluster.Spec.ClusterNetwork.Services.CIDRBlocks,
-					},
-				},
-			},
-			Topology: vcdtypes.Topology{
-				ControlPlane: topologyControlPlanes,
-				Workers:      topologyWorkers,
-			},
-			Distribution: vcdtypes.Distribution{
-				Version: kubernetesVersion,
-			},
+			//Settings: vcdtypes.Settings{
+			//	OvdcNetwork: ovdcNetwork,
+			//	Network: vcdtypes.Network{
+			//		Cni: vcdtypes.Cni{
+			//			Name: CAPVCDClusterCniName,
+			//		},
+			//		Pods: vcdtypes.Pods{
+			//			CidrBlocks: cluster.Spec.ClusterNetwork.Pods.CIDRBlocks,
+			//		},
+			//		Services: vcdtypes.Services{
+			//			CidrBlocks: cluster.Spec.ClusterNetwork.Services.CIDRBlocks,
+			//		},
+			//	},
+			//},
+			//Topology: vcdtypes.Topology{
+			//	ControlPlane: topologyControlPlanes,
+			//	Workers:      topologyWorkers,
+			//},
+			//Distribution: vcdtypes.Distribution{
+			//	Version: kubernetesVersion,
+			//},
 		},
 		Status: vcdtypes.Status{
 			Phase: ClusterApiStatusPhaseNotReady,
@@ -293,6 +295,7 @@ func (r *VCDClusterReconciler) constructAndCreateRDEFromCluster(ctx context.Cont
 	return rdeID, nil
 }
 
+// TODO: Remove uncommented code when decision to only keep capi.yaml as part of RDE spec is finalized
 func (r *VCDClusterReconciler) reconcileRDE(ctx context.Context, cluster *clusterv1.Cluster, vcdCluster *infrav1.VCDCluster, workloadVCDClient *vcdclient.Client) error {
 	log := ctrl.LoggerFrom(ctx)
 
@@ -316,56 +319,56 @@ func (r *VCDClusterReconciler) reconcileRDE(ctx context.Context, cluster *cluste
 		updatePatch["Metadata.Site"] = vcdCluster.Spec.Site
 	}
 
-	networkName := vcdCluster.Spec.OvdcNetwork
-	if networkName != capvcdEntity.Spec.Settings.OvdcNetwork {
-		updatePatch["Spec.Settings.OvdcNetwork"] = networkName
-	}
+	//networkName := vcdCluster.Spec.OvdcNetwork
+	//if networkName != capvcdEntity.Spec.Settings.OvdcNetwork {
+	//	updatePatch["Spec.Settings.OvdcNetwork"] = networkName
+	//}
 
 	kcpList, err := getAllKubeadmControlPlaneForCluster(ctx, r.Client, *cluster)
 	if err != nil {
 		return fmt.Errorf("error getting all KubeadmControlPlane objects for cluster [%s]: [%v]", vcdCluster.Name, err)
 	}
-	topologyControlPlanes := make([]vcdtypes.ControlPlane, len(kcpList.Items))
+	//topologyControlPlanes := make([]vcdtypes.ControlPlane, len(kcpList.Items))
 	kubernetesVersion := ""
-	for idx, kcp := range kcpList.Items {
-		vcdMachineTemplate, err := getVCDMachineTemplateFromKCP(ctx, r.Client, kcp)
-		if err != nil {
-			return fmt.Errorf("error getting VCDMachineTemplate from KCP [%s] for cluster [%s]: [%v]", kcp.Name, cluster.Name, err)
-		}
-		topologyControlPlane := vcdtypes.ControlPlane{
-			Count:        *kcp.Spec.Replicas,
-			SizingClass:  vcdMachineTemplate.Spec.Template.Spec.SizingPolicy,
-			TemplateName: vcdMachineTemplate.Spec.Template.Spec.Template,
-		}
-		topologyControlPlanes[idx] = topologyControlPlane
+	for _, kcp := range kcpList.Items {
+		//vcdMachineTemplate, err := getVCDMachineTemplateFromKCP(ctx, r.Client, kcp)
+		//if err != nil {
+		//	return fmt.Errorf("error getting VCDMachineTemplate from KCP [%s] for cluster [%s]: [%v]", kcp.Name, cluster.Name, err)
+		//}
+		//topologyControlPlane := vcdtypes.ControlPlane{
+		//	Count:        *kcp.Spec.Replicas,
+		//	SizingClass:  vcdMachineTemplate.Spec.Template.Spec.ComputePolicy,
+		//	TemplateName: vcdMachineTemplate.Spec.Template.Spec.Template,
+		//}
+		//topologyControlPlanes[idx] = topologyControlPlane
 		kubernetesVersion = kcp.Spec.Version
 	}
 
-	mdList, err := getAllMachineDeploymentsForCluster(ctx, r.Client, *cluster)
-	if err != nil {
-		return fmt.Errorf("error getting getting all MachineDeployment for cluster [%s]: [%v]", vcdCluster.Name, err)
-	}
-	topologyWorkers := make([]vcdtypes.Workers, len(mdList.Items))
-	for idx, md := range mdList.Items {
-		vcdMachineTemplate, err := getVCDMachineTemplateFromMachineDeployment(ctx, r.Client, md)
-		if err != nil {
-			return fmt.Errorf("error getting VCDMachineTemplate from MachineDeployment [%s] for cluster [%s]: [%v]", md.Name, cluster.Name, err)
-		}
-		topologyWorker := vcdtypes.Workers{
-			Count:        *md.Spec.Replicas,
-			SizingClass:  vcdMachineTemplate.Spec.Template.Spec.SizingPolicy,
-			TemplateName: vcdMachineTemplate.Spec.Template.Spec.Template,
-		}
-		topologyWorkers[idx] = topologyWorker
-	}
+	//mdList, err := getAllMachineDeploymentsForCluster(ctx, r.Client, *cluster)
+	//if err != nil {
+	//	return fmt.Errorf("error getting getting all MachineDeployment for cluster [%s]: [%v]", vcdCluster.Name, err)
+	//}
+	//topologyWorkers := make([]vcdtypes.Workers, len(mdList.Items))
+	//for idx, md := range mdList.Items {
+	//	vcdMachineTemplate, err := getVCDMachineTemplateFromMachineDeployment(ctx, r.Client, md)
+	//	if err != nil {
+	//		return fmt.Errorf("error getting VCDMachineTemplate from MachineDeployment [%s] for cluster [%s]: [%v]", md.Name, cluster.Name, err)
+	//	}
+	//	topologyWorker := vcdtypes.Workers{
+	//		Count:        *md.Spec.Replicas,
+	//		SizingClass:  vcdMachineTemplate.Spec.Template.Spec.ComputePolicy,
+	//		TemplateName: vcdMachineTemplate.Spec.Template.Spec.Template,
+	//	}
+	//	topologyWorkers[idx] = topologyWorker
+	//}
 
-	// The following code only updates the spec portion of the RDE
-	if !reflect.DeepEqual(capvcdEntity.Spec.Topology.ControlPlane, topologyControlPlanes) {
-		updatePatch["Spec.Topology.ControlPlane"] = topologyControlPlanes
-	}
-	if !reflect.DeepEqual(capvcdEntity.Spec.Topology.Workers, topologyWorkers) {
-		updatePatch["Spec.Topology.Workers"] = topologyWorkers
-	}
+	//The following code only updates the spec portion of the RDE
+	//if !reflect.DeepEqual(capvcdEntity.Spec.Topology.ControlPlane, topologyControlPlanes) {
+	//	updatePatch["Spec.Topology.ControlPlane"] = topologyControlPlanes
+	//}
+	//if !reflect.DeepEqual(capvcdEntity.Spec.Topology.Workers, topologyWorkers) {
+	//	updatePatch["Spec.Topology.Workers"] = topologyWorkers
+	//}
 	capiYaml, err := getCapiYaml(ctx, r.Client, *cluster, *vcdCluster)
 	if err != nil {
 		log.Error(err,
@@ -382,9 +385,9 @@ func (r *VCDClusterReconciler) reconcileRDE(ctx context.Context, cluster *cluste
 		updatePatch["Status.Kubernetes"] = kubernetesVersion
 	}
 
-	if capvcdEntity.Spec.Distribution.Version != kubernetesVersion {
-		updatePatch["Spec.Distribution.Version"] = kubernetesVersion
-	}
+	//if capvcdEntity.Spec.Distribution.Version != kubernetesVersion {
+	//	updatePatch["Spec.Distribution.Version"] = kubernetesVersion
+	//}
 
 	if capvcdEntity.Status.Uid != vcdCluster.Status.InfraId {
 		updatePatch["Status.Uid"] = vcdCluster.Status.InfraId
