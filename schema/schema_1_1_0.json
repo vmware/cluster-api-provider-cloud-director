@@ -207,6 +207,17 @@
           "items": {
             "type": "string"
           }
+        },
+        "private": {
+          "type": "object",
+          "x-vcloud-restricted": "private",
+          "description": "Placeholder for the properties invisible to non-admin users.",
+          "properties": {
+            "kubeConfig": {
+              "type": "string",
+              "description": "Admin kube config to access the Kubernetes cluster."
+            }
+          }
         }
       },
       "additionalProperties": true

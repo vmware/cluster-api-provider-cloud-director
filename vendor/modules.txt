@@ -566,11 +566,14 @@ sigs.k8s.io/cluster-api/errors
 sigs.k8s.io/cluster-api/feature
 sigs.k8s.io/cluster-api/util
 sigs.k8s.io/cluster-api/util/annotations
+sigs.k8s.io/cluster-api/util/certs
 sigs.k8s.io/cluster-api/util/conditions
 sigs.k8s.io/cluster-api/util/container
+sigs.k8s.io/cluster-api/util/kubeconfig
 sigs.k8s.io/cluster-api/util/labels
 sigs.k8s.io/cluster-api/util/patch
 sigs.k8s.io/cluster-api/util/predicates
+sigs.k8s.io/cluster-api/util/secret
 sigs.k8s.io/cluster-api/util/version
 # sigs.k8s.io/controller-runtime v0.10.3
 ## explicit

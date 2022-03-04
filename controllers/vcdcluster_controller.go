@@ -25,6 +25,7 @@ import (
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1alpha4"
 	"sigs.k8s.io/cluster-api/util"
 	"sigs.k8s.io/cluster-api/util/conditions"
+	kcfg "sigs.k8s.io/cluster-api/util/kubeconfig"
 	"sigs.k8s.io/cluster-api/util/patch"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -423,6 +424,19 @@ func (r *VCDClusterReconciler) reconcileRDE(ctx context.Context, cluster *cluste
 		updatePatch["Status.NodeStatus"] = updatedNodeStatus
 	}
 
+	obj := client.ObjectKey{
+		Namespace: cluster.Namespace,
+		Name:      cluster.Name,
+	}
+	kubeConfigBytes, err := kcfg.FromSecret(ctx, r.Client, obj)
+	if err != nil {
+		log.Error(err, "failed to update RDE private section with kubeconfig")
+	} else {
+		if !reflect.DeepEqual(string(kubeConfigBytes), capvcdEntity.Status.Private.KubeConfig) {
+			updatePatch["Status.Private.KubeConfig"] = string(kubeConfigBytes)
+		}
+	}
+
 	updatedRDE, err := workloadVCDClient.PatchRDE(ctx, updatePatch, vcdCluster.Status.InfraId)
 	if err != nil {
 		return fmt.Errorf("failed to update defined entity with ID [%s] for cluster [%s]: [%v]", vcdCluster.Status.InfraId, vcdCluster.Name, err)
@@ -448,7 +462,6 @@ func (r *VCDClusterReconciler) reconcileRDE(ctx context.Context, cluster *cluste
 func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clusterv1.Cluster,
 	vcdCluster *infrav1.VCDCluster) (ctrl.Result, error) {
 	log := ctrl.LoggerFrom(ctx)
-
 	workloadVCDClient, err := vcdclient.NewVCDClientFromSecrets(vcdCluster.Spec.Site, vcdCluster.Spec.Org,
 		vcdCluster.Spec.Ovdc, vcdCluster.Name, vcdCluster.Spec.OvdcNetwork, r.VcdClient.IPAMSubnet,
 		r.VcdClient.VcdAuthConfig.UserOrg, vcdCluster.Spec.UserCredentialsContext.Username,
