@@ -11,9 +11,10 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"sigs.k8s.io/cluster-api/bootstrap/kubeadm/api/v1alpha4"
 	"strings"
 	"time"
+
+	"sigs.k8s.io/cluster-api/bootstrap/kubeadm/api/v1alpha4"
 
 	"k8s.io/klog"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1alpha4"
@@ -33,10 +34,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
+	kcpv1 "sigs.k8s.io/cluster-api/controlplane/kubeadm/api/v1alpha4"
+
 	infrastructurev1alpha4 "github.com/vmware/cluster-api-provider-cloud-director/api/v1alpha4"
 	infrav1 "github.com/vmware/cluster-api-provider-cloud-director/api/v1alpha4"
+	infrastructurev1beta1 "github.com/vmware/cluster-api-provider-cloud-director/api/v1beta1"
 	"github.com/vmware/cluster-api-provider-cloud-director/controllers"
-	kcpv1 "sigs.k8s.io/cluster-api/controlplane/kubeadm/api/v1alpha4"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -58,6 +61,7 @@ func init() {
 	utilruntime.Must(kcpv1.AddToScheme(myscheme))
 	utilruntime.Must(infrastructurev1alpha4.AddToScheme(myscheme))
 	utilruntime.Must(v1alpha4.AddToScheme(myscheme))
+	utilruntime.Must(infrastructurev1beta1.AddToScheme(myscheme))
 	//+kubebuilder:scaffold:scheme
 }
 
@@ -184,6 +188,21 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "VCDCluster")
 		os.Exit(1)
 	}
+	if os.Getenv("ENABLE_WEBHOOKS") != "false" {
+		if err = (&infrastructurev1beta1.VCDCluster{}).SetupWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create webhook", "webhook", "VCDCluster")
+			os.Exit(1)
+		}
+		if err = (&infrastructurev1beta1.VCDMachine{}).SetupWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create webhook", "webhook", "VCDMachine")
+			os.Exit(1)
+		}
+		if err = (&infrastructurev1beta1.VCDMachineTemplate{}).SetupWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create webhook", "webhook", "VCDMachineTemplate")
+			os.Exit(1)
+		}
+	}
+
 	//+kubebuilder:scaffold:builder
 
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
