@@ -614,6 +614,7 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	existingCluster := true
 	if existingCluster {
 		// don't run the init
+		log.V(3).Info("Marking Cluster initialized since cluster is being ported.")
 		conditions.MarkTrue(cluster, clusterv1.ControlPlaneInitializedCondition)
 	}
 
