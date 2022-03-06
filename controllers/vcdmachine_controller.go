@@ -393,9 +393,8 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		Vdc:     workloadVCDClient.Vdc,
 	}
 
-	// check if machine exists. if it does, skip creating
-	existingCluster := true
-	if existingCluster {
+	// If the machine is from an R1 cluster, verify that it exists and update the LB if needed.
+	if vcdMachine.Spec.IsMigratedR1Machine {
 		vAppName := cluster.Name
 		vApp, err := vdcManager.Vdc.GetVAppByName(vAppName, true)
 		if err != nil {

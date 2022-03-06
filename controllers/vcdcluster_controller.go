@@ -30,6 +30,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -551,9 +552,53 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		}
 
 		log.Info("Creating load balancer for the cluster")
-		suppliedExternalIP := "10.150.166.101"
+		suppliedExternalIP := ""
+		suppliedExternalPort := r.VcdClient.TCPPort
+		if vcdCluster.Spec.IsMigratedR1Cluster {
+			ipPort := vcdCluster.Spec.R1ClusterEndpoint
+			if ipPort == "" {
+				return ctrl.Result{},
+					errors.Wrap(fmt.Errorf("vcdCluster.Spec.R1ClusterEndpoint should not be empty"), "")
+			}
+
+			parts := strings.Split(ipPort, ":")
+			if len(parts) != 2 {
+				return ctrl.Result{},
+					errors.Wrapf(fmt.Errorf("invalid endpoint [%s]: parts [%v]", ipPort, parts), "")
+			}
+			suppliedExternalIP = parts[0]
+
+			port, err := strconv.Atoi(parts[1])
+			if err != nil {
+				return ctrl.Result{}, errors.Wrapf(err, "unable to convert port [%s] to int32", parts[1])
+			}
+			suppliedExternalPort = int32(port)
+
+			// Delete the existing dnat rule if it exists using the R1 style exposed cluster nat rule name.
+			// A similar dnat rule will be created by the CAPVCD cluster code.
+			dnatRulePrefix := fmt.Sprintf("%s_urn:vcloud:entity:cse:nativeCluster:", vcdCluster.Name)
+			natRuleRefs, err := gateway.Client.GetNATRuleRefFromPrefix(ctx, dnatRulePrefix)
+			if err != nil {
+				return ctrl.Result{}, errors.Wrapf(err, "failed while trying to get nat rule with prefix [%s]",
+					dnatRulePrefix)
+			}
+
+			if len(natRuleRefs) > 1 {
+				return ctrl.Result{}, errors.Wrapf(
+					fmt.Errorf("obtained more than one nat rule for prefix [%s]: [%v]", vcdCluster.Name, natRuleRefs),
+						"")
+			} else if len(natRuleRefs) == 1 {
+				if err := gateway.DeleteDNATRule(ctx, natRuleRefs[0].Name, false); err != nil {
+					return ctrl.Result{}, errors.Wrapf(err, "unable to delete nat rule with name [%s]",
+						natRuleRefs[0].Name)
+				}
+			} else {
+				log.V(3).Info("Could not find nat rule with prefix [%s]", dnatRulePrefix)
+			}
+		}
+
 		controlPlaneNodeIP, err = gateway.CreateL4LoadBalancer(ctx, virtualServiceNamePrefix, lbPoolNamePrefix,
-			suppliedExternalIP, []string{}, r.VcdClient.TCPPort)
+			suppliedExternalIP, []string{}, suppliedExternalPort)
 		if err != nil {
 			if vsError, ok := err.(*vcdclient.VirtualServicePendingError); ok {
 				log.Info("Error creating load balancer for cluster. Virtual Service is still pending",
@@ -611,9 +656,8 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	vcdCluster.Status.Ready = true
 	conditions.MarkTrue(vcdCluster, infrav1.LoadBalancerAvailableCondition)
 
-	existingCluster := true
-	if existingCluster {
-		// don't run the init
+	if vcdCluster.Spec.IsMigratedR1Cluster {
+		// This is an R1 cluster with an existing control plane. So there is no need to reinitialize.
 		log.V(3).Info("Marking Cluster initialized since cluster is being ported.")
 		conditions.MarkTrue(cluster, clusterv1.ControlPlaneInitializedCondition)
 	}

@@ -408,7 +408,7 @@ func (gateway *GatewayManager) createDNATRule(ctx context.Context, dnatRuleName 
 		return nil
 	}
 
-	ruleType := swaggerClient.NatRuleType(swaggerClient.DNAT_NatRuleType)
+	ruleType := swaggerClient.DNAT_NatRuleType
 	edgeNatRule := swaggerClient.EdgeNatRule{
 		Name:              dnatRuleName,
 		Enabled:           true,
@@ -440,7 +440,7 @@ func (gateway *GatewayManager) createDNATRule(ctx context.Context, dnatRuleName 
 	return nil
 }
 
-func (gateway *GatewayManager) deleteDNATRule(ctx context.Context, dnatRuleName string,
+func (gateway *GatewayManager) DeleteDNATRule(ctx context.Context, dnatRuleName string,
 	failIfAbsent bool) error {
 	client := gateway.Client
 	if client.GatewayRef == nil {
@@ -1258,7 +1258,7 @@ func (gateway *GatewayManager) DeleteLoadBalancer(ctx context.Context, virtualSe
 
 		if client.OneArm != nil {
 			dnatRuleName := fmt.Sprintf("dnat-%s", virtualServiceName)
-			err = gateway.deleteDNATRule(ctx, dnatRuleName, false)
+			err = gateway.DeleteDNATRule(ctx, dnatRuleName, false)
 			if err != nil {
 				return fmt.Errorf("unable to delete dnat rule [%s]: [%v]", dnatRuleName, err)
 			}
