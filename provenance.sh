@@ -5,7 +5,7 @@ catch() {
   echo "$error_message" &> error.log
 }
 trap 'catch $? $LINENO' ERR
-set -ex
+set -e
 
 # Reads go.sum and returns its contents with the following syntax:
 # <module>:<version>
@@ -41,23 +41,16 @@ function getComponents {
 # Script init
 # ---------------
 
-if [ $# != 2 ]
+if [ $# != 1 ]
 then
-    echo "Usage: ./provenance.sh <PROJECT NAME> <BRANCH>"
+    echo "Usage: ./provenance.sh <BRANCH>"
     echo ""
-    echo "PROJECT NAME: Either 'terraform-provider-vcd' or 'go-vcloud-director' or 'cluster-api-provider-cloud-director'"
     echo "BRANCH: Branch from which provenance data should be generated"
     exit 1
 fi
 
-project="$1"
-branch="$2"
-
-if [[ "$project" != 'terraform-provider-vcd' ]] && [[ "$project" != 'go-vcloud-director' ]] && [[ "$project" != 'cluster-api-provider-cloud-director' ]]
-then
-    echo "PROJECT NAME must be either 'terraform-provider-vcd' or 'go-vcloud-director' or 'cluster-api-provider-cloud-director'"
-    exit 1
-fi
+project="cluster-api-provider-cloud-director"
+branch="$1"
 
 tmpDir='tmp'
 rm -rf $tmpDir
@@ -93,7 +86,7 @@ provenanceJsonTemplate="
                     \"protocol\": \"git\",
                     \"paths\": [
                         \"/\"
-                    ],
+                    ]
                 }
             ],
             \"components\": [
