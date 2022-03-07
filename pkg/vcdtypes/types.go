@@ -286,6 +286,10 @@ type VersionedAddon struct {
 	Version string `json:"version,omitempty"`
 }
 
+type PrivateSection struct {
+	KubeConfig string `json:"kubeConfig,omitempty"`
+}
+
 type Status struct {
 	Phase               string            `json:"phase,omitempty"`
 	Kubernetes          string            `json:"kubernetes,omitempty"`
@@ -301,6 +305,7 @@ type Status struct {
 	Cpi                 VersionedAddon    `json:"cpi,omitempty"`
 	Csi                 VersionedAddon    `json:"csi,omitempty"`
 	CapvcdVersion       string            `json:"capvcdVersion,omitempty"`
+	Private             PrivateSection    `json:"private,omitempty"`
 }
 
 type ClusterSpec struct {
