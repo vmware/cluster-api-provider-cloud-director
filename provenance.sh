@@ -73,30 +73,27 @@ components=$(getComponents)
 provenanceJsonTemplate="
 {
     \"id\": \"http://vmware.com/schemas/software_provenance-0.2.5.json\",
-    \"root\": [\"$project\"],
+    \"tools\": {
+        \"https://sp-taas-vcd-butler.svc.eng.vmware.com/view/CSE/job/capvcd-provenance-pipeline/\": null
+    },
+    \"root\": \"comp_id.build(target_name='$project', version='$version', sha1='$head')\",
     \"all_components\": {
         \"$project-$identifier\": {
-            \"typename\": \"comp.build\",
+            \"typename\": \"comp.build.golang\",
             \"name\": \"$project\",
             \"version\": \"$version\",
+            \"build\": \"$head\",
             \"source_repositories\": [
                 {
                     \"content\": \"source\",
                     \"branch\": \"$branch\",
                     \"host\": \"github.com\",
-                    \"path\": \"vmware/$project\",
+                    \"repo\": \"vmware/$project\",
                     \"ref\": \"$head\",
-                    \"protocol\": \"git\"
-                }
-            ],
-            \"target_repositories\": [
-                {
-                    \"content\": \"docker image\",
-                    \"protocol\": \"https\",
-                    \"host\": \"harbor-repo.vmware.com\",
-                    \"path\": [
-                        \"vcloud/$project:$version\"
-                    ]
+                    \"protocol\": \"git\",
+                    \"paths\": [
+                        \"/\"
+                    ],
                 }
             ],
             \"components\": [
