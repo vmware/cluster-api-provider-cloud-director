@@ -521,14 +521,52 @@ END
   kubectl apply -f capialreadyexisting-${worker_node}.yaml
 done
 
-echo "Migration of cluster [${cluster_name}] is successfully started. Please run" \
-  "`kubectl -n ${cluster_name} get machines -w`" \
-  "and wait until the old control-plane node [${control_plane_node}] has successfully"\
-  "been deleted."
+echo "Migration of cluster [${cluster_name}] is successfully started."
+
+machine_lst=$(kubectl -n ${cluster_name} get machines -o name)
+echo "Checking if machines [${machine_lst}] are in Running state"
+while true
+do
+  all_running=true
+  for machine in ${machine_lst}
+  do
+    machine_state=$(kubectl -n ${cluster_name} get ${machine} -o jsonpath="{.status.phase}")
+    if [ "${machine_state}" != "Running" ]
+    then
+    echo "[${machine}] has state [${machine_state}]"
+      all_running=false
+      break
+    fi
+  done
+
+  if ${all_running}
+  then
+    echo "All machines in [${machine_lst}] are in Running state"
+    break
+  fi
+
+  echo "Sleeping for 30 seconds since all machines are not in Running state"
+  sleep 30
+done
+
+# Now wait for old control-plane node to go down if it exists
+set +e
+echo "Waiting until the old control-plane node [${control_plane_node}] has successfully been deleted."
+while true
+do
+  control_plane_node_exists=$(kubectl -n ${cluster_name} get machine | grep "${control_plane_node}")
+  if [ "$?" -ne 0 ]
+  then
+    break
+  fi
+  echo "Sleeping for 30 seconds waiting for old control-plane-node [${control_plane_node}] to go down..."
+  sleep 30
+done
+set -e
 
 # TODO: script the following:
-# 1. wait for all machines to be up
-# 2. deletes old nodes
-# 3. Moves CRDs to cluster thereby making it self-managing
+# 1. delete old worker nodes
+# 2. Move CRDs to cluster thereby making it self-managing
+
 
 exit 0
