@@ -52,7 +52,7 @@ fi
 project="cluster-api-provider-cloud-director"
 branch="$1"
 
-tmpDir='tmp'
+tmpDir=$(mktemp -d)
 rm -rf $tmpDir
 git clone https://github.com/vmware/$project.git $tmpDir
 pushd $tmpDir
@@ -96,6 +96,6 @@ provenanceJsonTemplate="
     }
 }"
 
-cd ..
+popd
 rm -rf $tmpDir
 echo "$provenanceJsonTemplate" > provenance-$project-$version.json
