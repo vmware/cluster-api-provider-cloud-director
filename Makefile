@@ -1,6 +1,6 @@
 
 # Produce CRDs that work back to Kubernetes 1.11 (no version conversion)
-CRD_OPTIONS ?= "crd:trivialVersions=true,preserveUnknownFields=false"
+CRD_OPTIONS ?= "crd"
 
 # Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
 ifeq (,$(shell go env GOBIN))
@@ -24,6 +24,7 @@ IMG ?= ${REGISTRY}/cluster-api-provider-cloud-director:${version}
 SHELL = /usr/bin/env bash -o pipefail
 .SHELLFLAGS = -ec
 
+MANIFEST_DIR = infrastructure-vcd/v0.5.1
 all: build
 
 ##@ General
@@ -122,3 +123,6 @@ capi: generate fmt vet
 	docker build -f Dockerfile . -t cluster-api-provider-cloud-director:$(version)
 	docker tag cluster-api-provider-cloud-director:$(version) $(IMG)
 	docker push $(IMG)
+
+release-manifests: $(KUSTOMIZE)
+	$(KUSTOMIZE) build config/default > $(MANIFEST_DIR)/infrastructure-components.yaml

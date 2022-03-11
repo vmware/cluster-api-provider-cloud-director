@@ -7,11 +7,11 @@ spec:
   clusterNetwork:
     pods:
       cidrBlocks:
-      - 100.96.0.0/11 # pod CIDR for the cluster
+        - 100.96.0.0/11 # pod CIDR for the cluster
     serviceDomain: k8s.test
     services:
       cidrBlocks:
-      - 100.64.0.0/13 # service CIDR for the cluster
+        - 100.64.0.0/13 # service CIDR for the cluster
   controlPlaneRef:
     apiVersion: controlplane.cluster.x-k8s.io/v1alpha4
     kind: KubeadmControlPlane
@@ -43,7 +43,7 @@ spec:
 #    vcdStorageProfileName: "${VCD_STORAGE_PROFILE}" # name of the VCD storage profile used to create the storage class
 #    k8sStorageClassName: ${K8S_DEFAULT_STORAGE_CLASS_NAME} # name of the storage class in kubernetes
 #    useDeleteReclaimPolicy: ${USE_DELETE_RECLAIM_POLICY} # if set to true, Delete will be used as the Reclaim policy for the storage class. Else, Retain will be used as the reclaim policy
-#    fileSystemFormat: ${FILE_SYSTEM_FORMAT} # file system format for the persistent volumes created from the storage class
+#    fileSystem: ${FILE_SYSTEM_FORMAT} # file system format for the persistent volumes created from the storage class
 ---
 apiVersion: infrastructure.cluster.x-k8s.io/v1alpha4
 kind: VCDMachineTemplate
@@ -67,8 +67,8 @@ spec:
     clusterConfiguration:
       apiServer:
         certSANs:
-        - localhost
-        - 127.0.0.1
+          - localhost
+          - 127.0.0.1
       controllerManager:
         extraArgs:
           enable-hostpath-provisioner: "true"
@@ -81,9 +81,9 @@ spec:
           imageTag: v3.4.13_vmware.14 # etcd image tag associated with the TKGm OVA used. The values must be retrieved from the TKGm ova BOM. Refer to the github documentation for more details
       imageRepository: projects.registry.vmware.com/tkg # image repository to use for the rest of kubernetes images
     users:
-    - name: root
-      sshAuthorizedKeys:
-      - ${SSH_PUBLIC_KEY_B64} # ssh public key to log in to the control plane VMs in VCD
+      - name: root
+        sshAuthorizedKeys:
+          - ${SSH_PUBLIC_KEY_B64} # ssh public key to log in to the control plane VMs in VCD
     initConfiguration:
       nodeRegistration:
         criSocket: /run/containerd/containerd.sock
@@ -126,9 +126,9 @@ spec:
   template:
     spec:
       users:
-      - name: root
-        sshAuthorizedKeys:
-        - ${SSH_PUBLIC_KEY_B64} # ssh public key to log in to the worker VMs in VCD
+        - name: root
+          sshAuthorizedKeys:
+            - ${SSH_PUBLIC_KEY_B64} # ssh public key to log in to the worker VMs in VCD
       joinConfiguration:
         nodeRegistration:
           criSocket: /run/containerd/containerd.sock
