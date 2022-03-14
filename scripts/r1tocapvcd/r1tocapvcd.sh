@@ -14,16 +14,63 @@ then
   exit 1
 fi
 
-token=""
-ca_cert_hash=""
-if [ "$#" -eq 4 ]
-then
-  token=$3
-  [ -z "${token}" ] && echo "token passed as 2nd variable but is empty" && exit 1
+[ -z "${VCD_USERNAME}" ] && echo "Environment variable `VCD_USERNAME` should be set" && exit 1
+[ -z "${VCD_PASSWORD}" ] && echo "Environment variable `VCD_PASSWORD` should be set" && exit 1
 
-  ca_cert_hash=$4
-  [ -z "${ca_cert_hash}" ] && "ca_cert_hash passed as 3rd variable but is empty" && exit 1
+set +e
+vcd pwd
+if [ "$?" -ne 0 ]
+then
+  echo "It looks like there is not an active session with VCD. Try `vcd login` first."
+  exit 1
 fi
+
+vcd cse cluster info ${cluster_name} > ${cluster_name}_info.txt
+
+vcd_site=$(yq e ".metadata.site" ${cluster_name}_info.txt)
+[ -z "${vcd_site}" ] && echo "Could not retrieve vcd site from cluster info of [${cluster_name}]" && exit 1
+echo "VCD Site is [${vcd_site}]"
+
+org=$(yq e ".metadata.orgName" ${cluster_name}_info.txt)
+[ -z "${org}" ] && echo "Could not retrieve orgName from cluster info of [${cluster_name}]" && exit 1
+echo "Org is [${org}]"
+
+ovdc=$(yq e ".metadata.virtualDataCenterName" ${cluster_name}_info.txt)
+[ -z "${ovdc}" ] && echo "Could not retrieve virtualDataCenterName from cluster info of [${cluster_name}]" && exit 1
+echo "OrgVDC is [${ovdc}]"
+
+ovdc_nw=$(yq e ".spec.settings.ovdcNetwork" ${cluster_name}_info.txt)
+[ -z "${ovdc_nw}" ] && echo "Could not retrieve ovdcNetwork from cluster info of [${cluster_name}]" && exit 1
+echo "OrgVDCNetwork is [${ovdc_nw}]"
+
+template=$(yq e ".spec.distribution.templateName" ${cluster_name}_info.txt)
+[ -z "${template}" ] && echo "Could not retrieve templateName from cluster info of [${cluster_name}]" && exit 1
+echo "Template is [${template}]"
+
+out=$(yq e ".status.private.kubeToken" ${cluster_name}_info.txt)
+token=$(echo ${out} | tr -s " " " " | cut -f5 -d' ')
+[ -z "${token}" ] && echo "Could not retrieve kubernetes join token from cluster info of [${cluster_name}]" && exit 1
+echo "Token is [${token}]"
+
+ca_cert_hash=$(echo ${out} | tr -s " " " " | cut -f7 -d' ')
+[ -z "${ca_cert_hash}" ] && echo "Could not retrieve kubernetes cert hash from cluster info of [${cluster_name}]" && exit 1
+echo "Discovery Token CA Cert Hash is [${ca_cert_hash}]"
+
+catalog_lst=$(vcd catalog list | tail -n +3 | tr -s " " " " | cut -f5 -d' ')
+for catalog_name in ${catalog_lst}
+do
+  vcd catalog list ${catalog_name} | tail -n +3 | tr -s " " " " | cut -f4 -d' ' | grep ${template}
+  if [ "$?" -eq 0 ]
+  then
+    catalog=${catalog_name}
+  fi
+done
+[ -z "${catalog}" ] && echo "Could not retrieve catalog name for template [${template}]" && exit 1
+echo "Catalog is [${catalog}]"
+
+compute_policy=$(yq e ".status.nodes.controlPlane.sizingClass" ${cluster_name}_info.txt)
+[ -z "${compute_policy}" ] && echo "Could not retrieve compute policy name for cluster [${cluster_name}]" && exit 1
+echo "Compute policy is [${compute_policy}]"
 
 file_lst=$(echo "${secrets_dir}/admin.conf" \
   "${secrets_dir}/ca.key ${secrets_dir}/ca.crt" \
@@ -52,6 +99,8 @@ echo "Control plane node name is [${control_plane_node}]"
 worker_nodes=$(kubectl --kubeconfig=${secrets_dir}/admin.conf get no -oname | grep "node-" | cut -f2 -d'/')
 [ -z "${control_plane_node}" ] && echo "Could not retrieve worker node names from cluster" && exit 1
 echo "Worker node names are [${worker_nodes}]"
+
+exit 0
 
 kubectl create ns ${cluster_name}
 kubectl -n ${cluster_name} create secret tls ${cluster_name}-ca \
@@ -235,16 +284,6 @@ END
 
 kubectl apply -f ${control_plane_node}-control-plane.yaml
 
-export vcd_site='https://bos1-vcloud-static-172-29.eng.vmware.com'
-export org=tenant1
-export ovdc=tenant1_ovdc
-export ovdc_nw=tenant1_ovdc_nw
-export username=clusteradminuser
-export password='ca$hc0w'
-export catalog=cse
-export template=ubuntu-2004-kube-v1.21.2+vmware.1-tkg.1-7832907791984498322
-export compute_policy=2core2gb
-
 # TODO: validate all parameters above
 # TODO: Get kubernetes_version, etcd version etc from a template
 
@@ -305,7 +344,7 @@ spec:
     spec:
       catalog: ${catalog}
       template: ${template}
-      computePolicy: ${compute_policy}
+      computePolicy: "${compute_policy}"
 ---
 apiVersion: bootstrap.cluster.x-k8s.io/v1alpha4
 kind: KubeadmConfigTemplate
@@ -463,7 +502,7 @@ spec:
     spec:
       catalog: ${catalog}
       template: ${template}
-      computePolicy: ${compute_policy}
+      computePolicy: "${compute_policy}"
 ---
 END
 
@@ -554,7 +593,7 @@ set +e
 echo "Waiting until the old control-plane node [${control_plane_node}] has successfully been deleted."
 while true
 do
-  control_plane_node_exists=$(kubectl -n ${cluster_name} get machine | grep "${control_plane_node}")
+  kubectl -n ${cluster_name} get machine "${control_plane_node} 2>/dev/null"
   if [ "$?" -ne 0 ]
   then
     break
@@ -563,6 +602,9 @@ do
   sleep 30
 done
 set -e
+
+echo "Cluster [${cluster_name}] migrated successfully. Please verify if the workloads are still in place."
+echo "You may need to delete old workers manually."
 
 # TODO: script the following:
 # 1. delete old worker nodes
