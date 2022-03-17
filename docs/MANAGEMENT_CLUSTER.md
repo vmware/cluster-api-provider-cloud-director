@@ -25,7 +25,7 @@ infrastructure provider specific Cluster API (in this case, CAPVCD). CAPVCD, as 
 `clusterctl init`. Therefore, a separate set of commands are provided below for the installation purposes.
 
 1. Install cluster-api core provider, kubeadm bootstrap and kubeadm control-plane providers
-    1. `clusterctl init --core cluster-api:v0.4.2 -b kubeadm:v0.4.2 -c kubeadm:v0.4.2`
+    1. `clusterctl init --core cluster-api:v0.4.2 -b kubeadm:v0.4.2 -c kubeadm:v0.4.2`. Use the clusterctl version mentioned in the [support matrix](../README.md#support_matrix)
 2. Install Infrastructure provider - CAPVCD
     1. Download CAPVCD repo - `git clone --branch 0.5.0 https://github.com/vmware/cluster-api-provider-cloud-director.git`
     2. Fill in the VCD details in `cluster-api-provider-cloud-director/config/manager/controller_manager_config.yaml`
