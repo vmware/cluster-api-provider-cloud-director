@@ -6,6 +6,7 @@ The Cluster API brings declarative, Kubernetes-style APIs to cluster creation, c
 ## Quick start
 Check out our [Cluster API quick start guide](docs/QUICKSTART.md) to create a Kubernetes cluster on VMware Cloud Director using Cluster API.
 
+<a name="support_matrix"></a>
 ## Support Policy
 The version of Cluster API Provider Cloud Director and Installation that are compatible for a given CAPVCD container image are described in the following compatibility matrix:
 
