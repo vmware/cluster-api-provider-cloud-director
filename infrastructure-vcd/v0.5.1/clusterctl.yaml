@@ -16,21 +16,10 @@ providers:
     url: "~/go/cluster-api-provider-cloud-director/infrastructure-vcd/v0.5.1/infrastructure-components.yaml"
     type: "InfrastructureProvider"
 
-# Variables specific to "clusterctl init"
-VCD_PASSWORD_B64: ""
-VCD_USERNAME_B64: ""
-
 # Variables specific to both "cluster init" and "clusterctl generate"
-VCD_SITE: "https://VCD_FQDN"
-VCD_ORGANIZATION: "test_org"
-VCD_ORGANIZATION_VDC: "test_ovdc"
-VCD_ORGANIZATION_VDC_NETWORK: "test_ovdc_nw"
 VCD_VIP_CIDR: 10.X.X.X/19
 
 # Variables specific to "clusterctl generate" only
-VCD_USERNAME: "vcduser"
-VCD_PASSWORD: "password"
-VCD_REFRESH_TOKEN: ""
 VCD_CATALOG: "test_catalog"
 VCD_CONTROL_PLANE_SIZING_POLICY: "large_4core16gb"
 VCD_WORKER_SIZING_POLICY: "medium_2core8gb"

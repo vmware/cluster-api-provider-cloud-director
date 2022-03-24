@@ -119,6 +119,8 @@ func getTestVCDClient(inputMap map[string]interface{}) (*Client, error) {
 				cloudConfig.LB.Ports.TCP = getInt32ValStrict(val, cloudConfig.LB.Ports.TCP)
 			case "getVdcClient":
 				getVdcClient = getBoolValStrict(val, false)
+			case "refreshToken":
+				cloudConfig.VCD.RefreshToken = getStrValStrict(val, cloudConfig.VCD.RefreshToken)
 			}
 		}
 	}
