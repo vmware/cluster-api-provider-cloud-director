@@ -13,6 +13,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	infrav1 "github.com/vmware/cluster-api-provider-cloud-director/api/v1alpha4"
+	"github.com/vmware/cluster-api-provider-cloud-director/pkg/config"
 	vcdutil "github.com/vmware/cluster-api-provider-cloud-director/pkg/util"
 	"github.com/vmware/cluster-api-provider-cloud-director/pkg/vcdclient"
 	swagger "github.com/vmware/cluster-api-provider-cloud-director/pkg/vcdswaggerclient"
@@ -62,8 +63,8 @@ var (
 // VCDClusterReconciler reconciles a VCDCluster object
 type VCDClusterReconciler struct {
 	client.Client
-	Scheme    *runtime.Scheme
-	VcdClient *vcdclient.Client
+	Scheme *runtime.Scheme
+	Config *config.CAPVCDConfig
 }
 
 //+kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=vcdclusters,verbs=get;list;watch;create;update;patch;delete
@@ -234,25 +235,25 @@ func (r *VCDClusterReconciler) constructCapvcdRDE(ctx context.Context, cluster *
 				},
 				NodeStatus:              make(map[string]string),
 				UsedAsManagementCluster: false,
-				CapvcdVersion:           r.VcdClient.CAPVCDVersion,
+				CapvcdVersion:           r.Config.ClusterResources.CapvcdVersion,
 			},
 			CloudProperties: rdeType.CloudProperties{
 				Site: vcdCluster.Spec.Site,
 				Org:  org,
 				Vdc:  vdc,
 			},
-			ParentUID: r.VcdClient.ManagementClusterRDEId,
+			ParentUID: r.Config.ManagementClusterRDEId,
 			Csi: rdeType.VersionedAddon{
 				Name:    VcdCsiName,
-				Version: r.VcdClient.CsiVersion, // TODO: get CPI, CNI, CSI versions from the CLusterResourceSet objects
+				Version: r.Config.ClusterResources.CsiVersion, // TODO: get CPI, CNI, CSI versions from the CLusterResourceSet objects
 			},
 			Cpi: rdeType.VersionedAddon{
 				Name:    VcdCpiName,
-				Version: r.VcdClient.CpiVersion,
+				Version: r.Config.ClusterResources.CpiVersion,
 			},
 			Cni: rdeType.VersionedAddon{
 				Name:    CAPVCDClusterCniName,
-				Version: r.VcdClient.CniVersion,
+				Version: r.Config.ClusterResources.CniVersion,
 			},
 		},
 	}
@@ -465,12 +466,15 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	vcdCluster *infrav1.VCDCluster) (ctrl.Result, error) {
 	log := ctrl.LoggerFrom(ctx)
 	workloadVCDClient, err := vcdclient.NewVCDClientFromSecrets(vcdCluster.Spec.Site, vcdCluster.Spec.Org,
-		vcdCluster.Spec.Ovdc, vcdCluster.Name, vcdCluster.Spec.OvdcNetwork, r.VcdClient.IPAMSubnet,
+		vcdCluster.Spec.Ovdc, vcdCluster.Name, vcdCluster.Spec.OvdcNetwork, r.Config.VCD.VIPSubnet,
 		vcdCluster.Spec.Org, vcdCluster.Spec.UserCredentialsContext.Username,
 		vcdCluster.Spec.UserCredentialsContext.Password, vcdCluster.Spec.UserCredentialsContext.RefreshToken,
-		true, vcdCluster.Status.InfraId, r.VcdClient.OneArm, 0, 0, r.VcdClient.TCPPort,
-		true, "", r.VcdClient.CsiVersion, r.VcdClient.CpiVersion, r.VcdClient.CniVersion,
-		r.VcdClient.CAPVCDVersion)
+		true, vcdCluster.Status.InfraId, &vcdclient.OneArm{
+			StartIPAddress: r.Config.LB.OneArm.StartIP,
+			EndIPAddress:   r.Config.LB.OneArm.EndIP,
+		}, 0, 0, r.Config.LB.Ports.TCP,
+		true, "", r.Config.ClusterResources.CsiVersion, r.Config.ClusterResources.CpiVersion, r.Config.ClusterResources.CniVersion,
+		r.Config.ClusterResources.CapvcdVersion)
 	if err != nil {
 		return ctrl.Result{}, errors.Wrapf(err, "Error creating VCD client to reconcile Cluster [%s] infrastructure", vcdCluster.Name)
 	}
@@ -566,7 +570,7 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 
 		log.Info("Creating load balancer for the cluster")
 		controlPlaneNodeIP, err = gateway.CreateL4LoadBalancer(ctx, virtualServiceNamePrefix, lbPoolNamePrefix,
-			[]string{}, r.VcdClient.TCPPort)
+			[]string{}, r.Config.LB.Ports.TCP)
 		if err != nil {
 			if vsError, ok := err.(*vcdclient.VirtualServicePendingError); ok {
 				log.Info("Error creating load balancer for cluster. Virtual Service is still pending",
@@ -644,12 +648,15 @@ func (r *VCDClusterReconciler) reconcileDelete(ctx context.Context,
 	}
 
 	workloadVCDClient, err := vcdclient.NewVCDClientFromSecrets(vcdCluster.Spec.Site, vcdCluster.Spec.Org,
-		vcdCluster.Spec.Ovdc, vcdCluster.Name, vcdCluster.Spec.OvdcNetwork, r.VcdClient.IPAMSubnet,
+		vcdCluster.Spec.Ovdc, vcdCluster.Name, vcdCluster.Spec.OvdcNetwork, r.Config.VCD.VIPSubnet,
 		vcdCluster.Spec.Org, vcdCluster.Spec.UserCredentialsContext.Username,
 		vcdCluster.Spec.UserCredentialsContext.Password, vcdCluster.Spec.UserCredentialsContext.RefreshToken,
-		true, vcdCluster.Status.InfraId, r.VcdClient.OneArm, 0, 0, r.VcdClient.TCPPort,
-		true, "", r.VcdClient.CsiVersion, r.VcdClient.CpiVersion, r.VcdClient.CniVersion,
-		r.VcdClient.CAPVCDVersion)
+		true, vcdCluster.Status.InfraId, &vcdclient.OneArm{
+			StartIPAddress: r.Config.LB.OneArm.StartIP,
+			EndIPAddress:   r.Config.LB.OneArm.EndIP,
+		}, 0, 0, r.Config.LB.Ports.TCP,
+		true, "", r.Config.ClusterResources.CsiVersion, r.Config.ClusterResources.CpiVersion, r.Config.ClusterResources.CniVersion,
+		r.Config.ClusterResources.CapvcdVersion)
 	if err != nil {
 		return ctrl.Result{}, errors.Wrapf(err,
 			"Error occurred during cluster deletion; unable to create client for the workload cluster [%s]",
