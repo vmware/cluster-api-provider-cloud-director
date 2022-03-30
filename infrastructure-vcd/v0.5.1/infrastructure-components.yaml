@@ -9,7 +9,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    cert-manager.io/inject-ca-from: $(CERTIFICATE_NAMESPACE)/$(CERTIFICATE_NAME)
+    cert-manager.io/inject-ca-from: capvcd-system/capvcd-serving-cert
     controller-gen.kubebuilder.io/version: v0.4.1
   labels:
     cluster.x-k8s.io/provider: infrastructure-vcd
@@ -21,7 +21,7 @@ spec:
     webhook:
       clientConfig:
         service:
-          name: webhook-service
+          name: capvcd-webhook-service
           namespace: capvcd-system
           path: /convert
       conversionReviewVersions:
@@ -165,7 +165,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    cert-manager.io/inject-ca-from: $(CERTIFICATE_NAMESPACE)/$(CERTIFICATE_NAME)
+    cert-manager.io/inject-ca-from: capvcd-system/capvcd-serving-cert
     controller-gen.kubebuilder.io/version: v0.4.1
   labels:
     cluster.x-k8s.io/provider: infrastructure-vcd
@@ -177,7 +177,7 @@ spec:
     webhook:
       clientConfig:
         service:
-          name: webhook-service
+          name: capvcd-webhook-service
           namespace: capvcd-system
           path: /convert
       conversionReviewVersions:
@@ -290,7 +290,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    cert-manager.io/inject-ca-from: $(CERTIFICATE_NAMESPACE)/$(CERTIFICATE_NAME)
+    cert-manager.io/inject-ca-from: capvcd-system/capvcd-serving-cert
     controller-gen.kubebuilder.io/version: v0.4.1
   labels:
     cluster.x-k8s.io/provider: infrastructure-vcd
@@ -302,7 +302,7 @@ spec:
     webhook:
       clientConfig:
         service:
-          name: webhook-service
+          name: capvcd-webhook-service
           namespace: capvcd-system
           path: /convert
       conversionReviewVersions:
@@ -651,6 +651,22 @@ metadata:
   namespace: capvcd-system
 type: Opaque
 ---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    cluster.x-k8s.io/provider: infrastructure-vcd
+  name: capvcd-webhook-service
+  namespace: capvcd-system
+spec:
+  ports:
+  - port: 443
+    protocol: TCP
+    targetPort: 9443
+  selector:
+    cluster.x-k8s.io/provider: infrastructure-vcd
+    control-plane: controller-manager
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -682,6 +698,10 @@ spec:
           initialDelaySeconds: 15
           periodSeconds: 20
         name: manager
+        ports:
+        - containerPort: 9443
+          name: webhook-server
+          protocol: TCP
         readinessProbe:
           httpGet:
             path: /readyz
@@ -698,6 +718,9 @@ spec:
         securityContext:
           allowPrivilegeEscalation: false
         volumeMounts:
+        - mountPath: /tmp/k8s-webhook-server/serving-certs
+          name: cert
+          readOnly: true
         - mountPath: /etc/kubernetes/vcloud
           name: controller-manager-config-volume
         - mountPath: /etc/kubernetes/vcloud/basic-auth
@@ -707,9 +730,68 @@ spec:
       serviceAccountName: capvcd-controller-manager
       terminationGracePeriodSeconds: 10
       volumes:
+      - name: cert
+        secret:
+          defaultMode: 420
+          secretName: webhook-server-cert
       - configMap:
           name: capvcd-manager-config
         name: controller-manager-config-volume
       - name: controller-manager-vcloud-basic-auth-volume
         secret:
           secretName: capvcd-vcloud-basic-auth
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  labels:
+    cluster.x-k8s.io/provider: infrastructure-vcd
+  name: capvcd-serving-cert
+  namespace: capvcd-system
+spec:
+  dnsNames:
+  - capvcd-webhook-service.capvcd-system.svc
+  - capvcd-webhook-service.capvcd-system.svc.cluster.local
+  issuerRef:
+    kind: Issuer
+    name: capvcd-selfsigned-issuer
+  secretName: webhook-server-cert
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  labels:
+    cluster.x-k8s.io/provider: infrastructure-vcd
+  name: capvcd-selfsigned-issuer
+  namespace: capvcd-system
+spec:
+  selfSigned: {}
+---
+apiVersion: admissionregistration.k8s.io/v1beta1
+kind: ValidatingWebhookConfiguration
+metadata:
+  creationTimestamp: null
+  labels:
+    cluster.x-k8s.io/provider: infrastructure-vcd
+  name: capvcd-validating-webhook-configuration
+webhooks:
+- clientConfig:
+    caBundle: Cg==
+    service:
+      name: capvcd-webhook-service
+      namespace: capvcd-system
+      path: /validate-infrastructure-cluster-x-k8s-io-v1beta1-vcdcluster
+  failurePolicy: Fail
+  matchPolicy: Equivalent
+  name: validation.vcdcluster.infrastructure.cluster.x-k8s.io
+  rules:
+  - apiGroups:
+    - infrastructure.cluster.x-k8s.io
+    apiVersions:
+    - v1alpha3
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - vcdclusters
+  sideEffects: None
