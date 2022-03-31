@@ -22,7 +22,7 @@ import (
 	vcdutil "github.com/vmware/cluster-api-provider-cloud-director/pkg/util"
 	"github.com/vmware/cluster-api-provider-cloud-director/pkg/vcdclient"
 	swagger "github.com/vmware/cluster-api-provider-cloud-director/pkg/vcdswaggerclient"
-	"github.com/vmware/cluster-api-provider-cloud-director/pkg/vcdtypes"
+	rdeType "github.com/vmware/cluster-api-provider-cloud-director/pkg/vcdtypes/rde_type_1_1_0"
 	"github.com/vmware/go-vcloud-director/v2/govcd"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -194,16 +194,16 @@ func (r *VCDClusterReconciler) constructCapvcdRDE(ctx context.Context, cluster *
 		EntityType: CAPVCDEntityTypeID,
 		Name:       vcdCluster.Name,
 	}
-	capvcdEntity := vcdtypes.CAPVCDEntity{
+	capvcdEntity := rdeType.CAPVCDEntity{
 		Kind:       CAPVCDClusterKind,
 		ApiVersion: CAPVCDClusterEntityApiVersion,
-		Metadata: vcdtypes.Metadata{
+		Metadata: rdeType.Metadata{
 			Name: vcdCluster.Name,
 			Org:  org,
 			Vdc:  vdc,
 			Site: vcdCluster.Spec.Site,
 		},
-		Spec: vcdtypes.ClusterSpec{
+		Spec: rdeType.ClusterSpec{
 			//Settings: vcdtypes.Settings{
 			//	OvdcNetwork: ovdcNetwork,
 			//	Network: vcdtypes.Network{
@@ -226,32 +226,34 @@ func (r *VCDClusterReconciler) constructCapvcdRDE(ctx context.Context, cluster *
 			//	Version: kubernetesVersion,
 			//},
 		},
-		Status: vcdtypes.Status{
-			Phase: ClusterApiStatusPhaseNotReady,
-			// TODO: Discuss with sahithi if "kubernetes" needs to be removed from the RDE.
-			Kubernetes: kubernetesVersion,
-			CloudProperties: vcdtypes.CloudProperties{
+		Status: rdeType.Status{
+			CAPVCDStatus: rdeType.CAPVCDStatus{
+				Phase: ClusterApiStatusPhaseNotReady,
+				// TODO: Discuss with sahithi if "kubernetes" needs to be removed from the RDE.
+				Kubernetes: kubernetesVersion,
+				ClusterAPIStatus: rdeType.ClusterApiStatus{
+					Phase:        "",
+					ApiEndpoints: []rdeType.ApiEndpoints{},
+				},
+				NodeStatus:              make(map[string]string),
+				UsedAsManagementCluster: false,
+				CapvcdVersion:           r.Config.ClusterResources.CapvcdVersion,
+			},
+			CloudProperties: rdeType.CloudProperties{
 				Site: vcdCluster.Spec.Site,
 				Org:  org,
 				Vdc:  vdc,
 			},
-			ClusterAPIStatus: vcdtypes.ClusterApiStatus{
-				Phase:        "",
-				ApiEndpoints: []vcdtypes.ApiEndpoints{},
-			},
-			NodeStatus:          make(map[string]string),
-			IsManagementCluster: false,
-			CapvcdVersion:       r.Config.ClusterResources.CapvcdVersion,
-			ParentUID:           r.Config.ManagementClusterRDEId,
-			Csi: vcdtypes.VersionedAddon{
+			ParentUID: r.Config.ManagementClusterRDEId,
+			Csi: rdeType.VersionedAddon{
 				Name:    VcdCsiName,
 				Version: r.Config.ClusterResources.CsiVersion, // TODO: get CPI, CNI, CSI versions from the CLusterResourceSet objects
 			},
-			Cpi: vcdtypes.VersionedAddon{
+			Cpi: rdeType.VersionedAddon{
 				Name:    VcdCpiName,
 				Version: r.Config.ClusterResources.CpiVersion,
 			},
-			Cni: vcdtypes.VersionedAddon{
+			Cni: rdeType.VersionedAddon{
 				Name:    CAPVCDClusterCniName,
 				Version: r.Config.ClusterResources.CniVersion,
 			},
@@ -381,36 +383,36 @@ func (r *VCDClusterReconciler) reconcileRDE(ctx context.Context, cluster *cluste
 
 	// Updating status portion of the RDE in the following code
 	// TODO: Delete "kubernetes" string in RDE. Discuss with Sahithi
-	if capvcdEntity.Status.Kubernetes != kubernetesVersion {
-		updatePatch["Status.Kubernetes"] = kubernetesVersion
+	if capvcdEntity.Status.CAPVCDStatus.Kubernetes != kubernetesVersion {
+		updatePatch["Status.CAPVCDStatus.Kubernetes"] = kubernetesVersion
 	}
 
 	//if capvcdEntity.Spec.Distribution.Version != kubernetesVersion {
 	//	updatePatch["Spec.Distribution.Version"] = kubernetesVersion
 	//}
 
-	if capvcdEntity.Status.Uid != vcdCluster.Status.InfraId {
-		updatePatch["Status.Uid"] = vcdCluster.Status.InfraId
+	if capvcdEntity.Status.CAPVCDStatus.Uid != vcdCluster.Status.InfraId {
+		updatePatch["Status.CAPVCDStatus.Uid"] = vcdCluster.Status.InfraId
 	}
 
-	if capvcdEntity.Status.Phase != cluster.Status.Phase {
-		updatePatch["Status.Phase"] = cluster.Status.Phase
+	if capvcdEntity.Status.CAPVCDStatus.Phase != cluster.Status.Phase {
+		updatePatch["Status.CAPVCDStatus.Phase"] = cluster.Status.Phase
 	}
 	clusterApiStatusPhase := ClusterApiStatusPhaseNotReady
 	if cluster.Status.ControlPlaneReady {
 		clusterApiStatusPhase = ClusterApiStatusPhaseReady
 	}
-	clusterApiStatus := vcdtypes.ClusterApiStatus{
+	clusterApiStatus := rdeType.ClusterApiStatus{
 		Phase: clusterApiStatusPhase,
-		ApiEndpoints: []vcdtypes.ApiEndpoints{
+		ApiEndpoints: []rdeType.ApiEndpoints{
 			{
 				Host: vcdCluster.Spec.ControlPlaneEndpoint.Host,
 				Port: 6443,
 			},
 		},
 	}
-	if !reflect.DeepEqual(clusterApiStatus, capvcdEntity.Status.ClusterAPIStatus) {
-		updatePatch["Status.ClusterAPIStatus"] = clusterApiStatus
+	if !reflect.DeepEqual(clusterApiStatus, capvcdEntity.Status.CAPVCDStatus.ClusterAPIStatus) {
+		updatePatch["Status.CAPVCDStatus.ClusterAPIStatus"] = clusterApiStatus
 	}
 
 	// update node status. Needed to remove stray nodes which were already deleted
@@ -423,8 +425,8 @@ func (r *VCDClusterReconciler) reconcileRDE(ctx context.Context, cluster *cluste
 	for _, machine := range machineList.Items {
 		updatedNodeStatus[machine.Name] = machine.Status.Phase
 	}
-	if !reflect.DeepEqual(updatedNodeStatus, capvcdEntity.Status.NodeStatus) {
-		updatePatch["Status.NodeStatus"] = updatedNodeStatus
+	if !reflect.DeepEqual(updatedNodeStatus, capvcdEntity.Status.CAPVCDStatus.NodeStatus) {
+		updatePatch["Status.CAPVCDStatus.NodeStatus"] = updatedNodeStatus
 	}
 
 	obj := client.ObjectKey{
