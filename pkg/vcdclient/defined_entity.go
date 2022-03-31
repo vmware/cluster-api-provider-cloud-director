@@ -7,7 +7,7 @@ import (
 	"github.com/vmware/cluster-api-provider-cloud-director/pkg/util"
 	vcdutil "github.com/vmware/cluster-api-provider-cloud-director/pkg/util"
 	swagger "github.com/vmware/cluster-api-provider-cloud-director/pkg/vcdswaggerclient"
-	"github.com/vmware/cluster-api-provider-cloud-director/pkg/vcdtypes"
+	rdeType "github.com/vmware/cluster-api-provider-cloud-director/pkg/vcdtypes/rde_type_1_1_0"
 	"k8s.io/klog"
 	"net/http"
 	"reflect"
@@ -100,7 +100,7 @@ func (client *Client) PatchRDE(ctx context.Context, patch map[string]interface{}
 	return nil, fmt.Errorf("failed to update defined entity with ID [%s]", rdeID)
 }
 
-func (client *Client) GetCAPVCDEntity(ctx context.Context, rdeID string) (*swagger.DefinedEntity, *vcdtypes.CAPVCDEntity, error) {
+func (client *Client) GetCAPVCDEntity(ctx context.Context, rdeID string) (*swagger.DefinedEntity, *rdeType.CAPVCDEntity, error) {
 	rde, resp, _, err := client.ApiClient.DefinedEntityApi.GetDefinedEntity(ctx, rdeID)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to get defined entity with ID [%s]: [%v]", rdeID, err)
