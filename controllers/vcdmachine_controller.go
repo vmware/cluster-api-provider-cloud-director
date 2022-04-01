@@ -310,7 +310,7 @@ func (r *VCDMachineReconciler) reconcileNodeStatusInRDE(ctx context.Context, rde
 	if err != nil {
 		return fmt.Errorf("failed to get CAPVCD entity with ID [%s] to sync node details for machine [%s]: [%v]", rdeID, nodeName, err)
 	}
-	nodeStatusMap := capvcdEntity.Status.NodeStatus
+	nodeStatusMap := capvcdEntity.Status.CAPVCDStatus.NodeStatus
 	if nodeStatus, ok := nodeStatusMap[nodeName]; ok && nodeStatus == status {
 		// no update needed
 		return nil
@@ -319,7 +319,7 @@ func (r *VCDMachineReconciler) reconcileNodeStatusInRDE(ctx context.Context, rde
 		nodeStatusMap = make(map[string]string)
 	}
 	nodeStatusMap[nodeName] = status
-	updatePatch["Status.NodeStatus"] = nodeStatusMap
+	updatePatch["Status.CAPVCDStatus.NodeStatus"] = nodeStatusMap
 
 	// update defined entity
 	updatedRDE, err := workloadVCDClient.PatchRDE(ctx, updatePatch, rdeID)
@@ -351,7 +351,7 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 
 	workloadVCDClient, err := vcdclient.NewVCDClientFromSecrets(vcdCluster.Spec.Site, vcdCluster.Spec.Org,
 		vcdCluster.Spec.Ovdc, vcdCluster.Name, vcdCluster.Spec.OvdcNetwork, r.VcdClient.IPAMSubnet,
-		r.VcdClient.VcdAuthConfig.UserOrg, vcdCluster.Spec.UserCredentialsContext.Username,
+		vcdCluster.Spec.Org, vcdCluster.Spec.UserCredentialsContext.Username,
 		vcdCluster.Spec.UserCredentialsContext.Password, vcdCluster.Spec.UserCredentialsContext.RefreshToken,
 		true, vcdCluster.Status.InfraId, r.VcdClient.OneArm, 0, 0, r.VcdClient.TCPPort,
 		true, "", r.VcdClient.CsiVersion, r.VcdClient.CpiVersion, r.VcdClient.CniVersion,
@@ -758,7 +758,7 @@ func (r *VCDMachineReconciler) reconcileDelete(ctx context.Context, cluster *clu
 
 	workloadVCDClient, err := vcdclient.NewVCDClientFromSecrets(vcdCluster.Spec.Site, vcdCluster.Spec.Org,
 		vcdCluster.Spec.Ovdc, vcdCluster.Name, vcdCluster.Spec.OvdcNetwork, r.VcdClient.IPAMSubnet,
-		r.VcdClient.VcdAuthConfig.UserOrg, vcdCluster.Spec.UserCredentialsContext.Username,
+		vcdCluster.Spec.Org, vcdCluster.Spec.UserCredentialsContext.Username,
 		vcdCluster.Spec.UserCredentialsContext.Password, vcdCluster.Spec.UserCredentialsContext.RefreshToken,
 		true, vcdCluster.Status.InfraId, r.VcdClient.OneArm, 0, 0, r.VcdClient.TCPPort,
 		true, "", r.VcdClient.CsiVersion, r.VcdClient.CpiVersion,

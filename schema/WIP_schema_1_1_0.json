@@ -1,0 +1,202 @@
+{
+  "definitions": {
+    "k8sNetwork": {
+      "type": "object",
+      "description": "The network-related settings for the cluster.",
+      "properties": {
+        "cni": {
+          "type": "object",
+          "description": "The CNI to use.",
+          "properties": {
+            "name": {
+              "type": "string"
+            }
+          }
+        },
+        "pods": {
+          "type": "object",
+          "description": "The network settings for Kubernetes pods.",
+          "properties": {
+            "cidrBlocks": {
+              "type": "array",
+              "description": "Specifies a range of IP addresses to use for Kubernetes pods.",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "services": {
+          "type": "object",
+          "description": "The network settings for Kubernetes services",
+          "properties": {
+            "cidrBlocks": {
+              "type": "array",
+              "description": "The range of IP addresses to use for Kubernetes services",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "type": "object",
+  "properties": {
+    "kind": {
+      "enum": [
+        "CAPVCDCluster", "VKPCluster"
+      ],
+      "type": "string",
+      "description": "The kind of the Kubernetes cluster."
+    },
+    "spec": {
+      "type": "object",
+      "properties": {
+        "capiYaml": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "capiYaml"
+      ]
+    },
+    "metadata": {
+      "type": "object",
+      "properties": {
+        "orgName": {
+          "type": "string",
+          "description": "The name of the Organization in which cluster needs to be created or managed."
+        },
+        "virtualDataCenterName": {
+          "type": "string",
+          "description": "The name of the Organization Virtual data center in which the cluster need to be created or managed."
+        },
+        "name": {
+          "type": "string",
+          "description": "The name of the cluster."
+        },
+        "site": {
+          "type": "string",
+          "description": "Fully Qualified Domain Name of the VCD site in which the cluster is deployed"
+        }
+      }
+    },
+    "status": {
+      "type": "object",
+      "x-vcloud-restricted": "protected",
+      "properties": {
+        "capvcd": {
+          "type": "object",
+          "properties": {
+            "phase": {
+              "type": "string"
+            },
+            "kubernetes": {
+              "type": "string"
+            },
+            "errors": {
+              "type": "array",
+              "items": [
+                {
+                  "type": "string"
+                }
+              ]
+            },
+            "k8sNetwork": {
+              "$ref": "#/definitions/k8sNetwork"
+            },
+            "uid": {
+              "type": "string"
+            },
+            "parentUid": {
+              "type": "string"
+            },
+            "userIntendsToUseItAsAManagementCluster": {
+              "type": "boolean"
+            },
+            "clusterApiStatus": {
+              "type": "object",
+              "properties": {
+                "phase": {
+                  "type": "string",
+                  "description": "The phase describing the control plane infrastructure deployment."
+                },
+                "apiEndpoints": {
+                  "type": "array",
+                  "description": "Control Plane load balancer endpoints",
+                  "items": {
+                    "host": {
+                      "type": "string"
+                    },
+                    "port": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            },
+            "nodeStatus": {
+              "additionalProperties": {
+                "type": "string",
+                "properties": {}
+              }
+            },
+            "clusterResourceSet": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {}
+              }
+            },
+            "capvcdVersion": {
+              "type": "string"
+            },
+            "vcdProperties": {
+              "type": "object",
+              "properties": {
+                "orgName": {
+                  "type": "string"
+                },
+                "virtualDataCenterName": {
+                  "type": "string"
+                },
+                "ovdcNetworkName": {
+                  "type": "string"
+                },
+                "site": {
+                  "type": "string"
+                }
+              }
+            },
+            "private": {
+              "type": "object",
+              "x-vcloud-restricted": "private",
+              "description": "Placeholder for the properties invisible to non-admin users.",
+              "properties": {
+                "kubeConfig": {
+                  "type": "string",
+                  "description": "Admin kube config to access the Kubernetes cluster."
+                }
+              }
+            },
+            "vcdResourceSet": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {}
+
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "required": [
+    "kind",
+    "spec",
+    "metadata"
+  ]
+}
