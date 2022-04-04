@@ -408,7 +408,7 @@ func (gateway *GatewayManager) createDNATRule(ctx context.Context, dnatRuleName 
 		return nil
 	}
 
-	ruleType := swaggerClient.NatRuleType(swaggerClient.DNAT_NatRuleType)
+	ruleType := swaggerClient.DNAT_NatRuleType
 	edgeNatRule := swaggerClient.EdgeNatRule{
 		Name:              dnatRuleName,
 		Enabled:           true,
@@ -440,7 +440,7 @@ func (gateway *GatewayManager) createDNATRule(ctx context.Context, dnatRuleName 
 	return nil
 }
 
-func (gateway *GatewayManager) deleteDNATRule(ctx context.Context, dnatRuleName string,
+func (gateway *GatewayManager) DeleteDNATRule(ctx context.Context, dnatRuleName string,
 	failIfAbsent bool) error {
 	client := gateway.Client
 	if client.GatewayRef == nil {
@@ -994,7 +994,7 @@ func (gateway *GatewayManager) deleteVirtualService(ctx context.Context, virtual
 
 // CreateLoadBalancer : create a new load balancer pool and virtual service pointing to it
 func (gateway *GatewayManager) CreateLoadBalancer(ctx context.Context, virtualServiceNamePrefix string,
-	lbPoolNamePrefix string, ips []string, httpPort int32, httpsPort int32) (string, error) {
+	lbPoolNamePrefix string, externalIP string, ips []string, httpPort int32, httpsPort int32) (string, error) {
 	client := gateway.Client
 	client.rwLock.Lock()
 	defer client.rwLock.Unlock()
@@ -1107,7 +1107,7 @@ func (gateway *GatewayManager) CreateLoadBalancer(ctx context.Context, virtualSe
 }
 
 func (gateway *GatewayManager) CreateL4LoadBalancer(ctx context.Context, virtualServiceNamePrefix string,
-	lbPoolNamePrefix string, ips []string, tcpPort int32) (string, error) {
+	lbPoolNamePrefix string, suppliedExternalIP string, ips []string, tcpPort int32) (string, error) {
 
 	gateway.Client.rwLock.Lock()
 	defer gateway.Client.rwLock.Unlock()
@@ -1139,10 +1139,14 @@ func (gateway *GatewayManager) CreateL4LoadBalancer(ctx context.Context, virtual
 		},
 	}
 
-	externalIP, err := gateway.getUnusedExternalIPAddress(ctx, gateway.Client.IPAMSubnet)
-	if err != nil {
-		return "", fmt.Errorf("unable to get unused IP address from subnet [%s]: [%v]",
-			gateway.Client.IPAMSubnet, err)
+	externalIP := suppliedExternalIP
+	var err error
+	if externalIP == "" {
+		externalIP, err = gateway.getUnusedExternalIPAddress(ctx, gateway.Client.IPAMSubnet)
+		if err != nil {
+			return "", fmt.Errorf("unable to get unused IP address from subnet [%s]: [%v]",
+				gateway.Client.IPAMSubnet, err)
+		}
 	}
 	klog.V(3).Infof("Using external IP [%s] for virtual service\n", externalIP)
 
@@ -1254,7 +1258,7 @@ func (gateway *GatewayManager) DeleteLoadBalancer(ctx context.Context, virtualSe
 
 		if client.OneArm != nil {
 			dnatRuleName := fmt.Sprintf("dnat-%s", virtualServiceName)
-			err = gateway.deleteDNATRule(ctx, dnatRuleName, false)
+			err = gateway.DeleteDNATRule(ctx, dnatRuleName, false)
 			if err != nil {
 				return fmt.Errorf("unable to delete dnat rule [%s]: [%v]", dnatRuleName, err)
 			}

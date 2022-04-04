@@ -77,13 +77,13 @@ func TestDNATRuleCRUDE(t *testing.T) {
 	assert.Equal(t, dnatRuleName, natRuleRef.Name, "Nat Rule name should match")
 	assert.NotEmpty(t, natRuleRef.ID, "Nat Rule ID should not be empty")
 
-	err = gateway.deleteDNATRule(ctx, dnatRuleName, true)
+	err = gateway.DeleteDNATRule(ctx, dnatRuleName, true)
 	assert.NoError(t, err, "Unable to delete dnat rule")
 
-	err = gateway.deleteDNATRule(ctx, dnatRuleName, true)
+	err = gateway.DeleteDNATRule(ctx, dnatRuleName, true)
 	assert.Error(t, err, "Should fail when deleting non-existing dnat rule")
 
-	err = gateway.deleteDNATRule(ctx, dnatRuleName, false)
+	err = gateway.DeleteDNATRule(ctx, dnatRuleName, false)
 	assert.NoError(t, err, "Should not fail when deleting non-existing dnat rule")
 
 	natRuleRef, err = gateway.getNATRuleRef(ctx, dnatRuleName)
@@ -307,7 +307,7 @@ func TestLoadBalancerCRUDE(t *testing.T) {
 	virtualServiceNamePrefix := fmt.Sprintf("test-virtual-service-https-%s", uuid.New().String())
 	lbPoolNamePrefix := fmt.Sprintf("test-lb-pool-%s", uuid.New().String())
 	freeIP, err := gateway.CreateLoadBalancer(ctx, virtualServiceNamePrefix,
-		lbPoolNamePrefix, []string{"1.2.3.4", "1.2.3.5"}, 31234, 31235)
+		lbPoolNamePrefix, "", []string{"1.2.3.4", "1.2.3.5"}, 31234, 31235)
 	assert.NoError(t, err, "Load Balancer should be created")
 	assert.NotEmpty(t, freeIP, "There should be a non-empty IP returned")
 
@@ -322,7 +322,7 @@ func TestLoadBalancerCRUDE(t *testing.T) {
 	assert.Equal(t, freeIP, freeIPObtained, "The IPs should match")
 
 	freeIP, err = gateway.CreateLoadBalancer(ctx, virtualServiceNamePrefix,
-		lbPoolNamePrefix, []string{"1.2.3.4", "1.2.3.5"}, 31234, 31235)
+		lbPoolNamePrefix, "", []string{"1.2.3.4", "1.2.3.5"}, 31234, 31235)
 	assert.NoError(t, err, "Load Balancer should be created even on second attempt")
 	assert.NotEmpty(t, freeIP, "There should be a non-empty IP returned")
 
@@ -372,7 +372,7 @@ func TestCreateL4LoadBalancer(t *testing.T) {
 	lbPoolNamePrefix := fmt.Sprintf("test-lb-pool-%s", uuid.New().String())
 
 	freeIP, err := gateway.CreateL4LoadBalancer(ctx, virtualServiceNamePrefix,
-		lbPoolNamePrefix, []string{}, 6443)
+		lbPoolNamePrefix, "", []string{}, 6443)
 	assert.NoError(t, err, "L4 Load Balancer should be created")
 	assert.NotEmpty(t, freeIP, "There should be a non-empty IP returned")
 

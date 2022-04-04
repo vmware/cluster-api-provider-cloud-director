@@ -68,6 +68,15 @@ type VCDClusterSpec struct {
 	DefaultComputePolicy string `json:"defaultComputePolicy,omitempty"`
 	// + optional
 	RDEId string `json:"rdeId"`
+
+	// IsMigratedR1Cluster indicates that the cluster was an R1 cluster originally
+	// +optional
+	IsMigratedR1Cluster bool `json:"isMigratedR1Cluster,omitempty"`
+
+	// R1ClusterEndpoint is to be used in migration of an R1 cluster to a CAPVCD cluster. This is an IP:Port string
+	// representation of the api-server endpoint.
+	// +optional
+	R1ClusterEndpoint string `json:"r1ClusterEndpoint,omitempty"`
 }
 
 // VCDClusterStatus defines the observed state of VCDCluster

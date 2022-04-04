@@ -48,6 +48,10 @@ spec:
                 description: ComputePolicy is the compute policy to be used on this
                   machine
                 type: string
+              isMigratedR1Machine:
+                description: IsMigratedR1Machine indicates that the machine was created
+                  as part of R1 cluster creation
+                type: boolean
               providerID:
                 description: ProviderID will be the container name in ProviderID format
                   (vmware-cloud-director://<vm id>)

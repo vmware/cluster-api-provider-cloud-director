@@ -45,6 +45,10 @@ type VCDMachineSpec struct {
 	// against this machine
 	// +optional
 	Bootstrapped bool `json:"bootstrapped,omitempty"`
+
+	// IsMigratedR1Machine indicates that the machine was created as part of R1 cluster creation
+	// +optional
+	IsMigratedR1Machine bool `json:"isMigratedR1Machine,omitempty"`
 }
 
 // VCDMachineStatus defines the observed state of VCDMachine

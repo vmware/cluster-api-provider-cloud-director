@@ -14,6 +14,7 @@ import (
 	"k8s.io/klog"
 	"net/http"
 	"strconv"
+	"strings"
 )
 
 func (client *Client) GetNATRuleRef(ctx context.Context,
@@ -88,6 +89,75 @@ func (client *Client) GetNATRuleRef(ctx context.Context,
 	}
 
 	return natRuleRef, nil
+}
+
+func (client *Client) GetNATRuleRefFromPrefix(ctx context.Context,
+	natRulePrefix string) ([]*NatRuleRef, error) {
+
+	if client.GatewayRef == nil {
+		return nil, fmt.Errorf("gateway reference should not be nil")
+	}
+
+	natRuleRefs := make([]*NatRuleRef, 0)
+	cursor := optional.EmptyString()
+	for {
+		natRules, resp, err := client.ApiClient.EdgeGatewayNatRulesApi.GetNatRules(
+			ctx, 128, client.GatewayRef.Id,
+			&swaggerClient.EdgeGatewayNatRulesApiGetNatRulesOpts{
+				Cursor: cursor,
+			})
+		if err != nil {
+			return nil, fmt.Errorf("unable to get nat rules: resp: [%+v]: [%v]", resp, err)
+		}
+		if len(natRules.Values) == 0 {
+			break
+		}
+
+		for _, rule := range natRules.Values {
+			if strings.HasPrefix(rule.Name, natRulePrefix) {
+				externalPort := 0
+				if rule.DnatExternalPort != "" {
+					externalPort, err = strconv.Atoi(rule.DnatExternalPort)
+					if err != nil {
+						return nil, fmt.Errorf("Unable to convert external port [%s] to int: [%v]",
+							rule.DnatExternalPort, err)
+					}
+				}
+
+				internalPort := 0
+				if rule.InternalPort != "" {
+					internalPort, err = strconv.Atoi(rule.InternalPort)
+					if err != nil {
+						return nil, fmt.Errorf("Unable to convert internal port [%s] to int: [%v]",
+							rule.InternalPort, err)
+					}
+				}
+
+				natRuleRef := &NatRuleRef{
+					ID:           rule.Id,
+					Name:         rule.Name,
+					ExternalIP:   rule.ExternalAddresses,
+					InternalIP:   rule.InternalAddresses,
+					ExternalPort: externalPort,
+					InternalPort: internalPort,
+				}
+				natRuleRefs = append(natRuleRefs, natRuleRef)
+
+				break
+			}
+		}
+
+		cursorStr, err := getCursor(resp)
+		if err != nil {
+			return nil, fmt.Errorf("error while parsing response [%+v]: [%v]", resp, err)
+		}
+		if cursorStr == "" {
+			break
+		}
+		cursor = optional.NewString(cursorStr)
+	}
+
+	return natRuleRefs, nil
 }
 
 // TODO: get and return if it already exists

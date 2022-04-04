@@ -386,6 +386,96 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		}
 	}
 
+	vdcManager := vcdclient.VdcManager{
+		VdcName: workloadVCDClient.ClusterOVDCName,
+		OrgName: workloadVCDClient.ClusterOrgName,
+		Client:  workloadVCDClient,
+		Vdc:     workloadVCDClient.Vdc,
+	}
+
+	// If the machine is from an R1 cluster, verify that it exists and update the LB if needed.
+	if vcdMachine.Spec.IsMigratedR1Machine {
+		vAppName := cluster.Name
+		vApp, err := vdcManager.Vdc.GetVAppByName(vAppName, true)
+		if err != nil {
+			return ctrl.Result{}, errors.Wrapf(err,
+				"Error provisioning infrastructure for the machine [%s] of the cluster [%s]",
+				machine.Name, vcdCluster.Name)
+		}
+
+		vm, err := vApp.GetVMByName(machine.Name, false)
+		if vm != nil {
+			vcdMachine.Spec.Bootstrapped = true
+			conditions.MarkTrue(vcdMachine, infrav1.BootstrapExecSucceededCondition)
+
+			machineAddress := vm.VM.NetworkConnectionSection.NetworkConnection[0].IPAddress
+			vcdMachine.Status.Addresses = []clusterv1.MachineAddress{
+				{
+					Type:    clusterv1.MachineHostName,
+					Address: vm.VM.Name,
+				},
+				{
+					Type:    clusterv1.MachineInternalIP,
+					Address: machineAddress,
+				},
+				{
+					Type:    clusterv1.MachineExternalIP,
+					Address: machineAddress,
+				},
+			}
+
+			gateway := &vcdclient.GatewayManager{
+				NetworkName:        workloadVCDClient.NetworkName,
+				Client:             workloadVCDClient,
+				GatewayRef:         workloadVCDClient.GatewayRef,
+				NetworkBackingType: workloadVCDClient.NetworkBackingType,
+			}
+
+			// Update loadbalancer pool with the IP of the control plane node as a new member.
+			// Note that this must be done before booting on the VM!
+			if util.IsControlPlaneMachine(machine) {
+				lbPoolName := vcdCluster.Name + "-" + vcdCluster.Status.InfraId + "-tcp"
+				lbPoolRef, err := gateway.GetLoadBalancerPool(ctx, lbPoolName)
+				if err != nil {
+					return ctrl.Result{}, errors.Wrapf(err, "Error retrieving/updating load balancer pool [%s] for the "+
+						"control plane machine [%s] of the cluster [%s]", lbPoolName, machine.Name, vcdCluster.Name)
+				}
+				controlPlaneIPs, err := gateway.GetLoadBalancerPoolMemberIPs(ctx, lbPoolRef)
+				if err != nil {
+					return ctrl.Result{}, errors.Wrapf(err,
+						"Error retrieving/updating load balancer pool members [%s] for the "+
+							"control plane machine [%s] of the cluster [%s]", lbPoolName, machine.Name, vcdCluster.Name)
+				}
+
+				updatedIPs := append(controlPlaneIPs, machineAddress)
+				err = gateway.UpdateLoadBalancer(ctx, lbPoolName, updatedIPs, int32(6443))
+				if err != nil {
+					return ctrl.Result{}, errors.Wrapf(err,
+						"Error updating the load balancer pool [%s] for the "+
+							"control plane machine [%s] of the cluster [%s]", lbPoolName, machine.Name, vcdCluster.Name)
+				}
+				log.Info("Updated the load balancer pool with the control plane machine IP", "lbpool", lbPoolName)
+			}
+
+			// Set ProviderID so the Cluster API Machine Controller can pull it
+			providerID := fmt.Sprintf("%s://%s", infrav1.VCDProviderID, vm.VM.ID)
+			vcdMachine.Spec.ProviderID = &providerID
+			vcdMachine.Status.Ready = true
+			conditions.MarkTrue(vcdMachine, infrav1.ContainerProvisionedCondition)
+			err = r.reconcileNodeStatusInRDE(ctx, vcdCluster.Status.InfraId, machine.Name, machine.Status.Phase, workloadVCDClient)
+			if err != nil {
+				if _, ok := err.(*NoRDEError); ok {
+					log.V(3).Info("RDE NOT set up to track this cluster.", "infraID", vcdCluster.Status.InfraId)
+				} else {
+					log.Error(err, "Error reconciling node status of the RDE",
+						"RDEId", vcdCluster.Status.InfraId, "nodeStatus", machine.Status.Phase)
+				}
+			}
+
+			return ctrl.Result{}, nil
+		}
+	}
+
 	if machine.Spec.Bootstrap.DataSecretName == nil {
 		if !util.IsControlPlaneMachine(machine) && !conditions.IsTrue(cluster,
 			clusterv1.ControlPlaneInitializedCondition) {
@@ -414,13 +504,6 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		if err := patchVCDMachine(ctx, patchHelper, vcdMachine); err != nil {
 			return ctrl.Result{}, errors.Wrapf(err, "Error patching VCDMachine [%s] of cluster [%s]", vcdMachine.Name, vcdCluster.Name)
 		}
-	}
-
-	vdcManager := vcdclient.VdcManager{
-		VdcName: workloadVCDClient.ClusterOVDCName,
-		OrgName: workloadVCDClient.ClusterOrgName,
-		Client:  workloadVCDClient,
-		Vdc:     workloadVCDClient.Vdc,
 	}
 
 	// The vApp should have already been created, so this is more of a Get of the vApp
@@ -663,7 +746,9 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		}
 	}
 	if hasCloudInitFailedBefore, err := r.hasCloudInitExecutionFailedBefore(ctx, workloadVCDClient, vm); hasCloudInitFailedBefore {
-		return ctrl.Result{}, errors.Wrapf(err, "Error bootstrapping the machine [%s/%s]; machine is probably in unreconciliable state", vAppName, vm.VM.Name)
+		return ctrl.Result{}, errors.Wrapf(err,
+			"Error bootstrapping the machine [%s/%s]; machine is probably in unreconciliable state",
+			vAppName, vm.VM.Name)
 	}
 
 	// wait for each vm phase
@@ -673,12 +758,14 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	}
 	for _, phase := range phases {
 		if err = vApp.Refresh(); err != nil {
-			return ctrl.Result{}, errors.Wrapf(err, "Error while bootstrapping the machine [%s/%s]; unable to refresh vapp", vAppName, vm.VM.Name)
+			return ctrl.Result{}, errors.Wrapf(err,
+				"Error while bootstrapping the machine [%s/%s]; unable to refresh vapp", vAppName, vm.VM.Name)
 		}
 		log.Info(fmt.Sprintf("Start: waiting for the bootstrapping phase [%s] to complete", phase))
 		if err = r.waitForPostCustomizationPhase(ctx, workloadVCDClient, vm, phase); err != nil {
 			log.Error(err, fmt.Sprintf("Error waiting for the bootstrapping phase [%s] to complete", phase))
-			return ctrl.Result{}, errors.Wrapf(err, "Error while bootstrapping the machine [%s/%s]; unable to wait for post customization phase [%s]",
+			return ctrl.Result{}, errors.Wrapf(err,
+				"Error while bootstrapping the machine [%s/%s]; unable to wait for post customization phase [%s]",
 				vAppName, vm.VM.Name, phase)
 		}
 		log.Info(fmt.Sprintf("End: waiting for the bootstrapping phase [%s] to complete", phase))
