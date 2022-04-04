@@ -17,11 +17,6 @@ import (
 	"github.com/vmware/go-vcloud-director/v2/govcd"
 )
 
-var (
-	clientCreatorLock sync.Mutex
-	clientSingleton   *Client = nil
-)
-
 // OneArm : internal struct representing OneArm config details
 type OneArm struct {
 	StartIPAddress string
@@ -121,31 +116,8 @@ func NewVCDClientFromSecrets(host string, orgName string, vdcName string, vAppNa
 
 	// TODO: validation of parameters
 
-	clientCreatorLock.Lock()
-	defer clientCreatorLock.Unlock()
-
-	// Return old client if everything matches. Else create new one and cache it.
-	// This is suboptimal but is not a common case.
-	if clientSingleton != nil {
-		if clientSingleton.VcdAuthConfig.Host == host &&
-			clientSingleton.ClusterOrgName == orgName &&
-			clientSingleton.ClusterOVDCName == vdcName &&
-			clientSingleton.ClusterVAppName == vAppName &&
-			clientSingleton.VcdAuthConfig.UserOrg == userOrg &&
-			clientSingleton.VcdAuthConfig.User == user &&
-			clientSingleton.VcdAuthConfig.Password == password &&
-			clientSingleton.VcdAuthConfig.RefreshToken == refreshToken &&
-			clientSingleton.VcdAuthConfig.Insecure == insecure &&
-			clientSingleton.NetworkName == networkName &&
-			clientSingleton.ManagementClusterRDEId == managementClusterRDEId &&
-			clientSingleton.CsiVersion == csiVersion &&
-			clientSingleton.CpiVersion == cpiVersion &&
-			clientSingleton.CniVersion == cniVersion &&
-			clientSingleton.CAPVCDVersion == capvcdVersion {
-			return clientSingleton, nil
-		}
-	}
-
+	// We need to get a client every time here rather than reusing the older client, since we can have the same worker
+	// working on different userContexts
 	vcdAuthConfig := NewVCDAuthConfigFromSecrets(host, user, password, refreshToken, userOrg, insecure)
 
 	vcdClient, apiClient, err := vcdAuthConfig.GetSwaggerClientFromSecrets()
@@ -207,8 +179,7 @@ func NewVCDClientFromSecrets(host string, orgName string, vdcName string, vAppNa
 		}
 		klog.V(3).Infof("Cached gateway details [%#v] successfully\n", client.GatewayRef)
 	}
-	clientSingleton = client
 
-	klog.V(3).Infof("Client singleton is sysadmin: [%v]", clientSingleton.VcdClient.Client.IsSysAdmin)
-	return clientSingleton, nil
+	klog.V(3).Infof("Is client sysadmin: [%v]", client.VcdClient.Client.IsSysAdmin)
+	return client, nil
 }
