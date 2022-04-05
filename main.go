@@ -117,7 +117,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	cloudConfig, err := getCapvcdConfig()
+	capvcdConfig, err := getCapvcdConfig()
 	if err != nil {
 		setupLog.Error(err, "failed to read CAPVCD config file")
 		os.Exit(1)
@@ -127,7 +127,7 @@ func main() {
 
 	if err = (&controllers.VCDMachineReconciler{
 		Client: mgr.GetClient(),
-		Config: cloudConfig,
+		Config: capvcdConfig,
 		// Scheme:    mgr.GetScheme(),
 	}).SetupWithManager(ctx, mgr, controller.Options{
 		MaxConcurrentReconciles: concurrency,
@@ -139,7 +139,7 @@ func main() {
 	if err = (&controllers.VCDClusterReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
-		Config: cloudConfig,
+		Config: capvcdConfig,
 	}).SetupWithManager(mgr, controller.Options{
 		MaxConcurrentReconciles: concurrency,
 	}); err != nil {
@@ -177,6 +177,4 @@ func main() {
 		setupLog.Error(err, "problem running manager")
 		os.Exit(1)
 	}
-
-	// TODO: figure out a way to set isManagementCluster in RDE
 }
