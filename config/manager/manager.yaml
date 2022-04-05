@@ -46,14 +46,9 @@ spec:
         volumeMounts:
           - name: controller-manager-config-volume
             mountPath: /etc/kubernetes/vcloud
-          - name: controller-manager-vcloud-basic-auth-volume
-            mountPath: /etc/kubernetes/vcloud/basic-auth
       volumes:
         - name: controller-manager-config-volume
           configMap:
             name: manager-config
-        - name: controller-manager-vcloud-basic-auth-volume
-          secret:
-            secretName: vcloud-basic-auth
       serviceAccountName: controller-manager
       terminationGracePeriodSeconds: 10

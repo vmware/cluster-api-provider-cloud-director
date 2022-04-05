@@ -41,6 +41,6 @@ func TestCloudConfig(t *testing.T) {
 		assert.NoError(t, err, "Error closing config file [%s], testConfigFilePath")
 	}()
 
-	_, err = ParseCloudConfig(configReader)
+	_, err = ParseCAPVCDConfig(configReader)
 	assert.NoError(t, err, "Unable to parse config file")
 }
