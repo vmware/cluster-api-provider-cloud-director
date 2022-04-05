@@ -21,8 +21,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 
 	"github.com/vmware/cluster-api-provider-cloud-director/pkg/config"
-	"github.com/vmware/cluster-api-provider-cloud-director/pkg/vcdclient"
-
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
@@ -65,61 +63,19 @@ func init() {
 	//+kubebuilder:scaffold:scheme
 }
 
-func getVcdClientFromConfig(inputMap map[string]interface{}) (*vcdclient.Client, error) {
+func getCapvcdConfig() (*config.CAPVCDConfig, error) {
 	configFilePath := "/etc/kubernetes/vcloud/controller_manager_config.yaml"
 	configReader, err := os.Open(configFilePath)
 	if err != nil {
 		return nil, fmt.Errorf("Unable to open file [%s]: [%v]", configFilePath, err)
 	}
 	defer configReader.Close()
-
-	cloudConfig, err := config.ParseCloudConfig(configReader)
+	cloudConfig, err := config.ParseCAPVCDConfig(configReader)
 	if err != nil {
-		return nil, fmt.Errorf("Unable to parse cloud config file [%s]: [%v]", configFilePath, err)
+		return nil, fmt.Errorf("Unable to parse CAPVCD config file [%s]: [%v]", configFilePath, err)
 	}
-
-	err = config.SetAuthorization(cloudConfig)
-	if err != nil {
-		return nil, fmt.Errorf("unable to set authorization in config: [%v]", err)
-	}
-
-	err = config.ValidateCloudConfig(cloudConfig)
-	if err != nil {
-		return nil, fmt.Errorf("error validating config: [%v]", err)
-	}
-
-	insecure := true
-	oneArm := &vcdclient.OneArm{
-		StartIPAddress: cloudConfig.LB.OneArm.StartIP,
-		EndIPAddress:   cloudConfig.LB.OneArm.EndIP,
-	}
-	getVdcClient := true
-	trimmedCapvcdVersion := strings.Trim(capVCDVersion, "\n")
-	// TODO (Sahithi: Let this method take the cloudConfig as a param instead of individual properties)
-	return vcdclient.NewVCDClientFromSecrets(
-		cloudConfig.VCD.Host,
-		cloudConfig.VCD.Org,
-		cloudConfig.VCD.VDC,
-		"",
-		cloudConfig.VCD.VDCNetwork,
-		cloudConfig.VCD.VIPSubnet,
-		cloudConfig.VCD.UserOrg,
-		cloudConfig.VCD.User,
-		cloudConfig.VCD.Secret,
-		cloudConfig.VCD.RefreshToken,
-		insecure,
-		cloudConfig.ClusterID,
-		oneArm,
-		cloudConfig.LB.Ports.HTTP,
-		cloudConfig.LB.Ports.HTTPS,
-		cloudConfig.LB.Ports.TCP,
-		getVdcClient,
-		cloudConfig.ManagementClusterRDEId,
-		cloudConfig.ClusterResources.CsiVersion,
-		cloudConfig.ClusterResources.CpiVersion,
-		cloudConfig.ClusterResources.CniVersion,
-		trimmedCapvcdVersion,
-	)
+	cloudConfig.ClusterResources.CapvcdVersion = strings.Trim(capVCDVersion, "\n")
+	return cloudConfig, err
 }
 
 func main() {
@@ -160,17 +116,19 @@ func main() {
 		setupLog.Error(err, "unable to start manager")
 		os.Exit(1)
 	}
-	vcdClient, err := getVcdClientFromConfig(nil)
+
+	capvcdConfig, err := getCapvcdConfig()
 	if err != nil {
-		panic(fmt.Errorf("unable to connect to vcd: [%v]", err))
+		setupLog.Error(err, "failed to read CAPVCD config file")
+		os.Exit(1)
 	}
 
 	ctx := context.Background()
 
 	if err = (&controllers.VCDMachineReconciler{
 		Client: mgr.GetClient(),
+		Config: capvcdConfig,
 		// Scheme:    mgr.GetScheme(),
-		VcdClient: vcdClient,
 	}).SetupWithManager(ctx, mgr, controller.Options{
 		MaxConcurrentReconciles: concurrency,
 	}); err != nil {
@@ -179,9 +137,9 @@ func main() {
 	}
 
 	if err = (&controllers.VCDClusterReconciler{
-		Client:    mgr.GetClient(),
-		Scheme:    mgr.GetScheme(),
-		VcdClient: vcdClient,
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+		Config: capvcdConfig,
 	}).SetupWithManager(mgr, controller.Options{
 		MaxConcurrentReconciles: concurrency,
 	}); err != nil {
@@ -218,12 +176,5 @@ func main() {
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
 		setupLog.Error(err, "problem running manager")
 		os.Exit(1)
-	}
-
-	err = vcdClient.SetIsManagementClusterInRDE(ctx)
-	if err != nil {
-		setupLog.Error(err, "unable to set isManagementCluster flag")
-	} else {
-		setupLog.Info("successfully set isManagementCLuster flag in RDE: [%s]", vcdClient.ManagementClusterRDEId)
 	}
 }

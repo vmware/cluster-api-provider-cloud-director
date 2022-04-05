@@ -14,6 +14,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/replicatedhq/troubleshoot/pkg/redact"
 	infrav1 "github.com/vmware/cluster-api-provider-cloud-director/api/v1alpha4"
+	"github.com/vmware/cluster-api-provider-cloud-director/pkg/config"
 	"github.com/vmware/cluster-api-provider-cloud-director/pkg/vcdclient"
 	"github.com/vmware/go-vcloud-director/v2/govcd"
 	"gopkg.in/yaml.v2"
@@ -55,8 +56,9 @@ var nodeCloudInitScriptTemplate string
 // VCDMachineReconciler reconciles a VCDMachine object
 type VCDMachineReconciler struct {
 	client.Client
+	Config *config.CAPVCDConfig
 	//Scheme    *runtime.Scheme
-	VcdClient *vcdclient.Client
+	//VcdClient *vcdclient.Client
 }
 
 //+kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=vcdmachines,verbs=get;list;watch;create;update;patch;delete
@@ -350,12 +352,15 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	log := ctrl.LoggerFrom(ctx, "machine", machine.Name, "cluster", vcdCluster.Name)
 
 	workloadVCDClient, err := vcdclient.NewVCDClientFromSecrets(vcdCluster.Spec.Site, vcdCluster.Spec.Org,
-		vcdCluster.Spec.Ovdc, vcdCluster.Name, vcdCluster.Spec.OvdcNetwork, r.VcdClient.IPAMSubnet,
+		vcdCluster.Spec.Ovdc, vcdCluster.Name, vcdCluster.Spec.OvdcNetwork, r.Config.VCD.VIPSubnet,
 		vcdCluster.Spec.Org, vcdCluster.Spec.UserCredentialsContext.Username,
 		vcdCluster.Spec.UserCredentialsContext.Password, vcdCluster.Spec.UserCredentialsContext.RefreshToken,
-		true, vcdCluster.Status.InfraId, r.VcdClient.OneArm, 0, 0, r.VcdClient.TCPPort,
-		true, "", r.VcdClient.CsiVersion, r.VcdClient.CpiVersion, r.VcdClient.CniVersion,
-		r.VcdClient.CAPVCDVersion)
+		true, vcdCluster.Status.InfraId, &vcdclient.OneArm{
+			StartIPAddress: r.Config.LB.OneArm.StartIP,
+			EndIPAddress:   r.Config.LB.OneArm.EndIP,
+		}, 0, 0, r.Config.LB.Ports.TCP,
+		true, "", r.Config.ClusterResources.CsiVersion, r.Config.ClusterResources.CpiVersion, r.Config.ClusterResources.CniVersion,
+		r.Config.ClusterResources.CapvcdVersion)
 	if err != nil {
 		return ctrl.Result{}, errors.Wrapf(err, "Unable to create VCD client to reconcile infrastructure for the Machine [%s]", machine.Name)
 	}
@@ -757,12 +762,15 @@ func (r *VCDMachineReconciler) reconcileDelete(ctx context.Context, cluster *clu
 	}
 
 	workloadVCDClient, err := vcdclient.NewVCDClientFromSecrets(vcdCluster.Spec.Site, vcdCluster.Spec.Org,
-		vcdCluster.Spec.Ovdc, vcdCluster.Name, vcdCluster.Spec.OvdcNetwork, r.VcdClient.IPAMSubnet,
+		vcdCluster.Spec.Ovdc, vcdCluster.Name, vcdCluster.Spec.OvdcNetwork, r.Config.VCD.VIPSubnet,
 		vcdCluster.Spec.Org, vcdCluster.Spec.UserCredentialsContext.Username,
 		vcdCluster.Spec.UserCredentialsContext.Password, vcdCluster.Spec.UserCredentialsContext.RefreshToken,
-		true, vcdCluster.Status.InfraId, r.VcdClient.OneArm, 0, 0, r.VcdClient.TCPPort,
-		true, "", r.VcdClient.CsiVersion, r.VcdClient.CpiVersion,
-		r.VcdClient.CniVersion, r.VcdClient.CAPVCDVersion)
+		true, vcdCluster.Status.InfraId, &vcdclient.OneArm{
+			StartIPAddress: r.Config.LB.OneArm.StartIP,
+			EndIPAddress:   r.Config.LB.OneArm.EndIP,
+		}, 0, 0, r.Config.LB.Ports.TCP,
+		true, "", r.Config.ClusterResources.CsiVersion, r.Config.ClusterResources.CpiVersion, r.Config.ClusterResources.CniVersion,
+		r.Config.ClusterResources.CapvcdVersion)
 	if err != nil {
 		return ctrl.Result{}, errors.Wrapf(err,
 			"Error creating VCD client to reconcile the machine [%s/%s] deletion",
