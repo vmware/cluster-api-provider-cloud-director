@@ -1,0 +1,48 @@
+# This file needs to be copied to ~/cluster-api/ for clusterctl init and generate commands to work.
+# Replace the providers.url to your local repo
+#
+# Below are the sample commands
+# clusterctl init --infrastructure vcd
+# clusterctl generate cluster demo -i vcd:v0.5.1
+# clusterctl generate cluster demo -i vcd:v0.5.1 -f v1.20.8
+
+LatestRelease:
+  URL: https://github.com/kubernetes-sigs/cluster-api/releases/tag/v1.0.2
+  Version: v1.0.2
+cert-manager:
+  url: "https://github.com/cert-manager/cert-manager/releases/latest/cert-manager.yaml"
+providers:
+  - name: "vcd"
+    url: "~/go/cluster-api-provider-cloud-director/infrastructure-vcd/v0.5.1/infrastructure-components.yaml"
+    type: "InfrastructureProvider"
+
+# Variables specific to both "cluster init" and "clusterctl generate"
+VCD_SITE: "https://VCD_FQDN"
+VCD_ORGANIZATION: "test_org"
+VCD_ORGANIZATION_VDC: "test_ovdc"
+VCD_ORGANIZATION_VDC_NETWORK: "test_ovdc_nw"
+VCD_VIP_CIDR: 10.X.X.X/19
+
+# Variables specific to "clusterctl generate" only
+VCD_USERNAME: "vcduser"
+VCD_PASSWORD: "password"
+VCD_REFRESH_TOKEN: ""
+VCD_CATALOG: "test_catalog"
+VCD_CONTROL_PLANE_SIZING_POLICY: "large_4core16gb"
+VCD_WORKER_SIZING_POLICY: "medium_2core8gb"
+VCD_RDE_ID: "urn:vcloud:entity:vmware:capvcdCluster:UUID"
+CLUSTER_NAME: "myCluster"
+TARGET_NAMESPACE: default
+CONTROL_PLANE_MACHINE_COUNT: 1
+WORKER_MACHINE_COUNT: 1
+KUBERNETES_VERSION: v1.20.8+vmware.1
+TEMPLATE_NAME: ubuntu-2004-kube-v1.20.8+vmware.1-tkg.1-17589475007677388652
+ETCD_VERSION: v3.4.13_vmware.14
+DNS_VERSION: v1.7.0_vmware.12
+VCD_STORAGE_PROFILE: "*"
+K8S_DEFAULT_STORAGE_CLASS_NAME: "cloud-director-default"
+USE_DELETE_RECLAIM_POLICY: true
+FILE_SYSTEM: "ext4"
+
+SSH_PUBLIC_KEY_B64: ""
+
