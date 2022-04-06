@@ -12,7 +12,7 @@ import (
 	"github.com/antihax/optional"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
-	infrav1 "github.com/vmware/cluster-api-provider-cloud-director/api/v1alpha4"
+	infrav1 "github.com/vmware/cluster-api-provider-cloud-director/api/v1beta1"
 	"github.com/vmware/cluster-api-provider-cloud-director/pkg/config"
 	vcdutil "github.com/vmware/cluster-api-provider-cloud-director/pkg/util"
 	"github.com/vmware/cluster-api-provider-cloud-director/pkg/vcdclient"
@@ -129,7 +129,7 @@ func (r *VCDClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 func patchVCDCluster(ctx context.Context, patchHelper *patch.Helper, vcdCluster *infrav1.VCDCluster) error {
 	conditions.SetSummary(vcdCluster,
 		conditions.WithConditions(
-			infrav1.LoadBalancerAvailableCondition,
+			LoadBalancerAvailableCondition,
 		),
 		conditions.WithStepCounterIf(vcdCluster.ObjectMeta.DeletionTimestamp.IsZero()),
 	)
@@ -139,7 +139,7 @@ func patchVCDCluster(ctx context.Context, patchHelper *patch.Helper, vcdCluster 
 		vcdCluster,
 		patch.WithOwnedConditions{Conditions: []clusterv1.ConditionType{
 			clusterv1.ReadyCondition,
-			infrav1.LoadBalancerAvailableCondition,
+			LoadBalancerAvailableCondition,
 		}},
 	)
 }
@@ -626,7 +626,7 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	vcdCluster.ClusterName = vcdCluster.Name
 
 	vcdCluster.Status.Ready = true
-	conditions.MarkTrue(vcdCluster, infrav1.LoadBalancerAvailableCondition)
+	conditions.MarkTrue(vcdCluster, LoadBalancerAvailableCondition)
 
 	return ctrl.Result{}, nil
 }
@@ -640,7 +640,7 @@ func (r *VCDClusterReconciler) reconcileDelete(ctx context.Context,
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-	conditions.MarkFalse(vcdCluster, infrav1.LoadBalancerAvailableCondition, clusterv1.DeletingReason,
+	conditions.MarkFalse(vcdCluster, LoadBalancerAvailableCondition, clusterv1.DeletingReason,
 		clusterv1.ConditionSeverityInfo, "")
 
 	if err := patchVCDCluster(ctx, patchHelper, vcdCluster); err != nil {

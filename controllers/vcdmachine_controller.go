@@ -13,7 +13,7 @@ import (
 	"fmt"
 	"github.com/pkg/errors"
 	"github.com/replicatedhq/troubleshoot/pkg/redact"
-	infrav1 "github.com/vmware/cluster-api-provider-cloud-director/api/v1alpha4"
+	infrav1 "github.com/vmware/cluster-api-provider-cloud-director/api/v1beta1"
 	"github.com/vmware/cluster-api-provider-cloud-director/pkg/config"
 	"github.com/vmware/cluster-api-provider-cloud-director/pkg/vcdclient"
 	"github.com/vmware/go-vcloud-director/v2/govcd"
@@ -148,8 +148,8 @@ func (r *VCDMachineReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	// the cluster object to be updated
 	if !machineBeingDeleted && !cluster.Status.InfrastructureReady {
 		log.Info("Waiting for VCDCluster Controller to create cluster infrastructure")
-		conditions.MarkFalse(vcdMachine, infrav1.ContainerProvisionedCondition,
-			infrav1.WaitingForClusterInfrastructureReason, clusterv1.ConditionSeverityInfo, "")
+		conditions.MarkFalse(vcdMachine, ContainerProvisionedCondition,
+			WaitingForClusterInfrastructureReason, clusterv1.ConditionSeverityInfo, "")
 		return ctrl.Result{}, nil
 	}
 
@@ -165,8 +165,8 @@ func (r *VCDMachineReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 func patchVCDMachine(ctx context.Context, patchHelper *patch.Helper, vcdMachine *infrav1.VCDMachine) error {
 	conditions.SetSummary(vcdMachine,
 		conditions.WithConditions(
-			infrav1.ContainerProvisionedCondition,
-			infrav1.BootstrapExecSucceededCondition,
+			ContainerProvisionedCondition,
+			BootstrapExecSucceededCondition,
 		),
 		conditions.WithStepCounterIf(vcdMachine.ObjectMeta.DeletionTimestamp.IsZero()),
 	)
@@ -176,8 +176,8 @@ func patchVCDMachine(ctx context.Context, patchHelper *patch.Helper, vcdMachine 
 		vcdMachine,
 		patch.WithOwnedConditions{Conditions: []clusterv1.ConditionType{
 			clusterv1.ReadyCondition,
-			infrav1.ContainerProvisionedCondition,
-			infrav1.BootstrapExecSucceededCondition,
+			ContainerProvisionedCondition,
+			BootstrapExecSucceededCondition,
 		}},
 	)
 }
@@ -377,7 +377,7 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 			}
 		}
 		vcdMachine.Status.Ready = true
-		conditions.MarkTrue(vcdMachine, infrav1.ContainerProvisionedCondition)
+		conditions.MarkTrue(vcdMachine, ContainerProvisionedCondition)
 		return ctrl.Result{}, nil
 	}
 
@@ -396,14 +396,14 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 			clusterv1.ControlPlaneInitializedCondition) {
 
 			log.Info("Waiting for the control plane to be initialized")
-			conditions.MarkFalse(vcdMachine, infrav1.ContainerProvisionedCondition,
+			conditions.MarkFalse(vcdMachine, ContainerProvisionedCondition,
 				clusterv1.WaitingForControlPlaneAvailableReason, clusterv1.ConditionSeverityInfo, "")
 			return ctrl.Result{}, nil
 		}
 
 		log.Info("Waiting for the Bootstrap provider controller to set bootstrap data")
-		conditions.MarkFalse(vcdMachine, infrav1.ContainerProvisionedCondition,
-			infrav1.WaitingForBootstrapDataReason, clusterv1.ConditionSeverityInfo, "")
+		conditions.MarkFalse(vcdMachine, ContainerProvisionedCondition,
+			WaitingForBootstrapDataReason, clusterv1.ConditionSeverityInfo, "")
 		return ctrl.Result{}, nil
 	}
 
@@ -411,11 +411,11 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	if err != nil {
 		return ctrl.Result{}, errors.Wrapf(err, "Error patching VCDMachine [%s] of cluster [%s]", vcdMachine.Name, vcdCluster.Name)
 	}
-	conditions.MarkTrue(vcdMachine, infrav1.ContainerProvisionedCondition)
+	conditions.MarkTrue(vcdMachine, ContainerProvisionedCondition)
 
-	if !conditions.Has(vcdMachine, infrav1.BootstrapExecSucceededCondition) {
-		conditions.MarkFalse(vcdMachine, infrav1.BootstrapExecSucceededCondition,
-			infrav1.BootstrappingReason, clusterv1.ConditionSeverityInfo, "")
+	if !conditions.Has(vcdMachine, BootstrapExecSucceededCondition) {
+		conditions.MarkFalse(vcdMachine, BootstrapExecSucceededCondition,
+			BootstrappingReason, clusterv1.ConditionSeverityInfo, "")
 		if err := patchVCDMachine(ctx, patchHelper, vcdMachine); err != nil {
 			return ctrl.Result{}, errors.Wrapf(err, "Error patching VCDMachine [%s] of cluster [%s]", vcdMachine.Name, vcdCluster.Name)
 		}
@@ -699,13 +699,13 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	}
 
 	vcdMachine.Spec.Bootstrapped = true
-	conditions.MarkTrue(vcdMachine, infrav1.BootstrapExecSucceededCondition)
+	conditions.MarkTrue(vcdMachine, BootstrapExecSucceededCondition)
 
 	// Set ProviderID so the Cluster API Machine Controller can pull it
 	providerID := fmt.Sprintf("%s://%s", infrav1.VCDProviderID, vm.VM.ID)
 	vcdMachine.Spec.ProviderID = &providerID
 	vcdMachine.Status.Ready = true
-	conditions.MarkTrue(vcdMachine, infrav1.ContainerProvisionedCondition)
+	conditions.MarkTrue(vcdMachine, ContainerProvisionedCondition)
 	err = r.reconcileNodeStatusInRDE(ctx, vcdCluster.Status.InfraId, machine.Name, machine.Status.Phase, workloadVCDClient)
 	if err != nil {
 		if _, ok := err.(*NoRDEError); ok {
@@ -750,7 +750,7 @@ func (r *VCDMachineReconciler) reconcileDelete(ctx context.Context, cluster *clu
 		return ctrl.Result{}, err
 	}
 
-	conditions.MarkFalse(vcdMachine, infrav1.ContainerProvisionedCondition,
+	conditions.MarkFalse(vcdMachine, ContainerProvisionedCondition,
 		clusterv1.DeletingReason, clusterv1.ConditionSeverityInfo, "")
 	if err := patchVCDMachine(ctx, patchHelper, vcdMachine); err != nil {
 		return ctrl.Result{}, errors.Wrapf(err, "Failed to patch VCDMachine [%s/%s]", vcdCluster.Name, vcdMachine.Name)
