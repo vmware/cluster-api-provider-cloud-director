@@ -19,7 +19,7 @@ webhooks:
       - apiGroups:
           - infrastructure.cluster.x-k8s.io
         apiVersions:
-          - v1alpha3
+          - v1beta1
         operations:
           - CREATE
           - UPDATE

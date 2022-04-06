@@ -1,5 +1,5 @@
 vcd:
-  vipSubnet: ${VCD_VIP_CIDR} # Virtual IP CIDR for the external network
+  vipSubnet: 10.150.191.253/19 # Virtual IP CIDR for the external network
 loadbalancer:
   oneArm:
     startIP: "192.168.8.2" # First IP in the IP range used for load balancer virtual service

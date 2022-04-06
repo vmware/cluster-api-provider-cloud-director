@@ -11,6 +11,7 @@ func (src *VCDCluster) ConvertTo(dstRaw conversion.Hub) error {
 	//dst.Spec.ControlPlaneEnpoint := src.Spec.ControlPlaneEndpoint
 
 	//rote conversion
+
 	return nil
 }
 
