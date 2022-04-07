@@ -13,20 +13,14 @@ func (src *VCDMachineTemplate) ConvertTo(dstRaw conversion.Hub) error {
 	if err := Convert_v1alpha4_VCDMachineTemplate_To_v1beta1_VCDMachineTemplate(src, dst, nil); err != nil {
 		return err
 	}
-
-	//dst.Spec.ControlPlaneEnpoint := src.Spec.ControlPlaneEndpoint
-
-	//rote conversion
 	return nil
 }
 
-// ConvertFrom converts from the Hub version (v1alpha5) to this version (v1alpha4).
+// ConvertFrom converts from the Hub version (v1beta1) to this version (v1alpha4).
 func (dst *VCDMachineTemplate) ConvertFrom(srcRaw conversion.Hub) error {
 	src := srcRaw.(*v1beta1.VCDMachineTemplate)
 	if err := Convert_v1beta1_VCDMachineTemplate_To_v1alpha4_VCDMachineTemplate(src, dst, nil); err != nil {
 		return err
 	}
-	//dst.Spec.ControlPlaneEnpoint := src.Spec.ControlPlaneEndpoint
-	//rote conversion
 	return nil
 }
