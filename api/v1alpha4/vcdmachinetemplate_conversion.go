@@ -24,3 +24,15 @@ func (dst *VCDMachineTemplate) ConvertFrom(srcRaw conversion.Hub) error {
 	}
 	return nil
 }
+
+// ConvertTo converts this VCDClusterList to the Hub version (v1beta1).
+func (src *VCDMachineTemplateList) ConvertTo(dstRaw conversion.Hub) error {
+	dst := dstRaw.(*v1beta1.VCDMachineTemplateList)
+	return Convert_v1alpha4_VCDMachineTemplateList_To_v1beta1_VCDMachineTemplateList(src, dst, nil)
+}
+
+// ConvertFrom converts from the Hub version (v1beta1) to this version (v1alpha4).
+func (dst *VCDMachineTemplateList) ConvertFrom(srcRaw conversion.Hub) error {
+	src := srcRaw.(*v1beta1.VCDMachineTemplateList)
+	return Convert_v1beta1_VCDMachineTemplateList_To_v1alpha4_VCDMachineTemplateList(src, dst, nil)
+}

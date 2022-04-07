@@ -37,7 +37,7 @@ func (src *VCDClusterList) ConvertTo(dstRaw conversion.Hub) error {
 	return Convert_v1alpha4_VCDClusterList_To_v1beta1_VCDClusterList(src, dst, nil)
 }
 
-// ConvertFrom converts this VCDClusterList to the Hub version (v1beta1).
+// ConvertFrom converts from the Hub version (v1beta1) to this version (v1alpha4).
 func (dst *VCDClusterList) ConvertFrom(srcRaw conversion.Hub) error {
 	src := srcRaw.(*v1beta1.VCDClusterList)
 	return Convert_v1beta1_VCDClusterList_To_v1alpha4_VCDClusterList(src, dst, nil)
