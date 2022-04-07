@@ -24,7 +24,7 @@ IMG ?= ${REGISTRY}/cluster-api-provider-cloud-director:${version}
 SHELL = /usr/bin/env bash -o pipefail
 .SHELLFLAGS = -ec
 
-MANIFEST_DIR = infrastructure-vcd/v0.5.1
+MANIFEST_DIR = infrastructure-vcd/v0.8.0
 all: build
 
 ##@ General
@@ -125,4 +125,5 @@ capi: generate fmt vet
 	docker push $(IMG)
 
 release-manifests: $(KUSTOMIZE)
+	mkdir -p $(MANIFEST_DIR)
 	$(KUSTOMIZE) build config/default > $(MANIFEST_DIR)/infrastructure-components.yaml
