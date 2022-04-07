@@ -3,8 +3,8 @@
 #
 # Below are the sample commands
 # clusterctl init --infrastructure vcd
-# clusterctl generate cluster demo -i vcd:v0.5.1
-# clusterctl generate cluster demo -i vcd:v0.5.1 -f v1.20.8
+# clusterctl generate cluster demo -i vcd:v0.8.0
+# clusterctl generate cluster demo -i vcd:v0.8.0 -f v1.20.8
 
 LatestRelease:
   URL: https://github.com/kubernetes-sigs/cluster-api/releases/tag/v1.0.2
@@ -13,7 +13,7 @@ cert-manager:
   url: "https://github.com/cert-manager/cert-manager/releases/latest/cert-manager.yaml"
 providers:
   - name: "vcd"
-    url: "~/go/cluster-api-provider-cloud-director/infrastructure-vcd/v0.5.1/infrastructure-components.yaml"
+    url: "~/go/cluster-api-provider-cloud-director/infrastructure-vcd/v0.8.0/infrastructure-components.yaml"
     type: "InfrastructureProvider"
 
 # Variables specific to both "cluster init" and "clusterctl generate"
@@ -45,3 +45,4 @@ USE_DELETE_RECLAIM_POLICY: true
 FILE_SYSTEM: "ext4"
 
 SSH_PUBLIC_KEY_B64: ""
+
