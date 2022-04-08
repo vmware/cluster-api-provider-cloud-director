@@ -35,11 +35,14 @@ kind: ValidatingWebhookConfiguration
 metadata:
   creationTimestamp: null
   name: validating-webhook-configuration
+  annotations:
+    cert-manager.io/inject-ca-from: $(CERTIFICATE_NAMESPACE)/$(CERTIFICATE_NAME)
 webhooks:
 - admissionReviewVersions:
   - v1
   - v1beta1
   clientConfig:
+    caBundle: Cg==
     service:
       name: webhook-service
       namespace: system
