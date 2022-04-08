@@ -17,8 +17,10 @@ limitations under the License.
 package v1beta1
 
 import (
+	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/webhook"
 )
 
 // log is for logging in this package.
@@ -30,4 +32,26 @@ func (r *VCDCluster) SetupWebhookWithManager(mgr ctrl.Manager) error {
 		Complete()
 }
 
-// TODO(user): EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
+// +kubebuilder:webhook:verbs=create;update;delete,path=/validate-infrastructure-cluster-x-k8s-io-v1beta1-vcdcluster,mutating=false,failurePolicy=fail,matchPolicy=Equivalent,groups=infrastructure.cluster.x-k8s.io,resources=vcdclusters,versions=v1beta1,name=validation.vcdcluster.infrastructure.cluster.x-k8s.io,sideEffects=None,admissionReviewVersions=v1;v1beta1
+// +kubebuilder:webhook:verbs=create;update,path=/mutate-infrastructure-cluster-x-k8s-io-v1beta1-vcdcluster,mutating=true,failurePolicy=fail,matchPolicy=Equivalent,groups=infrastructure.cluster.x-k8s.io,resources=vcdclusters,versions=v1beta1,name=default.vcdcluster.infrastructure.cluster.x-k8s.io,sideEffects=None,admissionReviewVersions=v1;v1beta1
+
+var _ webhook.Validator = &VCDCluster{}
+var _ webhook.Defaulter = &VCDCluster{}
+
+// Default implements webhook.Defaulter so a webhook will be registered for the type.
+func (c *VCDCluster) Default() {
+}
+
+// ValidateCreate implements webhook.Validator so a webhook will be registered for the type.
+func (c *VCDCluster) ValidateCreate() error {
+	return nil
+}
+
+func (c *VCDCluster) ValidateUpdate(oldRaw runtime.Object) error {
+	return nil
+}
+
+// ValidateDelete implements webhook.Validator so a webhook will be registered for the type.
+func (c *VCDCluster) ValidateDelete() error {
+	return nil
+}
