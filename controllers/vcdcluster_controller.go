@@ -99,7 +99,7 @@ func (r *VCDClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 
 		log.Info("Continuing to delete cluster since DeletionTimestamp is set")
 	}
-
+	log.Info("checking out vcdcluster", "vcdCluster", vcdCluster, "rdeId", vcdCluster.Spec.RDEId, "defaultSTorage", vcdCluster.Spec.DefaultStorageClassOptions)
 	patchHelper, err := patch.NewHelper(vcdCluster, r.Client)
 	if err != nil {
 		return ctrl.Result{}, err

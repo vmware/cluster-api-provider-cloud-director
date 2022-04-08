@@ -68,7 +68,6 @@ type VCDClusterSpec struct {
 	OvdcNetwork string `json:"ovdcNetwork"`
 	// +kubebuilder:validation:Required
 	UserCredentialsContext UserCredentialsContext `json:"userContext"`
-
 	// +optional
 	DefaultStorageClassOptions *DefaultStorageClassOptions `json:"defaultStorageClassOptions"`
 	// +optional

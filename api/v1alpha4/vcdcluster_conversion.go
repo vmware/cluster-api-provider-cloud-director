@@ -2,7 +2,6 @@ package v1alpha4
 
 import (
 	"github.com/vmware/cluster-api-provider-cloud-director/api/v1beta1"
-	utilconversion "sigs.k8s.io/cluster-api/util/conversion"
 	"sigs.k8s.io/controller-runtime/pkg/conversion"
 )
 
@@ -12,13 +11,8 @@ func (src *VCDCluster) ConvertTo(dstRaw conversion.Hub) error {
 	if err := Convert_v1alpha4_VCDCluster_To_v1beta1_VCDCluster(src, dst, nil); err != nil {
 		return err
 	}
-
-	restored := &v1beta1.VCDCluster{}
-	if ok, err := utilconversion.UnmarshalData(src, restored); err != nil || !ok {
-		return err
-	}
-	dst.Spec.RDEId = restored.Spec.RDEId
-	dst.Spec.DefaultStorageClassOptions = restored.Spec.DefaultStorageClassOptions
+	dst.Spec.DefaultStorageClassOptions = &v1beta1.DefaultStorageClassOptions{}
+	dst.Spec.RDEId = ""
 	return nil
 }
 

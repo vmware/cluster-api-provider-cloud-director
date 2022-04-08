@@ -215,7 +215,6 @@ spec:
             - org
             - ovdc
             - ovdcNetwork
-            - rdeId
             - site
             - userContext
             type: object
