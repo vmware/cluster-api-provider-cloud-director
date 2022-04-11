@@ -151,7 +151,6 @@ func (r *VCDClusterReconciler) constructCapvcdRDE(ctx context.Context, cluster *
 	org := vcdCluster.Spec.Org
 	vdc := vcdCluster.Spec.Ovdc
 
-
 	kcpList, err := getAllKubeadmControlPlaneForCluster(ctx, r.Client, *cluster)
 	if err != nil {
 		return nil, fmt.Errorf("error getting KubeadmControlPlane objects for cluster [%s]: [%v]", vcdCluster.Name, err)
@@ -185,27 +184,26 @@ func (r *VCDClusterReconciler) constructCapvcdRDE(ctx context.Context, cluster *
 					Phase:        "",
 					ApiEndpoints: []rdeType.ApiEndpoints{},
 				},
-				NodeStatus:             make(map[string]string),
+				NodeStatus:              make(map[string]string),
+				CapvcdVersion:           r.Config.ClusterResources.CapvcdVersion,
 				UseAsManagementCluster: vcdCluster.Spec.UseAsManagementCluster,
-				CapvcdVersion:          r.Config.ClusterResources.CapvcdVersion,
-			},
-			CloudProperties: rdeType.CloudProperties{
-				Site: vcdCluster.Spec.Site,
-				Org:  org,
-				Vdc:  vdc,
-			},
-			ParentUID: vcdCluster.Spec.ParentUID,
-			Csi: rdeType.VersionedAddon{
-				Name:    VcdCsiName,
-				Version: r.Config.ClusterResources.CsiVersion, // TODO: get CPI, CNI, CSI versions from the CLusterResourceSet objects
-			},
-			Cpi: rdeType.VersionedAddon{
-				Name:    VcdCpiName,
-				Version: r.Config.ClusterResources.CpiVersion,
-			},
-			Cni: rdeType.VersionedAddon{
-				Name:    CAPVCDClusterCniName,
-				Version: r.Config.ClusterResources.CniVersion,
+				K8sNetwork: rdeType.K8sNetwork{
+					Cni: rdeType.Cni{
+						Name: CAPVCDClusterCniName,
+					},
+					Pods: rdeType.Pods{
+						CidrBlocks: cluster.Spec.ClusterNetwork.Pods.CIDRBlocks,
+					},
+					Services: rdeType.Services{
+						CidrBlocks: cluster.Spec.ClusterNetwork.Services.CIDRBlocks,
+					},
+				},
+				ParentUID: vcdCluster.Spec.ParentUID,
+				VcdProperties: rdeType.VCDProperties{
+					Site: vcdCluster.Spec.Site,
+					Org:  org,
+					Vdc:  vdc,
+				},
 			},
 		},
 	}
@@ -293,23 +291,24 @@ func (r *VCDClusterReconciler) reconcileRDE(ctx context.Context, cluster *cluste
 	}
 
 	// Updating status portion of the RDE in the following code
-	// TODO: Delete "kubernetes" string in RDE. Discuss with Sahithi
-	if capvcdEntity.Status.CAPVCDStatus.Kubernetes != kubernetesVersion {
-		updatePatch["Status.CAPVCDStatus.Kubernetes"] = kubernetesVersion
-	}
-
-	if capvcdEntity.Status.CAPVCDStatus.Uid != vcdCluster.Status.InfraId {
-		updatePatch["Status.CAPVCDStatus.Uid"] = vcdCluster.Status.InfraId
-	}
 
 	if capvcdEntity.Status.CAPVCDStatus.Phase != cluster.Status.Phase {
 		updatePatch["Status.CAPVCDStatus.Phase"] = cluster.Status.Phase
 	}
 
-	if capvcdEntity.Status.ParentUID != vcdCluster.Status.ParentUID {
-		updatePatch["Status.ParentUID"] = vcdCluster.Status.ParentUID
+	// TODO: Delete "kubernetes" string in RDE. Discuss with Sahithi
+	if capvcdEntity.Status.CAPVCDStatus.Kubernetes != kubernetesVersion {
+		updatePatch["Status.CAPVCDStatus.Kubernetes"] = kubernetesVersion
 	}
-
+	if capvcdEntity.Status.CAPVCDStatus.Uid != vcdCluster.Status.InfraId {
+		updatePatch["Status.CAPVCDStatus.Uid"] = vcdCluster.Status.InfraId
+	}
+	if capvcdEntity.Status.CAPVCDStatus.Phase != cluster.Status.Phase {
+		updatePatch["Status.CAPVCDStatus.Phase"] = cluster.Status.Phase
+	}
+	if capvcdEntity.Status.CAPVCDStatus.ParentUID != vcdCluster.Status.ParentUID {
+		updatePatch["Status.CAPVCDStatus.ParentUID"] = vcdCluster.Status.ParentUID
+	}
 	if capvcdEntity.Status.CAPVCDStatus.UseAsManagementCluster != vcdCluster.Status.UseAsManagementCluster {
 		updatePatch["Status.CAPVCDStatus.UseAsManagementCluster"] = vcdCluster.Status.UseAsManagementCluster
 	}
@@ -353,8 +352,8 @@ func (r *VCDClusterReconciler) reconcileRDE(ctx context.Context, cluster *cluste
 	if err != nil {
 		log.Error(err, "failed to update RDE private section with kubeconfig")
 	} else {
-		if !reflect.DeepEqual(string(kubeConfigBytes), capvcdEntity.Status.Private.KubeConfig) {
-			updatePatch["Status.Private.KubeConfig"] = string(kubeConfigBytes)
+		if !reflect.DeepEqual(string(kubeConfigBytes), capvcdEntity.Status.CAPVCDStatus.Private.KubeConfig) {
+			updatePatch["Status.CAPVCDStatus.Private.KubeConfig"] = string(kubeConfigBytes)
 		}
 	}
 
