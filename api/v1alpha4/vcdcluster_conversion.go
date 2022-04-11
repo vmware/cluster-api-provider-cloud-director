@@ -19,7 +19,7 @@ func (src *VCDCluster) ConvertTo(dstRaw conversion.Hub) error {
 // ConvertFrom converts from the Hub version (v1beta1) to this version (v1alpha4).
 func (dst *VCDCluster) ConvertFrom(srcRaw conversion.Hub) error {
 	src := srcRaw.(*v1beta1.VCDCluster)
-	if err := autoConvert_v1beta1_VCDCluster_To_v1alpha4_VCDCluster(src, dst, nil); err != nil {
+	if err := Convert_v1beta1_VCDCluster_To_v1alpha4_VCDCluster(src, dst, nil); err != nil {
 		return err
 	}
 	return nil
