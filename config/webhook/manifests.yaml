@@ -1,28 +1,61 @@
 
 ---
-apiVersion: admissionregistration.k8s.io/v1beta1
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata:
+  creationTimestamp: null
+  name: mutating-webhook-configuration
+webhooks:
+- admissionReviewVersions:
+  - v1
+  - v1beta1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
+      path: /mutate-infrastructure-cluster-x-k8s-io-v1beta1-vcdcluster
+  failurePolicy: Fail
+  matchPolicy: Equivalent
+  name: default.vcdcluster.infrastructure.cluster.x-k8s.io
+  rules:
+  - apiGroups:
+    - infrastructure.cluster.x-k8s.io
+    apiVersions:
+    - v1beta1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - vcdclusters
+  sideEffects: None
+
+---
+apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingWebhookConfiguration
 metadata:
   creationTimestamp: null
   name: validating-webhook-configuration
 webhooks:
-  - clientConfig:
-      caBundle: Cg==
-      service:
-        name: webhook-service
-        namespace: system
-        path: /validate-infrastructure-cluster-x-k8s-io-v1beta1-vcdcluster
-    failurePolicy: Fail
-    matchPolicy: Equivalent
-    name: validation.vcdcluster.infrastructure.cluster.x-k8s.io
-    rules:
-      - apiGroups:
-          - infrastructure.cluster.x-k8s.io
-        apiVersions:
-          - v1alpha3
-        operations:
-          - CREATE
-          - UPDATE
-        resources:
-          - vcdclusters
-    sideEffects: None
+- admissionReviewVersions:
+  - v1
+  - v1beta1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
+      path: /validate-infrastructure-cluster-x-k8s-io-v1beta1-vcdcluster
+  failurePolicy: Fail
+  matchPolicy: Equivalent
+  name: validation.vcdcluster.infrastructure.cluster.x-k8s.io
+  rules:
+  - apiGroups:
+    - infrastructure.cluster.x-k8s.io
+    apiVersions:
+    - v1beta1
+    operations:
+    - CREATE
+    - UPDATE
+    - DELETE
+    resources:
+    - vcdclusters
+  sideEffects: None

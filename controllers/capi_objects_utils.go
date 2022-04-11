@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/pkg/errors"
-	infrav1 "github.com/vmware/cluster-api-provider-cloud-director/api/v1alpha4"
+	infrav1 "github.com/vmware/cluster-api-provider-cloud-director/api/v1beta1"
 	"gopkg.in/yaml.v2"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
