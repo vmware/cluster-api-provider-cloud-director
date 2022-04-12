@@ -4,12 +4,6 @@ resources:
 generatorOptions:
   disableNameSuffixHash: true
 
-secretGenerator:
-  - name: vcloud-basic-auth
-    literals:
-      - username=USER # VCD username to initialize the CAPVCD
-      - password=PASSWORD # Password
-
 configMapGenerator:
 - files:
   - controller_manager_config.yaml

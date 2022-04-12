@@ -102,6 +102,9 @@ func getTestVCDClient(inputMap map[string]interface{}) (*Client, error) {
 				cloudConfig.VCD.User = getStrValStrict(val, cloudConfig.VCD.User)
 			case "secret":
 				cloudConfig.VCD.Secret = getStrValStrict(val, cloudConfig.VCD.Secret)
+			case "userOrg":
+				// default to cloudConfig.VCD.Org if val is empty
+				cloudConfig.VCD.UserOrg = getStrValStrict(val, cloudConfig.VCD.UserOrg)
 			case "insecure":
 				insecure = getBoolValStrict(val, true)
 			case "clusterID":
@@ -116,6 +119,8 @@ func getTestVCDClient(inputMap map[string]interface{}) (*Client, error) {
 				cloudConfig.LB.Ports.TCP = getInt32ValStrict(val, cloudConfig.LB.Ports.TCP)
 			case "getVdcClient":
 				getVdcClient = getBoolValStrict(val, false)
+			case "refreshToken":
+				cloudConfig.VCD.RefreshToken = getStrValStrict(val, cloudConfig.VCD.RefreshToken)
 			}
 		}
 	}

@@ -17,11 +17,6 @@ import (
 	"github.com/vmware/go-vcloud-director/v2/govcd"
 )
 
-var (
-	clientCreatorLock sync.Mutex
-	clientSingleton   *Client = nil
-)
-
 // OneArm : internal struct representing OneArm config details
 type OneArm struct {
 	StartIPAddress string
@@ -62,26 +57,13 @@ func (client *Client) RefreshBearerToken() error {
 	client.VcdClient.Client.APIVersion = VCloudApiVersion
 
 	klog.V(3).Infof("Is user sysadmin: [%v]", client.VcdClient.Client.IsSysAdmin)
-	var token string
 	if client.VcdAuthConfig.RefreshToken != "" {
 		// Refresh vcd client using refresh token
-		accessTokenResponse, _, err := client.VcdAuthConfig.getAccessTokenFromRefreshToken(
-			client.VcdClient.Client.IsSysAdmin)
-		if err != nil {
-			return fmt.Errorf(
-				"failed to get access token from refresh token for user [%s/%s] for url [%s]: [%v]",
-				client.VcdAuthConfig.UserOrg, client.VcdAuthConfig.User, href, err)
-		}
-
-		err = client.VcdClient.SetToken(client.VcdAuthConfig.UserOrg,
-			"Authorization", fmt.Sprintf("Bearer %s", accessTokenResponse.AccessToken))
+		err := client.VcdClient.SetToken(client.VcdAuthConfig.UserOrg,
+			govcd.ApiTokenHeader, client.VcdAuthConfig.RefreshToken)
 		if err != nil {
 			return fmt.Errorf("failed to set authorization header: [%v]", err)
 		}
-		// The previous function call will unset IsSysAdmin boolean for administrator because govcd makes a hard check
-		// on org name. Set the boolean back
-		client.VcdClient.Client.IsSysAdmin = client.VcdAuthConfig.IsSysAdmin
-		token = accessTokenResponse.AccessToken
 	} else if client.VcdAuthConfig.User != "" && client.VcdAuthConfig.Password != "" {
 		// Refresh vcd client using username and password
 		resp, err := client.VcdClient.GetAuthResponse(client.VcdAuthConfig.User, client.VcdAuthConfig.Password,
@@ -90,7 +72,6 @@ func (client *Client) RefreshBearerToken() error {
 			return fmt.Errorf("unable to authenticate [%s/%s] for url [%s]: [%+v] : [%v]",
 				client.VcdAuthConfig.UserOrg, client.VcdAuthConfig.User, href, resp, err)
 		}
-		token = client.VcdClient.Client.VCDToken
 	} else {
 		return fmt.Errorf(
 			"unable to find refresh token or secret to refresh vcd client for user [%s/%s] and url [%s]",
@@ -114,7 +95,7 @@ func (client *Client) RefreshBearerToken() error {
 	// reset swagger client
 	swaggerConfig := swaggerClient.NewConfiguration()
 	swaggerConfig.BasePath = fmt.Sprintf("%s/cloudapi", client.VcdAuthConfig.Host)
-	swaggerConfig.AddDefaultHeader("Authorization", fmt.Sprintf("Bearer %s", token))
+	swaggerConfig.AddDefaultHeader("Authorization", fmt.Sprintf("Bearer %s", client.VcdClient.Client.VCDToken))
 	swaggerConfig.HTTPClient = &http.Client{
 		Transport: &http.Transport{
 			TLSClientConfig: &tls.Config{InsecureSkipVerify: client.VcdAuthConfig.Insecure},
@@ -135,31 +116,8 @@ func NewVCDClientFromSecrets(host string, orgName string, vdcName string, vAppNa
 
 	// TODO: validation of parameters
 
-	clientCreatorLock.Lock()
-	defer clientCreatorLock.Unlock()
-
-	// Return old client if everything matches. Else create new one and cache it.
-	// This is suboptimal but is not a common case.
-	if clientSingleton != nil {
-		if clientSingleton.VcdAuthConfig.Host == host &&
-			clientSingleton.ClusterOrgName == orgName &&
-			clientSingleton.ClusterOVDCName == vdcName &&
-			clientSingleton.ClusterVAppName == vAppName &&
-			clientSingleton.VcdAuthConfig.UserOrg == userOrg &&
-			clientSingleton.VcdAuthConfig.User == user &&
-			clientSingleton.VcdAuthConfig.Password == password &&
-			clientSingleton.VcdAuthConfig.RefreshToken == refreshToken &&
-			clientSingleton.VcdAuthConfig.Insecure == insecure &&
-			clientSingleton.NetworkName == networkName &&
-			clientSingleton.ManagementClusterRDEId == managementClusterRDEId &&
-			clientSingleton.CsiVersion == csiVersion &&
-			clientSingleton.CpiVersion == cpiVersion &&
-			clientSingleton.CniVersion == cniVersion &&
-			clientSingleton.CAPVCDVersion == capvcdVersion {
-			return clientSingleton, nil
-		}
-	}
-
+	// We need to get a client every time here rather than reusing the older client, since we can have the same worker
+	// working on different userContexts
 	vcdAuthConfig := NewVCDAuthConfigFromSecrets(host, user, password, refreshToken, userOrg, insecure)
 
 	vcdClient, apiClient, err := vcdAuthConfig.GetSwaggerClientFromSecrets()
@@ -221,8 +179,7 @@ func NewVCDClientFromSecrets(host string, orgName string, vdcName string, vAppNa
 		}
 		klog.V(3).Infof("Cached gateway details [%#v] successfully\n", client.GatewayRef)
 	}
-	clientSingleton = client
 
-	klog.V(3).Infof("Client singleton is sysadmin: [%v]", clientSingleton.VcdClient.Client.IsSysAdmin)
-	return clientSingleton, nil
+	klog.V(3).Infof("Is client sysadmin: [%v]", client.VcdClient.Client.IsSysAdmin)
+	return client, nil
 }

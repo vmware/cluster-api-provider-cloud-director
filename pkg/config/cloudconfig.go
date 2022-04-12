@@ -14,9 +14,6 @@ import (
 	"fmt"
 	yaml "gopkg.in/yaml.v2"
 	"io"
-	"io/ioutil"
-	"k8s.io/klog"
-	"strings"
 )
 
 // VCDConfig :
@@ -58,44 +55,62 @@ type LBConfig struct {
 
 // ClusterResourcesConfig :
 type ClusterResourcesConfig struct {
-	CsiVersion string `yaml:"csi"`
-	CpiVersion string `yaml:"cpi"`
-	CniVersion string `yaml:"cni"`
+	CsiVersion    string `yaml:"csi"`
+	CpiVersion    string `yaml:"cpi"`
+	CniVersion    string `yaml:"cni"`
+	CapvcdVersion string
 }
 
-// CloudConfig contains the config that will be read from the secret
+//CloudConfig contains the config that will be read from the secret
 type CloudConfig struct {
 	VCD                    VCDConfig              `yaml:"vcd"`
 	ClusterID              string                 `yaml:"clusterid"`
 	LB                     LBConfig               `yaml:"loadbalancer"`
 	ManagementClusterRDEId string                 `yaml:"managementClusterRDEId,omitempty"`
 	ClusterResources       ClusterResourcesConfig `yaml:"clusterResourceSet"`
+	CapvcdVersion          string
 }
 
-func getUserAndOrg(fullUserName string, clusterOrg string) (userOrg string, userName string, err error) {
-	// If the full username is specified as org/user, the scenario is that the user
-	// may belong to an org different from the cluster, but still has the
-	// necessary rights to view the VMs on this org. Else if the username is
-	// specified as just user, the scenario is that the user is in the same org
-	// as the cluster.
-	parts := strings.Split(string(fullUserName), "/")
-	if len(parts) > 2 {
-		return "", "", fmt.Errorf(
-			"invalid username format; expected at most two fields separated by /, obtained [%d]",
-			len(parts))
-	}
-	if len(parts) == 1 {
-		userOrg = clusterOrg
-		userName = parts[0]
-	} else {
-		userOrg = parts[0]
-		userName = parts[1]
-	}
-
-	return userOrg, userName, nil
+type VCDDetails struct {
+	VIPSubnet string `yaml:"vipSubnet"`
 }
 
-// ParseCloudConfig : parses config and env to fill in the CloudConfig struct
+// CAPVCD config
+type CAPVCDConfig struct {
+	VCD                    VCDDetails             `yaml:"vcd"`
+	LB                     LBConfig               `yaml:"loadbalancer"`
+	ClusterResources       ClusterResourcesConfig `yaml:"clusterResourceSet"`
+	ManagementClusterRDEId string                 `yaml:"managementClusterRDEId,omitempty"`
+}
+
+func ParseCAPVCDConfig(configReader io.Reader) (*CAPVCDConfig, error) {
+	var err error
+	config := &CAPVCDConfig{
+		LB: LBConfig{
+			OneArm: nil,
+			Ports: Ports{
+				HTTP:  80,
+				HTTPS: 443,
+				TCP:   6443,
+			},
+		},
+		ClusterResources: ClusterResourcesConfig{
+			CsiVersion: "1.1.1",
+			CpiVersion: "1.1.1",
+			CniVersion: "", // no default for antrea
+		},
+	}
+	decoder := yaml.NewDecoder(configReader)
+	decoder.SetStrict(true)
+
+	if err = decoder.Decode(&config); err != nil {
+		return nil, fmt.Errorf("Unable to decode yaml file: [%v]", err)
+	}
+
+	return config, nil
+}
+
+// ParseCloudConfig is used only in the tests
 func ParseCloudConfig(configReader io.Reader) (*CloudConfig, error) {
 	var err error
 	config := &CloudConfig{
@@ -108,12 +123,11 @@ func ParseCloudConfig(configReader io.Reader) (*CloudConfig, error) {
 			},
 		},
 		ClusterResources: ClusterResourcesConfig{
-			CsiVersion: "1.1.0",
-			CpiVersion: "1.1.0",
-			CniVersion: "0.11.3",
+			CsiVersion: "1.1.1",
+			CpiVersion: "1.1.1",
+			CniVersion: "", // no default for antrea
 		},
 	}
-
 	decoder := yaml.NewDecoder(configReader)
 	decoder.SetStrict(true)
 
@@ -122,62 +136,4 @@ func ParseCloudConfig(configReader io.Reader) (*CloudConfig, error) {
 	}
 
 	return config, nil
-}
-
-func SetAuthorization(config *CloudConfig) error {
-	refreshToken, err := ioutil.ReadFile("/etc/kubernetes/vcloud/basic-auth/refreshToken")
-	if err != nil {
-		klog.Infof("Unable to get refresh token: [%v]", err)
-	} else {
-		config.VCD.RefreshToken = strings.TrimSuffix(string(refreshToken), "\n")
-	}
-
-	username, err := ioutil.ReadFile("/etc/kubernetes/vcloud/basic-auth/username")
-	if err != nil {
-		klog.Infof("Unable to get username: [%v]", err)
-	} else {
-		trimmedUserName := strings.TrimSuffix(string(username), "\n")
-		if string(trimmedUserName) != "" {
-			config.VCD.UserOrg, config.VCD.User, err = getUserAndOrg(trimmedUserName, config.VCD.Org)
-			if err != nil {
-				return fmt.Errorf("unable to get user org and name: [%v]", err)
-			}
-		} else {
-			config.VCD.UserOrg = strings.TrimSuffix(config.VCD.Org, "\n")
-		}
-	}
-
-	secret, err := ioutil.ReadFile("/etc/kubernetes/vcloud/basic-auth/password")
-	if err != nil {
-		klog.Infof("Unable to get password: [%v]", err)
-	} else {
-		config.VCD.Secret = strings.TrimSuffix(string(secret), "\n")
-	}
-
-	if config.VCD.RefreshToken != "" {
-		klog.Infof("Using non-empty refresh token.")
-		return nil
-	}
-	if config.VCD.User != "" && config.VCD.UserOrg != "" && config.VCD.Secret != "" {
-		klog.Infof("Using username/secret based credentials.")
-		return nil
-	}
-
-	return fmt.Errorf("unable to get valid set of credentials from secrets")
-}
-
-func ValidateCloudConfig(config *CloudConfig) error {
-	// TODO: needs more validation
-	if config == nil {
-		return fmt.Errorf("nil config passed")
-	}
-
-	if config.VCD.Host == "" {
-		return fmt.Errorf("need a valid vCloud Host")
-	}
-	if config.VCD.VDCNetwork == "" {
-		return fmt.Errorf("need a valid ovdc network name")
-	}
-
-	return nil
 }

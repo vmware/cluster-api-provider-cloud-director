@@ -13,7 +13,8 @@ import (
 	"fmt"
 	"github.com/pkg/errors"
 	"github.com/replicatedhq/troubleshoot/pkg/redact"
-	infrav1 "github.com/vmware/cluster-api-provider-cloud-director/api/v1alpha4"
+	infrav1 "github.com/vmware/cluster-api-provider-cloud-director/api/v1beta1"
+	"github.com/vmware/cluster-api-provider-cloud-director/pkg/config"
 	"github.com/vmware/cluster-api-provider-cloud-director/pkg/vcdclient"
 	"github.com/vmware/go-vcloud-director/v2/govcd"
 	"gopkg.in/yaml.v2"
@@ -39,6 +40,11 @@ import (
 	"time"
 )
 
+const (
+	ReclaimPolicyDelete = "Delete"
+	ReclaimPolicyRetain = "Retain"
+)
+
 // The following `embed` directives read the file in the mentioned path and copy the content into the declared variable.
 // These variables need to be global within the package.
 //go:embed cluster_scripts/cloud_init_control_plane.yaml
@@ -50,8 +56,9 @@ var nodeCloudInitScriptTemplate string
 // VCDMachineReconciler reconciles a VCDMachine object
 type VCDMachineReconciler struct {
 	client.Client
+	Config *config.CAPVCDConfig
 	//Scheme    *runtime.Scheme
-	VcdClient *vcdclient.Client
+	//VcdClient *vcdclient.Client
 }
 
 //+kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=vcdmachines,verbs=get;list;watch;create;update;patch;delete
@@ -141,8 +148,8 @@ func (r *VCDMachineReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	// the cluster object to be updated
 	if !machineBeingDeleted && !cluster.Status.InfrastructureReady {
 		log.Info("Waiting for VCDCluster Controller to create cluster infrastructure")
-		conditions.MarkFalse(vcdMachine, infrav1.ContainerProvisionedCondition,
-			infrav1.WaitingForClusterInfrastructureReason, clusterv1.ConditionSeverityInfo, "")
+		conditions.MarkFalse(vcdMachine, ContainerProvisionedCondition,
+			WaitingForClusterInfrastructureReason, clusterv1.ConditionSeverityInfo, "")
 		return ctrl.Result{}, nil
 	}
 
@@ -158,8 +165,8 @@ func (r *VCDMachineReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 func patchVCDMachine(ctx context.Context, patchHelper *patch.Helper, vcdMachine *infrav1.VCDMachine) error {
 	conditions.SetSummary(vcdMachine,
 		conditions.WithConditions(
-			infrav1.ContainerProvisionedCondition,
-			infrav1.BootstrapExecSucceededCondition,
+			ContainerProvisionedCondition,
+			BootstrapExecSucceededCondition,
 		),
 		conditions.WithStepCounterIf(vcdMachine.ObjectMeta.DeletionTimestamp.IsZero()),
 	)
@@ -169,8 +176,8 @@ func patchVCDMachine(ctx context.Context, patchHelper *patch.Helper, vcdMachine 
 		vcdMachine,
 		patch.WithOwnedConditions{Conditions: []clusterv1.ConditionType{
 			clusterv1.ReadyCondition,
-			infrav1.ContainerProvisionedCondition,
-			infrav1.BootstrapExecSucceededCondition,
+			ContainerProvisionedCondition,
+			BootstrapExecSucceededCondition,
 		}},
 	)
 }
@@ -178,10 +185,12 @@ func patchVCDMachine(ctx context.Context, patchHelper *patch.Helper, vcdMachine 
 const (
 	NetworkConfiguration                   = "guestinfo.postcustomization.networkconfiguration.status"
 	KubeadmInit                            = "guestinfo.postcustomization.kubeinit.status"
+	TkrGetVersions                         = "guestinfo.postcustomization.tkr.get_versions.status"
 	KubectlApplyCni                        = "guestinfo.postcustomization.kubectl.cni.install.status"
 	KubectlApplyCpi                        = "guestinfo.postcustomization.kubectl.cpi.install.status"
 	KubectlApplyCsi                        = "guestinfo.postcustomization.kubectl.csi.install.status"
 	KubeadmTokenGenerate                   = "guestinfo.postcustomization.kubeadm.token.generate.status"
+	KubectlApplyDefaultStorageClass        = "guestinfo.postcustomization.kubectl.default_storage_class.install.status"
 	KubeadmNodeJoin                        = "guestinfo.postcustomization.kubeadm.node.join.status"
 	PostCustomizationScriptExecutionStatus = "guestinfo.post_customization_script_execution_status"
 	PostCustomizationScriptFailureReason   = "guestinfo.post_customization_script_execution_failure_reason"
@@ -190,10 +199,12 @@ const (
 var controlPlanePostCustPhases = []string{
 	NetworkConfiguration,
 	KubeadmInit,
+	TkrGetVersions,
 	KubectlApplyCni,
 	KubectlApplyCpi,
 	KubectlApplyCsi,
 	KubeadmTokenGenerate,
+	KubectlApplyDefaultStorageClass,
 }
 
 var joinPostCustPhases = []string{
@@ -301,7 +312,7 @@ func (r *VCDMachineReconciler) reconcileNodeStatusInRDE(ctx context.Context, rde
 	if err != nil {
 		return fmt.Errorf("failed to get CAPVCD entity with ID [%s] to sync node details for machine [%s]: [%v]", rdeID, nodeName, err)
 	}
-	nodeStatusMap := capvcdEntity.Status.NodeStatus
+	nodeStatusMap := capvcdEntity.Status.CAPVCDStatus.NodeStatus
 	if nodeStatus, ok := nodeStatusMap[nodeName]; ok && nodeStatus == status {
 		// no update needed
 		return nil
@@ -310,7 +321,7 @@ func (r *VCDMachineReconciler) reconcileNodeStatusInRDE(ctx context.Context, rde
 		nodeStatusMap = make(map[string]string)
 	}
 	nodeStatusMap[nodeName] = status
-	updatePatch["Status.NodeStatus"] = nodeStatusMap
+	updatePatch["Status.CAPVCDStatus.NodeStatus"] = nodeStatusMap
 
 	// update defined entity
 	updatedRDE, err := workloadVCDClient.PatchRDE(ctx, updatePatch, rdeID)
@@ -341,12 +352,15 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	log := ctrl.LoggerFrom(ctx, "machine", machine.Name, "cluster", vcdCluster.Name)
 
 	workloadVCDClient, err := vcdclient.NewVCDClientFromSecrets(vcdCluster.Spec.Site, vcdCluster.Spec.Org,
-		vcdCluster.Spec.Ovdc, vcdCluster.Name, vcdCluster.Spec.OvdcNetwork, r.VcdClient.IPAMSubnet,
-		r.VcdClient.VcdAuthConfig.UserOrg, vcdCluster.Spec.UserCredentialsContext.Username,
+		vcdCluster.Spec.Ovdc, vcdCluster.Name, vcdCluster.Spec.OvdcNetwork, r.Config.VCD.VIPSubnet,
+		vcdCluster.Spec.Org, vcdCluster.Spec.UserCredentialsContext.Username,
 		vcdCluster.Spec.UserCredentialsContext.Password, vcdCluster.Spec.UserCredentialsContext.RefreshToken,
-		true, vcdCluster.Status.InfraId, r.VcdClient.OneArm, 0, 0, r.VcdClient.TCPPort,
-		true, "", r.VcdClient.CsiVersion, r.VcdClient.CpiVersion, r.VcdClient.CniVersion,
-		r.VcdClient.CAPVCDVersion)
+		true, vcdCluster.Status.InfraId, &vcdclient.OneArm{
+			StartIPAddress: r.Config.LB.OneArm.StartIP,
+			EndIPAddress:   r.Config.LB.OneArm.EndIP,
+		}, 0, 0, r.Config.LB.Ports.TCP,
+		true, "", r.Config.ClusterResources.CsiVersion, r.Config.ClusterResources.CpiVersion, r.Config.ClusterResources.CniVersion,
+		r.Config.ClusterResources.CapvcdVersion)
 	if err != nil {
 		return ctrl.Result{}, errors.Wrapf(err, "Unable to create VCD client to reconcile infrastructure for the Machine [%s]", machine.Name)
 	}
@@ -363,7 +377,7 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 			}
 		}
 		vcdMachine.Status.Ready = true
-		conditions.MarkTrue(vcdMachine, infrav1.ContainerProvisionedCondition)
+		conditions.MarkTrue(vcdMachine, ContainerProvisionedCondition)
 		return ctrl.Result{}, nil
 	}
 
@@ -382,14 +396,14 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 			clusterv1.ControlPlaneInitializedCondition) {
 
 			log.Info("Waiting for the control plane to be initialized")
-			conditions.MarkFalse(vcdMachine, infrav1.ContainerProvisionedCondition,
+			conditions.MarkFalse(vcdMachine, ContainerProvisionedCondition,
 				clusterv1.WaitingForControlPlaneAvailableReason, clusterv1.ConditionSeverityInfo, "")
 			return ctrl.Result{}, nil
 		}
 
 		log.Info("Waiting for the Bootstrap provider controller to set bootstrap data")
-		conditions.MarkFalse(vcdMachine, infrav1.ContainerProvisionedCondition,
-			infrav1.WaitingForBootstrapDataReason, clusterv1.ConditionSeverityInfo, "")
+		conditions.MarkFalse(vcdMachine, ContainerProvisionedCondition,
+			WaitingForBootstrapDataReason, clusterv1.ConditionSeverityInfo, "")
 		return ctrl.Result{}, nil
 	}
 
@@ -397,11 +411,11 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	if err != nil {
 		return ctrl.Result{}, errors.Wrapf(err, "Error patching VCDMachine [%s] of cluster [%s]", vcdMachine.Name, vcdCluster.Name)
 	}
-	conditions.MarkTrue(vcdMachine, infrav1.ContainerProvisionedCondition)
+	conditions.MarkTrue(vcdMachine, ContainerProvisionedCondition)
 
-	if !conditions.Has(vcdMachine, infrav1.BootstrapExecSucceededCondition) {
-		conditions.MarkFalse(vcdMachine, infrav1.BootstrapExecSucceededCondition,
-			infrav1.BootstrappingReason, clusterv1.ConditionSeverityInfo, "")
+	if !conditions.Has(vcdMachine, BootstrapExecSucceededCondition) {
+		conditions.MarkFalse(vcdMachine, BootstrapExecSucceededCondition,
+			BootstrappingReason, clusterv1.ConditionSeverityInfo, "")
 		if err := patchVCDMachine(ctx, patchHelper, vcdMachine); err != nil {
 			return ctrl.Result{}, errors.Wrapf(err, "Error patching VCDMachine [%s] of cluster [%s]", vcdMachine.Name, vcdCluster.Name)
 		}
@@ -454,12 +468,29 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 			b64Password := b64.StdEncoding.EncodeToString([]byte(vcdCluster.Spec.UserCredentialsContext.Password))
 			b64RefreshToken := b64.StdEncoding.EncodeToString([]byte(
 				vcdCluster.Spec.UserCredentialsContext.RefreshToken))
+			enableDefaultStorageClass := vcdCluster.Spec.DefaultStorageClassOptions != nil
+			k8sStorageClassName := ""
+			fileSystemFormat := ""
+			vcdStorageProfileName := ""
+			reclaimPolicy := ReclaimPolicyRetain
+			if enableDefaultStorageClass {
+				k8sStorageClassName = vcdCluster.Spec.DefaultStorageClassOptions.K8sStorageClassName
+				if vcdCluster.Spec.DefaultStorageClassOptions.UseDeleteReclaimPolicy {
+					reclaimPolicy = ReclaimPolicyDelete
+				}
+				fileSystemFormat = vcdCluster.Spec.DefaultStorageClassOptions.FileSystem
+				vcdStorageProfileName = vcdCluster.Spec.DefaultStorageClassOptions.VCDStorageProfileName
+			}
 			vcdHostFormatted := strings.Replace(vcdCluster.Spec.Site, "/", "\\/", -1)
 			guestCloudInit = fmt.Sprintf(
 				guestCloudInitTemplate,            // template script
 				b64OrgUser,                        // base 64 org/username
 				b64Password,                       // base64 password
 				b64RefreshToken,                   // refresh token
+				k8sStorageClassName,               // default storage class name
+				reclaimPolicy,                     // reclaim policy
+				vcdStorageProfileName,             // vcd storage profile
+				fileSystemFormat,                  // filesystem
 				workloadVCDClient.CniVersion,      // cni version
 				workloadVCDClient.CpiVersion,      // cpi version
 				vcdHostFormatted,                  // vcd host
@@ -475,7 +506,8 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 				workloadVCDClient.ClusterOVDCName, // ovdc
 				vAppName,                          // vApp
 				workloadVCDClient.ClusterID,       // cluster id
-				machine.Name,                      // vm host name
+				strconv.FormatBool(enableDefaultStorageClass), // storage_class_enabled
+				machine.Name, // vm host name
 			)
 
 		default:
@@ -667,13 +699,13 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	}
 
 	vcdMachine.Spec.Bootstrapped = true
-	conditions.MarkTrue(vcdMachine, infrav1.BootstrapExecSucceededCondition)
+	conditions.MarkTrue(vcdMachine, BootstrapExecSucceededCondition)
 
 	// Set ProviderID so the Cluster API Machine Controller can pull it
 	providerID := fmt.Sprintf("%s://%s", infrav1.VCDProviderID, vm.VM.ID)
 	vcdMachine.Spec.ProviderID = &providerID
 	vcdMachine.Status.Ready = true
-	conditions.MarkTrue(vcdMachine, infrav1.ContainerProvisionedCondition)
+	conditions.MarkTrue(vcdMachine, ContainerProvisionedCondition)
 	err = r.reconcileNodeStatusInRDE(ctx, vcdCluster.Status.InfraId, machine.Name, machine.Status.Phase, workloadVCDClient)
 	if err != nil {
 		if _, ok := err.(*NoRDEError); ok {
@@ -718,7 +750,7 @@ func (r *VCDMachineReconciler) reconcileDelete(ctx context.Context, cluster *clu
 		return ctrl.Result{}, err
 	}
 
-	conditions.MarkFalse(vcdMachine, infrav1.ContainerProvisionedCondition,
+	conditions.MarkFalse(vcdMachine, ContainerProvisionedCondition,
 		clusterv1.DeletingReason, clusterv1.ConditionSeverityInfo, "")
 	if err := patchVCDMachine(ctx, patchHelper, vcdMachine); err != nil {
 		return ctrl.Result{}, errors.Wrapf(err, "Failed to patch VCDMachine [%s/%s]", vcdCluster.Name, vcdMachine.Name)
@@ -730,12 +762,15 @@ func (r *VCDMachineReconciler) reconcileDelete(ctx context.Context, cluster *clu
 	}
 
 	workloadVCDClient, err := vcdclient.NewVCDClientFromSecrets(vcdCluster.Spec.Site, vcdCluster.Spec.Org,
-		vcdCluster.Spec.Ovdc, vcdCluster.Name, vcdCluster.Spec.OvdcNetwork, r.VcdClient.IPAMSubnet,
-		r.VcdClient.VcdAuthConfig.UserOrg, vcdCluster.Spec.UserCredentialsContext.Username,
+		vcdCluster.Spec.Ovdc, vcdCluster.Name, vcdCluster.Spec.OvdcNetwork, r.Config.VCD.VIPSubnet,
+		vcdCluster.Spec.Org, vcdCluster.Spec.UserCredentialsContext.Username,
 		vcdCluster.Spec.UserCredentialsContext.Password, vcdCluster.Spec.UserCredentialsContext.RefreshToken,
-		true, vcdCluster.Status.InfraId, r.VcdClient.OneArm, 0, 0, r.VcdClient.TCPPort,
-		true, "", r.VcdClient.CsiVersion, r.VcdClient.CpiVersion,
-		r.VcdClient.CniVersion, r.VcdClient.CAPVCDVersion)
+		true, vcdCluster.Status.InfraId, &vcdclient.OneArm{
+			StartIPAddress: r.Config.LB.OneArm.StartIP,
+			EndIPAddress:   r.Config.LB.OneArm.EndIP,
+		}, 0, 0, r.Config.LB.Ports.TCP,
+		true, "", r.Config.ClusterResources.CsiVersion, r.Config.ClusterResources.CpiVersion, r.Config.ClusterResources.CniVersion,
+		r.Config.ClusterResources.CapvcdVersion)
 	if err != nil {
 		return ctrl.Result{}, errors.Wrapf(err,
 			"Error creating VCD client to reconcile the machine [%s/%s] deletion",
