@@ -201,6 +201,7 @@ func (r *VCDClusterReconciler) constructCapvcdRDE(ctx context.Context, cluster *
 					Site: vcdCluster.Spec.Site,
 					Org:  org,
 					Vdc:  vdc,
+					OvdcNetwork: vcdCluster.Spec.OvdcNetwork,
 				},
 			},
 		},
