@@ -50,6 +50,10 @@ type VCDMachineSpec struct {
 	// +optional
 	SizingPolicy string `json:"sizingPolicy,omitempty"`
 
+	// StorageProfile is the storage profile to be used on this machince
+	// +optional
+	StorageProfile string `json:"storageProfile,omitempty"`
+
 	// Bootstrapped is true when the kubeadm bootstrapping has been run
 	// against this machine
 	// +optional
