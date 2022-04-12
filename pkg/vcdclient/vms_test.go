@@ -54,7 +54,7 @@ exit 0
 `
 	_, err = vdcManager.AddNewMultipleVM(vApp, vmNamePrefix, vmNum, "ProviderCatalogs",
 		"ubuntu-16.04_k8-1.20_weave-2.6.5_rev2",
-		"cse----native", "2core2gb", guestCustScript, true, true)
+		"cse----native", "2core2gb", "*", guestCustScript, true, true)
 	require.NoError(t, err, "unable to create [%d] VMs", vmNum)
 
 	_ = vdcManager.WaitForGuestScriptCompletion(vmNamePrefix, vAppName)
@@ -109,7 +109,7 @@ exit 0
 	// TODO: allow these vm params to be user passed through a config
 	err = vdcManager.AddNewVM(vmNamePrefix, vAppName, vmNum, "cse",
 		"ubuntu-16.04_k8-1.21_weave-2.8.1_rev1", "cse----native",
-		"2core2gb", guestCustScript, true)
+		"2core2gb", "", guestCustScript, true)
 	assert.NoError(t, err, "unable to create [%d] VMs", vmNum)
 
 	vms, err := vdcManager.FindAllVMsInVapp(vAppName)
