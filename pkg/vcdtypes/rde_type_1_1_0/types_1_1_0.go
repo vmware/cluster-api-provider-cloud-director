@@ -102,19 +102,17 @@ type CAPVCDStatus struct {
 }
 
 type Status struct {
-	CAPVCDStatus      CAPVCDStatus `json:"capvcd,omitempty"`
-	PersistentVolumes []string     `json:"persistentVolumes,omitempty"`
-	VirtualIPs        []string     `json:"virtualIPs,omitempty"`
+	CAPVCDStatus CAPVCDStatus `json:"capvcd,omitempty"`
 }
 
-type ClusterSpec struct {
+type CAPVCDSpec struct {
 	CapiYaml string `json:"capiYaml,omitempty"`
 }
 
 type CAPVCDEntity struct {
-	Metadata   Metadata    `json:"metadata"`
-	Spec       ClusterSpec `json:"spec"`
-	ApiVersion string      `json:"apiVersion"`
-	Status     Status      `json:"status"`
-	Kind       string      `json:"kind"`
+	Metadata   Metadata   `json:"metadata"`
+	Spec       CAPVCDSpec `json:"spec"`
+	ApiVersion string     `json:"apiVersion"`
+	Status     Status     `json:"status"`
+	Kind       string     `json:"kind"`
 }
