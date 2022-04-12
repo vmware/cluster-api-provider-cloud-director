@@ -77,6 +77,8 @@ func (r *VCDClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	log := ctrl.LoggerFrom(ctx)
 	// Fetch the VCDCluster instance
 	vcdCluster := &infrav1.VCDCluster{}
+	// remove the trailing '/'
+	vcdCluster.Spec.Site = strings.TrimRight(vcdCluster.Spec.Site, "/")
 	if err := r.Client.Get(ctx, req.NamespacedName, vcdCluster); err != nil {
 		if apierrors.IsNotFound(err) {
 			return ctrl.Result{}, nil
