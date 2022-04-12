@@ -172,7 +172,7 @@ func (r *VCDClusterReconciler) constructCapvcdRDE(ctx context.Context, cluster *
 			Vdc:  vdc,
 			Site: vcdCluster.Spec.Site,
 		},
-		Spec: rdeType.ClusterSpec{},
+		Spec: rdeType.CAPVCDSpec{},
 		Status: rdeType.Status{
 			CAPVCDStatus: rdeType.CAPVCDStatus{
 				Phase: ClusterApiStatusPhaseNotReady,
@@ -247,26 +247,27 @@ func (r *VCDClusterReconciler) constructAndCreateRDEFromCluster(ctx context.Cont
 func (r *VCDClusterReconciler) reconcileRDE(ctx context.Context, cluster *clusterv1.Cluster, vcdCluster *infrav1.VCDCluster, workloadVCDClient *vcdclient.Client) error {
 	log := ctrl.LoggerFrom(ctx)
 
-	updatePatch := make(map[string]interface{})
-	_, capvcdEntity, err := workloadVCDClient.GetCAPVCDEntity(ctx, vcdCluster.Status.InfraId)
+	_, capvcdSpec, capvcdMetadata, capvcdStatus, err := workloadVCDClient.GetCAPVCDEntity(ctx, vcdCluster.Status.InfraId)
 	if err != nil {
 		return fmt.Errorf("failed to get RDE with ID [%s] for cluster [%s]: [%v]", vcdCluster.Status.InfraId, vcdCluster.Name, err)
 	}
 	// TODO(VCDA-3107): Should we be updating org and vdc information here.
+	metadataPatch := make(map[string]interface{})
 	org := vcdCluster.Spec.Org
-	if org != capvcdEntity.Metadata.Org {
-		updatePatch["Metadata.Org"] = org
+	if org != capvcdMetadata.Org {
+		metadataPatch["Org"] = org
 	}
 
 	vdc := vcdCluster.Spec.Ovdc
-	if vdc != capvcdEntity.Metadata.Vdc {
-		updatePatch["Metadata.Vdc"] = vdc
+	if vdc != capvcdMetadata.Vdc {
+		metadataPatch["Vdc"] = vdc
 	}
 
-	if capvcdEntity.Metadata.Site != vcdCluster.Spec.Site {
-		updatePatch["Metadata.Site"] = vcdCluster.Spec.Site
+	if capvcdMetadata.Site != vcdCluster.Spec.Site {
+		metadataPatch["Site"] = vcdCluster.Spec.Site
 	}
 
+	specPatch := make(map[string]interface{})
 	kcpList, err := getAllKubeadmControlPlaneForCluster(ctx, r.Client, *cluster)
 	if err != nil {
 		return fmt.Errorf("error getting all KubeadmControlPlane objects for cluster [%s]: [%v]", vcdCluster.Name, err)
@@ -283,23 +284,23 @@ func (r *VCDClusterReconciler) reconcileRDE(ctx context.Context, cluster *cluste
 			"error during RDE reconciliation: failed to construct capi yaml from kubernetes resources of cluster")
 	}
 
-	if err == nil && capvcdEntity.Spec.CapiYaml != capiYaml {
-		updatePatch["Spec.CapiYaml"] = capiYaml
+	if err == nil && capvcdSpec.CapiYaml != capiYaml {
+		specPatch["CapiYaml"] = capiYaml
 	}
 
 	// Updating status portion of the RDE in the following code
-
-	if capvcdEntity.Status.CAPVCDStatus.Phase != cluster.Status.Phase {
-		updatePatch["Status.CAPVCDStatus.Phase"] = cluster.Status.Phase
+	capvcdStatusPatch := make(map[string]interface{})
+	if capvcdStatus.Phase != cluster.Status.Phase {
+		capvcdStatusPatch["Phase"] = cluster.Status.Phase
 	}
 
 	// TODO: Delete "kubernetes" string in RDE. Discuss with Sahithi
-	if capvcdEntity.Status.CAPVCDStatus.Kubernetes != kubernetesVersion {
-		updatePatch["Status.CAPVCDStatus.Kubernetes"] = kubernetesVersion
+	if capvcdStatus.Kubernetes != kubernetesVersion {
+		capvcdStatusPatch["Kubernetes"] = kubernetesVersion
 	}
 
-	if capvcdEntity.Status.CAPVCDStatus.Uid != vcdCluster.Status.InfraId {
-		updatePatch["Status.CAPVCDStatus.Uid"] = vcdCluster.Status.InfraId
+	if capvcdStatus.Uid != vcdCluster.Status.InfraId {
+		capvcdStatusPatch["Uid"] = vcdCluster.Status.InfraId
 	}
 	clusterApiStatusPhase := ClusterApiStatusPhaseNotReady
 	if cluster.Status.ControlPlaneReady {
@@ -314,8 +315,8 @@ func (r *VCDClusterReconciler) reconcileRDE(ctx context.Context, cluster *cluste
 			},
 		},
 	}
-	if !reflect.DeepEqual(clusterApiStatus, capvcdEntity.Status.CAPVCDStatus.ClusterAPIStatus) {
-		updatePatch["Status.CAPVCDStatus.ClusterAPIStatus"] = clusterApiStatus
+	if !reflect.DeepEqual(clusterApiStatus, capvcdStatus.ClusterAPIStatus) {
+		capvcdStatusPatch["ClusterAPIStatus"] = clusterApiStatus
 	}
 
 	// update node status. Needed to remove stray nodes which were already deleted
@@ -328,8 +329,8 @@ func (r *VCDClusterReconciler) reconcileRDE(ctx context.Context, cluster *cluste
 	for _, machine := range machineList.Items {
 		updatedNodeStatus[machine.Name] = machine.Status.Phase
 	}
-	if !reflect.DeepEqual(updatedNodeStatus, capvcdEntity.Status.CAPVCDStatus.NodeStatus) {
-		updatePatch["Status.CAPVCDStatus.NodeStatus"] = updatedNodeStatus
+	if !reflect.DeepEqual(updatedNodeStatus, capvcdStatus.NodeStatus) {
+		capvcdStatusPatch["NodeStatus"] = updatedNodeStatus
 	}
 
 	obj := client.ObjectKey{
@@ -340,12 +341,12 @@ func (r *VCDClusterReconciler) reconcileRDE(ctx context.Context, cluster *cluste
 	if err != nil {
 		log.Error(err, "failed to update RDE private section with kubeconfig")
 	} else {
-		if !reflect.DeepEqual(string(kubeConfigBytes), capvcdEntity.Status.CAPVCDStatus.Private.KubeConfig) {
-			updatePatch["Status.CAPVCDStatus.Private.KubeConfig"] = string(kubeConfigBytes)
+		if !reflect.DeepEqual(string(kubeConfigBytes), capvcdStatus.Private.KubeConfig) {
+			capvcdStatusPatch["Private.KubeConfig"] = string(kubeConfigBytes)
 		}
 	}
 
-	updatedRDE, err := workloadVCDClient.PatchRDE(ctx, updatePatch, vcdCluster.Status.InfraId)
+	updatedRDE, err := workloadVCDClient.PatchRDE(ctx, specPatch, metadataPatch, capvcdStatusPatch, vcdCluster.Status.InfraId)
 	if err != nil {
 		return fmt.Errorf("failed to update defined entity with ID [%s] for cluster [%s]: [%v]", vcdCluster.Status.InfraId, vcdCluster.Name, err)
 	}
