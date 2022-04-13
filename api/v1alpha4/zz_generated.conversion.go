@@ -81,11 +81,6 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}); err != nil {
 		return err
 	}
-	if err := s.AddGeneratedConversionFunc((*v1beta1.VCDClusterSpec)(nil), (*VCDClusterSpec)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1beta1_VCDClusterSpec_To_v1alpha4_VCDClusterSpec(a.(*v1beta1.VCDClusterSpec), b.(*VCDClusterSpec), scope)
-	}); err != nil {
-		return err
-	}
 	if err := s.AddGeneratedConversionFunc((*VCDClusterStatus)(nil), (*v1beta1.VCDClusterStatus)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1alpha4_VCDClusterStatus_To_v1beta1_VCDClusterStatus(a.(*VCDClusterStatus), b.(*v1beta1.VCDClusterStatus), scope)
 	}); err != nil {
@@ -183,6 +178,11 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}
 	if err := s.AddGeneratedConversionFunc((*v1beta1.VCDMachineTemplateStatus)(nil), (*VCDMachineTemplateStatus)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1beta1_VCDMachineTemplateStatus_To_v1alpha4_VCDMachineTemplateStatus(a.(*v1beta1.VCDMachineTemplateStatus), b.(*VCDMachineTemplateStatus), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddConversionFunc((*v1beta1.VCDClusterSpec)(nil), (*VCDClusterSpec)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1beta1_VCDClusterSpec_To_v1alpha4_VCDClusterSpec(a.(*v1beta1.VCDClusterSpec), b.(*VCDClusterSpec), scope)
 	}); err != nil {
 		return err
 	}
@@ -428,7 +428,7 @@ func autoConvert_v1alpha4_VCDMachineSpec_To_v1beta1_VCDMachineSpec(in *VCDMachin
 	out.ProviderID = (*string)(unsafe.Pointer(in.ProviderID))
 	out.Catalog = in.Catalog
 	out.Template = in.Template
-	out.ComputePolicy = in.ComputePolicy
+	out.SizingPolicy = in.ComputePolicy
 	out.Bootstrapped = in.Bootstrapped
 	return nil
 }
@@ -442,7 +442,7 @@ func autoConvert_v1beta1_VCDMachineSpec_To_v1alpha4_VCDMachineSpec(in *v1beta1.V
 	out.ProviderID = (*string)(unsafe.Pointer(in.ProviderID))
 	out.Catalog = in.Catalog
 	out.Template = in.Template
-	out.ComputePolicy = in.ComputePolicy
+	out.ComputePolicy = in.SizingPolicy
 	out.Bootstrapped = in.Bootstrapped
 	return nil
 }
