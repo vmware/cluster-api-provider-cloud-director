@@ -309,10 +309,10 @@ type Status struct {
 }
 
 type ClusterSpec struct {
-	//Settings     Settings     `json:"settings"`
-	//Topology     Topology     `json:"topology"`
-	//Distribution Distribution `json:"distribution"`
-	CapiYaml string `json:"capiYaml,omitempty"`
+	Settings     Settings     `json:"settings"`
+	Topology     Topology     `json:"topology"`
+	Distribution Distribution `json:"distribution"`
+	CapiYaml     string       `json:"capiYaml,omitempty"`
 }
 
 type CAPVCDEntity struct {
