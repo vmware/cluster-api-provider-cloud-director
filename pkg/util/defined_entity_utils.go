@@ -3,11 +3,11 @@ package util
 import (
 	"encoding/json"
 	"fmt"
-	rdeType "github.com/vmware/cluster-api-provider-cloud-director/pkg/vcdtypes/rde_type_1_1_0"
+	"github.com/vmware/cluster-api-provider-cloud-director/pkg/vcdtypes"
 )
 
-func ConvertMapToCAPVCDEntity(entityMap map[string]interface{}) (*rdeType.CAPVCDEntity, error) {
-	var capvcdEntity rdeType.CAPVCDEntity
+func ConvertMapToCAPVCDEntity(entityMap map[string]interface{}) (*vcdtypes.CAPVCDEntity, error) {
+	var capvcdEntity vcdtypes.CAPVCDEntity
 	entityByteArr, err := json.Marshal(&entityMap)
 	if err != nil {
 		return nil, fmt.Errorf("failed to unmarshal entity map: [%v]", err)
@@ -19,7 +19,7 @@ func ConvertMapToCAPVCDEntity(entityMap map[string]interface{}) (*rdeType.CAPVCD
 	return &capvcdEntity, nil
 }
 
-func ConvertCAPVCDEntityToMap(capvcdEntity *rdeType.CAPVCDEntity) (map[string]interface{}, error) {
+func ConvertCAPVCDEntityToMap(capvcdEntity *vcdtypes.CAPVCDEntity) (map[string]interface{}, error) {
 	var entityMap map[string]interface{}
 	entityByteArr, err := json.Marshal(&capvcdEntity)
 	if err != nil {

@@ -312,7 +312,7 @@ func (r *VCDMachineReconciler) reconcileNodeStatusInRDE(ctx context.Context, rde
 	if err != nil {
 		return fmt.Errorf("failed to get CAPVCD entity with ID [%s] to sync node details for machine [%s]: [%v]", rdeID, nodeName, err)
 	}
-	nodeStatusMap := capvcdEntity.Status.CAPVCDStatus.NodeStatus
+	nodeStatusMap := capvcdEntity.Status.NodeStatus
 	if nodeStatus, ok := nodeStatusMap[nodeName]; ok && nodeStatus == status {
 		// no update needed
 		return nil
@@ -321,7 +321,7 @@ func (r *VCDMachineReconciler) reconcileNodeStatusInRDE(ctx context.Context, rde
 		nodeStatusMap = make(map[string]string)
 	}
 	nodeStatusMap[nodeName] = status
-	updatePatch["Status.CAPVCDStatus.NodeStatus"] = nodeStatusMap
+	updatePatch["Status.NodeStatus"] = nodeStatusMap
 
 	// update defined entity
 	updatedRDE, err := workloadVCDClient.PatchRDE(ctx, updatePatch, rdeID)
