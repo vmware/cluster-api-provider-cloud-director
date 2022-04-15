@@ -14,6 +14,8 @@ metadata:
   labels:
     cluster.x-k8s.io/provider: infrastructure-vcd
     cluster.x-k8s.io/v1alpha4: v1alpha4
+    cluster.x-k8s.io/v1beta1: v1beta1
+    cluster.x-k8s.io/vbeta1: v1beta1
   name: vcdclusters.infrastructure.cluster.x-k8s.io
 spec:
   conversion:
@@ -35,6 +37,108 @@ spec:
   scope: Namespaced
   versions:
   - name: v1alpha4
+    schema:
+      openAPIV3Schema:
+        description: VCDCluster is the Schema for the vcdclusters API
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: VCDClusterSpec defines the desired state of VCDCluster
+            properties:
+              controlPlaneEndpoint:
+                description: APIEndpoint represents a reachable Kubernetes API endpoint.
+                properties:
+                  host:
+                    description: Host is the hostname on which the API server is serving.
+                    type: string
+                  port:
+                    description: Port is the port on which the API server is serving.
+                    type: integer
+                required:
+                - host
+                - port
+                type: object
+              defaultComputePolicy:
+                type: string
+              org:
+                type: string
+              ovdc:
+                type: string
+              ovdcNetwork:
+                type: string
+              site:
+                type: string
+              userContext:
+                properties:
+                  password:
+                    type: string
+                  refreshToken:
+                    type: string
+                  username:
+                    type: string
+                type: object
+            required:
+            - org
+            - ovdc
+            - ovdcNetwork
+            - site
+            - userContext
+            type: object
+          status:
+            description: VCDClusterStatus defines the observed state of VCDCluster
+            properties:
+              conditions:
+                description: Conditions defines current service state of the VCDCluster.
+                items:
+                  description: Condition defines an observation of a Cluster API resource operational state.
+                  properties:
+                    lastTransitionTime:
+                      description: Last time the condition transitioned from one status to another. This should be when the underlying condition changed. If that is not known, then using the time when the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: A human readable message indicating details about the transition. This field may be empty.
+                      type: string
+                    reason:
+                      description: The reason for the condition's last transition in CamelCase. The specific API may choose whether or not this field is considered a guaranteed API. This field may not be empty.
+                      type: string
+                    severity:
+                      description: Severity provides an explicit classification of Reason code, so the users or machines can immediately understand the current situation and act accordingly. The Severity field MUST be set only when Status=False.
+                      type: string
+                    status:
+                      description: Status of the condition, one of True, False, Unknown.
+                      type: string
+                    type:
+                      description: Type of condition in CamelCase or in foo.example.com/CamelCase. Many .condition.type values are consistent across resources like Available, but because arbitrary conditions can be useful (see .node.status.conditions), the ability to deconflict is important.
+                      type: string
+                  required:
+                  - status
+                  - type
+                  type: object
+                type: array
+              infraId:
+                type: string
+              ready:
+                description: Ready denotes that the vcd cluster (infrastructure) is ready.
+                type: boolean
+            required:
+            - ready
+            type: object
+        required:
+        - spec
+        type: object
+    served: true
+    storage: false
+    subresources:
+      status: {}
+  - name: v1beta1
     schema:
       openAPIV3Schema:
         description: VCDCluster is the Schema for the vcdclusters API
@@ -170,6 +274,8 @@ metadata:
   labels:
     cluster.x-k8s.io/provider: infrastructure-vcd
     cluster.x-k8s.io/v1alpha4: v1alpha4
+    cluster.x-k8s.io/v1beta1: v1beta1
+    cluster.x-k8s.io/vbeta1: v1beta1
   name: vcdmachines.infrastructure.cluster.x-k8s.io
 spec:
   conversion:
@@ -276,6 +382,95 @@ spec:
             type: object
         type: object
     served: true
+    storage: false
+    subresources:
+      status: {}
+  - name: v1beta1
+    schema:
+      openAPIV3Schema:
+        description: VCDMachine is the Schema for the vcdmachines API
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: VCDMachineSpec defines the desired state of VCDMachine
+            properties:
+              bootstrapped:
+                description: Bootstrapped is true when the kubeadm bootstrapping has been run against this machine
+                type: boolean
+              catalog:
+                description: Catalog hosting templates
+                type: string
+              computePolicy:
+                description: ComputePolicy is the compute policy to be used on this machine
+                type: string
+              providerID:
+                description: ProviderID will be the container name in ProviderID format (vmware-cloud-director://<vm id>)
+                type: string
+              template:
+                description: TemplatePath is the path of the template OVA that is to be used
+                type: string
+            type: object
+          status:
+            description: VCDMachineStatus defines the observed state of VCDMachine
+            properties:
+              addresses:
+                description: Addresses contains the associated addresses for the docker machine.
+                items:
+                  description: MachineAddress contains information for the node's address.
+                  properties:
+                    address:
+                      description: The machine address.
+                      type: string
+                    type:
+                      description: Machine address type, one of Hostname, ExternalIP or InternalIP.
+                      type: string
+                  required:
+                  - address
+                  - type
+                  type: object
+                type: array
+              conditions:
+                description: Conditions defines current service state of the DockerMachine.
+                items:
+                  description: Condition defines an observation of a Cluster API resource operational state.
+                  properties:
+                    lastTransitionTime:
+                      description: Last time the condition transitioned from one status to another. This should be when the underlying condition changed. If that is not known, then using the time when the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: A human readable message indicating details about the transition. This field may be empty.
+                      type: string
+                    reason:
+                      description: The reason for the condition's last transition in CamelCase. The specific API may choose whether or not this field is considered a guaranteed API. This field may not be empty.
+                      type: string
+                    severity:
+                      description: Severity provides an explicit classification of Reason code, so the users or machines can immediately understand the current situation and act accordingly. The Severity field MUST be set only when Status=False.
+                      type: string
+                    status:
+                      description: Status of the condition, one of True, False, Unknown.
+                      type: string
+                    type:
+                      description: Type of condition in CamelCase or in foo.example.com/CamelCase. Many .condition.type values are consistent across resources like Available, but because arbitrary conditions can be useful (see .node.status.conditions), the ability to deconflict is important.
+                      type: string
+                  required:
+                  - status
+                  - type
+                  type: object
+                type: array
+              ready:
+                description: Ready denotes that the machine (docker container) is ready
+                type: boolean
+            type: object
+        type: object
+    served: true
     storage: true
     subresources:
       status: {}
@@ -295,6 +490,8 @@ metadata:
   labels:
     cluster.x-k8s.io/provider: infrastructure-vcd
     cluster.x-k8s.io/v1alpha4: v1alpha4
+    cluster.x-k8s.io/v1beta1: v1beta1
+    cluster.x-k8s.io/vbeta1: v1beta1
   name: vcdmachinetemplates.infrastructure.cluster.x-k8s.io
 spec:
   conversion:
@@ -316,6 +513,57 @@ spec:
   scope: Namespaced
   versions:
   - name: v1alpha4
+    schema:
+      openAPIV3Schema:
+        description: VCDMachineTemplate is the Schema for the vcdmachinetemplates API
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: VCDMachineTemplateSpec defines the desired state of VCDMachineTemplate
+            properties:
+              template:
+                properties:
+                  spec:
+                    description: Spec is the specification of the desired behavior of the machine.
+                    properties:
+                      bootstrapped:
+                        description: Bootstrapped is true when the kubeadm bootstrapping has been run against this machine
+                        type: boolean
+                      catalog:
+                        description: Catalog hosting templates
+                        type: string
+                      computePolicy:
+                        description: ComputePolicy is the compute policy to be used on this machine
+                        type: string
+                      providerID:
+                        description: ProviderID will be the container name in ProviderID format (vmware-cloud-director://<vm id>)
+                        type: string
+                      template:
+                        description: TemplatePath is the path of the template OVA that is to be used
+                        type: string
+                    type: object
+                required:
+                - spec
+                type: object
+            required:
+            - template
+            type: object
+          status:
+            description: VCDMachineTemplateStatus defines the observed state of VCDMachineTemplate
+            type: object
+        type: object
+    served: true
+    storage: false
+    subresources:
+      status: {}
+  - name: v1beta1
     schema:
       openAPIV3Schema:
         description: VCDMachineTemplate is the Schema for the vcdmachinetemplates API
@@ -743,16 +991,51 @@ metadata:
 spec:
   selfSigned: {}
 ---
-apiVersion: admissionregistration.k8s.io/v1beta1
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata:
+  annotations:
+    cert-manager.io/inject-ca-from: capvcd-system/capvcd-serving-cert
+  labels:
+    cluster.x-k8s.io/provider: infrastructure-vcd
+  name: capvcd-mutating-webhook-configuration
+webhooks:
+- admissionReviewVersions:
+  - v1
+  - v1beta1
+  clientConfig:
+    service:
+      name: capvcd-webhook-service
+      namespace: capvcd-system
+      path: /mutate-infrastructure-cluster-x-k8s-io-v1beta1-vcdcluster
+  failurePolicy: Fail
+  matchPolicy: Equivalent
+  name: default.vcdcluster.infrastructure.cluster.x-k8s.io
+  rules:
+  - apiGroups:
+    - infrastructure.cluster.x-k8s.io
+    apiVersions:
+    - v1beta1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - vcdclusters
+  sideEffects: None
+---
+apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingWebhookConfiguration
 metadata:
-  creationTimestamp: null
+  annotations:
+    cert-manager.io/inject-ca-from: capvcd-system/capvcd-serving-cert
   labels:
     cluster.x-k8s.io/provider: infrastructure-vcd
   name: capvcd-validating-webhook-configuration
 webhooks:
-- clientConfig:
-    caBundle: Cg==
+- admissionReviewVersions:
+  - v1
+  - v1beta1
+  clientConfig:
     service:
       name: capvcd-webhook-service
       namespace: capvcd-system
@@ -764,10 +1047,11 @@ webhooks:
   - apiGroups:
     - infrastructure.cluster.x-k8s.io
     apiVersions:
-    - v1alpha3
+    - v1beta1
     operations:
     - CREATE
     - UPDATE
+    - DELETE
     resources:
     - vcdclusters
   sideEffects: None
