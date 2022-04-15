@@ -7,9 +7,6 @@ metadata:
     controller-gen.kubebuilder.io/version: v0.4.1
   creationTimestamp: null
   name: vcdmachines.infrastructure.cluster.x-k8s.io
-  labels:
-    cluster.x-k8s.io/v1alpha4: v1alpha4
-    cluster.x-k8s.io/vbeta1: v1beta1
 spec:
   group: infrastructure.cluster.x-k8s.io
   names:
