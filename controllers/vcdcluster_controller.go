@@ -52,6 +52,7 @@ const (
 
 	ClusterApiStatusPhaseReady    = "Ready"
 	ClusterApiStatusPhaseNotReady = "Not Ready"
+	InfraID                       = "InfraID"
 
 	NoRdePrefix = `NO_RDE_`
 )
@@ -617,7 +618,11 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		Client:  workloadVCDClient,
 		Vdc:     workloadVCDClient.Vdc,
 	}
-	_, err = vdcManager.GetOrCreateVApp(vcdCluster.Name, workloadVCDClient.NetworkName)
+	// create metadata key-value pair(s)
+	matadataMap := map[string]string{
+		InfraID: vcdCluster.Status.InfraId,
+	}
+	_, err = vdcManager.GetOrCreateVApp(vcdCluster.Name, workloadVCDClient.NetworkName, matadataMap)
 	if err != nil {
 		return ctrl.Result{}, errors.Wrapf(err, "Error creating Infra vApp for the cluster [%s]: [%v]", vcdCluster.Name, err)
 	}

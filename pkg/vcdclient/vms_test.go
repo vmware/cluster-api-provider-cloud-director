@@ -29,7 +29,7 @@ func TestVMCreation(t *testing.T) {
 		Client:  vcdClient,
 		Vdc:     vcdClient.Vdc,
 	}
-	vApp, err := vdcManager.GetOrCreateVApp(vAppName, "tenant1_ovdc_nw")
+	vApp, err := vdcManager.GetOrCreateVApp(vAppName, "tenant1_ovdc_nw", nil)
 	assert.NoError(t, err, "unable to create vApp")
 	require.NotNil(t, vApp, "vApp created should not be nil")
 
@@ -82,7 +82,7 @@ func TestVMExtraConfig(t *testing.T) {
 		Client:  vcdClient,
 		Vdc:     vcdClient.Vdc,
 	}
-	vApp, err := vdcManager.GetOrCreateVApp(vAppName, vcdClient.NetworkName)
+	vApp, err := vdcManager.GetOrCreateVApp(vAppName, vcdClient.NetworkName, nil)
 	assert.NoError(t, err, "unable to create vApp")
 	require.NotNil(t, vApp, "vApp created should not be nil")
 
