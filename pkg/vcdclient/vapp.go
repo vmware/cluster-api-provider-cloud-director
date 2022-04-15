@@ -90,7 +90,7 @@ func (vdc *VdcManager) DeleteVApp(vAppName string) error {
 }
 
 // no need to make reentrant since VCD will take care of it and Kubernetes will retry
-func (vdc *VdcManager) GetOrCreateVApp(vAppName string, ovdcNetworkName string, matadataMap map[string]string) (*govcd.VApp, error) {
+func (vdc *VdcManager) GetOrCreateVApp(vAppName string, ovdcNetworkName string) (*govcd.VApp, error) {
 	if vdc.Vdc == nil {
 		return nil, fmt.Errorf("no Vdc created with name [%s]", vdc.VdcName)
 	}
@@ -120,12 +120,7 @@ func (vdc *VdcManager) GetOrCreateVApp(vAppName string, ovdcNetworkName string, 
 
 	vApp, err = vdc.Vdc.GetVAppByName(vAppName, true)
 	// create InfraId upon VApp created
-	if matadataMap != nil && len(matadataMap) > 0 {
-		if err := vdc.addMetadataToVApp(vApp, matadataMap); err != nil {
-			return nil, fmt.Errorf("unable to add metadata [%s] to vApp [%s]: [%v]", matadataMap, vAppName, err)
-		}
-		klog.V(3).Infof("successfully added metadata [%s] to vAPP [%s]", matadataMap, vAppName)
-	}
+
 	if err != nil {
 		return nil, fmt.Errorf("unable to get vApp [%s] from Vdc [%s]: [%v]",
 			vAppName, vdc.VdcName, err)
@@ -155,7 +150,12 @@ func (vdc *VdcManager) addOvdcNetworkToVApp(vApp *govcd.VApp, ovdcNetworkName st
 	return nil
 }
 
-func (vdc *VdcManager) addMetadataToVApp(vApp *govcd.VApp, paramMap map[string]string) error {
+func (vdc *VdcManager) AddMetadataToVApp(vAppName string, paramMap map[string]string) error {
+	vApp, err := vdc.Vdc.GetVAppByName(vAppName, true)
+	if err != nil && err != govcd.ErrorEntityNotFound {
+		return fmt.Errorf("unable to get vApp [%s] from Vdc [%s]: [%v]",
+			vAppName, vdc.VdcName, err)
+	}
 	if vApp == nil || vApp.VApp == nil {
 		return fmt.Errorf("cannot add metadata to a nil vApp")
 	}

@@ -62,7 +62,7 @@ func TestVAppMetaData(t *testing.T) {
 	//matadataMap := map[string]string{
 	//	InfraID: "testuse",
 	//}
-	_, err = vdcManager.GetOrCreateVApp(vAppName, "ovdc1_nw", nil)
+	_, err = vdcManager.GetOrCreateVApp(vAppName, "ovdc1_nw")
 	if err != nil {
 		return
 	}
@@ -89,7 +89,7 @@ func TestDeleteVapp(t *testing.T) {
 		Client:  vcdClient,
 		Vdc:     vcdClient.Vdc,
 	}
-	vapp, err := vdcManager.GetOrCreateVApp("vapp1", "ovdc1_nw", nil)
+	vapp, err := vdcManager.GetOrCreateVApp("vapp1", "ovdc1_nw")
 	assert.NoError(t, err, "unable to find vApp")
 	assert.NotNil(t, vapp, "vapp should not be nil")
 	err = vdcManager.DeleteVApp("vapp1")

@@ -52,7 +52,7 @@ const (
 
 	ClusterApiStatusPhaseReady    = "Ready"
 	ClusterApiStatusPhaseNotReady = "Not Ready"
-	InfraID                       = "InfraID"
+	CapvcdInfraId                 = "CapvcdInfraId"
 
 	NoRdePrefix = `NO_RDE_`
 )
@@ -619,12 +619,18 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		Vdc:     workloadVCDClient.Vdc,
 	}
 	// create metadata key-value pair(s)
-	matadataMap := map[string]string{
-		InfraID: vcdCluster.Status.InfraId,
+	metadataMap := map[string]string{
+		CapvcdInfraId: vcdCluster.Status.InfraId,
 	}
-	_, err = vdcManager.GetOrCreateVApp(vcdCluster.Name, workloadVCDClient.NetworkName, matadataMap)
+	_, err = vdcManager.GetOrCreateVApp(vcdCluster.Name, workloadVCDClient.NetworkName)
 	if err != nil {
 		return ctrl.Result{}, errors.Wrapf(err, "Error creating Infra vApp for the cluster [%s]: [%v]", vcdCluster.Name, err)
+	}
+
+	if metadataMap != nil && len(metadataMap) > 0 {
+		if err := vdcManager.AddMetadataToVApp(vcdCluster.Name, metadataMap); err != nil {
+			return ctrl.Result{}, fmt.Errorf("unable to add metadata [%s] to vApp [%s]: [%v]", metadataMap, vcdCluster.Name, err)
+		}
 	}
 
 	// Update the vcdCluster resource with updated information
