@@ -59,6 +59,7 @@ const (
 
 var (
 	CAPVCDEntityTypeID = fmt.Sprintf("urn:vcloud:type:%s:%s:%s", CAPVCDTypeVendor, CAPVCDTypeNss, CAPVCDTypeVersion)
+	MetadataState      = false
 )
 
 // VCDClusterReconciler reconciles a VCDCluster object
@@ -622,11 +623,12 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	if err != nil {
 		return ctrl.Result{}, errors.Wrapf(err, "Error creating Infra vApp for the cluster [%s]: [%v]", vcdCluster.Name, err)
 	}
-
-	if metadataMap != nil && len(metadataMap) > 0 {
+	if metadataMap != nil && len(metadataMap) > 0 && !MetadataState {
 		if err := vdcManager.AddMetadataToVApp(vcdCluster.Name, metadataMap); err != nil {
 			return ctrl.Result{}, fmt.Errorf("unable to add metadata [%s] to vApp [%s]: [%v]", metadataMap, vcdCluster.Name, err)
 		}
+		// Preventing adding metadata constantly
+		MetadataState = true
 	}
 
 	// Update the vcdCluster resource with updated information
