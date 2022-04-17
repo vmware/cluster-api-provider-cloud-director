@@ -7,7 +7,6 @@ package main
 
 import (
 	"context"
-	_ "embed"
 	"flag"
 	"fmt"
 	"os"
@@ -38,11 +37,9 @@ import (
 	infrav1 "github.com/vmware/cluster-api-provider-cloud-director/api/v1alpha4"
 	infrastructurev1beta1 "github.com/vmware/cluster-api-provider-cloud-director/api/v1beta1"
 	"github.com/vmware/cluster-api-provider-cloud-director/controllers"
+	"github.com/vmware/cluster-api-provider-cloud-director/release"
 	//+kubebuilder:scaffold:imports
 )
-
-//go:embed release/version
-var capVCDVersion string
 
 var (
 	myscheme = runtime.NewScheme()
@@ -74,7 +71,7 @@ func getCapvcdConfig() (*config.CAPVCDConfig, error) {
 	if err != nil {
 		return nil, fmt.Errorf("Unable to parse CAPVCD config file [%s]: [%v]", configFilePath, err)
 	}
-	cloudConfig.ClusterResources.CapvcdVersion = strings.Trim(capVCDVersion, "\n")
+	cloudConfig.ClusterResources.CapvcdVersion = strings.Trim(release.CapVCDVersion, "\n")
 	return cloudConfig, err
 }
 

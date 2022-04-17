@@ -9,9 +9,10 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
-	"k8s.io/klog"
 	"net/http"
 	"sync"
+
+	"k8s.io/klog"
 
 	swaggerClient "github.com/vmware/cluster-api-provider-cloud-director/pkg/vcdswaggerclient"
 	"github.com/vmware/go-vcloud-director/v2/govcd"
@@ -94,6 +95,7 @@ func (client *Client) RefreshBearerToken() error {
 
 	// reset swagger client
 	swaggerConfig := swaggerClient.NewConfiguration()
+	swaggerConfig.UserAgent = buildUserAgent()
 	swaggerConfig.BasePath = fmt.Sprintf("%s/cloudapi", client.VcdAuthConfig.Host)
 	swaggerConfig.AddDefaultHeader("Authorization", fmt.Sprintf("Bearer %s", client.VcdClient.Client.VCDToken))
 	swaggerConfig.HTTPClient = &http.Client{
@@ -119,8 +121,10 @@ func NewVCDClientFromSecrets(host string, orgName string, vdcName string, vAppNa
 	// We need to get a client every time here rather than reusing the older client, since we can have the same worker
 	// working on different userContexts
 	vcdAuthConfig := NewVCDAuthConfigFromSecrets(host, user, password, refreshToken, userOrg, insecure)
-
+	klog.V(3).Infof("Creating Swagger client with uri: %s, org: %s, user: %s, vdc: %s", host, orgName, user, vdcName)
 	vcdClient, apiClient, err := vcdAuthConfig.GetSwaggerClientFromSecrets()
+	klog.V(3).Infof("VCD User agent is: %s", vcdClient.Client.UserAgent)
+
 	if err != nil {
 		return nil, fmt.Errorf("unable to get swagger client from secrets: [%v]", err)
 	}

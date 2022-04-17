@@ -8,11 +8,15 @@ package vcdclient
 import (
 	"crypto/tls"
 	"fmt"
-	swaggerClient "github.com/vmware/cluster-api-provider-cloud-director/pkg/vcdswaggerclient"
-	"github.com/vmware/go-vcloud-director/v2/govcd"
-	"k8s.io/klog"
 	"net/http"
 	"net/url"
+	"runtime"
+	"strings"
+
+	swaggerClient "github.com/vmware/cluster-api-provider-cloud-director/pkg/vcdswaggerclient"
+	"github.com/vmware/cluster-api-provider-cloud-director/release"
+	"github.com/vmware/go-vcloud-director/v2/govcd"
+	"k8s.io/klog"
 )
 
 const (
@@ -33,14 +37,20 @@ type VCDAuthConfig struct {
 	IsSysAdmin   bool   // will be set by GetBearerToken()
 }
 
+func buildUserAgent() string {
+	return fmt.Sprintf("cluster-api-vcloud-director/%s (%s/%s; isProvider:false)", strings.TrimSuffix(release.CapVCDVersion, "\n"), runtime.GOOS, runtime.GOARCH)
+}
+
 func (config *VCDAuthConfig) GetBearerToken() (*govcd.VCDClient, *http.Response, error) {
+	klog.V(10).Infof("VCDAuthConfig: %+v\n", config)
+
 	href := fmt.Sprintf("%s/api", config.Host)
 	u, err := url.ParseRequestURI(href)
 	if err != nil {
 		return nil, nil, fmt.Errorf("unable to parse url [%s]: %s", href, err)
 	}
 
-	vcdClient := govcd.NewVCDClient(*u, config.Insecure)
+	vcdClient := govcd.NewVCDClient(*u, config.Insecure, govcd.WithHttpUserAgent(buildUserAgent()))
 	vcdClient.Client.APIVersion = VCloudApiVersion
 	klog.Infof("Using VCD OpenAPI version [%s]", vcdClient.Client.APIVersion)
 
@@ -71,7 +81,6 @@ func (config *VCDAuthConfig) GetBearerToken() (*govcd.VCDClient, *http.Response,
 }
 
 func (config *VCDAuthConfig) GetSwaggerClientFromSecrets() (*govcd.VCDClient, *swaggerClient.APIClient, error) {
-
 	vcdClient, _, err := config.GetBearerToken()
 	if err != nil {
 		return nil, nil, fmt.Errorf("unable to get bearer token from secrets: [%v]", err)
@@ -81,12 +90,12 @@ func (config *VCDAuthConfig) GetSwaggerClientFromSecrets() (*govcd.VCDClient, *s
 	authHeader := fmt.Sprintf("Bearer %s", vcdClient.Client.VCDToken)
 	swaggerConfig.BasePath = fmt.Sprintf("%s/cloudapi", config.Host)
 	swaggerConfig.AddDefaultHeader("Authorization", authHeader)
+	swaggerConfig.UserAgent = buildUserAgent()
 	swaggerConfig.HTTPClient = &http.Client{
 		Transport: &http.Transport{
 			TLSClientConfig: &tls.Config{InsecureSkipVerify: config.Insecure},
 		},
 	}
-
 	return vcdClient, swaggerClient.NewAPIClient(swaggerConfig), nil
 }
 
@@ -98,7 +107,7 @@ func (config *VCDAuthConfig) GetPlainClientFromSecrets() (*govcd.VCDClient, erro
 		return nil, fmt.Errorf("unable to parse url: [%s]: [%v]", href, err)
 	}
 
-	vcdClient := govcd.NewVCDClient(*u, config.Insecure)
+	vcdClient := govcd.NewVCDClient(*u, config.Insecure, govcd.WithHttpUserAgent(buildUserAgent()))
 	vcdClient.Client.APIVersion = VCloudApiVersion
 	klog.Infof("Using VCD XML API version [%s]", vcdClient.Client.APIVersion)
 	if err = vcdClient.Authenticate(config.User, config.Password, config.UserOrg); err != nil {
