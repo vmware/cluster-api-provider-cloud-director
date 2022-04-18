@@ -428,7 +428,7 @@ func autoConvert_v1alpha4_VCDMachineSpec_To_v1beta1_VCDMachineSpec(in *VCDMachin
 	out.ProviderID = (*string)(unsafe.Pointer(in.ProviderID))
 	out.Catalog = in.Catalog
 	out.Template = in.Template
-	out.ComputePolicy = in.ComputePolicy
+	out.SizingPolicy = in.ComputePolicy
 	out.Bootstrapped = in.Bootstrapped
 	return nil
 }
@@ -442,7 +442,7 @@ func autoConvert_v1beta1_VCDMachineSpec_To_v1alpha4_VCDMachineSpec(in *v1beta1.V
 	out.ProviderID = (*string)(unsafe.Pointer(in.ProviderID))
 	out.Catalog = in.Catalog
 	out.Template = in.Template
-	out.ComputePolicy = in.ComputePolicy
+	out.ComputePolicy = in.SizingPolicy
 	out.Bootstrapped = in.Bootstrapped
 	return nil
 }
