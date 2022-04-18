@@ -106,6 +106,11 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}); err != nil {
 		return err
 	}
+	if err := s.AddGeneratedConversionFunc((*VCDMachineSpec)(nil), (*v1beta1.VCDMachineSpec)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1alpha4_VCDMachineSpec_To_v1beta1_VCDMachineSpec(a.(*VCDMachineSpec), b.(*v1beta1.VCDMachineSpec), scope)
+	}); err != nil {
+		return err
+	}
 	if err := s.AddGeneratedConversionFunc((*VCDMachineStatus)(nil), (*v1beta1.VCDMachineStatus)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1alpha4_VCDMachineStatus_To_v1beta1_VCDMachineStatus(a.(*VCDMachineStatus), b.(*v1beta1.VCDMachineStatus), scope)
 	}); err != nil {
@@ -457,6 +462,7 @@ func autoConvert_v1beta1_VCDMachineSpec_To_v1alpha4_VCDMachineSpec(in *v1beta1.V
 	out.Catalog = in.Catalog
 	out.Template = in.Template
 	// WARNING: in.SizingPolicy requires manual conversion: does not exist in peer-type
+	// WARNING: in.StorageProfile requires manual conversion: does not exist in peer-type
 	out.Bootstrapped = in.Bootstrapped
 	return nil
 }
