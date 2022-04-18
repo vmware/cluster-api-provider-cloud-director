@@ -45,7 +45,8 @@ type VCDMachineSpec struct {
 	// +optional
 	Template string `json:"template,omitempty"`
 
-	// SizingPolicy is the sizing policy to be used on this machine
+	// SizingPolicy is the sizing policy to be used on this machine.
+	// If no sizing policy is specified, default sizing policy will be used to create the nodes
 	// +optional
 	SizingPolicy string `json:"sizingPolicy,omitempty"`
 
