@@ -164,7 +164,7 @@ func (r *VCDClusterReconciler) constructCapvcdRDE(ctx context.Context, cluster *
 		}
 		topologyControlPlane := vcdtypes.ControlPlane{
 			Count:        *kcp.Spec.Replicas,
-			SizingClass:  vcdMachineTemplate.Spec.Template.Spec.SizingPolicy,
+			SizingClass:  vcdMachineTemplate.Spec.Template.Spec.ComputePolicy,
 			TemplateName: vcdMachineTemplate.Spec.Template.Spec.Template,
 		}
 		topologyControlPlanes = append(topologyControlPlanes, topologyControlPlane)
@@ -183,7 +183,7 @@ func (r *VCDClusterReconciler) constructCapvcdRDE(ctx context.Context, cluster *
 		}
 		topologyWorker := vcdtypes.Workers{
 			Count:        *md.Spec.Replicas,
-			SizingClass:  vcdMachineTemplate.Spec.Template.Spec.SizingPolicy,
+			SizingClass:  vcdMachineTemplate.Spec.Template.Spec.ComputePolicy,
 			TemplateName: vcdMachineTemplate.Spec.Template.Spec.Template,
 		}
 		topologyWorkers = append(topologyWorkers, topologyWorker)
@@ -334,7 +334,7 @@ func (r *VCDClusterReconciler) reconcileRDE(ctx context.Context, cluster *cluste
 		}
 		topologyControlPlane := vcdtypes.ControlPlane{
 			Count:        *kcp.Spec.Replicas,
-			SizingClass:  vcdMachineTemplate.Spec.Template.Spec.SizingPolicy,
+			SizingClass:  vcdMachineTemplate.Spec.Template.Spec.ComputePolicy,
 			TemplateName: vcdMachineTemplate.Spec.Template.Spec.Template,
 		}
 		topologyControlPlanes[idx] = topologyControlPlane
@@ -353,7 +353,7 @@ func (r *VCDClusterReconciler) reconcileRDE(ctx context.Context, cluster *cluste
 		}
 		topologyWorker := vcdtypes.Workers{
 			Count:        *md.Spec.Replicas,
-			SizingClass:  vcdMachineTemplate.Spec.Template.Spec.SizingPolicy,
+			SizingClass:  vcdMachineTemplate.Spec.Template.Spec.ComputePolicy,
 			TemplateName: vcdMachineTemplate.Spec.Template.Spec.Template,
 		}
 		topologyWorkers[idx] = topologyWorker
