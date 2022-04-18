@@ -550,7 +550,7 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		log.Info("Adding infra VM for the machine")
 		err = vdcManager.AddNewVM(machine.Name, vApp.VApp.Name, 1,
 			vcdMachine.Spec.Catalog, vcdMachine.Spec.Template, "",
-			vcdMachine.Spec.ComputePolicy, "", false)
+			vcdMachine.Spec.SizingPolicy, "", false)
 		if err != nil {
 			return ctrl.Result{}, errors.Wrapf(err, "Error provisioning infrastructure for the machine; unable to create VM [%s] in vApp [%s]",
 				machine.Name, vApp.VApp.Name)
