@@ -237,10 +237,10 @@ func (r *VCDClusterReconciler) constructCapvcdRDE(ctx context.Context, cluster *
 				Phase:        "",
 				ApiEndpoints: []vcdtypes.ApiEndpoints{},
 			},
-			NodeStatus:          make(map[string]string),
-			IsManagementCluster: false,
-			CapvcdVersion:       r.Config.ClusterResources.CapvcdVersion,
-			ParentUID:           r.Config.ManagementClusterRDEId,
+			NodeStatus:             make(map[string]string),
+			UseAsManagementCluster: vcdCluster.Spec.UseAsManagementCluster,
+			CapvcdVersion:          r.Config.ClusterResources.CapvcdVersion,
+			ParentUID:              vcdCluster.Spec.ParentUID,
 			Csi: vcdtypes.VersionedAddon{
 				Name:    VcdCsiName,
 				Version: r.Config.ClusterResources.CsiVersion, // TODO: get CPI, CNI, CSI versions from the CLusterResourceSet objects
@@ -393,6 +393,15 @@ func (r *VCDClusterReconciler) reconcileRDE(ctx context.Context, cluster *cluste
 	if capvcdEntity.Status.Phase != cluster.Status.Phase {
 		updatePatch["Status.Phase"] = cluster.Status.Phase
 	}
+
+	if capvcdEntity.Status.ParentUID != vcdCluster.Spec.ParentUID {
+		updatePatch["Status.ParentUID"] = vcdCluster.Spec.ParentUID
+	}
+
+	if capvcdEntity.Status.UseAsManagementCluster != vcdCluster.Spec.UseAsManagementCluster {
+		updatePatch["Status.UseAsManagementCluster"] = vcdCluster.Spec.UseAsManagementCluster
+	}
+
 	clusterApiStatusPhase := ClusterApiStatusPhaseNotReady
 	if cluster.Status.ControlPlaneReady {
 		clusterApiStatusPhase = ClusterApiStatusPhaseReady
