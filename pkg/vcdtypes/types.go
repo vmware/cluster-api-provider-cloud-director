@@ -291,21 +291,21 @@ type PrivateSection struct {
 }
 
 type Status struct {
-	Phase                  string            `json:"phase,omitempty"`
-	Kubernetes             string            `json:"kubernetes,omitempty"`
-	Uid                    string            `json:"uid,omitempty"`
-	ClusterAPIStatus       ClusterApiStatus  `json:"clusterApiStatus,omitempty"`
-	CloudProperties        CloudProperties   `json:"cloudProperties,omitempty"`
-	PersistentVolumes      []string          `json:"persistentVolumes,omitempty"`
-	VirtualIPs             []string          `json:"virtualIPs,omitempty"`
-	NodeStatus             map[string]string `json:"nodeStatus,omitempty"`
-	ParentUID              string            `json:"parentUid,omitempty"`
-	UseAsManagementCluster bool              `json:"useAsManagementCluster"`
-	Cni                    VersionedAddon    `json:"cni,omitempty"`
-	Cpi                    VersionedAddon    `json:"cpi,omitempty"`
-	Csi                    VersionedAddon    `json:"csi,omitempty"`
-	CapvcdVersion          string            `json:"capvcdVersion,omitempty"`
-	Private                PrivateSection    `json:"private,omitempty"`
+	Phase               string            `json:"phase,omitempty"`
+	Kubernetes          string            `json:"kubernetes,omitempty"`
+	Uid                 string            `json:"uid,omitempty"`
+	ClusterAPIStatus    ClusterApiStatus  `json:"clusterApiStatus,omitempty"`
+	CloudProperties     CloudProperties   `json:"cloudProperties,omitempty"`
+	PersistentVolumes   []string          `json:"persistentVolumes,omitempty"`
+	VirtualIPs          []string          `json:"virtualIPs,omitempty"`
+	NodeStatus          map[string]string `json:"nodeStatus,omitempty"`
+	ParentUID           string            `json:"parentUid,omitempty"`
+	IsManagementCluster bool              `json:"isManagementCluster,omitempty"`
+	Cni                 VersionedAddon    `json:"cni,omitempty"`
+	Cpi                 VersionedAddon    `json:"cpi,omitempty"`
+	Csi                 VersionedAddon    `json:"csi,omitempty"`
+	CapvcdVersion       string            `json:"capvcdVersion,omitempty"`
+	Private             PrivateSection    `json:"private,omitempty"`
 }
 
 type ClusterSpec struct {
