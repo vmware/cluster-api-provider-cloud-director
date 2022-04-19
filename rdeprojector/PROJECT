@@ -1,0 +1,16 @@
+domain: cloud-director.vmware.com
+layout:
+- go.kubebuilder.io/v3
+projectName: rdeprojector
+repo: github.com/vmware/cluster-api-provider-cloud-director
+resources:
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: cloud-director.vmware.com
+  group: capvcd
+  kind: RDEProjector
+  path: github.com/vmware/cluster-api-provider-cloud-director/api/v1alpha1
+  version: v1alpha1
+version: "3"

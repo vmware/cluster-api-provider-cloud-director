@@ -1,0 +1,20 @@
+# permissions for end users to view rdeprojectors.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: rdeprojector-viewer-role
+rules:
+- apiGroups:
+  - capvcd.cloud-director.vmware.com
+  resources:
+  - rdeprojectors
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - capvcd.cloud-director.vmware.com
+  resources:
+  - rdeprojectors/status
+  verbs:
+  - get

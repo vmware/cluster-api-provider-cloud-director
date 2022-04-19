@@ -1,0 +1,24 @@
+# permissions for end users to edit rdeprojectors.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: rdeprojector-editor-role
+rules:
+- apiGroups:
+  - capvcd.cloud-director.vmware.com
+  resources:
+  - rdeprojectors
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - capvcd.cloud-director.vmware.com
+  resources:
+  - rdeprojectors/status
+  verbs:
+  - get
