@@ -13,6 +13,8 @@ func (src *VCDCluster) ConvertTo(dstRaw conversion.Hub) error {
 	}
 	dst.Spec.DefaultStorageClassOptions = &v1beta1.DefaultStorageClassOptions{}
 	dst.Spec.RDEId = ""
+	dst.Spec.ParentUID = ""
+	dst.Spec.UseAsManagementCluster = false // defaults to false
 	return nil
 }
 
