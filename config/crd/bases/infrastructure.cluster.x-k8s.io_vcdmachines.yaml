@@ -165,7 +165,8 @@ spec:
                 type: string
               sizingPolicy:
                 description: SizingPolicy is the sizing policy to be used on this
-                  machine
+                  machine. If no sizing policy is specified, default sizing policy
+                  will be used to create the nodes
                 type: string
               template:
                 description: TemplatePath is the path of the template OVA that is
