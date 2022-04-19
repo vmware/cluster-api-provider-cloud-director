@@ -13,6 +13,7 @@ func (src *VCDMachine) ConvertTo(dstRaw conversion.Hub) error {
 		return err
 	}
 
+	dst.Spec.SizingPolicy = src.Spec.ComputePolicy
 	return nil
 }
 
@@ -22,6 +23,8 @@ func (dst *VCDMachine) ConvertFrom(srcRaw conversion.Hub) error {
 	if err := Convert_v1beta1_VCDMachine_To_v1alpha4_VCDMachine(src, dst, nil); err != nil {
 		return err
 	}
+
+	dst.Spec.ComputePolicy = src.Spec.SizingPolicy
 	return nil
 }
 

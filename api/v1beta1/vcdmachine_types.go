@@ -45,9 +45,10 @@ type VCDMachineSpec struct {
 	// +optional
 	Template string `json:"template,omitempty"`
 
-	// ComputePolicy is the compute policy to be used on this machine
+	// SizingPolicy is the sizing policy to be used on this machine.
+        // If no sizing policy is specified, default sizing policy will be used to create the nodes
 	// +optional
-	ComputePolicy string `json:"computePolicy,omitempty"`
+	SizingPolicy string `json:"sizingPolicy,omitempty"`
 
 	// Bootstrapped is true when the kubeadm bootstrapping has been run
 	// against this machine
