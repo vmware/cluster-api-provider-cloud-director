@@ -13,3 +13,11 @@ import (
 func Convert_v1beta1_VCDClusterSpec_To_v1alpha4_VCDClusterSpec(in *v1beta1.VCDClusterSpec, out *VCDClusterSpec, s conversion.Scope) error {
 	return autoConvert_v1beta1_VCDClusterSpec_To_v1alpha4_VCDClusterSpec(in, out, s)
 }
+
+func Convert_v1alpha4_VCDMachineSpec_To_v1beta1_VCDMachineSpec(in *VCDMachineSpec, out *v1beta1.VCDMachineSpec, s conversion.Scope) error {
+	return autoConvert_v1alpha4_VCDMachineSpec_To_v1beta1_VCDMachineSpec(in, out, s)
+}
+
+func Convert_v1beta1_VCDMachineSpec_To_v1alpha4_VCDMachineSpec(in *v1beta1.VCDMachineSpec, out *VCDMachineSpec, s conversion.Scope) error {
+	return autoConvert_v1beta1_VCDMachineSpec_To_v1alpha4_VCDMachineSpec(in, out, s)
+}
