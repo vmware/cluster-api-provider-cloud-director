@@ -84,6 +84,9 @@ type VCDClusterStatus struct {
 	// Ready denotes that the vcd cluster (infrastructure) is ready.
 	Ready bool `json:"ready"`
 
+	// MetadataUpdated denotes that the metadata of Vapp is updated.
+	MetadataUpdated bool `json:"metadataUpdated"`
+
 	// Conditions defines current service state of the VCDCluster.
 	// +optional
 	Conditions clusterv1.Conditions `json:"conditions,omitempty"`

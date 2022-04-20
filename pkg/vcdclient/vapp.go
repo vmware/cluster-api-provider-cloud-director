@@ -149,6 +149,25 @@ func (vdc *VdcManager) addOvdcNetworkToVApp(vApp *govcd.VApp, ovdcNetworkName st
 	return nil
 }
 
+func (vdc *VdcManager) AddMetadataToVApp(vAppName string, paramMap map[string]string) error {
+	vApp, err := vdc.Vdc.GetVAppByName(vAppName, true)
+	if err != nil && err != govcd.ErrorEntityNotFound {
+		return fmt.Errorf("unable to get vApp [%s] from Vdc [%s]: [%v]",
+			vAppName, vdc.VdcName, err)
+	}
+	if vApp == nil || vApp.VApp == nil {
+		return fmt.Errorf("cannot add metadata to a nil vApp")
+	}
+	for key, value := range paramMap {
+		_, err := vApp.AddMetadata(key, value)
+		if err != nil {
+			return fmt.Errorf("unable to add metadata  [%s]: [%s] to vApp [%s]: [%v]",
+				key, value, vApp.VApp.Name, err)
+		}
+	}
+	return nil
+}
+
 func (vdc *VdcManager) isVappNetworkPresentInVapp(vApp *govcd.VApp, ovdcNetworkName string) bool {
 	if vApp == nil || vApp.VApp == nil {
 		klog.Error("found nil value for vApp")
