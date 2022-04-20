@@ -111,16 +111,6 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}); err != nil {
 		return err
 	}
-	if err := s.AddGeneratedConversionFunc((*VCDMachineSpec)(nil), (*v1beta1.VCDMachineSpec)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1alpha4_VCDMachineSpec_To_v1beta1_VCDMachineSpec(a.(*VCDMachineSpec), b.(*v1beta1.VCDMachineSpec), scope)
-	}); err != nil {
-		return err
-	}
-	if err := s.AddGeneratedConversionFunc((*v1beta1.VCDMachineSpec)(nil), (*VCDMachineSpec)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1beta1_VCDMachineSpec_To_v1alpha4_VCDMachineSpec(a.(*v1beta1.VCDMachineSpec), b.(*VCDMachineSpec), scope)
-	}); err != nil {
-		return err
-	}
 	if err := s.AddGeneratedConversionFunc((*VCDMachineStatus)(nil), (*v1beta1.VCDMachineStatus)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1alpha4_VCDMachineStatus_To_v1beta1_VCDMachineStatus(a.(*VCDMachineStatus), b.(*v1beta1.VCDMachineStatus), scope)
 	}); err != nil {
@@ -181,8 +171,18 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}); err != nil {
 		return err
 	}
+	if err := s.AddConversionFunc((*VCDMachineSpec)(nil), (*v1beta1.VCDMachineSpec)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1alpha4_VCDMachineSpec_To_v1beta1_VCDMachineSpec(a.(*VCDMachineSpec), b.(*v1beta1.VCDMachineSpec), scope)
+	}); err != nil {
+		return err
+	}
 	if err := s.AddConversionFunc((*v1beta1.VCDClusterSpec)(nil), (*VCDClusterSpec)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1beta1_VCDClusterSpec_To_v1alpha4_VCDClusterSpec(a.(*v1beta1.VCDClusterSpec), b.(*VCDClusterSpec), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddConversionFunc((*v1beta1.VCDMachineSpec)(nil), (*VCDMachineSpec)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1beta1_VCDMachineSpec_To_v1alpha4_VCDMachineSpec(a.(*v1beta1.VCDMachineSpec), b.(*VCDMachineSpec), scope)
 	}); err != nil {
 		return err
 	}
@@ -343,6 +343,8 @@ func autoConvert_v1beta1_VCDClusterSpec_To_v1alpha4_VCDClusterSpec(in *v1beta1.V
 	// WARNING: in.DefaultStorageClassOptions requires manual conversion: does not exist in peer-type
 	out.DefaultComputePolicy = in.DefaultComputePolicy
 	// WARNING: in.RDEId requires manual conversion: does not exist in peer-type
+	// WARNING: in.ParentUID requires manual conversion: does not exist in peer-type
+	// WARNING: in.UseAsManagementCluster requires manual conversion: does not exist in peer-type
 	return nil
 }
 
@@ -404,7 +406,17 @@ func Convert_v1beta1_VCDMachine_To_v1alpha4_VCDMachine(in *v1beta1.VCDMachine, o
 
 func autoConvert_v1alpha4_VCDMachineList_To_v1beta1_VCDMachineList(in *VCDMachineList, out *v1beta1.VCDMachineList, s conversion.Scope) error {
 	out.ListMeta = in.ListMeta
-	out.Items = *(*[]v1beta1.VCDMachine)(unsafe.Pointer(&in.Items))
+	if in.Items != nil {
+		in, out := &in.Items, &out.Items
+		*out = make([]v1beta1.VCDMachine, len(*in))
+		for i := range *in {
+			if err := Convert_v1alpha4_VCDMachine_To_v1beta1_VCDMachine(&(*in)[i], &(*out)[i], s); err != nil {
+				return err
+			}
+		}
+	} else {
+		out.Items = nil
+	}
 	return nil
 }
 
@@ -415,7 +427,17 @@ func Convert_v1alpha4_VCDMachineList_To_v1beta1_VCDMachineList(in *VCDMachineLis
 
 func autoConvert_v1beta1_VCDMachineList_To_v1alpha4_VCDMachineList(in *v1beta1.VCDMachineList, out *VCDMachineList, s conversion.Scope) error {
 	out.ListMeta = in.ListMeta
-	out.Items = *(*[]VCDMachine)(unsafe.Pointer(&in.Items))
+	if in.Items != nil {
+		in, out := &in.Items, &out.Items
+		*out = make([]VCDMachine, len(*in))
+		for i := range *in {
+			if err := Convert_v1beta1_VCDMachine_To_v1alpha4_VCDMachine(&(*in)[i], &(*out)[i], s); err != nil {
+				return err
+			}
+		}
+	} else {
+		out.Items = nil
+	}
 	return nil
 }
 
@@ -500,7 +522,17 @@ func Convert_v1beta1_VCDMachineTemplate_To_v1alpha4_VCDMachineTemplate(in *v1bet
 
 func autoConvert_v1alpha4_VCDMachineTemplateList_To_v1beta1_VCDMachineTemplateList(in *VCDMachineTemplateList, out *v1beta1.VCDMachineTemplateList, s conversion.Scope) error {
 	out.ListMeta = in.ListMeta
-	out.Items = *(*[]v1beta1.VCDMachineTemplate)(unsafe.Pointer(&in.Items))
+	if in.Items != nil {
+		in, out := &in.Items, &out.Items
+		*out = make([]v1beta1.VCDMachineTemplate, len(*in))
+		for i := range *in {
+			if err := Convert_v1alpha4_VCDMachineTemplate_To_v1beta1_VCDMachineTemplate(&(*in)[i], &(*out)[i], s); err != nil {
+				return err
+			}
+		}
+	} else {
+		out.Items = nil
+	}
 	return nil
 }
 
@@ -511,7 +543,17 @@ func Convert_v1alpha4_VCDMachineTemplateList_To_v1beta1_VCDMachineTemplateList(i
 
 func autoConvert_v1beta1_VCDMachineTemplateList_To_v1alpha4_VCDMachineTemplateList(in *v1beta1.VCDMachineTemplateList, out *VCDMachineTemplateList, s conversion.Scope) error {
 	out.ListMeta = in.ListMeta
-	out.Items = *(*[]VCDMachineTemplate)(unsafe.Pointer(&in.Items))
+	if in.Items != nil {
+		in, out := &in.Items, &out.Items
+		*out = make([]VCDMachineTemplate, len(*in))
+		for i := range *in {
+			if err := Convert_v1beta1_VCDMachineTemplate_To_v1alpha4_VCDMachineTemplate(&(*in)[i], &(*out)[i], s); err != nil {
+				return err
+			}
+		}
+	} else {
+		out.Items = nil
+	}
 	return nil
 }
 
