@@ -264,6 +264,10 @@ spec:
                 type: array
               infraId:
                 type: string
+              VAppMetadataUpdated:
+                description: MetadataUpdated denotes that the metadata of Vapp is
+                  updated.
+                type: boolean
               ready:
                 description: Ready denotes that the vcd cluster (infrastructure) is
                   ready.
