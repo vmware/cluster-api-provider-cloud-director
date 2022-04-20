@@ -264,7 +264,7 @@ spec:
                 type: array
               infraId:
                 type: string
-              metadataUpdated:
+              VAppMetadataUpdated:
                 description: MetadataUpdated denotes that the metadata of Vapp is
                   updated.
                 type: boolean
@@ -273,7 +273,6 @@ spec:
                   ready.
                 type: boolean
             required:
-            - metadataUpdated
             - ready
             type: object
         required:

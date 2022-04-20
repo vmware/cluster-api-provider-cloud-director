@@ -625,11 +625,11 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		return ctrl.Result{}, errors.Wrapf(err, "Error creating Infra vApp for the cluster [%s]: [%v]", vcdCluster.Name, err)
 	}
 
-	if metadataMap != nil && len(metadataMap) > 0 && !vcdCluster.Status.MetadataUpdated {
+	if metadataMap != nil && len(metadataMap) > 0 && !vcdCluster.Status.VAppMetadataUpdated {
 		if err := vdcManager.AddMetadataToVApp(vcdCluster.Name, metadataMap); err != nil {
 			return ctrl.Result{}, fmt.Errorf("unable to add metadata [%s] to vApp [%s]: [%v]", metadataMap, vcdCluster.Name, err)
 		}
-		vcdCluster.Status.MetadataUpdated = true
+		vcdCluster.Status.VAppMetadataUpdated = true
 	}
 
 	// Update the vcdCluster resource with updated information
