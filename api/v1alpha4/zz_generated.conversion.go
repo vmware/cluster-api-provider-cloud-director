@@ -171,11 +171,6 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}); err != nil {
 		return err
 	}
-	if err := s.AddConversionFunc((*VCDMachineSpec)(nil), (*v1beta1.VCDMachineSpec)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1alpha4_VCDMachineSpec_To_v1beta1_VCDMachineSpec(a.(*VCDMachineSpec), b.(*v1beta1.VCDMachineSpec), scope)
-	}); err != nil {
-		return err
-	}
 	if err := s.AddConversionFunc((*v1beta1.VCDClusterSpec)(nil), (*VCDClusterSpec)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1beta1_VCDClusterSpec_To_v1alpha4_VCDClusterSpec(a.(*v1beta1.VCDClusterSpec), b.(*VCDClusterSpec), scope)
 	}); err != nil {
@@ -183,11 +178,6 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}
 	if err := s.AddConversionFunc((*v1beta1.VCDClusterStatus)(nil), (*VCDClusterStatus)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1beta1_VCDClusterStatus_To_v1alpha4_VCDClusterStatus(a.(*v1beta1.VCDClusterStatus), b.(*VCDClusterStatus), scope)
-	}); err != nil {
-		return err
-	}
-	if err := s.AddConversionFunc((*v1beta1.VCDMachineSpec)(nil), (*VCDMachineSpec)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1beta1_VCDMachineSpec_To_v1alpha4_VCDMachineSpec(a.(*v1beta1.VCDMachineSpec), b.(*VCDMachineSpec), scope)
 	}); err != nil {
 		return err
 	}
@@ -372,7 +362,7 @@ func Convert_v1alpha4_VCDClusterStatus_To_v1beta1_VCDClusterStatus(in *VCDCluste
 
 func autoConvert_v1beta1_VCDClusterStatus_To_v1alpha4_VCDClusterStatus(in *v1beta1.VCDClusterStatus, out *VCDClusterStatus, s conversion.Scope) error {
 	out.Ready = in.Ready
-	// WARNING: in.MetadataUpdated requires manual conversion: does not exist in peer-type
+	// WARNING: in.VAppMetadataUpdated requires manual conversion: does not exist in peer-type
 	out.Conditions = *(*apiv1alpha4.Conditions)(unsafe.Pointer(&in.Conditions))
 	out.InfraId = in.InfraId
 	return nil
