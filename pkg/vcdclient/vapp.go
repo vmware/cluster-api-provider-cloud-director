@@ -151,8 +151,11 @@ func (vdc *VdcManager) addOvdcNetworkToVApp(vApp *govcd.VApp, ovdcNetworkName st
 
 func (vdc *VdcManager) AddMetadataToVApp(vAppName string, paramMap map[string]string) error {
 	vApp, err := vdc.Vdc.GetVAppByName(vAppName, true)
-	if err != nil && err != govcd.ErrorEntityNotFound {
-		return fmt.Errorf("unable to get vApp [%s] from Vdc [%s]: [%v]",
+	if err != nil {
+		if err == govcd.ErrorEntityNotFound {
+			return fmt.Errorf("cannot get the vApp [%s] from Vdc [%s]: [%v]", vAppName, vdc.VdcName, err)
+		}
+		return fmt.Errorf("error while getting vApp [%s] from Vdc [%s]: [%v]",
 			vAppName, vdc.VdcName, err)
 	}
 	if vApp == nil || vApp.VApp == nil {
