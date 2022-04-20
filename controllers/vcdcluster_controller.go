@@ -634,13 +634,6 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 			return ctrl.Result{}, fmt.Errorf("unable to add metadata [%s] to vApp [%s]: [%v]", metadataMap, vcdCluster.Name, err)
 		}
 		vcdCluster.Status.MetadataUpdated = true
-		patchHelper, err := patch.NewHelper(vcdCluster, r.Client)
-		if err != nil {
-			return ctrl.Result{}, err
-		}
-		if err := patchVCDCluster(ctx, patchHelper, vcdCluster); err != nil {
-			return ctrl.Result{}, errors.Wrap(err, "Error occurred during cluster reconcile; failed to patch VCDCluster")
-		}
 	}
 
 	// Update the vcdCluster resource with updated information
