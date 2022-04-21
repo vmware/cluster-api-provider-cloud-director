@@ -77,7 +77,7 @@ type VCDClusterSpec struct {
 	// +optional
 	ParentUID string `json:"parentUid,omitempty"`
 	// +optional
-	UseAsManagementCluster bool `json:"useAsManagementCluster"`
+	UseAsManagementCluster bool `json:"useAsManagementCluster,omitempty"`
 }
 
 // VCDClusterStatus defines the observed state of VCDCluster
@@ -97,6 +97,10 @@ type VCDClusterStatus struct {
 	Conditions clusterv1.Conditions `json:"conditions,omitempty"`
 	// +optional
 	InfraId string `json:"infraId,omitempty"`
+	// +optional
+	ParentUID string `json:"parentUid,omitempty"`
+	// +optional
+	UseAsManagementCluster bool `json:"useAsManagementCluster,omitempty"`
 }
 
 //+kubebuilder:object:root=true
