@@ -839,6 +839,19 @@ func (r *VCDMachineReconciler) reconcileDelete(ctx context.Context, cluster *clu
 		}
 	}
 	if vApp != nil {
+		// Delete the vApp if and only if rdeId (matches) present in the vApp
+		if !vcdCluster.Status.VAppMetadataUpdated {
+			return ctrl.Result{}, errors.Errorf("Error occurred during the machine deletion; Metadata not found in vApp")
+		}
+		vAppMetadataFound, err := vdcManager.ValidateMetadata(vApp, CapvcdInfraId, vcdCluster.Status.InfraId)
+
+		if !vAppMetadataFound {
+			if err != nil {
+				log.Error(err, fmt.Sprintf("Error occurred during the machine deletion; vApp [%s] matadata not found", vcdCluster.Name))
+			}
+			return ctrl.Result{}, errors.Wrapf(err,
+				"Error occurred during the machine deletion; failed to delete vApp [%s]", vcdCluster.Name)
+		}
 		// delete the vm
 		vm, err := vApp.GetVMByName(machine.Name, true)
 		if err != nil {

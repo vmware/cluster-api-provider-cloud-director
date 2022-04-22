@@ -659,7 +659,6 @@ func (r *VCDClusterReconciler) reconcileDelete(ctx context.Context,
 	vcdCluster *infrav1.VCDCluster) (ctrl.Result, error) {
 
 	log := ctrl.LoggerFrom(ctx)
-
 	patchHelper, err := patch.NewHelper(vcdCluster, r.Client)
 	if err != nil {
 		return ctrl.Result{}, err
@@ -667,6 +666,8 @@ func (r *VCDClusterReconciler) reconcileDelete(ctx context.Context,
 	conditions.MarkFalse(vcdCluster, LoadBalancerAvailableCondition, clusterv1.DeletingReason,
 		clusterv1.ConditionSeverityInfo, "")
 
+	// restore vcdCluster status
+	vcdCluster.Status.VAppMetadataUpdated = true
 	if err := patchVCDCluster(ctx, patchHelper, vcdCluster); err != nil {
 		return ctrl.Result{}, errors.Wrap(err, "Error occurred during cluster deletion; failed to patch VCDCluster")
 	}
@@ -712,13 +713,25 @@ func (r *VCDClusterReconciler) reconcileDelete(ctx context.Context,
 		Client:  workloadVCDClient,
 		Vdc:     workloadVCDClient.Vdc,
 	}
-
 	// Delete vApp
 	vApp, err := workloadVCDClient.Vdc.GetVAppByName(vcdCluster.Name, true)
 	if err != nil {
 		log.Error(err, fmt.Sprintf("Error occurred during cluster deletion; vApp [%s] not found", vcdCluster.Name))
 	}
 	if vApp != nil {
+		//Delete the vApp if and only if rdeId (matches) present in the vApp
+		//if !vcdCluster.Status.VAppMetadataUpdated {
+		//	return ctrl.Result{}, errors.Errorf("Error occurred during cluster deletion; Field [VAppMetadataUpdated] is %t", vcdCluster.Status.VAppMetadataUpdated)
+		//}
+		//vcdCluster.Status.VAppMetadataUpdated = true
+		vAppMetadataFound, err := vdcManager.ValidateMetadata(vApp, CapvcdInfraId, vcdCluster.Status.InfraId)
+		if !vAppMetadataFound {
+			if err != nil {
+				log.Error(err, fmt.Sprintf("Error occurred during cluster deletion; vApp [%s] matadata not found", vcdCluster.Name))
+			}
+			return ctrl.Result{}, errors.Wrapf(err,
+				"Error occurred during cluster deletion; failed to delete vApp [%s]", vcdCluster.Name)
+		}
 		if vApp.VApp.Children != nil {
 			return ctrl.Result{}, errors.Errorf(
 				"Error occurred during cluster deletion; %d VMs detected in the vApp %s",
