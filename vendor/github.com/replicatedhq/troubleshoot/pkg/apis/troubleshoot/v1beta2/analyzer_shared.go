@@ -49,31 +49,36 @@ type ImagePullSecret struct {
 	Outcomes     []*Outcome `json:"outcomes" yaml:"outcomes"`
 	RegistryName string     `json:"registryName" yaml:"registryName"`
 }
+
 type DeploymentStatus struct {
 	AnalyzeMeta `json:",inline" yaml:",inline"`
 	Outcomes    []*Outcome `json:"outcomes" yaml:"outcomes"`
-	Namespace   string     `json:"namespace" yaml:"namespace"`
+	Namespace   string     `json:"namespace,omitempty" yaml:"namespace,omitempty"`
+	Namespaces  []string   `json:"namespaces,omitempty" yaml:"namespaces,omitempty"`
 	Name        string     `json:"name" yaml:"name"`
 }
 
 type StatefulsetStatus struct {
 	AnalyzeMeta `json:",inline" yaml:",inline"`
 	Outcomes    []*Outcome `json:"outcomes" yaml:"outcomes"`
-	Namespace   string     `json:"namespace" yaml:"namespace"`
+	Namespace   string     `json:"namespace,omitempty" yaml:"namespace,omitempty"`
+	Namespaces  []string   `json:"namespaces,omitempty" yaml:"namespaces,omitempty"`
 	Name        string     `json:"name" yaml:"name"`
 }
 
 type JobStatus struct {
 	AnalyzeMeta `json:",inline" yaml:",inline"`
 	Outcomes    []*Outcome `json:"outcomes" yaml:"outcomes"`
-	Namespace   string     `json:"namespace" yaml:"namespace"`
+	Namespace   string     `json:"namespace,omitempty" yaml:"namespace,omitempty"`
+	Namespaces  []string   `json:"namespaces,omitempty" yaml:"namespaces,omitempty"`
 	Name        string     `json:"name" yaml:"name"`
 }
 
 type ReplicaSetStatus struct {
 	AnalyzeMeta `json:",inline" yaml:",inline"`
 	Outcomes    []*Outcome `json:"outcomes" yaml:"outcomes"`
-	Namespace   string     `json:"namespace" yaml:"namespace"`
+	Namespace   string     `json:"namespace,omitempty" yaml:"namespace,omitempty"`
+	Namespaces  []string   `json:"namespaces,omitempty" yaml:"namespaces,omitempty"`
 	Name        string     `json:"name" yaml:"name"`
 	Selector    []string   `json:"selector" yaml:"selector"`
 }
@@ -81,7 +86,7 @@ type ReplicaSetStatus struct {
 type ClusterPodStatuses struct {
 	AnalyzeMeta `json:",inline" yaml:",inline"`
 	Outcomes    []*Outcome `json:"outcomes" yaml:"outcomes"`
-	Namespaces  []string   `json:"namespaces" yaml:"namespaces"`
+	Namespaces  []string   `json:"namespaces,omitempty" yaml:"namespaces,omitempty"`
 }
 
 type ContainerRuntime struct {
@@ -172,6 +177,7 @@ type SysctlAnalyze struct {
 type AnalyzeMeta struct {
 	CheckName string                 `json:"checkName,omitempty" yaml:"checkName,omitempty"`
 	Exclude   multitype.BoolOrString `json:"exclude,omitempty" yaml:"exclude,omitempty"`
+	Strict    multitype.BoolOrString `json:"strict,omitempty" yaml:"strict,omitempty"`
 }
 
 type Analyze struct {

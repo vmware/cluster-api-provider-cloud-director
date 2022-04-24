@@ -20,12 +20,12 @@ import (
 	"strings"
 
 	"github.com/go-logr/logr"
-	"sigs.k8s.io/cluster-api/util/annotations"
-	"sigs.k8s.io/cluster-api/util/labels"
-
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
+
+	"sigs.k8s.io/cluster-api/util/annotations"
+	"sigs.k8s.io/cluster-api/util/labels"
 )
 
 // All returns a predicate that returns true only if all given predicates return true.
@@ -35,44 +35,44 @@ func All(logger logr.Logger, predicates ...predicate.Funcs) predicate.Funcs {
 			log := logger.WithValues("predicateAggregation", "All")
 			for _, p := range predicates {
 				if !p.UpdateFunc(e) {
-					log.V(4).Info("One of the provided predicates returned false, blocking further processing")
+					log.V(6).Info("One of the provided predicates returned false, blocking further processing")
 					return false
 				}
 			}
-			log.V(4).Info("All provided predicates returned true, allowing further processing")
+			log.V(6).Info("All provided predicates returned true, allowing further processing")
 			return true
 		},
 		CreateFunc: func(e event.CreateEvent) bool {
 			log := logger.WithValues("predicateAggregation", "All")
 			for _, p := range predicates {
 				if !p.CreateFunc(e) {
-					log.V(4).Info("One of the provided predicates returned false, blocking further processing")
+					log.V(6).Info("One of the provided predicates returned false, blocking further processing")
 					return false
 				}
 			}
-			log.V(4).Info("All provided predicates returned true, allowing further processing")
+			log.V(6).Info("All provided predicates returned true, allowing further processing")
 			return true
 		},
 		DeleteFunc: func(e event.DeleteEvent) bool {
 			log := logger.WithValues("predicateAggregation", "All")
 			for _, p := range predicates {
 				if !p.DeleteFunc(e) {
-					log.V(4).Info("One of the provided predicates returned false, blocking further processing")
+					log.V(6).Info("One of the provided predicates returned false, blocking further processing")
 					return false
 				}
 			}
-			log.V(4).Info("All provided predicates returned true, allowing further processing")
+			log.V(6).Info("All provided predicates returned true, allowing further processing")
 			return true
 		},
 		GenericFunc: func(e event.GenericEvent) bool {
 			log := logger.WithValues("predicateAggregation", "All")
 			for _, p := range predicates {
 				if !p.GenericFunc(e) {
-					log.V(4).Info("One of the provided predicates returned false, blocking further processing")
+					log.V(6).Info("One of the provided predicates returned false, blocking further processing")
 					return false
 				}
 			}
-			log.V(4).Info("All provided predicates returned true, allowing further processing")
+			log.V(6).Info("All provided predicates returned true, allowing further processing")
 			return true
 		},
 	}
@@ -85,44 +85,44 @@ func Any(logger logr.Logger, predicates ...predicate.Funcs) predicate.Funcs {
 			log := logger.WithValues("predicateAggregation", "Any")
 			for _, p := range predicates {
 				if p.UpdateFunc(e) {
-					log.V(4).Info("One of the provided predicates returned true, allowing further processing")
+					log.V(6).Info("One of the provided predicates returned true, allowing further processing")
 					return true
 				}
 			}
-			log.V(4).Info("All of the provided predicates returned false, blocking further processing")
+			log.V(6).Info("All of the provided predicates returned false, blocking further processing")
 			return false
 		},
 		CreateFunc: func(e event.CreateEvent) bool {
 			log := logger.WithValues("predicateAggregation", "Any")
 			for _, p := range predicates {
 				if p.CreateFunc(e) {
-					log.V(4).Info("One of the provided predicates returned true, allowing further processing")
+					log.V(6).Info("One of the provided predicates returned true, allowing further processing")
 					return true
 				}
 			}
-			log.V(4).Info("All of the provided predicates returned false, blocking further processing")
+			log.V(6).Info("All of the provided predicates returned false, blocking further processing")
 			return false
 		},
 		DeleteFunc: func(e event.DeleteEvent) bool {
 			log := logger.WithValues("predicateAggregation", "Any")
 			for _, p := range predicates {
 				if p.DeleteFunc(e) {
-					log.V(4).Info("One of the provided predicates returned true, allowing further processing")
+					log.V(6).Info("One of the provided predicates returned true, allowing further processing")
 					return true
 				}
 			}
-			log.V(4).Info("All of the provided predicates returned false, blocking further processing")
+			log.V(6).Info("All of the provided predicates returned false, blocking further processing")
 			return false
 		},
 		GenericFunc: func(e event.GenericEvent) bool {
 			log := logger.WithValues("predicateAggregation", "Any")
 			for _, p := range predicates {
 				if p.GenericFunc(e) {
-					log.V(4).Info("One of the provided predicates returned true, allowing further processing")
+					log.V(6).Info("One of the provided predicates returned true, allowing further processing")
 					return true
 				}
 			}
-			log.V(4).Info("All of the provided predicates returned false, blocking further processing")
+			log.V(6).Info("All of the provided predicates returned false, blocking further processing")
 			return false
 		},
 	}
@@ -133,16 +133,16 @@ func Any(logger logr.Logger, predicates ...predicate.Funcs) predicate.Funcs {
 func ResourceHasFilterLabel(logger logr.Logger, labelValue string) predicate.Funcs {
 	return predicate.Funcs{
 		UpdateFunc: func(e event.UpdateEvent) bool {
-			return processIfLabelMatch(logger.WithValues("predicate", "updateEvent"), e.ObjectNew, labelValue)
+			return processIfLabelMatch(logger.WithValues("predicate", "ResourceHasFilterLabel", "eventType", "update"), e.ObjectNew, labelValue)
 		},
 		CreateFunc: func(e event.CreateEvent) bool {
-			return processIfLabelMatch(logger.WithValues("predicate", "createEvent"), e.Object, labelValue)
+			return processIfLabelMatch(logger.WithValues("predicate", "ResourceHasFilterLabel", "eventType", "create"), e.Object, labelValue)
 		},
 		DeleteFunc: func(e event.DeleteEvent) bool {
-			return processIfLabelMatch(logger.WithValues("predicate", "deleteEvent"), e.Object, labelValue)
+			return processIfLabelMatch(logger.WithValues("predicate", "ResourceHasFilterLabel", "eventType", "delete"), e.Object, labelValue)
 		},
 		GenericFunc: func(e event.GenericEvent) bool {
-			return processIfLabelMatch(logger.WithValues("predicate", "genericEvent"), e.Object, labelValue)
+			return processIfLabelMatch(logger.WithValues("predicate", "ResourceHasFilterLabel", "eventType", "generic"), e.Object, labelValue)
 		},
 	}
 }
@@ -163,16 +163,16 @@ func ResourceHasFilterLabel(logger logr.Logger, labelValue string) predicate.Fun
 func ResourceNotPaused(logger logr.Logger) predicate.Funcs {
 	return predicate.Funcs{
 		UpdateFunc: func(e event.UpdateEvent) bool {
-			return processIfNotPaused(logger.WithValues("predicate", "updateEvent"), e.ObjectNew)
+			return processIfNotPaused(logger.WithValues("predicate", "ResourceNotPaused", "eventType", "update"), e.ObjectNew)
 		},
 		CreateFunc: func(e event.CreateEvent) bool {
-			return processIfNotPaused(logger.WithValues("predicate", "createEvent"), e.Object)
+			return processIfNotPaused(logger.WithValues("predicate", "ResourceNotPaused", "eventType", "create"), e.Object)
 		},
 		DeleteFunc: func(e event.DeleteEvent) bool {
-			return processIfNotPaused(logger.WithValues("predicate", "deleteEvent"), e.Object)
+			return processIfNotPaused(logger.WithValues("predicate", "ResourceNotPaused", "eventType", "delete"), e.Object)
 		},
 		GenericFunc: func(e event.GenericEvent) bool {
-			return processIfNotPaused(logger.WithValues("predicate", "genericEvent"), e.Object)
+			return processIfNotPaused(logger.WithValues("predicate", "ResourceNotPaused", "eventType", "generic"), e.Object)
 		},
 	}
 }
@@ -186,11 +186,11 @@ func ResourceNotPausedAndHasFilterLabel(logger logr.Logger, labelValue string) p
 func processIfNotPaused(logger logr.Logger, obj client.Object) bool {
 	kind := strings.ToLower(obj.GetObjectKind().GroupVersionKind().Kind)
 	log := logger.WithValues("namespace", obj.GetNamespace(), kind, obj.GetName())
-	if annotations.HasPausedAnnotation(obj) {
+	if annotations.HasPaused(obj) {
 		log.V(4).Info("Resource is paused, will not attempt to map resource")
 		return false
 	}
-	log.V(4).Info("Resource is not paused, will attempt to map resource")
+	log.V(6).Info("Resource is not paused, will attempt to map resource")
 	return true
 }
 
@@ -203,7 +203,7 @@ func processIfLabelMatch(logger logr.Logger, obj client.Object, labelValue strin
 	kind := strings.ToLower(obj.GetObjectKind().GroupVersionKind().Kind)
 	log := logger.WithValues("namespace", obj.GetNamespace(), kind, obj.GetName())
 	if labels.HasWatchLabel(obj, labelValue) {
-		log.V(4).Info("Resource matches label, will attempt to map resource")
+		log.V(6).Info("Resource matches label, will attempt to map resource")
 		return true
 	}
 	log.V(4).Info("Resource does not match label, will not attempt to map resource")
@@ -217,16 +217,16 @@ func processIfLabelMatch(logger logr.Logger, obj client.Object, labelValue strin
 func ResourceIsNotExternallyManaged(logger logr.Logger) predicate.Funcs {
 	return predicate.Funcs{
 		UpdateFunc: func(e event.UpdateEvent) bool {
-			return processIfNotExternallyManaged(logger.WithValues("predicate", "updateEvent"), e.ObjectNew)
+			return processIfNotExternallyManaged(logger.WithValues("predicate", "ResourceIsNotExternallyManaged", "eventType", "update"), e.ObjectNew)
 		},
 		CreateFunc: func(e event.CreateEvent) bool {
-			return processIfNotExternallyManaged(logger.WithValues("predicate", "createEvent"), e.Object)
+			return processIfNotExternallyManaged(logger.WithValues("predicate", "ResourceIsNotExternallyManaged", "eventType", "create"), e.Object)
 		},
 		DeleteFunc: func(e event.DeleteEvent) bool {
-			return processIfNotExternallyManaged(logger.WithValues("predicate", "deleteEvent"), e.Object)
+			return processIfNotExternallyManaged(logger.WithValues("predicate", "ResourceIsNotExternallyManaged", "eventType", "delete"), e.Object)
 		},
 		GenericFunc: func(e event.GenericEvent) bool {
-			return processIfNotExternallyManaged(logger.WithValues("predicate", "genericEvent"), e.Object)
+			return processIfNotExternallyManaged(logger.WithValues("predicate", "ResourceIsNotExternallyManaged", "eventType", "generic"), e.Object)
 		},
 	}
 }
@@ -238,6 +238,38 @@ func processIfNotExternallyManaged(logger logr.Logger, obj client.Object) bool {
 		log.V(4).Info("Resource is externally managed, will not attempt to map resource")
 		return false
 	}
-	log.V(4).Info("Resource is managed, will attempt to map resource")
+	log.V(6).Info("Resource is managed, will attempt to map resource")
 	return true
+}
+
+// ResourceIsTopologyOwned returns a predicate that returns true only if the resource has
+// the `topology.cluster.x-k8s.io/owned` label.
+func ResourceIsTopologyOwned(logger logr.Logger) predicate.Funcs {
+	return predicate.Funcs{
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			return processIfTopologyOwned(logger.WithValues("predicate", "ResourceIsTopologyOwned", "eventType", "update"), e.ObjectNew)
+		},
+		CreateFunc: func(e event.CreateEvent) bool {
+			return processIfTopologyOwned(logger.WithValues("predicate", "ResourceIsTopologyOwned", "eventType", "create"), e.Object)
+		},
+		DeleteFunc: func(e event.DeleteEvent) bool {
+			return processIfTopologyOwned(logger.WithValues("predicate", "ResourceIsTopologyOwned", "eventType", "delete"), e.Object)
+		},
+		GenericFunc: func(e event.GenericEvent) bool {
+			return processIfTopologyOwned(logger.WithValues("predicate", "ResourceIsTopologyOwned", "eventType", "generic"), e.Object)
+		},
+	}
+}
+
+func processIfTopologyOwned(logger logr.Logger, obj client.Object) bool {
+	kind := strings.ToLower(obj.GetObjectKind().GroupVersionKind().Kind)
+	log := logger.WithValues("namespace", obj.GetNamespace(), kind, obj.GetName())
+	if labels.IsTopologyOwned(obj) {
+		log.V(6).Info("Resource is topology owned, will attempt to map resource")
+		return true
+	}
+	// We intentionally log this line only on level 6, because it will be very frequently
+	// logged for MachineDeployments and MachineSets not owned by a topology.
+	log.V(6).Info("Resource is not topology owned, will not attempt to map resource")
+	return false
 }

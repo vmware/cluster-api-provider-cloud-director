@@ -18,7 +18,7 @@ package v1beta1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	clusterv1 "sigs.k8s.io/cluster-api/api/v1alpha4"
+	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 )
 
 const (
@@ -46,7 +46,7 @@ type VCDMachineSpec struct {
 	Template string `json:"template,omitempty"`
 
 	// SizingPolicy is the sizing policy to be used on this machine.
-        // If no sizing policy is specified, default sizing policy will be used to create the nodes
+	// If no sizing policy is specified, default sizing policy will be used to create the nodes
 	// +optional
 	SizingPolicy string `json:"sizingPolicy,omitempty"`
 
