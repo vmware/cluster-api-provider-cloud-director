@@ -195,10 +195,14 @@ spec:
                 type: string
               ovdcNetwork:
                 type: string
+              parentUid:
+                type: string
               rdeId:
                 type: string
               site:
                 type: string
+              useAsManagementCluster:
+                type: boolean
               userContext:
                 properties:
                   password:
@@ -264,9 +268,13 @@ spec:
                 type: array
               infraId:
                 type: string
+              parentUid:
+                type: string
               ready:
                 description: Ready denotes that the vcd cluster (infrastructure) is
                   ready.
+                type: boolean
+              useAsManagementCluster:
                 type: boolean
             required:
             - ready
