@@ -720,10 +720,9 @@ func (r *VCDClusterReconciler) reconcileDelete(ctx context.Context,
 	}
 	if vApp != nil {
 		//Delete the vApp if and only if rdeId (matches) present in the vApp
-		//if !vcdCluster.Status.VAppMetadataUpdated {
-		//	return ctrl.Result{}, errors.Errorf("Error occurred during cluster deletion; Field [VAppMetadataUpdated] is %t", vcdCluster.Status.VAppMetadataUpdated)
-		//}
-		//vcdCluster.Status.VAppMetadataUpdated = true
+		if !vcdCluster.Status.VAppMetadataUpdated {
+			return ctrl.Result{}, errors.Errorf("Error occurred during cluster deletion; Field [VAppMetadataUpdated] is %t", vcdCluster.Status.VAppMetadataUpdated)
+		}
 		vAppMetadataFound, err := vdcManager.ValidateMetadata(vApp, CapvcdInfraId, vcdCluster.Status.InfraId)
 		if !vAppMetadataFound {
 			if err != nil {
