@@ -70,8 +70,6 @@ type VCDClusterSpec struct {
 	UserCredentialsContext UserCredentialsContext `json:"userContext"`
 	// +optional
 	DefaultStorageClassOptions *DefaultStorageClassOptions `json:"defaultStorageClassOptions"`
-	// +optional
-	DefaultComputePolicy string `json:"defaultComputePolicy,omitempty"`
 	// + optional
 	RDEId string `json:"rdeId,omitempty"`
 	// +optional
