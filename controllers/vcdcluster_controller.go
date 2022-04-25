@@ -398,12 +398,12 @@ func (r *VCDClusterReconciler) reconcileRDE(ctx context.Context, cluster *cluste
 		updatePatch["Status.CAPVCDStatus.Phase"] = cluster.Status.Phase
 	}
 
-	if capvcdEntity.Status.ParentUID != vcdCluster.Spec.ParentUID {
-		updatePatch["Status.ParentUID"] = vcdCluster.Spec.ParentUID
+	if capvcdEntity.Status.ParentUID != vcdCluster.Status.ParentUID {
+		updatePatch["Status.ParentUID"] = vcdCluster.Status.ParentUID
 	}
 
-	if capvcdEntity.Status.CAPVCDStatus.UsedAsManagementCluster != vcdCluster.Spec.UseAsManagementCluster {
-		updatePatch["Status.CAPVCDStatus.UsedAsManagementCluster"] = vcdCluster.Spec.UseAsManagementCluster
+	if capvcdEntity.Status.CAPVCDStatus.UsedAsManagementCluster != vcdCluster.Status.UseAsManagementCluster {
+		updatePatch["Status.CAPVCDStatus.UsedAsManagementCluster"] = vcdCluster.Status.UseAsManagementCluster
 	}
 
 	clusterApiStatusPhase := ClusterApiStatusPhaseNotReady
@@ -562,6 +562,10 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		// Also update the client created already so that the CPI etc have the clusterID.
 		workloadVCDClient.ClusterID = infraID
 	}
+
+	// After InfraId has been set, we can update parentUid, useAsMgmtCluster status
+	vcdCluster.Status.UseAsManagementCluster = vcdCluster.Spec.UseAsManagementCluster
+	vcdCluster.Status.ParentUID = vcdCluster.Spec.ParentUID
 
 	// create load balancer for the cluster. Only one-arm load balancer is fully tested.
 	virtualServiceNamePrefix := vcdCluster.Name + "-" + vcdCluster.Status.InfraId
