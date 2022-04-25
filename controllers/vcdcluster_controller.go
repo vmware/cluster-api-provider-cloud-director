@@ -234,9 +234,9 @@ func (r *VCDClusterReconciler) constructCapvcdRDE(ctx context.Context, cluster *
 					Phase:        "",
 					ApiEndpoints: []rdeType.ApiEndpoints{},
 				},
-				NodeStatus:              make(map[string]string),
-				UsedAsManagementCluster: vcdCluster.Spec.UseAsManagementCluster,
-				CapvcdVersion:           r.Config.ClusterResources.CapvcdVersion,
+				NodeStatus:             make(map[string]string),
+				UseAsManagementCluster: vcdCluster.Spec.UseAsManagementCluster,
+				CapvcdVersion:          r.Config.ClusterResources.CapvcdVersion,
 			},
 			CloudProperties: rdeType.CloudProperties{
 				Site: vcdCluster.Spec.Site,
@@ -402,7 +402,7 @@ func (r *VCDClusterReconciler) reconcileRDE(ctx context.Context, cluster *cluste
 		updatePatch["Status.ParentUID"] = vcdCluster.Status.ParentUID
 	}
 
-	if capvcdEntity.Status.CAPVCDStatus.UsedAsManagementCluster != vcdCluster.Status.UseAsManagementCluster {
+	if capvcdEntity.Status.CAPVCDStatus.UseAsManagementCluster != vcdCluster.Status.UseAsManagementCluster {
 		updatePatch["Status.CAPVCDStatus.UsedAsManagementCluster"] = vcdCluster.Status.UseAsManagementCluster
 	}
 
