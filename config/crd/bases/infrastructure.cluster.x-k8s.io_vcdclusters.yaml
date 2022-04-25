@@ -7,9 +7,6 @@ metadata:
     controller-gen.kubebuilder.io/version: v0.4.1
   creationTimestamp: null
   name: vcdclusters.infrastructure.cluster.x-k8s.io
-  labels:
-    cluster.x-k8s.io/v1alpha4: v1alpha4
-    cluster.x-k8s.io/vbeta1: v1beta1
 spec:
   group: infrastructure.cluster.x-k8s.io
   names:
@@ -198,10 +195,14 @@ spec:
                 type: string
               ovdcNetwork:
                 type: string
+              parentUid:
+                type: string
               rdeId:
                 type: string
               site:
                 type: string
+              useAsManagementCluster:
+                type: boolean
               userContext:
                 properties:
                   password:
@@ -267,9 +268,17 @@ spec:
                 type: array
               infraId:
                 type: string
+              parentUid:
+                type: string
               ready:
                 description: Ready denotes that the vcd cluster (infrastructure) is
                   ready.
+                type: boolean
+              useAsManagementCluster:
+                type: boolean
+              vappmetadataUpdated:
+                description: MetadataUpdated denotes that the metadata of Vapp is
+                  updated.
                 type: boolean
             required:
             - ready

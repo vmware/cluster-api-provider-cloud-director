@@ -73,7 +73,11 @@ type VCDClusterSpec struct {
 	// +optional
 	DefaultComputePolicy string `json:"defaultComputePolicy,omitempty"`
 	// + optional
-	RDEId string `json:"rdeId"`
+	RDEId string `json:"rdeId,omitempty"`
+	// +optional
+	ParentUID string `json:"parentUid,omitempty"`
+	// +optional
+	UseAsManagementCluster bool `json:"useAsManagementCluster,omitempty"`
 }
 
 // VCDClusterStatus defines the observed state of VCDCluster
@@ -84,11 +88,19 @@ type VCDClusterStatus struct {
 	// Ready denotes that the vcd cluster (infrastructure) is ready.
 	Ready bool `json:"ready"`
 
+	// MetadataUpdated denotes that the metadata of Vapp is updated.
+	// +optional
+	VAppMetadataUpdated bool `json:"vappmetadataUpdated,omitempty"`
+
 	// Conditions defines current service state of the VCDCluster.
 	// +optional
 	Conditions clusterv1.Conditions `json:"conditions,omitempty"`
 	// +optional
 	InfraId string `json:"infraId,omitempty"`
+	// +optional
+	ParentUID string `json:"parentUid,omitempty"`
+	// +optional
+	UseAsManagementCluster bool `json:"useAsManagementCluster,omitempty"`
 }
 
 //+kubebuilder:object:root=true
