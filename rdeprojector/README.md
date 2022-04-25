@@ -1,0 +1,1 @@
+RDE operator that take CAPI yaml (or) commands from RDE and applies on the cluster
