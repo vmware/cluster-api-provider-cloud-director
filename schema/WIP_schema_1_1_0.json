@@ -113,7 +113,7 @@
             "parentUid": {
               "type": "string"
             },
-            "userIntendsToUseItAsAManagementCluster": {
+            "useAsManagementCluster": {
               "type": "boolean"
             },
             "clusterApiStatus": {

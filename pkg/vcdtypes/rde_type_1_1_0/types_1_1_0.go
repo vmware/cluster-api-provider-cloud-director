@@ -83,7 +83,7 @@ type CAPVCDStatus struct {
 	ClusterAPIStatus       ClusterApiStatus  `json:"clusterApiStatus,omitempty"`
 	NodeStatus             map[string]string `json:"nodeStatus,omitempty"`
 	CapvcdVersion          string            `json:"capvcdVersion,omitempty"`
-	UseAsManagementCluster bool              `json:"userIntendsToUseItAsAManagementCluster,omitempty"`
+	UseAsManagementCluster bool              `json:"useAsManagementCluster,omitempty"`
 }
 type Status struct {
 	CAPVCDStatus      CAPVCDStatus    `json:"capvcd,omitempty"`

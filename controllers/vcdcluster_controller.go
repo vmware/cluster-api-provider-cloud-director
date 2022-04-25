@@ -403,7 +403,7 @@ func (r *VCDClusterReconciler) reconcileRDE(ctx context.Context, cluster *cluste
 	}
 
 	if capvcdEntity.Status.CAPVCDStatus.UseAsManagementCluster != vcdCluster.Status.UseAsManagementCluster {
-		updatePatch["Status.CAPVCDStatus.UsedAsManagementCluster"] = vcdCluster.Status.UseAsManagementCluster
+		updatePatch["Status.CAPVCDStatus.UseAsManagementCluster"] = vcdCluster.Status.UseAsManagementCluster
 	}
 
 	clusterApiStatusPhase := ClusterApiStatusPhaseNotReady
