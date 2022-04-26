@@ -23,19 +23,30 @@ import (
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
+type UserCredentialsContext struct {
+	Username     string `json:"username,omitempty"`
+	Password     string `json:"password,omitempty"`
+	RefreshToken string `json:"refreshToken,omitempty"`
+}
+
 // RDEProjectorSpec defines the desired state of RDEProjector
 type RDEProjectorSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
-	// Foo is an example field of RDEProjector. Edit rdeprojector_types.go to remove/update
-	Foo string `json:"foo,omitempty"`
+	// +kubebuilder:validation:Required
+	RDEId string `json:"rdeId,omitempty"`
+	// +kubebuilder:validation:Required
+	Site string `json:"site"`
+	// +kubebuilder:validation:Required
+	Org string `json:"org"`
+	// +kubebuilder:validation:Required
+	UserCredentialsContext UserCredentialsContext `json:"userContext"`
 }
 
 // RDEProjectorStatus defines the observed state of RDEProjector
 type RDEProjectorStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
+	// TODO Add necessary fields from Spec
 }
 
 //+kubebuilder:object:root=true
