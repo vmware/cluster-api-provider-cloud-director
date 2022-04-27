@@ -97,12 +97,16 @@ CONTROLLER_GEN = $(shell pwd)/bin/controller-gen
 controller-gen: ## Download controller-gen locally if necessary.
 	$(call go-get-tool,$(CONTROLLER_GEN),sigs.k8s.io/controller-tools/cmd/controller-gen@v0.4.1)
 
-CONVERSION_GEN_VER := v0.23.1
 CONVERSION_GEN_BIN := conversion-gen
-CONVERSION_GEN := $(shell pwd)/bin/$(CONVERSION_GEN_BIN)
+CONVERSION_GEN_DOCKERFILE := Dockerfile-ConversionGen
+CONVERSION_GEN_CONTAINER := conversion-gen-container
+CONVERSION_GEN := $(GITROOT)/bin/$(CONVERSION_GEN_BIN)
 conversion: ## Download controller-gen locally if necessary.
-	go install  -tags tools k8s.io/code-generator/cmd/$(CONVERSION_GEN_BIN)@$(CONVERSION_GEN_VER)
-	mv "${GOBIN}/${CONVERSION_GEN_BIN}" "${CONVERSION_GEN}"
+	docker build . -f $(GITROOT)/$(CONVERSION_GEN_DOCKERFILE) -t conversion
+	docker create -ti --name $(CONVERSION_GEN_CONTAINER) conversion:latest bash
+	docker cp $(CONVERSION_GEN_CONTAINER):/opt/conversion-gen/conversion-gen $(CONVERSION_GEN)
+	docker rm $(CONVERSION_GEN_CONTAINER)
+
 
 KUSTOMIZE = $(shell pwd)/bin/kustomize
 kustomize: ## Download kustomize locally if necessary.
