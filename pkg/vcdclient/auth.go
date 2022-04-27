@@ -46,16 +46,21 @@ func (config *VCDAuthConfig) GetBearerToken() (*govcd.VCDClient, *http.Response,
 
 	var resp *http.Response
 	if config.RefreshToken != "" {
-		err = vcdClient.SetToken(config.UserOrg,
+		// NOTE: for a system admin user using refresh token, the userOrg will still be tenant org.
+		// try setting authentication as a system org user
+		err = vcdClient.SetToken("system",
 			govcd.ApiTokenHeader, config.RefreshToken)
 		if err != nil {
-			return nil, nil, fmt.Errorf("failed to set authorization header: [%v]", err)
+			klog.Infof("failed to authenticate using refresh token and as system org user. Retrying as [%s] org user", config.UserOrg)
+			// failed to authenticate as system user. Retry as a tenant user
+			err = vcdClient.SetToken(config.UserOrg,
+				govcd.ApiTokenHeader, config.RefreshToken)
+			if err != nil {
+				klog.Errorf("failed to authenticate using refresh token")
+				return nil, nil, fmt.Errorf("failed to set authorization header: [%v]", err)
+			}
 		}
 		config.IsSysAdmin = vcdClient.Client.IsSysAdmin
-		if err != nil {
-			return nil, nil, fmt.Errorf("failed to determine if the user is a system administrator: [%v]", err)
-		}
-		vcdClient.Client.IsSysAdmin = config.IsSysAdmin
 
 		klog.Infof("Running CAPVCD as sysadmin? [%v]", vcdClient.Client.IsSysAdmin)
 		return vcdClient, resp, nil
@@ -77,8 +82,8 @@ func (config *VCDAuthConfig) GetSwaggerClientFromSecrets() (*govcd.VCDClient, *s
 		return nil, nil, fmt.Errorf("unable to get bearer token from secrets: [%v]", err)
 	}
 
-	swaggerConfig := swaggerClient.NewConfiguration()
 	authHeader := fmt.Sprintf("Bearer %s", vcdClient.Client.VCDToken)
+	swaggerConfig := swaggerClient.NewConfiguration()
 	swaggerConfig.BasePath = fmt.Sprintf("%s/cloudapi", config.Host)
 	swaggerConfig.AddDefaultHeader("Authorization", authHeader)
 	swaggerConfig.HTTPClient = &http.Client{

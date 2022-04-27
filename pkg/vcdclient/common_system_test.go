@@ -13,6 +13,7 @@ package vcdclient
 import (
 	"fmt"
 	"github.com/vmware/cluster-api-provider-cloud-director/pkg/config"
+	"gopkg.in/yaml.v2"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -21,6 +22,17 @@ import (
 var (
 	gitRoot string = ""
 )
+
+type VcdInfo struct {
+	Host         string `yaml:"host"`
+	TenantOrg    string `yaml:"tenantOrg"`
+	TenantVdc    string `yaml:"tenantVdc"`
+	OvdcNetwork  string `yaml:"ovdcNetwork"`
+	User         string `yaml:"user"`
+	UserOrg      string `yaml:"userOrg"`
+	Password     string `yaml:"password"`
+	RefreshToken string `yaml:"refreshToken"`
+}
 
 func init() {
 	gitRoot = os.Getenv("GITROOT")
@@ -64,6 +76,20 @@ func getInt32ValStrict(val interface{}, defaultVal int32) int32 {
 
 func getTestVCDClient(inputMap map[string]interface{}) (*Client, error) {
 
+	// "testdata/vcd_info.yaml" contains VCD details
+	testVcdInfoFilePath := filepath.Join(gitRoot, "testdata/vcd_info.yaml")
+	vcdInfoContent, err := ioutil.ReadFile(testVcdInfoFilePath)
+	if err != nil {
+		return nil, fmt.Errorf("error reading the vcd_info.yaml file contents: [%v]", err)
+	}
+
+	var vcdInfo VcdInfo
+	err = yaml.Unmarshal(vcdInfoContent, &vcdInfo)
+	if err != nil {
+		return nil, fmt.Errorf("error parsing vcd_info.yaml file content: [%v]", err)
+	}
+
+	// "testdata/config_test.yaml" contains all the information that can be passed in as the config map
 	testConfigFilePath := filepath.Join(gitRoot, "testdata/config_test.yaml")
 	capvcdVersionFile := filepath.Join(gitRoot, "release/version")
 	capvcdVersion, err := ioutil.ReadFile(capvcdVersionFile)
@@ -72,7 +98,7 @@ func getTestVCDClient(inputMap map[string]interface{}) (*Client, error) {
 	}
 	configReader, err := os.Open(testConfigFilePath)
 	if err != nil {
-		return nil, fmt.Errorf("Unable to open file [%s]: [%v]", testConfigFilePath, err)
+		return nil, fmt.Errorf("unable to open file [%s]: [%v]", testConfigFilePath, err)
 	}
 	defer configReader.Close()
 
@@ -91,20 +117,20 @@ func getTestVCDClient(inputMap map[string]interface{}) (*Client, error) {
 		for key, val := range inputMap {
 			switch key {
 			case "host":
-				cloudConfig.VCD.Host = getStrValStrict(val, cloudConfig.VCD.Host)
+				vcdInfo.Host = getStrValStrict(val, vcdInfo.Host)
 			case "org":
-				cloudConfig.VCD.Org = getStrValStrict(val, cloudConfig.VCD.Org)
+				vcdInfo.TenantOrg = getStrValStrict(val, vcdInfo.TenantOrg)
 			case "network":
-				cloudConfig.VCD.VDCNetwork = getStrValStrict(val, cloudConfig.VCD.VDCNetwork)
+				vcdInfo.OvdcNetwork = getStrValStrict(val, vcdInfo.OvdcNetwork)
 			case "subnet":
 				cloudConfig.VCD.VIPSubnet = getStrValStrict(val, cloudConfig.VCD.VIPSubnet)
 			case "user":
-				cloudConfig.VCD.User = getStrValStrict(val, cloudConfig.VCD.User)
+				vcdInfo.User = getStrValStrict(val, vcdInfo.User)
 			case "secret":
-				cloudConfig.VCD.Secret = getStrValStrict(val, cloudConfig.VCD.Secret)
+				vcdInfo.Password = getStrValStrict(val, vcdInfo.Password)
 			case "userOrg":
-				// default to cloudConfig.VCD.Org if val is empty
-				cloudConfig.VCD.UserOrg = getStrValStrict(val, cloudConfig.VCD.UserOrg)
+				// default to userOrg if val is empty
+				vcdInfo.UserOrg = getStrValStrict(val, vcdInfo.UserOrg)
 			case "insecure":
 				insecure = getBoolValStrict(val, true)
 			case "clusterID":
@@ -120,22 +146,22 @@ func getTestVCDClient(inputMap map[string]interface{}) (*Client, error) {
 			case "getVdcClient":
 				getVdcClient = getBoolValStrict(val, false)
 			case "refreshToken":
-				cloudConfig.VCD.RefreshToken = getStrValStrict(val, cloudConfig.VCD.RefreshToken)
+				vcdInfo.RefreshToken = getStrValStrict(val, vcdInfo.RefreshToken)
 			}
 		}
 	}
 
 	return NewVCDClientFromSecrets(
-		cloudConfig.VCD.Host,
-		cloudConfig.VCD.Org,
-		cloudConfig.VCD.VDC,
+		vcdInfo.Host,
+		vcdInfo.TenantOrg,
+		vcdInfo.TenantVdc,
 		"",
-		cloudConfig.VCD.VDCNetwork,
+		vcdInfo.OvdcNetwork,
 		cloudConfig.VCD.VIPSubnet,
-		cloudConfig.VCD.UserOrg,
-		cloudConfig.VCD.User,
-		cloudConfig.VCD.Secret,
-		cloudConfig.VCD.RefreshToken,
+		vcdInfo.UserOrg,
+		vcdInfo.User,
+		vcdInfo.Password,
+		vcdInfo.RefreshToken,
 		insecure,
 		cloudConfig.ClusterID,
 		oneArm,
