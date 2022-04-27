@@ -9,6 +9,7 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"github.com/vmware/cluster-api-provider-cloud-director/pkg/config"
 	"k8s.io/klog"
 	"net/http"
 	"sync"
@@ -115,10 +116,15 @@ func NewVCDClientFromSecrets(host string, orgName string, vdcName string, vAppNa
 	csiVersion string, cpiVersion string, cniVersion string, capvcdVersion string) (*Client, error) {
 
 	// TODO: validation of parameters
+	updatedUserOrg, updatedUserName, err := config.GetUserAndOrg(user, userOrg)
+
+	if err != nil {
+		return nil, fmt.Errorf("Error parsing username [%v]", err)
+	}
 
 	// We need to get a client every time here rather than reusing the older client, since we can have the same worker
 	// working on different userContexts
-	vcdAuthConfig := NewVCDAuthConfigFromSecrets(host, user, password, refreshToken, userOrg, insecure)
+	vcdAuthConfig := NewVCDAuthConfigFromSecrets(host, updatedUserName, password, refreshToken, updatedUserOrg, insecure)
 
 	vcdClient, apiClient, err := vcdAuthConfig.GetSwaggerClientFromSecrets()
 	if err != nil {
