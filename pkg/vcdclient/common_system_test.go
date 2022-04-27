@@ -17,6 +17,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 var (
@@ -118,6 +119,7 @@ func getTestVCDClient(inputMap map[string]interface{}) (*Client, error) {
 			switch key {
 			case "host":
 				vcdInfo.Host = getStrValStrict(val, vcdInfo.Host)
+				vcdInfo.Host = strings.TrimRight(vcdInfo.Host, "/")
 			case "org":
 				vcdInfo.TenantOrg = getStrValStrict(val, vcdInfo.TenantOrg)
 			case "network":

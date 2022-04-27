@@ -121,7 +121,6 @@ func ParseCloudConfig(configReader io.Reader) (*CloudConfig, error) {
 	if err = decoder.Decode(&config); err != nil {
 		return nil, fmt.Errorf("Unable to decode yaml file: [%v]", err)
 	}
-	//config.VCD.Host = strings.TrimRight(config.VCD.Host, "/")
 
 	return config, nil
 }
