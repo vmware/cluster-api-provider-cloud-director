@@ -179,12 +179,16 @@ func (vdc *VdcManager) AddNewMultipleVM(vapp *govcd.VApp, vmNamePrefix string, v
 	var storageProfile *types.Reference = nil
 
 	if storageProfileName != "" {
-		vmStorageProfile, err := vdc.Client.GetStorageProfileDetailsFromName(storageProfileName)
-		if err != nil {
-			return govcd.Task{}, fmt.Errorf("unable to find storage profile [%s]: [%v]", storageProfileName, err)
+		storageProfiles := vdc.Client.Vdc.Vdc.VdcStorageProfiles.VdcStorageProfile
+		for _, profile := range storageProfiles {
+			if profile.Name == storageProfileName {
+				storageProfile = profile
+				break
+			}
 		}
-		storageProfile = &types.Reference{
-			HREF: vmStorageProfile.HREF,
+
+		if storageProfile == nil {
+			return govcd.Task{}, fmt.Errorf("unable to find storage policy [%s]", storageProfileName)
 		}
 	}
 
