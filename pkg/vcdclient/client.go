@@ -119,7 +119,7 @@ func NewVCDClientFromSecrets(host string, orgName string, vdcName string, vAppNa
 	updatedUserOrg, updatedUserName, err := config.GetUserAndOrg(user, userOrg)
 
 	if err != nil {
-		return nil, fmt.Errorf("Error parsing username [%v]", err)
+		return nil, fmt.Errorf("Error parsing username before authenticating to VCD: [%v]", err)
 	}
 
 	// We need to get a client every time here rather than reusing the older client, since we can have the same worker
