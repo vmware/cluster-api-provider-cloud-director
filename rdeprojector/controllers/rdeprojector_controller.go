@@ -18,13 +18,16 @@ package controllers
 
 import (
 	"context"
+	"github.com/pkg/errors"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"net/http"
+	"time"
 
+	"github.com/vmware/cloud-provider-for-cloud-director/pkg/vcdsdk"
+	capvcdv1alpha1 "github.com/vmware/cluster-api-provider-cloud-director/api/v1alpha1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/log"
-
-	capvcdv1alpha1 "github.com/vmware/cluster-api-provider-cloud-director/api/v1alpha1"
 )
 
 // RDEProjectorReconciler reconciles a RDEProjector object
@@ -47,11 +50,15 @@ type RDEProjectorReconciler struct {
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.10.0/pkg/reconcile
 func (r *RDEProjectorReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	_ = log.FromContext(ctx)
-
-	// TODO(user): your logic here
-
-	return ctrl.Result{}, nil
+	rdeProjector := &capvcdv1alpha1.RDEProjector{}
+	if err := r.Client.Get(ctx, req.NamespacedName, rdeProjector); err != nil {
+		if apierrors.IsNotFound(err) {
+			return ctrl.Result{}, nil
+		}
+		return ctrl.Result{}, err
+	}
+	//TODO Evaluate if reconcileDelete() is really needed. Is there a need for finalizer at all?
+	return r.reconcileNormal(ctx, rdeProjector)
 }
 
 // SetupWithManager sets up the controller with the Manager.
@@ -59,4 +66,28 @@ func (r *RDEProjectorReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&capvcdv1alpha1.RDEProjector{}).
 		Complete(r)
+}
+
+func (r *RDEProjectorReconciler) reconcileNormal(ctx context.Context, rdeProjector *capvcdv1alpha1.RDEProjector) (ctrl.Result, error) {
+	log := ctrl.LoggerFrom(ctx)
+
+	//TODO Ensure sysadmin persona works
+	workloadVCDClient, err := vcdsdk.NewVCDClientFromSecrets(rdeProjector.Spec.Site, rdeProjector.Spec.Org,
+		"", rdeProjector.Spec.Org, rdeProjector.Spec.UserCredentialsContext.Username,
+		rdeProjector.Spec.UserCredentialsContext.Password, rdeProjector.Spec.UserCredentialsContext.RefreshToken,
+		true, false)
+	if err != nil {
+		return ctrl.Result{}, errors.Wrapf(err, "Error creating VCD client to reconcile RDE [%s]", rdeProjector.Spec.RDEId)
+	}
+	rde, resp, _, err := workloadVCDClient.APIClient.DefinedEntityApi.GetDefinedEntity(ctx, rdeProjector.Spec.RDEId)
+	if err == nil && resp != nil && resp.StatusCode != http.StatusOK {
+		log.Error(err, "Error retrieving RDEId of the cluster", "rdeId", rdeProjector.Spec.RDEId)
+	}
+	entity := rde.Entity
+	capiYaml := entity["spec"].(map[string]interface{})["capiYaml"]
+	log.Info("Retrieved Capi Yaml", "capiYaml", capiYaml)
+
+	//TODO Apply CAPI YAML
+
+	return ctrl.Result{RequeueAfter: time.Second * 20}, nil
 }

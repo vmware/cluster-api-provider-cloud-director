@@ -1,0 +1,17 @@
+vcd:
+  host: "https://vmware-cloud-director.com"
+  org: "org"
+  vdc: "org-vdc"
+  user: "vmware-cloud-director-user"
+  secret: "password-of-vmware-cloud-director-user"
+  network: "network-used-in-org-vdc"
+  vipSubnet: "subnet-CIDR-from-which-VirtualIPs-are-picked"
+loadbalancer:
+  oneArm:
+    startIP: "random-internal-ip-address-start-inclusive"
+    endIP: "random-internal-ip-address-end-inclusive"
+  ports:
+    http: 80
+    https: 443
+  certAlias: "alias-of-cert-used-for-https-in-vcd"
+clusterid: "id-of-cluster"

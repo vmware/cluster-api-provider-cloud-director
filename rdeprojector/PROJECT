@@ -11,6 +11,6 @@ resources:
   domain: cloud-director.vmware.com
   group: capvcd
   kind: RDEProjector
-  path: github.com/vmware/cluster-api-provider-cloud-director/api/v1alpha1
+  path: github.com/vmware/cluster-api-provider-cloud-director/rdeprojector/api/v1alpha1
   version: v1alpha1
 version: "3"
