@@ -234,16 +234,16 @@ func (r *VCDClusterReconciler) constructCapvcdRDE(ctx context.Context, cluster *
 					Phase:        "",
 					ApiEndpoints: []rdeType.ApiEndpoints{},
 				},
-				NodeStatus:              make(map[string]string),
-				UsedAsManagementCluster: false,
-				CapvcdVersion:           r.Config.ClusterResources.CapvcdVersion,
+				NodeStatus:             make(map[string]string),
+				UseAsManagementCluster: vcdCluster.Spec.UseAsManagementCluster,
+				CapvcdVersion:          r.Config.ClusterResources.CapvcdVersion,
 			},
 			CloudProperties: rdeType.CloudProperties{
 				Site: vcdCluster.Spec.Site,
 				Org:  org,
 				Vdc:  vdc,
 			},
-			ParentUID: r.Config.ManagementClusterRDEId,
+			ParentUID: vcdCluster.Spec.ParentUID,
 			Csi: rdeType.VersionedAddon{
 				Name:    VcdCsiName,
 				Version: r.Config.ClusterResources.CsiVersion, // TODO: get CPI, CNI, CSI versions from the CLusterResourceSet objects
@@ -397,6 +397,15 @@ func (r *VCDClusterReconciler) reconcileRDE(ctx context.Context, cluster *cluste
 	if capvcdEntity.Status.CAPVCDStatus.Phase != cluster.Status.Phase {
 		updatePatch["Status.CAPVCDStatus.Phase"] = cluster.Status.Phase
 	}
+
+	if capvcdEntity.Status.ParentUID != vcdCluster.Status.ParentUID {
+		updatePatch["Status.ParentUID"] = vcdCluster.Status.ParentUID
+	}
+
+	if capvcdEntity.Status.CAPVCDStatus.UseAsManagementCluster != vcdCluster.Status.UseAsManagementCluster {
+		updatePatch["Status.CAPVCDStatus.UseAsManagementCluster"] = vcdCluster.Status.UseAsManagementCluster
+	}
+
 	clusterApiStatusPhase := ClusterApiStatusPhaseNotReady
 	if cluster.Status.ControlPlaneReady {
 		clusterApiStatusPhase = ClusterApiStatusPhaseReady
@@ -553,6 +562,10 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		// Also update the client created already so that the CPI etc have the clusterID.
 		workloadVCDClient.ClusterID = infraID
 	}
+
+	// After InfraId has been set, we can update parentUid, useAsMgmtCluster status
+	vcdCluster.Status.UseAsManagementCluster = vcdCluster.Spec.UseAsManagementCluster
+	vcdCluster.Status.ParentUID = vcdCluster.Spec.ParentUID
 
 	// create load balancer for the cluster. Only one-arm load balancer is fully tested.
 	virtualServiceNamePrefix := vcdCluster.Name + "-" + vcdCluster.Status.InfraId
