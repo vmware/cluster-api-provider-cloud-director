@@ -276,6 +276,10 @@ spec:
                 type: boolean
               useAsManagementCluster:
                 type: boolean
+              vappmetadataUpdated:
+                description: MetadataUpdated denotes that the metadata of Vapp is
+                  updated.
+                type: boolean
             required:
             - ready
             type: object

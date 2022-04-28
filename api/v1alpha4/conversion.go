@@ -23,5 +23,6 @@ func Convert_v1beta1_VCDMachineSpec_To_v1alpha4_VCDMachineSpec(in *v1beta1.VCDMa
 }
 
 func Convert_v1beta1_VCDClusterStatus_To_v1alpha4_VCDClusterStatus(in *v1beta1.VCDClusterStatus, out *VCDClusterStatus, s conversion.Scope) error {
+	// Todo check if _vcdcluster.status.vAppMetadata_Updated flag needs to be updated
 	return autoConvert_v1beta1_VCDClusterStatus_To_v1alpha4_VCDClusterStatus(in, out, s)
 }
