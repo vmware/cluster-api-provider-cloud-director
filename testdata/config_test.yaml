@@ -1,3 +1,4 @@
+# This file contains information that can be passed as input to CAPVCD via controller_manager_config config map.
 vcd:
   host: VCD_HOST
   org: ORG
