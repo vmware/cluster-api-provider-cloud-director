@@ -20,12 +20,12 @@ import (
 )
 
 type authorizationDetails struct {
-	Username string `yaml:"username"`
-	Password string `yaml:"password"`
-	RefreshToken string `yaml:"refreshToken"`
-	UserOrg string `yaml:"userOrg"`
-	SystemUser string `yaml:"systemUser"`
-	SystemUserPassword string `yaml:"systemUserPassword"`
+	Username               string `yaml:"username"`
+	Password               string `yaml:"password"`
+	RefreshToken           string `yaml:"refreshToken"`
+	UserOrg                string `yaml:"userOrg"`
+	SystemUser             string `yaml:"systemUser"`
+	SystemUserPassword     string `yaml:"systemUserPassword"`
 	SystemUserRefreshToken string `yaml:"systemUserRefreshToken"`
 }
 
@@ -59,11 +59,10 @@ func TestNewVCDAuthConfigFromSecrets(t *testing.T) {
 
 	vcdClient, err = getTestVCDClient(map[string]interface{}{
 		"refreshToken": authDetails.RefreshToken,
-		"userOrg": authDetails.UserOrg,
+		"userOrg":      authDetails.UserOrg,
 	})
 	assert.NoError(t, err, "Unable to get VCD Client")
 	assert.NotNil(t, vcdClient, "VCD Client should not be nil")
-
 
 	vcdClient, err = getTestVCDClient(map[string]interface{}{
 		"host":         "https://some-random-address",
@@ -112,7 +111,7 @@ func TestNewVCDAuthConfigFromSecrets(t *testing.T) {
 
 	vcdClient, err = getTestVCDClient(map[string]interface{}{
 		"refreshToken": authDetails.SystemUserRefreshToken,
-		"userOrg": "system",
+		"userOrg":      "system",
 	})
 	assert.NoError(t, err, "Unable to get VCD client for system administrator")
 	assert.NotNil(t, vcdClient, "VCD Client should not be nil")
