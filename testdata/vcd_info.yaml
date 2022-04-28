@@ -1,0 +1,9 @@
+# This file contains the information that needs to be passed to create the client for the tests
+host: "vcd-host-url"
+tenantOrg: "tenant-org"
+tenantVdc: "tenant-ovdc"
+ovdcNetwork: "tenant-ovdc-network"
+user: "username"
+userOrg: "user-org"
+password: "secret"
+refreshToken: "refreshToken"
