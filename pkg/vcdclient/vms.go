@@ -188,7 +188,7 @@ func (vdc *VdcManager) AddNewMultipleVM(vapp *govcd.VApp, vmNamePrefix string, v
 		}
 
 		if storageProfile == nil {
-			return govcd.Task{}, fmt.Errorf("unable to find storage policy [%s]", storageProfileName)
+			return govcd.Task{}, fmt.Errorf("storage profile [%s] chosen to create the VM in vApp [%s] does not exist", storageProfileName, vapp.VApp.Name)
 		}
 	}
 
