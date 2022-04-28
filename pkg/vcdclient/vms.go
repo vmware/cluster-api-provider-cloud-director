@@ -103,7 +103,7 @@ func (vdc *VdcManager) IsVmNotAvailable(err error) bool {
 // power on VMs and join the cluster with hardcoded script
 func (vdc *VdcManager) AddNewMultipleVM(vapp *govcd.VApp, vmNamePrefix string, vmNum int,
 	catalogName string, templateName string, placementPolicyName string, computePolicyName string,
-	guestCustScript string, acceptAllEulas bool, powerOn bool) (govcd.Task, error) {
+	storageProfileName string, guestCustScript string, acceptAllEulas bool, powerOn bool) (govcd.Task, error) {
 
 	klog.V(3).Infof("start adding %d VMs\n", vmNum)
 
@@ -176,6 +176,22 @@ func (vdc *VdcManager) AddNewMultipleVM(vapp *govcd.VApp, vmNamePrefix string, v
 		}
 	}
 
+	var storageProfile *types.Reference = nil
+
+	if storageProfileName != "" {
+		storageProfiles := vdc.Client.Vdc.Vdc.VdcStorageProfiles.VdcStorageProfile
+		for _, profile := range storageProfiles {
+			if profile.Name == storageProfileName {
+				storageProfile = profile
+				break
+			}
+		}
+
+		if storageProfile == nil {
+			return govcd.Task{}, fmt.Errorf("storage profile [%s] chosen to create the VM in vApp [%s] does not exist", storageProfileName, vapp.VApp.Name)
+		}
+	}
+
 	// for loop to create vms with same settings and append to the sourcedItemList
 	sourcedItemList := make([]*types.SourcedCompositionItemParam, vmNum)
 	for i := 0; i < vmNum; i++ {
@@ -211,7 +227,8 @@ func (vdc *VdcManager) AddNewMultipleVM(vapp *govcd.VApp, vmNamePrefix string, v
 						},
 					},
 				},
-				ComputePolicy: computePolicy,
+				StorageProfile: storageProfile,
+				ComputePolicy:  computePolicy,
 			},
 		)
 	}
@@ -334,7 +351,7 @@ func (vdc *VdcManager) AddNewMultipleVM(vapp *govcd.VApp, vmNamePrefix string, v
 
 func (vdc *VdcManager) AddNewVM(vmNamePrefix string, vAppName string, vmNum int,
 	catalogName string, templateName string, placementPolicyName string, computePolicyName string,
-	guestCustScript string, powerOn bool) error {
+	storageProfileName string, guestCustScript string, powerOn bool) error {
 
 	if vdc.Vdc == nil {
 		return fmt.Errorf("no Vdc created with name [%s]", vdc.VdcName)
@@ -377,8 +394,8 @@ func (vdc *VdcManager) AddNewVM(vmNamePrefix string, vAppName string, vmNum int,
 			queryVAppTemplate.HREF, err)
 	}
 
-	_, err = vdc.AddNewMultipleVM(vApp, vmNamePrefix, vmNum, catalogName, templateName,
-		placementPolicyName, computePolicyName, guestCustScript, true, powerOn)
+	_, err = vdc.AddNewMultipleVM(vApp, vmNamePrefix, vmNum, catalogName, templateName, placementPolicyName,
+		computePolicyName, storageProfileName, guestCustScript, true, powerOn)
 	if err != nil {
 		return fmt.Errorf(
 			"unable to issue call to create VMs with prefix [%s] in vApp [%s] with template [%s/%s]: [%v]",

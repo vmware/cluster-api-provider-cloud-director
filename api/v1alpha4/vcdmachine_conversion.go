@@ -8,12 +8,12 @@ import (
 // ConvertTo converts this (v1alpha4)VCDCluster to the Hub version (v1beta1).
 func (src *VCDMachine) ConvertTo(dstRaw conversion.Hub) error {
 	dst := dstRaw.(*v1beta1.VCDMachine)
-
 	if err := Convert_v1alpha4_VCDMachine_To_v1beta1_VCDMachine(src, dst, nil); err != nil {
 		return err
 	}
 
 	dst.Spec.SizingPolicy = src.Spec.ComputePolicy
+	dst.Spec.StorageProfile = ""
 	return nil
 }
 
