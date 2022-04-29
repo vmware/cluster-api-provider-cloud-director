@@ -116,7 +116,11 @@ func NewVCDClientFromSecrets(host string, orgName string, vdcName string, vAppNa
 	csiVersion string, cpiVersion string, cniVersion string, capvcdVersion string) (*Client, error) {
 
 	// TODO: validation of parameters
-	updatedUserOrg, updatedUserName, err := config.GetUserAndOrg(user, orgName)
+
+	// We need username, clusterOrg, userOrg for additional fallback as cloudConfig params to client creation in correct format already
+	// ex: username: system/administrator -> user: administrator, userOrg: system, org: org1
+	// By using GetUserAndOrg(username, orgName) this would overwrite userOrg from system to org1
+	updatedUserOrg, updatedUserName, err := config.GetUserAndOrg(user, orgName, userOrg)
 
 	if err != nil {
 		return nil, fmt.Errorf("Error parsing username before authenticating to VCD: [%v]", err)

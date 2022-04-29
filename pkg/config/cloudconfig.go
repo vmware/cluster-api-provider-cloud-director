@@ -72,7 +72,7 @@ type CloudConfig struct {
 	ClusterResources       ClusterResourcesConfig `yaml:"clusterResourceSet"`
 }
 
-func GetUserAndOrg(fullUserName string, clusterOrg string) (userOrg string, userName string, err error) {
+func GetUserAndOrg(fullUserName string, clusterOrg string, currentUserOrg string) (userOrg string, userName string, err error) {
 	// If the full username is specified as org/user, the scenario is that the user
 	// may belong to an org different from the cluster, but still has the
 	// necessary rights to view the VMs on this org. Else if the username is
@@ -84,8 +84,13 @@ func GetUserAndOrg(fullUserName string, clusterOrg string) (userOrg string, user
 			"invalid username format; expected at most two fields separated by /, obtained [%d]",
 			len(parts))
 	}
+	// userOrg will fallback to clusterOrg if currentUserOrg does not exist, this allows auth to continue successfully
 	if len(parts) == 1 {
-		userOrg = clusterOrg
+		if currentUserOrg == "" {
+			userOrg = clusterOrg
+		} else {
+			userOrg = currentUserOrg
+		}
 		userName = parts[0]
 	} else {
 		userOrg = parts[0]
@@ -138,7 +143,7 @@ func SetAuthorization(config *CloudConfig) error {
 	} else {
 		trimmedUserName := strings.TrimSuffix(string(username), "\n")
 		if string(trimmedUserName) != "" {
-			config.VCD.UserOrg, config.VCD.User, err = GetUserAndOrg(trimmedUserName, config.VCD.Org)
+			config.VCD.UserOrg, config.VCD.User, err = GetUserAndOrg(trimmedUserName, config.VCD.Org, config.VCD.UserOrg)
 			if err != nil {
 				return fmt.Errorf("unable to get user org and name: [%v]", err)
 			}
