@@ -108,7 +108,7 @@ func (client *Client) RefreshBearerToken() error {
 	return nil
 }
 
-// NewVCDClientFromSecrets :
+// TODO: Remove userOrg as a param as it's not used
 func NewVCDClientFromSecrets(host string, orgName string, vdcName string, vAppName string,
 	networkName string, ipamSubnet string, userOrg string, user string, password string,
 	refreshToken string, insecure bool, clusterID string, oneArm *OneArm, httpPort int32,
@@ -116,7 +116,7 @@ func NewVCDClientFromSecrets(host string, orgName string, vdcName string, vAppNa
 	csiVersion string, cpiVersion string, cniVersion string, capvcdVersion string) (*Client, error) {
 
 	// TODO: validation of parameters
-	updatedUserOrg, updatedUserName, err := config.GetUserAndOrg(user, userOrg)
+	updatedUserOrg, updatedUserName, err := config.GetUserAndOrg(user, orgName)
 
 	if err != nil {
 		return nil, fmt.Errorf("Error parsing username before authenticating to VCD: [%v]", err)
