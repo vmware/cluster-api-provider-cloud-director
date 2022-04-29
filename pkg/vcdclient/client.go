@@ -108,7 +108,6 @@ func (client *Client) RefreshBearerToken() error {
 	return nil
 }
 
-// TODO: Remove userOrg as a param as it's not used
 func NewVCDClientFromSecrets(host string, orgName string, vdcName string, vAppName string,
 	networkName string, ipamSubnet string, userOrg string, user string, password string,
 	refreshToken string, insecure bool, clusterID string, oneArm *OneArm, httpPort int32,
