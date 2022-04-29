@@ -135,6 +135,8 @@ const (
 	MimeUpdateVdcStorageProfiles = "application/vnd.vmware.admin.updateVdcStorageProfiles+xml"
 	// Mime to modify lease settings
 	MimeLeaseSettingSection = "application/vnd.vmware.vcloud.leaseSettingsSection+xml"
+	// Mime to publish external catalog
+	PublishExternalCatalog = "application/vnd.vmware.admin.publishExternalCatalogParams+xml"
 )
 
 const (
@@ -368,6 +370,8 @@ const (
 	OpenApiEndpointVdcGroupsCandidateVdcs             = "vdcGroups/networkingCandidateVdcs"
 	OpenApiEndpointVdcGroupsDfwPolicies               = "vdcGroups/%s/dfwPolicies"
 	OpenApiEndpointVdcGroupsDfwDefaultPolicies        = "vdcGroups/%s/dfwPolicies/default"
+	OpenApiEndpointVdcGroupsDfwRules                  = "vdcGroups/%s/dfwPolicies/%s/rules"
+	OpenApiEndpointNetworkContextProfiles             = "networkContextProfiles"
 
 	// NSX-T ALB related endpoints
 
@@ -477,4 +481,24 @@ const (
 const (
 	// NsxtAlbCloudBackingTypeNsxtAlb is a backing type for NSX-T ALB used in types.NsxtAlbCloudBacking
 	NsxtAlbCloudBackingTypeNsxtAlb = "NSXALB_NSXT"
+)
+
+const (
+	// UrnTypeVdcGroup is the third segment of URN for VDC Group
+	UrnTypeVdcGroup = "vdcGroup"
+	// UrnTypeVdc is the third segment of URN for VDC
+	UrnTypeVdc = "vdc"
+)
+
+// Metadata type constants
+const (
+	MetadataStringValue   string = "MetadataStringValue"
+	MetadataNumberValue   string = "MetadataNumberValue"
+	MetadataDateTimeValue string = "MetadataDateTimeValue"
+	MetadataBooleanValue  string = "MetadataBooleanValue"
+)
+
+const (
+	// DistributedFirewallPolicyDefault is a constant for "default" Distributed Firewall Policy
+	DistributedFirewallPolicyDefault = "default"
 )

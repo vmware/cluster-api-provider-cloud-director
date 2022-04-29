@@ -8,9 +8,9 @@ import (
 	"gopkg.in/yaml.v2"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
-	clusterv1 "sigs.k8s.io/cluster-api/api/v1alpha4"
-	"sigs.k8s.io/cluster-api/bootstrap/kubeadm/api/v1alpha4"
-	kcpv1 "sigs.k8s.io/cluster-api/controlplane/kubeadm/api/v1alpha4"
+	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
+	"sigs.k8s.io/cluster-api/bootstrap/kubeadm/api/v1beta1"
+	kcpv1 "sigs.k8s.io/cluster-api/controlplane/kubeadm/api/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"strings"
 )
@@ -135,8 +135,8 @@ func getVCDMachineTemplateByObjRef(ctx context.Context, cli client.Client, objRe
 	return vcdMachineTemplate, nil
 }
 
-func getKubeadmConfigTemplateByObjRef(ctx context.Context, cli client.Client, objRef v1.ObjectReference) (*v1alpha4.KubeadmConfigTemplate, error) {
-	kubeadmConfigTemplate := &v1alpha4.KubeadmConfigTemplate{}
+func getKubeadmConfigTemplateByObjRef(ctx context.Context, cli client.Client, objRef v1.ObjectReference) (*v1beta1.KubeadmConfigTemplate, error) {
+	kubeadmConfigTemplate := &v1beta1.KubeadmConfigTemplate{}
 	kubeadmConfigTemplateKey := client.ObjectKey{
 		Namespace: objRef.Namespace,
 		Name:      objRef.Name,
@@ -188,7 +188,7 @@ func getCapiYaml(ctx context.Context, cli client.Client, cluster clusterv1.Clust
 		vcdMachineTemplates = append(vcdMachineTemplates, vcdMachineTemplate)
 	}
 
-	kubeadmConfigTemplates := make([]*v1alpha4.KubeadmConfigTemplate, 0)
+	kubeadmConfigTemplates := make([]*v1beta1.KubeadmConfigTemplate, 0)
 	for _, objRef := range kubeadmConfigTemplateNameToObjRef {
 		kubeadmConifgTemplate, err := getKubeadmConfigTemplateByObjRef(ctx, cli, *objRef)
 		if err != nil {
