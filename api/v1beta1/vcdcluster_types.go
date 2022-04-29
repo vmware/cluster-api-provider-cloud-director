@@ -18,7 +18,7 @@ package v1beta1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	clusterv1 "sigs.k8s.io/cluster-api/api/v1alpha4"
+	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 )
 
 const (
@@ -70,8 +70,6 @@ type VCDClusterSpec struct {
 	UserCredentialsContext UserCredentialsContext `json:"userContext"`
 	// +optional
 	DefaultStorageClassOptions *DefaultStorageClassOptions `json:"defaultStorageClassOptions"`
-	// +optional
-	DefaultComputePolicy string `json:"defaultComputePolicy,omitempty"`
 	// + optional
 	RDEId string `json:"rdeId,omitempty"`
 	// +optional

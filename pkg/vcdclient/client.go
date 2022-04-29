@@ -58,11 +58,15 @@ func (client *Client) RefreshBearerToken() error {
 
 	klog.V(3).Infof("Is user sysadmin: [%v]", client.VcdClient.Client.IsSysAdmin)
 	if client.VcdAuthConfig.RefreshToken != "" {
-		// Refresh vcd client using refresh token
-		err := client.VcdClient.SetToken(client.VcdAuthConfig.UserOrg,
+		userOrg := client.VcdAuthConfig.UserOrg
+		if client.VcdAuthConfig.IsSysAdmin {
+			userOrg = "system"
+		}
+		// Refresh vcd client using refresh token as system org user
+		err := client.VcdClient.SetToken(userOrg,
 			govcd.ApiTokenHeader, client.VcdAuthConfig.RefreshToken)
 		if err != nil {
-			return fmt.Errorf("failed to set authorization header: [%v]", err)
+			return fmt.Errorf("failed to refresh VCD client with the refresh token: [%v]", err)
 		}
 	} else if client.VcdAuthConfig.User != "" && client.VcdAuthConfig.Password != "" {
 		// Refresh vcd client using username and password
@@ -87,7 +91,7 @@ func (client *Client) RefreshBearerToken() error {
 
 	vdc, err := org.GetVDCByName(client.ClusterOVDCName, true)
 	if err != nil {
-		return fmt.Errorf("unable to get vdc from org [%s], vdc [%s]: [%v]",
+		return fmt.Errorf("unable to get VDC from org [%s], VDC [%s]: [%v]",
 			client.ClusterOrgName, client.VcdAuthConfig.VDC, err)
 	}
 	client.Vdc = vdc

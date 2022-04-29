@@ -23,7 +23,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"net/http"
 	"reflect"
-	clusterv1 "sigs.k8s.io/cluster-api/api/v1alpha4"
+	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	"sigs.k8s.io/cluster-api/util"
 	"sigs.k8s.io/cluster-api/util/conditions"
 	kcfg "sigs.k8s.io/cluster-api/util/kubeconfig"
@@ -367,14 +367,16 @@ func (r *VCDClusterReconciler) reconcileRDE(ctx context.Context, cluster *cluste
 	if !reflect.DeepEqual(capvcdEntity.Spec.Topology.Workers, topologyWorkers) {
 		updatePatch["Spec.Topology.Workers"] = topologyWorkers
 	}
-	capiYaml, err := getCapiYaml(ctx, r.Client, *cluster, *vcdCluster)
-	if err != nil {
-		log.Error(err,
-			"error during RDE reconciliation: failed to construct capi yaml from kubernetes resources of cluster")
-	}
 
-	if err == nil && capvcdEntity.Spec.CapiYaml != capiYaml {
-		updatePatch["Spec.CapiYaml"] = capiYaml
+	// UI can create CAPVCD clusters in future which can populate capiYaml in RDE.Spec, so we only want to populate if capiYaml is empty
+	if capvcdEntity.Spec.CapiYaml == "" {
+		capiYaml, err := getCapiYaml(ctx, r.Client, *cluster, *vcdCluster)
+		if err != nil {
+			log.Error(err,
+				"error during RDE reconciliation: failed to construct capi yaml from kubernetes resources of cluster")
+		} else {
+			updatePatch["Spec.CapiYaml"] = capiYaml
+		}
 	}
 
 	// Updating status portion of the RDE in the following code
