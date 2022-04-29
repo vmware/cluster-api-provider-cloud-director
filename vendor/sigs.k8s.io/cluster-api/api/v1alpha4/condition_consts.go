@@ -55,7 +55,7 @@ const (
 
 // ANCHOR_END: CommonConditions
 
-// Conditions and condition Reasons for the Cluster object
+// Conditions and condition Reasons for the Cluster object.
 
 const (
 	// ControlPlaneInitializedCondition reports if the cluster's control plane has been initialized such that the
@@ -75,7 +75,7 @@ const (
 	// ControlPlaneReadyCondition reports the ready condition from the control plane object defined for this cluster.
 	// This condition is mirrored from the Ready condition in the control plane ref object, and
 	// the absence of this condition might signal problems in the reconcile external loops or the fact that
-	// the control plane provider does not not implements the Ready condition yet.
+	// the control plane provider does not implement the Ready condition yet.
 	ControlPlaneReadyCondition ConditionType = "ControlPlaneReady"
 
 	// WaitingForControlPlaneFallbackReason (Severity=Info) documents a cluster waiting for the control plane
@@ -91,7 +91,7 @@ const (
 	WaitingForControlPlaneAvailableReason = "WaitingForControlPlaneAvailable"
 )
 
-// Conditions and condition Reasons for the Machine object
+// Conditions and condition Reasons for the Machine object.
 
 const (
 	// BootstrapReadyCondition reports a summary of current status of the bootstrap object defined for this machine.
@@ -196,7 +196,7 @@ const (
 	NodeConditionsFailedReason = "NodeConditionsFailed"
 )
 
-// Conditions and condition Reasons for the MachineHealthCheck object
+// Conditions and condition Reasons for the MachineHealthCheck object.
 
 const (
 	// RemediationAllowedCondition is set on MachineHealthChecks to show the status of whether the MachineHealthCheck is
@@ -208,7 +208,7 @@ const (
 	TooManyUnhealthyReason = "TooManyUnhealthy"
 )
 
-// Conditions and condition Reasons for  MachineDeployments
+// Conditions and condition Reasons for  MachineDeployments.
 
 const (
 	// MachineDeploymentAvailableCondition means the MachineDeployment is available, that is, at least the minimum available
@@ -217,4 +217,37 @@ const (
 
 	// WaitingForAvailableMachinesReason (Severity=Warning) reflects the fact that the required minimum number of machines for a machinedeployment are not available.
 	WaitingForAvailableMachinesReason = "WaitingForAvailableMachines"
+)
+
+// Conditions and condition Reasons for  MachineSets.
+
+const (
+	// MachinesCreatedCondition documents that the machines controlled by the MachineSet are created.
+	// When this condition is false, it indicates that there was an error when cloning the infrastructure/bootstrap template or
+	// when generating the machine object.
+	MachinesCreatedCondition ConditionType = "MachinesCreated"
+
+	// MachinesReadyCondition reports an aggregate of current status of the machines controlled by the MachineSet.
+	MachinesReadyCondition ConditionType = "MachinesReady"
+
+	// BootstrapTemplateCloningFailedReason (Severity=Error) documents a MachineSet failing to
+	// clone the bootstrap template.
+	BootstrapTemplateCloningFailedReason = "BootstrapTemplateCloningFailed"
+
+	// InfrastructureTemplateCloningFailedReason (Severity=Error) documents a MachineSet failing to
+	// clone the infrastructure template.
+	InfrastructureTemplateCloningFailedReason = "InfrastructureTemplateCloningFailed"
+
+	// MachineCreationFailedReason (Severity=Error) documents a MachineSet failing to
+	// generate a machine object.
+	MachineCreationFailedReason = "MachineCreationFailed"
+
+	// ResizedCondition documents a MachineSet is resizing the set of controlled machines.
+	ResizedCondition ConditionType = "Resized"
+
+	// ScalingUpReason (Severity=Info) documents a MachineSet is increasing the number of replicas.
+	ScalingUpReason = "ScalingUp"
+
+	// ScalingDownReason (Severity=Info) documents a MachineSet is decreasing the number of replicas.
+	ScalingDownReason = "ScalingDown"
 )

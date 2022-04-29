@@ -119,10 +119,14 @@ build-within-docker:
 	mkdir -p /build/cluster-api-provider-cloud-director
 	go build -ldflags "-X github.com/akrishnakuma/cluster-api-provider-cloud-director/version.Version=$(version)" -o /build/vcloud/cluster-api-provider-cloud-director main.go
 
-capi: generate fmt vet
+capi: generate fmt vet vendor
 	docker build -f Dockerfile . -t cluster-api-provider-cloud-director:$(version)
 	docker tag cluster-api-provider-cloud-director:$(version) $(IMG)
 	docker push $(IMG)
+
+vendor: generate
+	go mod tidy -compat=1.17
+	go mod vendor
 
 release-manifests: $(KUSTOMIZE)
 	mkdir -p $(MANIFEST_DIR)
