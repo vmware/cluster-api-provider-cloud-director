@@ -116,9 +116,13 @@ func NewVCDClientFromSecrets(host string, orgName string, vdcName string, vAppNa
 
 	// TODO: validation of parameters
 
-	// We need username, clusterOrg, userOrg for additional fallback as cloudConfig params to client creation in correct format already
-	// ex: username: system/administrator -> user: administrator, userOrg: system, org: org1
-	// By using GetUserAndOrg(username, orgName) this would overwrite userOrg from system to org1
+	// When getting the client from main.go, the user, orgName, userOrg would have correct values due to config.SetAuthorization()
+	// when user is sys/admin, userOrg and orgName to have different values, hence we need an additional parameter check to prevent overwrite
+	// as now user='admin' and userOrg='system', we would enter the fallback to clusterOrg which would return userOrg=clusterOrg
+	// so if userOrg is already set, we want the updated fallback to userOrg first which could fall back to clusterOrg if empty
+	// In vcdcluster controller's case, both orgName and userOrg will be the same as we pass in vcdcluster.Spec.Org to both
+	// but since username is still 'sys/admin', we will return correctly
+
 	updatedUserOrg, updatedUserName, err := config.GetUserAndOrg(user, orgName, userOrg)
 
 	if err != nil {
