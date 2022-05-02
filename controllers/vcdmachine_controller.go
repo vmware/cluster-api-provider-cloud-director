@@ -377,6 +377,8 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 			}
 		}
 		vcdMachine.Status.Ready = true
+		vcdMachine.Status.Template = vcdMachine.Spec.Template
+		vcdMachine.Status.ProviderID = vcdMachine.Spec.ProviderID
 		conditions.MarkTrue(vcdMachine, ContainerProvisionedCondition)
 		return ctrl.Result{}, nil
 	}
