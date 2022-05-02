@@ -9,6 +9,7 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"github.com/vmware/cluster-api-provider-cloud-director/pkg/config"
 	"k8s.io/klog"
 	"net/http"
 	"sync"
@@ -111,7 +112,6 @@ func (client *Client) RefreshBearerToken() error {
 	return nil
 }
 
-// NewVCDClientFromSecrets :
 func NewVCDClientFromSecrets(host string, orgName string, vdcName string, vAppName string,
 	networkName string, ipamSubnet string, userOrg string, user string, password string,
 	refreshToken string, insecure bool, clusterID string, oneArm *OneArm, httpPort int32,
@@ -120,9 +120,22 @@ func NewVCDClientFromSecrets(host string, orgName string, vdcName string, vAppNa
 
 	// TODO: validation of parameters
 
+	// When getting the client from main.go, the user, orgName, userOrg would have correct values due to config.SetAuthorization()
+	// when user is sys/admin, userOrg and orgName will have different values, hence we need an additional parameter check to prevent overwrite
+	// as now user='admin' and userOrg='system', we would enter the fallback to clusterOrg which would return userOrg=clusterOrg
+	// so if userOrg is already set, we want the updated fallback to userOrg first which could fall back to clusterOrg if empty
+	// In vcdcluster controller's case, both orgName and userOrg will be the same as we pass in vcdcluster.Spec.Org to both
+	// but since username is still 'sys/admin', we will return correctly
+
+	updatedUserOrg, updatedUserName, err := config.GetUserAndOrg(user, orgName, userOrg)
+
+	if err != nil {
+		return nil, fmt.Errorf("error parsing username before authenticating to VCD: [%v]", err)
+	}
+
 	// We need to get a client every time here rather than reusing the older client, since we can have the same worker
 	// working on different userContexts
-	vcdAuthConfig := NewVCDAuthConfigFromSecrets(host, user, password, refreshToken, userOrg, insecure)
+	vcdAuthConfig := NewVCDAuthConfigFromSecrets(host, updatedUserName, password, refreshToken, updatedUserOrg, insecure)
 
 	vcdClient, apiClient, err := vcdAuthConfig.GetSwaggerClientFromSecrets()
 	if err != nil {
