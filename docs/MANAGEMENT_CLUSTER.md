@@ -26,15 +26,14 @@ infrastructure provider specific Cluster API (in this case, CAPVCD). CAPVCD, as 
 
 1. Install cluster-api core provider, kubeadm bootstrap and kubeadm control-plane providers
     1. Use the clusterctl version mentioned in the [support matrix](../README.md#support_matrix) to run the initialization command
-       1. `clusterctl init --core cluster-api:v0.4.2 -b kubeadm:v0.4.2 -c kubeadm:v0.4.2`. 
+       1. `clusterctl init --core cluster-api:v1.1.3 -b kubeadm:v1.1.3 -c kubeadm:v1.1.3`
 2. Install Infrastructure provider - CAPVCD
-    1. Download CAPVCD repo - `git clone --branch 0.5.0 https://github.com/vmware/cluster-api-provider-cloud-director.git`
+    1. Download CAPVCD repo - `git clone --branch main https://github.com/vmware/cluster-api-provider-cloud-director.git`
     2. Fill in the VCD details in `cluster-api-provider-cloud-director/config/manager/controller_manager_config.yaml`
-    3. Input username and password in `config/manager/kustomization.yaml`. Refer to the rights required for the role [here](VCD_SETUP.md). If system administrator is the user, please use “`system/administrator`” as the username.
-    4. Run the command `kubectl apply -k config/default`
+    3. Run the command `kubectl apply -k config/default`
 3. Wait until `kubectl get pods -A` shows below pods in Running state
     1. ```
-       > kubectl get pods -A
+       kubectl get pods -A
        NAMESPACE                           NAME                                                            READY   STATUS
        capi-kubeadm-bootstrap-system       capi-kubeadm-bootstrap-controller-manager-7dc44947-v5nlv        1/1     Running
        capi-kubeadm-control-plane-system   capi-kubeadm-control-plane-controller-manager-cb9d954f5-ct5cp   1/1     Running
