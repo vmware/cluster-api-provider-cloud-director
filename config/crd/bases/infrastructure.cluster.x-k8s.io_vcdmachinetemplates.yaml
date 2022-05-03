@@ -111,6 +111,10 @@ spec:
                       catalog:
                         description: Catalog hosting templates
                         type: string
+                      placementPolicy:
+                        description: PlacementPolicy is the placement policy to be
+                          used on this machine.
+                        type: string
                       providerID:
                         description: ProviderID will be the container name in ProviderID
                           format (vmware-cloud-director://<vm id>)
