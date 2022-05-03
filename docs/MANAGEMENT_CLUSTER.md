@@ -20,19 +20,42 @@ We recommend CSE provisioned TKG cluster as bootstrap cluster.
 
 <a name="management_cluster_init"></a>
 ### Initialize the cluster with Cluster API
-Typically, command `clusterctl init` enables the initialization of the core Cluster API and allows the installation of
-infrastructure provider specific Cluster API (in this case, CAPVCD). CAPVCD, as of now, is not yet available via
+**Preliminary Notes**: 
+1. Typically, the command `clusterctl init` enables the initialization of the core Cluster API and allows the installation of  infrastructure provider specific Cluster API (in this case, CAPVCD). CAPVCD, as of now, is not yet available via
 `clusterctl init`. Therefore, a separate set of commands are provided below for the installation purposes.
+2. [ClusterResourceSets](https://cluster-api.sigs.k8s.io/tasks/experimental-features/cluster-resource-set.html) will be used to install the CNI on the cluster. In the instructions below, we use Antrea v0.13.1 as an example CNI which will be installed into the management cluster using ClusterResourceSets.
 
-1. Install cluster-api core provider, kubeadm bootstrap and kubeadm control-plane providers
+The steps to create the management cluster with CAPVCD and Antrea CNI are as specified below:
+1. Checkout CAPVCD source repository from git:
+   ```shell
+   git clone --branch main https://github.com/vmware/cluster-api-provider-cloud-director.git`
+   ```
+2. Install cluster-api core provider, kubeadm bootstrap and kubeadm control-plane providers
     1. Use the clusterctl version mentioned in the [support matrix](../README.md#support_matrix) to run the initialization command
        1. `clusterctl init --core cluster-api:v1.1.3 -b kubeadm:v1.1.3 -c kubeadm:v1.1.3`
-2. Install Infrastructure provider - CAPVCD
-    1. Download CAPVCD repo - `git clone --branch main https://github.com/vmware/cluster-api-provider-cloud-director.git`
-    2. Fill in the VCD details in `cluster-api-provider-cloud-director/config/manager/controller_manager_config.yaml`
+    2. Install Antrea using ClusterResourceSets:
+       1. Download the Antrea manifest of interest:
+          ```shell
+          ANTREA_VERSION=v0.13.1
+          wget -O antrea.yaml https://github.com/vmware-tanzu/antrea/releases/download/${ANTREA_VERSION}/antrea.yml```
+       2. Create a `ConfigMap` from the manifest
+          ```shell
+          kubectl create configmap antrea-crs-cm --from-file=antrea.yaml
+          ```
+       3. Create the ClusterResourceSet yaml file from the ConfigMap. A sample ClusterResourceSet that uses the `antrea-crs-cm` ConfigMap is available in the CAPVCD source repository as [antrea-crs.yaml](../examples/antrea-crs.yaml).
+         ```shell
+         kubectl apply -f examples/antrea-crs.yaml
+         ```
+       5. Note that the [capi-quickstart.yaml](../examples/capi-quickstart.yaml) already has the label set indicating that the Antrea CNI is to be used. The label is as follows:
+         ```yaml
+         labels:
+           cni: antrea
+         ```
+3. Install Infrastructure provider - CAPVCD
+    1. Fill in the VCD details in `cluster-api-provider-cloud-director/config/manager/controller_manager_config.yaml`
     3. Run the command `kubectl apply -k config/default`
-3. Wait until `kubectl get pods -A` shows below pods in Running state
-    1. ```
+4. Wait until `kubectl get pods -A` shows below pods in Running state
+    1. ```shell
        kubectl get pods -A
        NAMESPACE                           NAME                                                            READY   STATUS
        capi-kubeadm-bootstrap-system       capi-kubeadm-bootstrap-controller-manager-7dc44947-v5nlv        1/1     Running

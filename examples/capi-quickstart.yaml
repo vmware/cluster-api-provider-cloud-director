@@ -3,6 +3,8 @@ kind: Cluster
 metadata:
   name: capi-cluster
   namespace: default
+  labels:
+    cni: antrea
 spec:
   clusterNetwork:
     pods:
