@@ -468,7 +468,7 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 			b64Password := b64.StdEncoding.EncodeToString([]byte(vcdCluster.Spec.UserCredentialsContext.Password))
 			b64RefreshToken := b64.StdEncoding.EncodeToString([]byte(
 				vcdCluster.Spec.UserCredentialsContext.RefreshToken))
-			enableDefaultStorageClass := vcdCluster.Spec.DefaultStorageClassOptions != nil
+			enableDefaultStorageClass := vcdCluster.Spec.DefaultStorageClassOptions.VCDStorageProfileName != ""
 			k8sStorageClassName := ""
 			fileSystemFormat := ""
 			vcdStorageProfileName := ""

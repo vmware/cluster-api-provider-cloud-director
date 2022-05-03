@@ -69,7 +69,7 @@ type VCDClusterSpec struct {
 	// +kubebuilder:validation:Required
 	UserCredentialsContext UserCredentialsContext `json:"userContext"`
 	// +optional
-	DefaultStorageClassOptions *DefaultStorageClassOptions `json:"defaultStorageClassOptions"`
+	DefaultStorageClassOptions DefaultStorageClassOptions `json:"defaultStorageClassOptions"`
 	// + optional
 	RDEId string `json:"rdeId,omitempty"`
 	// +optional
