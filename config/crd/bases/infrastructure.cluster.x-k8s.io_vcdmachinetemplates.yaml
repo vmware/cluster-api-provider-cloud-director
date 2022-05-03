@@ -120,6 +120,10 @@ spec:
                           on this machine. If no sizing policy is specified, default
                           sizing policy will be used to create the nodes
                         type: string
+                      storageProfile:
+                        description: StorageProfile is the storage profile to be used
+                          on this machince
+                        type: string
                       template:
                         description: TemplatePath is the path of the template OVA
                           that is to be used
