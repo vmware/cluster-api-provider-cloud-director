@@ -11,7 +11,7 @@ func (src *VCDCluster) ConvertTo(dstRaw conversion.Hub) error {
 	if err := Convert_v1alpha4_VCDCluster_To_v1beta1_VCDCluster(src, dst, nil); err != nil {
 		return err
 	}
-	dst.Spec.DefaultStorageClassOptions = &v1beta1.DefaultStorageClassOptions{}
+	dst.Spec.DefaultStorageClassOptions = v1beta1.DefaultStorageClassOptions{}
 	// TODO: Update the new params to match previous release's Status; ex) dst.Spec.* = src.Status.*, maybe RDE.Status
 	dst.Spec.RDEId = src.Status.InfraId
 	dst.Spec.ParentUID = ""
