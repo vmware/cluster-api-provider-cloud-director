@@ -50,6 +50,10 @@ type VCDMachineSpec struct {
 	// +optional
 	SizingPolicy string `json:"sizingPolicy,omitempty"`
 
+	// PlacementPolicy is the placement policy to be used on this machine.
+	// +optional
+	PlacementPolicy string `json:"placementPolicy,omitempty"`
+
 	// StorageProfile is the storage profile to be used on this machince
 	// +optional
 	StorageProfile string `json:"storageProfile,omitempty"`
