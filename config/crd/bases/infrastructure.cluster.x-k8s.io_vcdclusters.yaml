@@ -171,8 +171,6 @@ spec:
                 - host
                 - port
                 type: object
-              defaultComputePolicy:
-                type: string
               defaultStorageClassOptions:
                 properties:
                   fileSystem:
@@ -275,6 +273,10 @@ spec:
                   ready.
                 type: boolean
               useAsManagementCluster:
+                type: boolean
+              vappmetadataUpdated:
+                description: MetadataUpdated denotes that the metadata of Vapp is
+                  updated.
                 type: boolean
             required:
             - ready

@@ -69,9 +69,7 @@ type VCDClusterSpec struct {
 	// +kubebuilder:validation:Required
 	UserCredentialsContext UserCredentialsContext `json:"userContext"`
 	// +optional
-	DefaultStorageClassOptions *DefaultStorageClassOptions `json:"defaultStorageClassOptions"`
-	// +optional
-	DefaultComputePolicy string `json:"defaultComputePolicy,omitempty"`
+	DefaultStorageClassOptions DefaultStorageClassOptions `json:"defaultStorageClassOptions"`
 	// + optional
 	RDEId string `json:"rdeId,omitempty"`
 	// +optional
@@ -87,6 +85,10 @@ type VCDClusterStatus struct {
 
 	// Ready denotes that the vcd cluster (infrastructure) is ready.
 	Ready bool `json:"ready"`
+
+	// MetadataUpdated denotes that the metadata of Vapp is updated.
+	// +optional
+	VAppMetadataUpdated bool `json:"vappmetadataUpdated,omitempty"`
 
 	// Conditions defines current service state of the VCDCluster.
 	// +optional

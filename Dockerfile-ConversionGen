@@ -1,0 +1,14 @@
+FROM golang:1.18 as builder
+
+ENV CONVERSION_GEN_VER=v0.23.1
+ENV CONVERSION_GEN_BIN=conversion-gen
+ENV GOOS=darwin
+ENV GOARCH=amd64
+
+########################################################
+
+WORKDIR /opt/conversion-gen
+
+RUN go install  -tags tools k8s.io/code-generator/cmd/${CONVERSION_GEN_BIN}@${CONVERSION_GEN_VER}
+
+RUN cp /go/bin/darwin_amd64/conversion-gen .

@@ -1,5 +1,5 @@
 /*
-Copyright 2020 The Kubernetes Authors.
+Copyright 2019 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,9 +14,21 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+<<<<<<< HEAD:rdeprojector/vendor/sigs.k8s.io/controller-runtime/pkg/ratelimiter/doc.go
 /*
 Package ratelimiter defines rate limiters used by Controllers to limit how frequently requests may be queued.
 
 Typical rate limiters that can be used are implemented in client-go's workqueue package.
 */
 package ratelimiter
+=======
+// +k8s:deepcopy-gen=package
+// +k8s:protobuf-gen=package
+// +k8s:openapi-gen=true
+// +k8s:prerelease-lifecycle-gen=true
+
+// +groupName=flowcontrol.apiserver.k8s.io
+
+// Package v1beta2 holds api types of version v1alpha1 for group "flowcontrol.apiserver.k8s.io".
+package v1beta2 // import "k8s.io/api/flowcontrol/v1beta2"
+>>>>>>> main:vendor/k8s.io/api/flowcontrol/v1beta2/doc.go
