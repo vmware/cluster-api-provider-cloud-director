@@ -186,7 +186,6 @@ const (
 	NetworkConfiguration                   = "guestinfo.postcustomization.networkconfiguration.status"
 	KubeadmInit                            = "guestinfo.postcustomization.kubeinit.status"
 	TkrGetVersions                         = "guestinfo.postcustomization.tkr.get_versions.status"
-	KubectlApplyCni                        = "guestinfo.postcustomization.kubectl.cni.install.status"
 	KubectlApplyCpi                        = "guestinfo.postcustomization.kubectl.cpi.install.status"
 	KubectlApplyCsi                        = "guestinfo.postcustomization.kubectl.csi.install.status"
 	KubeadmTokenGenerate                   = "guestinfo.postcustomization.kubeadm.token.generate.status"
@@ -200,7 +199,6 @@ var controlPlanePostCustPhases = []string{
 	NetworkConfiguration,
 	KubeadmInit,
 	TkrGetVersions,
-	KubectlApplyCni,
 	KubectlApplyCpi,
 	KubectlApplyCsi,
 	KubeadmTokenGenerate,
@@ -243,7 +241,10 @@ func redactCloudInit(cloudInitYaml string, path []string) (string, error) {
 
 }
 
-func (r *VCDMachineReconciler) waitForPostCustomizationPhase(ctx context.Context, workloadVCDClient *vcdclient.Client, vm *govcd.VM, phase string) error {
+func (r *VCDMachineReconciler) waitForPostCustomizationPhase(ctx context.Context,
+	workloadVCDClient *vcdclient.Client, vm *govcd.VM, phase string) error {
+	log := ctrl.LoggerFrom(ctx)
+
 	startTime := time.Now()
 	possibleStatuses := []string{"", "in_progress", "successful"}
 	currentStatus := possibleStatuses[0]
@@ -256,6 +257,8 @@ func (r *VCDMachineReconciler) waitForPostCustomizationPhase(ctx context.Context
 			return errors.Wrapf(err, "unable to get extra config value for key [%s] for vm: [%s]: [%v]",
 				phase, vm.VM.Name, err)
 		}
+		log.Info("Obtained machine status ", "phase", phase, "status", newStatus)
+
 		if !strInSlice(newStatus, possibleStatuses) {
 			return errors.Wrapf(err, "invalid postcustomiation phase: [%s] for key [%s] for vm [%s]",
 				newStatus, phase, vm.VM.Name)
@@ -491,7 +494,6 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 				reclaimPolicy,                     // reclaim policy
 				vcdStorageProfileName,             // vcd storage profile
 				fileSystemFormat,                  // filesystem
-				workloadVCDClient.CniVersion,      // cni version
 				workloadVCDClient.CpiVersion,      // cpi version
 				vcdHostFormatted,                  // vcd host
 				workloadVCDClient.ClusterOrgName,  // org
@@ -678,7 +680,9 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	}
 	for _, phase := range phases {
 		if err = vApp.Refresh(); err != nil {
-			return ctrl.Result{}, errors.Wrapf(err, "Error while bootstrapping the machine [%s/%s]; unable to refresh vapp", vAppName, vm.VM.Name)
+			return ctrl.Result{},
+				errors.Wrapf(err, "Error while bootstrapping the machine [%s/%s]; unable to refresh vapp",
+					vAppName, vm.VM.Name)
 		}
 		log.Info(fmt.Sprintf("Start: waiting for the bootstrapping phase [%s] to complete", phase))
 		if err = r.waitForPostCustomizationPhase(ctx, workloadVCDClient, vm, phase); err != nil {
