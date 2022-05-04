@@ -30,10 +30,16 @@ The steps to create the management cluster with CAPVCD and Antrea CNI are as spe
    ```shell
    git clone --branch main https://github.com/vmware/cluster-api-provider-cloud-director.git`
    ```
-2. Install cluster-api core provider, kubeadm bootstrap and kubeadm control-plane providers
-    1. Use the clusterctl version mentioned in the [support matrix](../README.md#support_matrix) to run the initialization command
-       1. `clusterctl init --core cluster-api:v1.1.3 -b kubeadm:v1.1.3 -c kubeadm:v1.1.3`
-    2. Install Antrea using ClusterResourceSets:
+2. Install cluster-api core provider, kubeadm bootstrap and kubeadm control-plane providers along with Antrea CNI as a ClusterResourceSet:
+    1. Enable the feature-gate `EXP_CLUSTER_RESOURCE_SET` to allow the cluster-api core provider to use ClusterResourceSets in the cluster.
+       ```shell
+       export EXP_CLUSTER_RESOURCE_SET=true
+       ```
+    2. Use the clusterctl version mentioned in the [support matrix](../README.md#support_matrix) to run the initialization command.
+       ```shell
+       clusterctl init --core cluster-api:v1.1.3 -b kubeadm:v1.1.3 -c kubeadm:v1.1.3
+       ```
+    3. Install Antrea using ClusterResourceSets:
        1. Download the Antrea manifest of interest:
           ```shell
           ANTREA_VERSION=v0.13.1
