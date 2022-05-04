@@ -307,12 +307,12 @@ func (r *VCDMachineReconciler) reconcileNodeStatusInRDE(ctx context.Context, rde
 		return NewNoRDEError("RDE ID is empty or generated; hence will not be updated")
 	}
 
-	updatePatch := make(map[string]interface{})
-	_, capvcdEntity, err := workloadVCDClient.GetCAPVCDEntity(ctx, rdeID)
+	capvcdStatusPatch := make(map[string]interface{})
+	_, _, _, capvcdStatus, err := workloadVCDClient.GetCAPVCDEntity(ctx, rdeID)
 	if err != nil {
 		return fmt.Errorf("failed to get CAPVCD entity with ID [%s] to sync node details for machine [%s]: [%v]", rdeID, nodeName, err)
 	}
-	nodeStatusMap := capvcdEntity.Status.CAPVCDStatus.NodeStatus
+	nodeStatusMap := capvcdStatus.NodeStatus
 	if nodeStatus, ok := nodeStatusMap[nodeName]; ok && nodeStatus == status {
 		// no update needed
 		return nil
@@ -321,10 +321,10 @@ func (r *VCDMachineReconciler) reconcileNodeStatusInRDE(ctx context.Context, rde
 		nodeStatusMap = make(map[string]string)
 	}
 	nodeStatusMap[nodeName] = status
-	updatePatch["Status.CAPVCDStatus.NodeStatus"] = nodeStatusMap
+	capvcdStatusPatch["NodeStatus"] = nodeStatusMap
 
 	// update defined entity
-	updatedRDE, err := workloadVCDClient.PatchRDE(ctx, updatePatch, rdeID)
+	updatedRDE, err := workloadVCDClient.PatchRDE(ctx, nil, nil, capvcdStatusPatch, rdeID)
 	if err != nil {
 		return fmt.Errorf("failed to update defined entity with ID [%s] with node status for VCDMachine [%s]: [%v]", rdeID, nodeName, err)
 	}

@@ -40,21 +40,11 @@ type Services struct {
 	CidrBlocks []string `json:"cidrBlocks,omitempty"`
 }
 
-type Network struct {
-	Cni      Cni      `json:"cni,omitempty"`
-	Pods     Pods     `json:"pods,omitempty"`
-	Services Services `json:"services,omitempty"`
-}
-
-type Settings struct {
-	OvdcNetwork string  `json:"ovdcNetwork,omitempty"`
-	Network     Network `json:"network,omitempty"`
-}
-
-type CloudProperties struct {
-	Site string `json:"site,omitempty"`
-	Org  string `json:"orgName,omitempty"`
-	Vdc  string `json:"virtualDataCenterName,omitempty"`
+type VCDProperties struct {
+	Site        string `json:"site,omitempty"`
+	Org         string `json:"orgName,omitempty"`
+	Vdc         string `json:"virtualDataCenterName,omitempty"`
+	OvdcNetwork string `json:"ovdcNetworkName,omitempty"`
 }
 
 type ApiEndpoints struct {
@@ -76,6 +66,24 @@ type PrivateSection struct {
 	KubeConfig string `json:"kubeConfig,omitempty"`
 }
 
+type K8sNetwork struct {
+	Cni      Cni      `json:"cni,omitempty"`
+	Pods     Pods     `json:"pods,omitempty"`
+	Services Services `json:"services,omitempty"`
+}
+
+type ClusterResource struct {
+	Name    string `json:"name,omitempty"`
+	Version string `json:"version,omitempty"`
+}
+
+type VCDResource struct {
+	Type              string                 `json:"type,omitempty"`
+	ID                string                 `json:"id,omitempty"`
+	Name              string                 `json:"name,omitempty"`
+	AdditionalDetails map[string]interface{} `json:"additionalDetails,omitempty"`
+}
+
 type CAPVCDStatus struct {
 	Phase                  string            `json:"phase,omitempty"`
 	Kubernetes             string            `json:"kubernetes,omitempty"`
@@ -84,30 +92,27 @@ type CAPVCDStatus struct {
 	NodeStatus             map[string]string `json:"nodeStatus,omitempty"`
 	CapvcdVersion          string            `json:"capvcdVersion,omitempty"`
 	UseAsManagementCluster bool              `json:"useAsManagementCluster,omitempty"`
-}
-type Status struct {
-	CAPVCDStatus      CAPVCDStatus    `json:"capvcd,omitempty"`
-	CloudProperties   CloudProperties `json:"cloudProperties,omitempty"`
-	PersistentVolumes []string        `json:"persistentVolumes,omitempty"`
-	VirtualIPs        []string        `json:"virtualIPs,omitempty"`
-	ParentUID         string          `json:"parentUid,omitempty"`
-	Cni               VersionedAddon  `json:"cni,omitempty"`
-	Cpi               VersionedAddon  `json:"cpi,omitempty"`
-	Csi               VersionedAddon  `json:"csi,omitempty"`
-	Private           PrivateSection  `json:"private,omitempty"`
+	Errors                 []string          `json:"errors,omitempty"`
+	K8sNetwork             K8sNetwork        `json:"k8sNetwork,omitempty"`
+	ParentUID              string            `json:"parentUid,omitempty"`
+	ClusterResourceSet     []ClusterResource `json:"clusterResourceSet,omitempty"`
+	VcdProperties          VCDProperties     `json:"vcdProperties,omitempty"`
+	Private                PrivateSection    `json:"private,omitempty"`
+	VCDResourceSet         []VCDResource     `json:"VCDResourceSet,omitempty"`
 }
 
-type ClusterSpec struct {
-	//Settings     Settings     `json:"settings"`
-	//Topology     Topology     `json:"topology"`
-	//Distribution Distribution `json:"distribution"`
+type Status struct {
+	CAPVCDStatus CAPVCDStatus `json:"capvcd,omitempty"`
+}
+
+type CAPVCDSpec struct {
 	CapiYaml string `json:"capiYaml,omitempty"`
 }
 
 type CAPVCDEntity struct {
-	Metadata   Metadata    `json:"metadata"`
-	Spec       ClusterSpec `json:"spec"`
-	ApiVersion string      `json:"apiVersion"`
-	Status     Status      `json:"status"`
-	Kind       string      `json:"kind"`
+	Metadata   Metadata   `json:"metadata"`
+	Spec       CAPVCDSpec `json:"spec"`
+	ApiVersion string     `json:"apiVersion"`
+	Status     Status     `json:"status"`
+	Kind       string     `json:"kind"`
 }
