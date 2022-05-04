@@ -184,8 +184,8 @@ func (r *VCDClusterReconciler) constructCapvcdRDE(ctx context.Context, cluster *
 					Phase:        "",
 					ApiEndpoints: []rdeType.ApiEndpoints{},
 				},
-				NodeStatus:              make(map[string]string),
-				CapvcdVersion:           r.Config.ClusterResources.CapvcdVersion,
+				NodeStatus:             make(map[string]string),
+				CapvcdVersion:          r.Config.ClusterResources.CapvcdVersion,
 				UseAsManagementCluster: vcdCluster.Spec.UseAsManagementCluster,
 				K8sNetwork: rdeType.K8sNetwork{
 					Cni: rdeType.Cni{
@@ -200,9 +200,9 @@ func (r *VCDClusterReconciler) constructCapvcdRDE(ctx context.Context, cluster *
 				},
 				ParentUID: vcdCluster.Spec.ParentUID,
 				VcdProperties: rdeType.VCDProperties{
-					Site: vcdCluster.Spec.Site,
-					Org:  org,
-					Vdc:  vdc,
+					Site:        vcdCluster.Spec.Site,
+					Org:         org,
+					Vdc:         vdc,
 					OvdcNetwork: vcdCluster.Spec.OvdcNetwork,
 				},
 			},

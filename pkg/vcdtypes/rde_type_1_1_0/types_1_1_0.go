@@ -85,20 +85,20 @@ type VCDResource struct {
 }
 
 type CAPVCDStatus struct {
-	Phase                   string            `json:"phase,omitempty"`
-	Kubernetes              string            `json:"kubernetes,omitempty"`
-	Uid                     string            `json:"uid,omitempty"`
-	ClusterAPIStatus        ClusterApiStatus  `json:"clusterApiStatus,omitempty"`
-	NodeStatus              map[string]string `json:"nodeStatus,omitempty"`
-	CapvcdVersion           string            `json:"capvcdVersion,omitempty"`
+	Phase                  string            `json:"phase,omitempty"`
+	Kubernetes             string            `json:"kubernetes,omitempty"`
+	Uid                    string            `json:"uid,omitempty"`
+	ClusterAPIStatus       ClusterApiStatus  `json:"clusterApiStatus,omitempty"`
+	NodeStatus             map[string]string `json:"nodeStatus,omitempty"`
+	CapvcdVersion          string            `json:"capvcdVersion,omitempty"`
 	UseAsManagementCluster bool              `json:"useAsManagementCluster,omitempty"`
-	Errors                  []string          `json:"errors,omitempty"`
-	K8sNetwork              K8sNetwork        `json:"k8sNetwork,omitempty"`
-	ParentUID               string            `json:"parentUid,omitempty"`
-	ClusterResourceSet      []ClusterResource `json:"clusterResourceSet,omitempty"`
-	VcdProperties           VCDProperties     `json:"vcdProperties,omitempty"`
-	Private                 PrivateSection    `json:"private,omitempty"`
-	VCDResourceSet          []VCDResource     `json:"VCDResourceSet,omitempty"`
+	Errors                 []string          `json:"errors,omitempty"`
+	K8sNetwork             K8sNetwork        `json:"k8sNetwork,omitempty"`
+	ParentUID              string            `json:"parentUid,omitempty"`
+	ClusterResourceSet     []ClusterResource `json:"clusterResourceSet,omitempty"`
+	VcdProperties          VCDProperties     `json:"vcdProperties,omitempty"`
+	Private                PrivateSection    `json:"private,omitempty"`
+	VCDResourceSet         []VCDResource     `json:"VCDResourceSet,omitempty"`
 }
 
 type Status struct {
