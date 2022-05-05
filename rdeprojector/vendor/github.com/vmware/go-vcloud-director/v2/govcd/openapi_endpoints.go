@@ -63,6 +63,8 @@ var endpointMinApiVersions = map[string]string{
 	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointAlbVirtualServiceSummaries:       "35.0", // VCD 10.2+
 	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointSSLCertificateLibrary:            "35.0", // VCD 10.2+
 	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointSSLCertificateLibraryOld:         "35.0", // VCD 10.2+ and deprecated from 10.3
+	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointVdcGroupsDfwRules:                "35.0", // VCD 10.2+
+	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointNetworkContextProfiles:           "35.0", // VCD 10.2+
 }
 
 // elevateNsxtNatRuleApiVersion helps to elevate API version to consume newer NSX-T NAT Rule features
@@ -80,6 +82,11 @@ var endpointElevatedApiVersions = map[string][]string{
 		//"33.0", // Basic minimum required version
 		"35.0", // Deprecates field BackingType in favor of BackingTypeValue
 		"36.0", // Adds support new type of BackingTypeValue - IMPORTED_T_LOGICAL_SWITCH (backed by NSX-T segment)
+	},
+	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointVdcGroupsDfwRules: {
+		//"35.0", // Basic minimum required version
+		"35.2", // Deprecates Action field in favor of ActionValue
+		"36.2", // Adds 3 new fields - Comments, SourceGroupsExcluded, and DestinationGroupsExcluded
 	},
 }
 
@@ -110,11 +117,11 @@ func (client *Client) checkOpenApiEndpointCompatibility(endpoint string) (string
 	return minimumApiVersion, nil
 }
 
-// getOpenApiHighestElevatedVersion returns highest supported API version for particular endpoint
+// getOpenApiHighestElevatedVersion returns the highest supported API version for particular endpoint
 // These API versions must be defined in endpointElevatedApiVersions. If none are there - it will return minimum
 // supported API versions just like client.checkOpenApiEndpointCompatibility().
 //
-// The advantage of this functions is that it provides a controlled API elevation instead of just picking the highest
+// The advantage of this function is that it provides a controlled API elevation instead of just picking the highest
 // which could be risky and untested (especially if new API version is released after release of package consuming this
 // SDK)
 func (client *Client) getOpenApiHighestElevatedVersion(endpoint string) (string, error) {

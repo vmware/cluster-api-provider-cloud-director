@@ -30,7 +30,7 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	capvcdv1alpha1 "github.com/vmware/cluster-api-provider-cloud-director/api/v1alpha1"
+	capvcdv1alpha1 "github.com/vmware/cluster-api-provider-cloud-director/rdeprojector/api/v1alpha1"
 	//+kubebuilder:scaffold:imports
 )
 

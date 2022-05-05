@@ -35,7 +35,7 @@ type RDEProjectorSpec struct {
 	// Important: Run "make" to regenerate code after modifying this file
 
 	// +kubebuilder:validation:Required
-	RDEId string `json:"rdeId,omitempty"`
+	RDEId string `json:"rdeId"`
 	// +kubebuilder:validation:Required
 	Site string `json:"site"`
 	// +kubebuilder:validation:Required

@@ -31,8 +31,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	capvcdv1alpha1 "github.com/vmware/cluster-api-provider-cloud-director/api/v1alpha1"
-	"github.com/vmware/cluster-api-provider-cloud-director/controllers"
+	capvcdv1alpha1 "github.com/vmware/cluster-api-provider-cloud-director/rdeprojector/api/v1alpha1"
+	"github.com/vmware/cluster-api-provider-cloud-director/rdeprojector/controllers"
 	//+kubebuilder:scaffold:imports
 )
 
