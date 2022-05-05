@@ -20,12 +20,22 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"github.com/pkg/errors"
 	"io"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/serializer/yaml"
+	"k8s.io/apimachinery/pkg/types"
 	k8syaml "k8s.io/apimachinery/pkg/util/yaml"
+	"k8s.io/client-go/discovery"
+	"k8s.io/client-go/discovery/cached/memory"
+	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/restmapper"
+	_ "k8s.io/client-go/restmapper"
 	"net/http"
 	"time"
 
@@ -94,6 +104,47 @@ func (r *RDEProjectorReconciler) reconcileNormal(ctx context.Context, rdeProject
 	capiYaml := entity["spec"].(map[string]interface{})["capiYaml"]
 	log.Info("Retrieved Capi Yaml", "capiYaml", capiYaml)
 
+	kubeconfig := ctrl.GetConfigOrDie()
+	dc, err := discovery.NewDiscoveryClientForConfig(kubeconfig)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	mapper := restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(dc))
+
+	dyn, err := dynamic.NewForConfig(kubeconfig)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	var decUnstructured = yaml.NewDecodingSerializer(unstructured.UnstructuredJSONScheme)
+	obj := &unstructured.Unstructured{}
+	_, gvk, err := decUnstructured.Decode([]byte(fmt.Sprintf("%v", capiYaml)), nil, obj)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	mapping, err := mapper.RESTMapping(gvk.GroupKind(), gvk.Version)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	var dr dynamic.ResourceInterface
+	if mapping.Scope.Name() == meta.RESTScopeNameNamespace {
+		// namespaced resources should specify the namespace
+		dr = dyn.Resource(mapping.Resource).Namespace(obj.GetNamespace())
+	} else {
+		// for cluster-wide resources
+		dr = dyn.Resource(mapping.Resource)
+	}
+
+	data, err := json.Marshal(obj)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	_, err = dr.Patch(ctx, obj.GetName(), types.ApplyPatchType, data, metav1.PatchOptions{
+		FieldManager: "rde-controller",
+	})
+
 	yamlReader := k8syaml.NewYAMLReader(bufio.NewReader(bytes.NewReader([]byte(fmt.Sprintf("%v", capiYaml)))))
 
 	hundredKB := 100 * 1024
@@ -117,7 +168,7 @@ func (r *RDEProjectorReconciler) reconcileNormal(ctx context.Context, rdeProject
 				return ctrl.Result{}, fmt.Errorf("unable to parse object of kind [%s] and name [%s]: [%v]\n",
 					kind, name, err)
 			}
-			r.Client.Create(ctx, vcdCluster)
+
 		}
 	}
 
