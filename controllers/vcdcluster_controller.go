@@ -13,10 +13,11 @@ import (
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	infrav1 "github.com/vmware/cluster-api-provider-cloud-director/api/v1beta1"
+	"github.com/vmware/cluster-api-provider-cloud-director/pkg/capisdk"
 	"github.com/vmware/cluster-api-provider-cloud-director/pkg/config"
 	vcdutil "github.com/vmware/cluster-api-provider-cloud-director/pkg/util"
-	"github.com/vmware/cluster-api-provider-cloud-director/pkg/vcdclient"
-	swagger "github.com/vmware/cluster-api-provider-cloud-director/pkg/vcdswaggerclient"
+	"github.com/vmware/cloud-provider-for-cloud-director/pkg/vcdsdk"
+	swagger "github.com/vmware/cloud-provider-for-cloud-director/pkg/vcdswaggerclient"
 	"github.com/vmware/cluster-api-provider-cloud-director/pkg/vcdtypes"
 	"github.com/vmware/go-vcloud-director/v2/govcd"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -267,14 +268,14 @@ func (r *VCDClusterReconciler) constructCapvcdRDE(ctx context.Context, cluster *
 	return rde, nil
 }
 
-func (r *VCDClusterReconciler) constructAndCreateRDEFromCluster(ctx context.Context, workloadVCDClient *vcdclient.Client, cluster *clusterv1.Cluster, vcdCluster *infrav1.VCDCluster) (string, error) {
+func (r *VCDClusterReconciler) constructAndCreateRDEFromCluster(ctx context.Context, workloadVCDClient *vcdsdk.Client, cluster *clusterv1.Cluster, vcdCluster *infrav1.VCDCluster) (string, error) {
 	log := ctrl.LoggerFrom(ctx)
 
 	rde, err := r.constructCapvcdRDE(ctx, cluster, vcdCluster)
 	if err != nil {
 		return "", fmt.Errorf("error occurred while constructing RDE payload for the cluster [%s]: [%v]", vcdCluster.Name, err)
 	}
-	resp, err := workloadVCDClient.ApiClient.DefinedEntityApi.CreateDefinedEntity(ctx, *rde,
+	resp, err := workloadVCDClient.APIClient.DefinedEntityApi.CreateDefinedEntity(ctx, *rde,
 		rde.EntityType, nil)
 	if err != nil {
 		return "", fmt.Errorf("error occurred during RDE creation for the cluster [%s]: [%v]", vcdCluster.Name, err)
@@ -283,7 +284,7 @@ func (r *VCDClusterReconciler) constructAndCreateRDEFromCluster(ctx context.Cont
 		return "", fmt.Errorf("error occurred during RDE creation for the cluster [%s]", vcdCluster.Name)
 	}
 	taskURL := resp.Header.Get(VCDLocationHeader)
-	task := govcd.NewTask(&workloadVCDClient.VcdClient.Client)
+	task := govcd.NewTask(&workloadVCDClient.VCDClient.Client)
 	task.Task.HREF = taskURL
 	err = task.Refresh()
 	if err != nil {
@@ -294,11 +295,12 @@ func (r *VCDClusterReconciler) constructAndCreateRDEFromCluster(ctx context.Cont
 	return rdeID, nil
 }
 
-func (r *VCDClusterReconciler) reconcileRDE(ctx context.Context, cluster *clusterv1.Cluster, vcdCluster *infrav1.VCDCluster, workloadVCDClient *vcdclient.Client) error {
+func (r *VCDClusterReconciler) reconcileRDE(ctx context.Context, cluster *clusterv1.Cluster, vcdCluster *infrav1.VCDCluster, workloadVCDClient *vcdsdk.Client) error {
 	log := ctrl.LoggerFrom(ctx)
 
 	updatePatch := make(map[string]interface{})
-	_, capvcdEntity, err := workloadVCDClient.GetCAPVCDEntity(ctx, vcdCluster.Status.InfraId)
+	capvcdRdeManager := capisdk.NewCapvcdRdeManager(workloadVCDClient)
+	_, capvcdEntity, err := capvcdRdeManager.GetCAPVCDEntity(ctx, vcdCluster.Status.InfraId)
 	if err != nil {
 		return fmt.Errorf("failed to get RDE with ID [%s] for cluster [%s]: [%v]", vcdCluster.Status.InfraId, vcdCluster.Name, err)
 	}
@@ -449,14 +451,14 @@ func (r *VCDClusterReconciler) reconcileRDE(ctx context.Context, cluster *cluste
 		}
 	}
 
-	updatedRDE, err := workloadVCDClient.PatchRDE(ctx, updatePatch, vcdCluster.Status.InfraId)
+	updatedRDE, err := capvcdRdeManager.PatchRDE(ctx, updatePatch, vcdCluster.Status.InfraId)
 	if err != nil {
 		return fmt.Errorf("failed to update defined entity with ID [%s] for cluster [%s]: [%v]", vcdCluster.Status.InfraId, vcdCluster.Name, err)
 	}
 
 	if updatedRDE.State != RDEStatusResolved {
 		// try to resolve the defined entity
-		entityState, resp, err := workloadVCDClient.ApiClient.DefinedEntityApi.ResolveDefinedEntity(ctx, updatedRDE.Id)
+		entityState, resp, err := workloadVCDClient.APIClient.DefinedEntityApi.ResolveDefinedEntity(ctx, updatedRDE.Id)
 		if err != nil {
 			return fmt.Errorf("failed to resolve defined entity with ID [%s] for cluster [%s]", vcdCluster.Status.InfraId, vcdCluster.Name)
 		}
@@ -474,25 +476,17 @@ func (r *VCDClusterReconciler) reconcileRDE(ctx context.Context, cluster *cluste
 func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clusterv1.Cluster,
 	vcdCluster *infrav1.VCDCluster) (ctrl.Result, error) {
 	log := ctrl.LoggerFrom(ctx)
-	workloadVCDClient, err := vcdclient.NewVCDClientFromSecrets(vcdCluster.Spec.Site, vcdCluster.Spec.Org,
-		vcdCluster.Spec.Ovdc, vcdCluster.Name, vcdCluster.Spec.OvdcNetwork, r.Config.VCD.VIPSubnet,
-		vcdCluster.Spec.Org, vcdCluster.Spec.UserCredentialsContext.Username,
+	workloadVCDClient, err := vcdsdk.NewVCDClientFromSecrets(vcdCluster.Spec.Site, vcdCluster.Spec.Org,
+		vcdCluster.Spec.Ovdc, vcdCluster.Spec.Org, vcdCluster.Spec.UserCredentialsContext.Username,
 		vcdCluster.Spec.UserCredentialsContext.Password, vcdCluster.Spec.UserCredentialsContext.RefreshToken,
-		true, vcdCluster.Status.InfraId, &vcdclient.OneArm{
-			StartIPAddress: r.Config.LB.OneArm.StartIP,
-			EndIPAddress:   r.Config.LB.OneArm.EndIP,
-		}, 0, 0, r.Config.LB.Ports.TCP,
-		true, "", r.Config.ClusterResources.CsiVersion, r.Config.ClusterResources.CpiVersion, r.Config.ClusterResources.CniVersion,
-		r.Config.ClusterResources.CapvcdVersion)
+		true, true)
 	if err != nil {
 		return ctrl.Result{}, errors.Wrapf(err, "Error creating VCD client to reconcile Cluster [%s] infrastructure", vcdCluster.Name)
 	}
 
-	gateway := &vcdclient.GatewayManager{
-		NetworkName:        workloadVCDClient.NetworkName,
-		Client:             workloadVCDClient,
-		GatewayRef:         workloadVCDClient.GatewayRef,
-		NetworkBackingType: workloadVCDClient.NetworkBackingType,
+	gateway, err := vcdsdk.NewGatewayManager(ctx, workloadVCDClient, vcdCluster.Spec.OvdcNetwork, r.Config.VCD.VIPSubnet)
+	if err != nil {
+		return ctrl.Result{}, errors.Wrapf(err, "failed to create gateway manager using the workload client to reconcile cluster [%s]", vcdCluster.Name)
 	}
 
 	infraID := vcdCluster.Status.InfraId
@@ -511,7 +505,7 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		nameFilter := &swagger.DefinedEntityApiGetDefinedEntitiesByEntityTypeOpts{
 			Filter: optional.NewString(fmt.Sprintf("name==%s", vcdCluster.Name)),
 		}
-		definedEntities, resp, err := workloadVCDClient.ApiClient.DefinedEntityApi.GetDefinedEntitiesByEntityType(ctx,
+		definedEntities, resp, err := workloadVCDClient.APIClient.DefinedEntityApi.GetDefinedEntitiesByEntityType(ctx,
 			CAPVCDTypeVendor, CAPVCDTypeNss, CAPVCDTypeVersion, 1, 25, nameFilter)
 		if err != nil {
 			log.Error(err, "Error while checking if RDE is already present for the cluster",
@@ -558,8 +552,6 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 				"unable to update status of vcdCluster [%s] with InfraID [%s]",
 				vcdCluster.Name, infraID)
 		}
-		// Also update the client created already so that the CPI etc have the clusterID.
-		workloadVCDClient.ClusterID = infraID
 	}
 
 	// After InfraId has been set, we can update parentUid, useAsMgmtCluster status
@@ -570,22 +562,34 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	virtualServiceNamePrefix := vcdCluster.Name + "-" + vcdCluster.Status.InfraId
 	lbPoolNamePrefix := vcdCluster.Name + "-" + vcdCluster.Status.InfraId
 
-	controlPlaneNodeIP, err := gateway.GetLoadBalancer(ctx, fmt.Sprintf("%s-tcp", virtualServiceNamePrefix))
+	controlPlaneNodeIP, err := gateway.GetLoadBalancer(ctx, fmt.Sprintf("%s-tcp", virtualServiceNamePrefix),
+		&vcdsdk.OneArm{
+		StartIP: r.Config.LB.OneArm.StartIP,
+		EndIP: r.Config.LB.OneArm.EndIP,
+		})
 	//TODO: Sahithi: Check if error is really because of missing virtual service.
 	// In any other error cases, force create the new load balancer with the original control plane endpoint
 	// (if already present). Do not overwrite the existing control plane endpoint with a new endpoint.
 	if err != nil {
-		if vsError, ok := err.(*vcdclient.VirtualServicePendingError); ok {
+		if vsError, ok := err.(*vcdsdk.VirtualServicePendingError); ok {
 			log.Info("Error getting load balancer. Virtual Service is still pending",
 				"virtualServiceName", vsError.VirtualServiceName, "error", err)
 			return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
 		}
 
 		log.Info("Creating load balancer for the cluster")
-		controlPlaneNodeIP, err = gateway.CreateL4LoadBalancer(ctx, virtualServiceNamePrefix, lbPoolNamePrefix,
-			[]string{}, r.Config.LB.Ports.TCP)
+		capvcdGatewayManger, err := capisdk.NewCapvcdGatewayManager(ctx, workloadVCDClient, vcdCluster.Spec.OvdcNetwork, r.Config.VCD.VIPSubnet)
 		if err != nil {
-			if vsError, ok := err.(*vcdclient.VirtualServicePendingError); ok {
+			return ctrl.Result{}, errors.Wrapf(err, "failed to create capvcd's gateway manager object to reconcile cluster [%s]",
+				vcdCluster.Name)
+		}
+		controlPlaneNodeIP, err = capvcdGatewayManger.CreateL4LoadBalancer(ctx, virtualServiceNamePrefix, lbPoolNamePrefix,
+			[]string{}, r.Config.LB.Ports.TCP, r.Config.LB.Ports.TCP, &vcdsdk.OneArm{
+			StartIP: r.Config.LB.OneArm.StartIP,
+			EndIP: r.Config.LB.OneArm.EndIP,
+			})
+		if err != nil {
+			if vsError, ok := err.(*vcdsdk.VirtualServicePendingError); ok {
 				log.Info("Error creating load balancer for cluster. Virtual Service is still pending",
 					"virtualServiceName", vsError.VirtualServiceName, "error", err)
 				return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
@@ -602,7 +606,7 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	log.Info(fmt.Sprintf("Control plane endpoint for the cluster is [%s]", controlPlaneNodeIP))
 
 	if !strings.HasPrefix(vcdCluster.Status.InfraId, NoRdePrefix) {
-		_, resp, _, err := workloadVCDClient.ApiClient.DefinedEntityApi.GetDefinedEntity(ctx, vcdCluster.Status.InfraId)
+		_, resp, _, err := workloadVCDClient.APIClient.DefinedEntityApi.GetDefinedEntity(ctx, vcdCluster.Status.InfraId)
 		if err == nil && resp != nil && resp.StatusCode == http.StatusOK {
 			if err = r.reconcileRDE(ctx, cluster, vcdCluster, workloadVCDClient); err != nil {
 				log.Error(err, "Error occurred during RDE reconciliation",
@@ -623,25 +627,23 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	}
 
 	// create VApp
-	vdcManager := vcdclient.VdcManager{
-		VdcName: workloadVCDClient.ClusterOVDCName,
-		OrgName: workloadVCDClient.ClusterOrgName,
-		Client:  workloadVCDClient,
-		Vdc:     workloadVCDClient.Vdc,
+	vdcManager, err := vcdsdk.NewVDCManager(workloadVCDClient, workloadVCDClient.ClusterOrgName,
+		workloadVCDClient.ClusterOVDCName, vcdCluster.Name)
+	if err != nil {
+		return ctrl.Result{}, errors.Wrapf(err, "Error creating vdc manager to to reconcile vcd infrastructure for cluster [%s]", vcdCluster.Name)
 	}
-
 	metadataMap := map[string]string{
 		CapvcdInfraId: vcdCluster.Status.InfraId,
 	}
 	//Todo duplicate check
 
-	_, err = vdcManager.GetOrCreateVApp(vcdCluster.Name, workloadVCDClient.NetworkName)
+	_, err = vdcManager.GetOrCreateVApp(vcdCluster.Spec.OvdcNetwork)
 	if err != nil {
 		return ctrl.Result{}, errors.Wrapf(err, "Error creating Infra vApp for the cluster [%s]: [%v]", vcdCluster.Name, err)
 	}
 
 	if metadataMap != nil && len(metadataMap) > 0 && !vcdCluster.Status.VAppMetadataUpdated {
-		if err := vdcManager.AddMetadataToVApp(vcdCluster.Name, metadataMap); err != nil {
+		if err := vdcManager.AddMetadataToVApp(metadataMap); err != nil {
 			return ctrl.Result{}, fmt.Errorf("unable to add metadata [%s] to vApp [%s]: [%v]", metadataMap, vcdCluster.Name, err)
 		}
 		vcdCluster.Status.VAppMetadataUpdated = true
@@ -673,33 +675,28 @@ func (r *VCDClusterReconciler) reconcileDelete(ctx context.Context,
 		return ctrl.Result{}, errors.Wrap(err, "Error occurred during cluster deletion; failed to patch VCDCluster")
 	}
 
-	workloadVCDClient, err := vcdclient.NewVCDClientFromSecrets(vcdCluster.Spec.Site, vcdCluster.Spec.Org,
-		vcdCluster.Spec.Ovdc, vcdCluster.Name, vcdCluster.Spec.OvdcNetwork, r.Config.VCD.VIPSubnet,
-		vcdCluster.Spec.Org, vcdCluster.Spec.UserCredentialsContext.Username,
+	workloadVCDClient, err := vcdsdk.NewVCDClientFromSecrets(vcdCluster.Spec.Site, vcdCluster.Spec.Org,
+		vcdCluster.Spec.Ovdc, vcdCluster.Spec.Org, vcdCluster.Spec.UserCredentialsContext.Username,
 		vcdCluster.Spec.UserCredentialsContext.Password, vcdCluster.Spec.UserCredentialsContext.RefreshToken,
-		true, vcdCluster.Status.InfraId, &vcdclient.OneArm{
-			StartIPAddress: r.Config.LB.OneArm.StartIP,
-			EndIPAddress:   r.Config.LB.OneArm.EndIP,
-		}, 0, 0, r.Config.LB.Ports.TCP,
-		true, "", r.Config.ClusterResources.CsiVersion, r.Config.ClusterResources.CpiVersion, r.Config.ClusterResources.CniVersion,
-		r.Config.ClusterResources.CapvcdVersion)
+		true, true)
 	if err != nil {
 		return ctrl.Result{}, errors.Wrapf(err,
 			"Error occurred during cluster deletion; unable to create client for the workload cluster [%s]",
 			vcdCluster.Name)
 	}
 
-	gateway := &vcdclient.GatewayManager{
-		NetworkName:        workloadVCDClient.NetworkName,
-		Client:             workloadVCDClient,
-		GatewayRef:         workloadVCDClient.GatewayRef,
-		NetworkBackingType: workloadVCDClient.NetworkBackingType,
+	gateway, err := capisdk.NewCapvcdGatewayManager(ctx, workloadVCDClient, vcdCluster.Spec.OvdcNetwork, r.Config.VCD.VIPSubnet)
+	if err != nil {
+		return ctrl.Result{}, errors.Wrapf(err, "failed to create gateway manager using the workload client to reconcile cluster [%s]", vcdCluster.Name)
 	}
 
 	// Delete the load balancer components
 	virtualServiceNamePrefix := vcdCluster.Name + "-" + vcdCluster.Status.InfraId
 	lbPoolNamePrefix := vcdCluster.Name + "-" + vcdCluster.Status.InfraId
-	err = gateway.DeleteLoadBalancer(ctx, virtualServiceNamePrefix, lbPoolNamePrefix)
+	err = gateway.DeleteLoadBalancer(ctx, virtualServiceNamePrefix, lbPoolNamePrefix, &vcdsdk.OneArm{
+		StartIP: r.Config.LB.OneArm.StartIP,
+		EndIP: r.Config.LB.OneArm.EndIP,
+	})
 	if err != nil {
 		return ctrl.Result{}, errors.Wrapf(err,
 			"Error occurred during cluster [%s] deletion; unable to delete the load balancer [%s]: [%v]",
@@ -708,15 +705,14 @@ func (r *VCDClusterReconciler) reconcileDelete(ctx context.Context,
 	log.Info("Deleted the load balancer components (virtual service, lb pool, dnat rule) of the cluster",
 		"virtual service", virtualServiceNamePrefix, "lb pool", lbPoolNamePrefix)
 
-	vdcManager := vcdclient.VdcManager{
-		VdcName: workloadVCDClient.ClusterOVDCName,
-		OrgName: workloadVCDClient.ClusterOrgName,
-		Client:  workloadVCDClient,
-		Vdc:     workloadVCDClient.Vdc,
+	vdcManager, err := vcdsdk.NewVDCManager(workloadVCDClient, workloadVCDClient.ClusterOrgName,
+		workloadVCDClient.ClusterOVDCName, vcdCluster.Name)
+	if err != nil {
+		return ctrl.Result{}, errors.Wrapf(err, "Error creating vdc manager to to reconcile vcd infrastructure for cluster [%s]", vcdCluster.Name)
 	}
 
 	// Delete vApp
-	vApp, err := workloadVCDClient.Vdc.GetVAppByName(vcdCluster.Name, true)
+	vApp, err := workloadVCDClient.VDC.GetVAppByName(vcdCluster.Name, true)
 	if err != nil {
 		log.Error(err, fmt.Sprintf("Error occurred during cluster deletion; vApp [%s] not found", vcdCluster.Name))
 	}
@@ -727,7 +723,7 @@ func (r *VCDClusterReconciler) reconcileDelete(ctx context.Context,
 				len(vApp.VApp.Children.VM), vcdCluster.Name)
 		} else {
 			log.Info("Deleting vApp of the cluster", "vAppName", vcdCluster.Name)
-			err = vdcManager.DeleteVApp(vcdCluster.Name)
+			err = vdcManager.DeleteVApp()
 			if err != nil {
 				return ctrl.Result{}, errors.Wrapf(err,
 					"Error occurred during cluster deletion; failed to delete vApp [%s]", vcdCluster.Name)
@@ -739,7 +735,7 @@ func (r *VCDClusterReconciler) reconcileDelete(ctx context.Context,
 	// TODO: If RDE deletion fails, should we throw an error during reconciliation?
 	// Delete RDE
 	if vcdCluster.Status.InfraId != "" && !strings.HasPrefix(vcdCluster.Status.InfraId, NoRdePrefix) {
-		definedEntities, resp, err := workloadVCDClient.ApiClient.DefinedEntityApi.GetDefinedEntitiesByEntityType(ctx,
+		definedEntities, resp, err := workloadVCDClient.APIClient.DefinedEntityApi.GetDefinedEntitiesByEntityType(ctx,
 			CAPVCDTypeVendor, CAPVCDTypeNss, CAPVCDTypeVersion, 1, 25,
 			&swagger.DefinedEntityApiGetDefinedEntitiesByEntityTypeOpts{
 				Filter: optional.NewString(fmt.Sprintf("id==%s", vcdCluster.Status.InfraId)),
@@ -752,7 +748,7 @@ func (r *VCDClusterReconciler) reconcileDelete(ctx context.Context,
 		}
 		if len(definedEntities.Values) > 0 {
 			// resolve defined entity before deleting
-			entityState, resp, err := workloadVCDClient.ApiClient.DefinedEntityApi.ResolveDefinedEntity(ctx,
+			entityState, resp, err := workloadVCDClient.APIClient.DefinedEntityApi.ResolveDefinedEntity(ctx,
 				vcdCluster.Status.InfraId)
 			if err != nil {
 				return ctrl.Result{}, errors.Wrapf(err, "Error occurred during RDE deletion; error occurred while resolving defined entity [%s] with ID [%s] before deleting", vcdCluster.Name, vcdCluster.Status.InfraId)
@@ -760,7 +756,7 @@ func (r *VCDClusterReconciler) reconcileDelete(ctx context.Context,
 			if resp.StatusCode != http.StatusOK {
 				log.Error(nil, "Error occurred during RDE deletion; failed to resolve RDE with ID [%s] for cluster [%s]: [%s]", vcdCluster.Status.InfraId, vcdCluster.Name, entityState.Message)
 			}
-			resp, err = workloadVCDClient.ApiClient.DefinedEntityApi.DeleteDefinedEntity(ctx,
+			resp, err = workloadVCDClient.APIClient.DefinedEntityApi.DeleteDefinedEntity(ctx,
 				vcdCluster.Status.InfraId, nil)
 			if err != nil {
 				return ctrl.Result{}, errors.Wrapf(err, "error occurred during RDE deletion; failed to execute delete defined entity call for RDE with ID [%s]", vcdCluster.Status.InfraId)
