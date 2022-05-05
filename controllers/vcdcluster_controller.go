@@ -723,8 +723,10 @@ func (r *VCDClusterReconciler) reconcileDelete(ctx context.Context,
 		if !vcdCluster.Status.VAppMetadataUpdated {
 			return ctrl.Result{}, errors.Errorf("Error occurred during cluster deletion; Field [VAppMetadataUpdated] is %t", vcdCluster.Status.VAppMetadataUpdated)
 		}
-		vAppMetadataFound, err := vdcManager.ValidateMetadata(vApp, CapvcdInfraId, vcdCluster.Status.InfraId)
-		if !vAppMetadataFound {
+		metadataInfraId, err := vdcManager.GetMetadataByKey(vApp, CapvcdInfraId)
+
+		// checking the metadata value and vcdCluster.Status.InfraId are equal or not
+		if metadataInfraId != vcdCluster.Status.InfraId {
 			if err != nil {
 				log.Error(err, fmt.Sprintf("Error occurred during cluster deletion; vApp [%s] matadata not found", vcdCluster.Name))
 			}

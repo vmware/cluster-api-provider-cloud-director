@@ -171,24 +171,20 @@ func (vdc *VdcManager) AddMetadataToVApp(vAppName string, paramMap map[string]st
 	return nil
 }
 
-func (vdc *VdcManager) ValidateMetadata(vApp *govcd.VApp, key string, value string) (bool, error) {
+func (vdc *VdcManager) GetMetadataByKey(vApp *govcd.VApp, key string) (value string, err error) {
 	if vApp == nil || vApp.VApp == nil {
-		return false, fmt.Errorf("found nil value for vApp")
+		return "", fmt.Errorf("found nil value for vApp")
 	}
 	metadata, err := vApp.GetMetadata()
 	if err != nil {
-		return false, fmt.Errorf("unable to get metadata from vApp")
+		return "", fmt.Errorf("unable to get metadata from vApp")
 	}
 	for _, metadataEntity := range metadata.MetadataEntry {
 		if key == metadataEntity.Key {
-			if metadataEntity.TypedValue != nil && value == metadataEntity.TypedValue.Value {
-				return true, nil
-			}
-			return false, fmt.Errorf("key-value pair:{%s, %s} not match", key, value)
+			return metadataEntity.TypedValue.Value, nil
 		}
 	}
-	return false, fmt.Errorf("metadata record not found for {%s, %s}", key, value)
-
+	return "", fmt.Errorf("metadata record not found for {%s, %s}", key, value)
 }
 
 func (vdc *VdcManager) isVappNetworkPresentInVapp(vApp *govcd.VApp, ovdcNetworkName string) bool {
