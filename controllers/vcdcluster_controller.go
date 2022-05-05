@@ -12,12 +12,12 @@ import (
 	"github.com/antihax/optional"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
+	"github.com/vmware/cloud-provider-for-cloud-director/pkg/vcdsdk"
+	swagger "github.com/vmware/cloud-provider-for-cloud-director/pkg/vcdswaggerclient"
 	infrav1 "github.com/vmware/cluster-api-provider-cloud-director/api/v1beta1"
 	"github.com/vmware/cluster-api-provider-cloud-director/pkg/capisdk"
 	"github.com/vmware/cluster-api-provider-cloud-director/pkg/config"
 	vcdutil "github.com/vmware/cluster-api-provider-cloud-director/pkg/util"
-	"github.com/vmware/cloud-provider-for-cloud-director/pkg/vcdsdk"
-	swagger "github.com/vmware/cloud-provider-for-cloud-director/pkg/vcdswaggerclient"
 	"github.com/vmware/cluster-api-provider-cloud-director/pkg/vcdtypes"
 	"github.com/vmware/go-vcloud-director/v2/govcd"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -564,8 +564,8 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 
 	controlPlaneNodeIP, err := gateway.GetLoadBalancer(ctx, fmt.Sprintf("%s-tcp", virtualServiceNamePrefix),
 		&vcdsdk.OneArm{
-		StartIP: r.Config.LB.OneArm.StartIP,
-		EndIP: r.Config.LB.OneArm.EndIP,
+			StartIP: r.Config.LB.OneArm.StartIP,
+			EndIP:   r.Config.LB.OneArm.EndIP,
 		})
 	//TODO: Sahithi: Check if error is really because of missing virtual service.
 	// In any other error cases, force create the new load balancer with the original control plane endpoint
@@ -585,8 +585,8 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		}
 		controlPlaneNodeIP, err = capvcdGatewayManger.CreateL4LoadBalancer(ctx, virtualServiceNamePrefix, lbPoolNamePrefix,
 			[]string{}, r.Config.LB.Ports.TCP, r.Config.LB.Ports.TCP, &vcdsdk.OneArm{
-			StartIP: r.Config.LB.OneArm.StartIP,
-			EndIP: r.Config.LB.OneArm.EndIP,
+				StartIP: r.Config.LB.OneArm.StartIP,
+				EndIP:   r.Config.LB.OneArm.EndIP,
 			})
 		if err != nil {
 			if vsError, ok := err.(*vcdsdk.VirtualServicePendingError); ok {
@@ -695,7 +695,7 @@ func (r *VCDClusterReconciler) reconcileDelete(ctx context.Context,
 	lbPoolNamePrefix := vcdCluster.Name + "-" + vcdCluster.Status.InfraId
 	err = gateway.DeleteLoadBalancer(ctx, virtualServiceNamePrefix, lbPoolNamePrefix, &vcdsdk.OneArm{
 		StartIP: r.Config.LB.OneArm.StartIP,
-		EndIP: r.Config.LB.OneArm.EndIP,
+		EndIP:   r.Config.LB.OneArm.EndIP,
 	})
 	if err != nil {
 		return ctrl.Result{}, errors.Wrapf(err,
