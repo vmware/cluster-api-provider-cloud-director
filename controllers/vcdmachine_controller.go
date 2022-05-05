@@ -13,9 +13,10 @@ import (
 	"fmt"
 	"github.com/pkg/errors"
 	"github.com/replicatedhq/troubleshoot/pkg/redact"
+	"github.com/vmware/cloud-provider-for-cloud-director/pkg/vcdsdk"
 	infrav1 "github.com/vmware/cluster-api-provider-cloud-director/api/v1beta1"
+	"github.com/vmware/cluster-api-provider-cloud-director/pkg/capisdk"
 	"github.com/vmware/cluster-api-provider-cloud-director/pkg/config"
-	"github.com/vmware/cluster-api-provider-cloud-director/pkg/vcdclient"
 	"github.com/vmware/go-vcloud-director/v2/govcd"
 	"gopkg.in/yaml.v2"
 	"io/ioutil"
@@ -240,17 +241,22 @@ func redactCloudInit(cloudInitYaml string, path []string) (string, error) {
 }
 
 func (r *VCDMachineReconciler) waitForPostCustomizationPhase(ctx context.Context,
-	workloadVCDClient *vcdclient.Client, vm *govcd.VM, phase string) error {
+	workloadVCDClient *vcdsdk.Client, vm *govcd.VM, phase string) error {
 	log := ctrl.LoggerFrom(ctx)
 
 	startTime := time.Now()
 	possibleStatuses := []string{"", "in_progress", "successful"}
 	currentStatus := possibleStatuses[0]
+	vdcManager, err := vcdsdk.NewVDCManager(workloadVCDClient, workloadVCDClient.ClusterOrgName,
+		workloadVCDClient.ClusterOVDCName, "")
+	if err != nil {
+		return errors.Wrapf(err, "failed to create a vdc manager object when waiting for post customization phase of VM")
+	}
 	for {
 		if err := vm.Refresh(); err != nil {
 			return errors.Wrapf(err, "unable to refresh vm [%s]: [%v]", vm.VM.Name, err)
 		}
-		newStatus, err := workloadVCDClient.GetExtraConfigValue(vm, phase)
+		newStatus, err := vdcManager.GetExtraConfigValue(vm, phase)
 		if err != nil {
 			return errors.Wrapf(err, "unable to get extra config value for key [%s] for vm: [%s]: [%v]",
 				phase, vm.VM.Name, err)
@@ -270,7 +276,7 @@ func (r *VCDMachineReconciler) waitForPostCustomizationPhase(ctx context.Context
 		}
 
 		// catch intermediate script execution failure
-		scriptExecutionStatus, err := workloadVCDClient.GetExtraConfigValue(vm, PostCustomizationScriptExecutionStatus)
+		scriptExecutionStatus, err := vdcManager.GetExtraConfigValue(vm, PostCustomizationScriptExecutionStatus)
 		if err != nil {
 			return errors.Wrapf(err, "unable to get extra config value for key [%s] for vm: [%s]: [%v]",
 				PostCustomizationScriptExecutionStatus, vm.VM.Name, err)
@@ -282,7 +288,7 @@ func (r *VCDMachineReconciler) waitForPostCustomizationPhase(ctx context.Context
 					scriptExecutionStatus, err)
 			}
 			if execStatus != 0 {
-				scriptExecutionFailureReason, err := workloadVCDClient.GetExtraConfigValue(vm, PostCustomizationScriptFailureReason)
+				scriptExecutionFailureReason, err := vdcManager.GetExtraConfigValue(vm, PostCustomizationScriptFailureReason)
 				if err != nil {
 					return errors.Wrapf(err, "unable to get extra config value for key [%s] for vm, "+
 						"(script execution status [%d]): [%s]: [%v]",
@@ -302,14 +308,16 @@ func (r *VCDMachineReconciler) waitForPostCustomizationPhase(ctx context.Context
 }
 
 func (r *VCDMachineReconciler) reconcileNodeStatusInRDE(ctx context.Context, rdeID string, nodeName string, status string,
-	workloadVCDClient *vcdclient.Client) error {
+	workloadVCDClient *vcdsdk.Client) error {
 
 	if rdeID == "" || strings.HasPrefix(rdeID, NoRdePrefix) {
 		return NewNoRDEError("RDE ID is empty or generated; hence will not be updated")
 	}
 
+	capvcdRdeManager := capisdk.NewCapvcdRdeManager(workloadVCDClient)
+
 	updatePatch := make(map[string]interface{})
-	_, capvcdEntity, err := workloadVCDClient.GetCAPVCDEntity(ctx, rdeID)
+	_, capvcdEntity, err := capvcdRdeManager.GetCAPVCDEntity(ctx, rdeID)
 	if err != nil {
 		return fmt.Errorf("failed to get CAPVCD entity with ID [%s] to sync node details for machine [%s]: [%v]", rdeID, nodeName, err)
 	}
@@ -325,13 +333,13 @@ func (r *VCDMachineReconciler) reconcileNodeStatusInRDE(ctx context.Context, rde
 	updatePatch["Status.NodeStatus"] = nodeStatusMap
 
 	// update defined entity
-	updatedRDE, err := workloadVCDClient.PatchRDE(ctx, updatePatch, rdeID)
+	updatedRDE, err := capvcdRdeManager.PatchRDE(ctx, updatePatch, rdeID)
 	if err != nil {
 		return fmt.Errorf("failed to update defined entity with ID [%s] with node status for VCDMachine [%s]: [%v]", rdeID, nodeName, err)
 	}
 	if updatedRDE.State != RDEStatusResolved {
 		// try to resolve the defined entity
-		entityState, resp, err := workloadVCDClient.ApiClient.DefinedEntityApi.ResolveDefinedEntity(ctx, updatedRDE.Id)
+		entityState, resp, err := workloadVCDClient.APIClient.DefinedEntityApi.ResolveDefinedEntity(ctx, updatedRDE.Id)
 		if err != nil {
 			return fmt.Errorf("failed to resolve defined entity with ID [%s] for cluster [%s]", updatedRDE.Id, updatedRDE.Name)
 		}
@@ -352,16 +360,10 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 
 	log := ctrl.LoggerFrom(ctx, "machine", machine.Name, "cluster", vcdCluster.Name)
 
-	workloadVCDClient, err := vcdclient.NewVCDClientFromSecrets(vcdCluster.Spec.Site, vcdCluster.Spec.Org,
-		vcdCluster.Spec.Ovdc, vcdCluster.Name, vcdCluster.Spec.OvdcNetwork, r.Config.VCD.VIPSubnet,
-		vcdCluster.Spec.Org, vcdCluster.Spec.UserCredentialsContext.Username,
+	workloadVCDClient, err := vcdsdk.NewVCDClientFromSecrets(vcdCluster.Spec.Site, vcdCluster.Spec.Org,
+		vcdCluster.Spec.Ovdc, vcdCluster.Spec.Org, vcdCluster.Spec.UserCredentialsContext.Username,
 		vcdCluster.Spec.UserCredentialsContext.Password, vcdCluster.Spec.UserCredentialsContext.RefreshToken,
-		true, vcdCluster.Status.InfraId, &vcdclient.OneArm{
-			StartIPAddress: r.Config.LB.OneArm.StartIP,
-			EndIPAddress:   r.Config.LB.OneArm.EndIP,
-		}, 0, 0, r.Config.LB.Ports.TCP,
-		true, "", r.Config.ClusterResources.CsiVersion, r.Config.ClusterResources.CpiVersion, r.Config.ClusterResources.CniVersion,
-		r.Config.ClusterResources.CapvcdVersion)
+		true, true)
 	if err != nil {
 		return ctrl.Result{}, errors.Wrapf(err, "Unable to create VCD client to reconcile infrastructure for the Machine [%s]", machine.Name)
 	}
@@ -422,11 +424,10 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		}
 	}
 
-	vdcManager := vcdclient.VdcManager{
-		VdcName: workloadVCDClient.ClusterOVDCName,
-		OrgName: workloadVCDClient.ClusterOrgName,
-		Client:  workloadVCDClient,
-		Vdc:     workloadVCDClient.Vdc,
+	vdcManager, err := vcdsdk.NewVDCManager(workloadVCDClient, workloadVCDClient.ClusterOrgName,
+		workloadVCDClient.ClusterOVDCName, "")
+	if err != nil {
+		return ctrl.Result{}, errors.Wrapf(err, "failed to create a vdc manager object when reconciling machine [%s]", vcdMachine.Name)
 	}
 
 	// The vApp should have already been created, so this is more of a Get of the vApp
@@ -463,8 +464,8 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 
 		switch {
 		case useControlPlaneScript:
-			orgUserStr := fmt.Sprintf("%s/%s", workloadVCDClient.VcdAuthConfig.UserOrg,
-				workloadVCDClient.VcdAuthConfig.User)
+			orgUserStr := fmt.Sprintf("%s/%s", workloadVCDClient.VCDAuthConfig.UserOrg,
+				workloadVCDClient.VCDAuthConfig.User)
 			b64OrgUser := b64.StdEncoding.EncodeToString([]byte(orgUserStr))
 			b64Password := b64.StdEncoding.EncodeToString([]byte(vcdCluster.Spec.UserCredentialsContext.Password))
 			b64RefreshToken := b64.StdEncoding.EncodeToString([]byte(
@@ -484,28 +485,28 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 			}
 			vcdHostFormatted := strings.Replace(vcdCluster.Spec.Site, "/", "\\/", -1)
 			guestCloudInit = fmt.Sprintf(
-				guestCloudInitTemplate,            // template script
-				b64OrgUser,                        // base 64 org/username
-				b64Password,                       // base64 password
-				b64RefreshToken,                   // refresh token
-				k8sStorageClassName,               // default storage class name
-				reclaimPolicy,                     // reclaim policy
-				vcdStorageProfileName,             // vcd storage profile
-				fileSystemFormat,                  // filesystem
-				workloadVCDClient.CpiVersion,      // cpi version
-				vcdHostFormatted,                  // vcd host
-				workloadVCDClient.ClusterOrgName,  // org
-				workloadVCDClient.ClusterOVDCName, // ovdc
-				workloadVCDClient.NetworkName,     // network
-				"",                                // vip subnet cidr - empty for now for CPI to select subnet
-				vAppName,                          // vApp name
-				workloadVCDClient.ClusterID,       // cluster id
-				workloadVCDClient.CsiVersion,      // csi version
-				vcdHostFormatted,                  // vcd host,
-				workloadVCDClient.ClusterOrgName,  // org
-				workloadVCDClient.ClusterOVDCName, // ovdc
-				vAppName,                          // vApp
-				workloadVCDClient.ClusterID,       // cluster id
+				guestCloudInitTemplate,               // template script
+				b64OrgUser,                           // base 64 org/username
+				b64Password,                          // base64 password
+				b64RefreshToken,                      // refresh token
+				k8sStorageClassName,                  // default storage class name
+				reclaimPolicy,                        // reclaim policy
+				vcdStorageProfileName,                // vcd storage profile
+				fileSystemFormat,                     // filesystem
+				r.Config.ClusterResources.CpiVersion, // cpi version
+				vcdHostFormatted,                     // vcd host
+				workloadVCDClient.ClusterOrgName,     // org
+				workloadVCDClient.ClusterOVDCName,    // ovdc
+				vcdCluster.Spec.OvdcNetwork,          // network
+				"",                                   // vip subnet cidr - empty for now for CPI to select subnet
+				vAppName,                             // vApp name
+				vcdCluster.Status.InfraId,            // cluster id
+				r.Config.ClusterResources.CsiVersion, // csi version
+				vcdHostFormatted,                     // vcd host,
+				workloadVCDClient.ClusterOrgName,     // org
+				workloadVCDClient.ClusterOVDCName,    // ovdc
+				vAppName,                             // vApp
+				vcdCluster.Status.InfraId,            // cluster id
 				strconv.FormatBool(enableDefaultStorageClass), // storage_class_enabled
 				machine.Name, // vm host name
 			)
@@ -548,7 +549,7 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	}
 	if !vmExists {
 		log.Info("Adding infra VM for the machine")
-		err = vdcManager.AddNewVM(machine.Name, vApp.VApp.Name, 1,
+		err = vdcManager.AddNewVM(machine.Name, 1,
 			vcdMachine.Spec.Catalog, vcdMachine.Spec.Template, vcdMachine.Spec.PlacementPolicy,
 			vcdMachine.Spec.SizingPolicy, vcdMachine.Spec.StorageProfile, "", false)
 		if err != nil {
@@ -589,11 +590,14 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		},
 	}
 
-	gateway := &vcdclient.GatewayManager{
-		NetworkName:        workloadVCDClient.NetworkName,
-		Client:             workloadVCDClient,
-		GatewayRef:         workloadVCDClient.GatewayRef,
-		NetworkBackingType: workloadVCDClient.NetworkBackingType,
+	capvcdGatewayManager, err := capisdk.NewCapvcdGatewayManager(ctx, workloadVCDClient, vcdCluster.Spec.OvdcNetwork, r.Config.VCD.VIPSubnet)
+	if err != nil {
+		return ctrl.Result{}, errors.Wrapf(err, "failed to create a CAPVCD's gateway manager object while reconciling machine [%s]", vcdMachine.Name)
+	}
+
+	gateway, err := vcdsdk.NewGatewayManager(ctx, workloadVCDClient, vcdCluster.Spec.OvdcNetwork, r.Config.VCD.VIPSubnet)
+	if err != nil {
+		return ctrl.Result{}, errors.Wrapf(err, "failed to create gateway manager object while reconciling machine [%s]", vcdMachine.Name)
 	}
 
 	// Update loadbalancer pool with the IP of the control plane node as a new member.
@@ -613,7 +617,7 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		}
 
 		updatedIPs := append(controlPlaneIPs, machineAddress)
-		err = gateway.UpdateLoadBalancer(ctx, lbPoolName, updatedIPs, int32(6443))
+		err = capvcdGatewayManager.UpdateLoadBalancer(ctx, lbPoolName, updatedIPs, int32(6443))
 		if err != nil {
 			return ctrl.Result{}, errors.Wrapf(err,
 				"Error updating the load balancer pool [%s] for the "+
@@ -638,7 +642,7 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		}
 
 		for key, val := range keyVals {
-			err = workloadVCDClient.SetVmExtraConfigKeyValue(vm, key, val, true)
+			err = vdcManager.SetVmExtraConfigKeyValue(vm, key, val, true)
 			if err != nil {
 				return ctrl.Result{}, errors.Wrapf(err, "Error while enabling cloudinit on the machine [%s/%s]; unable to set vm extra config key [%s] for vm ",
 					vcdCluster.Name, vm.VM.Name, key)
@@ -765,28 +769,24 @@ func (r *VCDMachineReconciler) reconcileDelete(ctx context.Context, cluster *clu
 		return ctrl.Result{}, nil
 	}
 
-	workloadVCDClient, err := vcdclient.NewVCDClientFromSecrets(vcdCluster.Spec.Site, vcdCluster.Spec.Org,
-		vcdCluster.Spec.Ovdc, vcdCluster.Name, vcdCluster.Spec.OvdcNetwork, r.Config.VCD.VIPSubnet,
-		vcdCluster.Spec.Org, vcdCluster.Spec.UserCredentialsContext.Username,
+	workloadVCDClient, err := vcdsdk.NewVCDClientFromSecrets(vcdCluster.Spec.Site, vcdCluster.Spec.Org,
+		vcdCluster.Spec.Ovdc, vcdCluster.Spec.Org, vcdCluster.Spec.UserCredentialsContext.Username,
 		vcdCluster.Spec.UserCredentialsContext.Password, vcdCluster.Spec.UserCredentialsContext.RefreshToken,
-		true, vcdCluster.Status.InfraId, &vcdclient.OneArm{
-			StartIPAddress: r.Config.LB.OneArm.StartIP,
-			EndIPAddress:   r.Config.LB.OneArm.EndIP,
-		}, 0, 0, r.Config.LB.Ports.TCP,
-		true, "", r.Config.ClusterResources.CsiVersion, r.Config.ClusterResources.CpiVersion, r.Config.ClusterResources.CniVersion,
-		r.Config.ClusterResources.CapvcdVersion)
+		true, true)
 	if err != nil {
-		return ctrl.Result{}, errors.Wrapf(err,
-			"Error creating VCD client to reconcile the machine [%s/%s] deletion",
-			vcdCluster.Name, vcdMachine.Name)
+		return ctrl.Result{}, errors.Wrapf(err, "Unable to create VCD client to reconcile infrastructure for the Machine [%s]", machine.Name)
 	}
 
-	gateway := &vcdclient.GatewayManager{
-		NetworkName:        workloadVCDClient.NetworkName,
-		Client:             workloadVCDClient,
-		GatewayRef:         workloadVCDClient.GatewayRef,
-		NetworkBackingType: workloadVCDClient.NetworkBackingType,
+	gateway, err := vcdsdk.NewGatewayManager(ctx, workloadVCDClient, vcdCluster.Spec.OvdcNetwork, r.Config.VCD.VIPSubnet)
+	if err != nil {
+		return ctrl.Result{}, errors.Wrapf(err, "failed to create gateway manager object while reconciling machine [%s]", vcdMachine.Name)
 	}
+
+	capvcdGatewayManager, err := capisdk.NewCapvcdGatewayManager(ctx, workloadVCDClient, vcdCluster.Spec.OvdcNetwork, r.Config.VCD.VIPSubnet)
+	if err != nil {
+		return ctrl.Result{}, errors.Wrapf(err, "failed to create a CAPVCD's gateway manager object while reconciling machine [%s]", vcdMachine.Name)
+	}
+
 	if util.IsControlPlaneMachine(machine) {
 		// remove the address from the lbpool
 		log.Info("Deleting the control plane IP from the load balancer pool")
@@ -816,7 +816,7 @@ func (r *VCDMachineReconciler) reconcileDelete(ctx context.Context, cluster *clu
 					updatedIPs = append(controlPlaneIPs[:i], controlPlaneIPs[i+1:]...)
 				}
 			}
-			err = gateway.UpdateLoadBalancer(ctx, lbPoolName, updatedIPs, int32(6443))
+			err = capvcdGatewayManager.UpdateLoadBalancer(ctx, lbPoolName, updatedIPs, int32(6443))
 			if err != nil {
 				return ctrl.Result{}, errors.Wrapf(err,
 					"Error while deleting the infra resources of the machine [%s/%s]; error deleting the control plane from the load balancer pool [%s]",
@@ -825,11 +825,10 @@ func (r *VCDMachineReconciler) reconcileDelete(ctx context.Context, cluster *clu
 		}
 	}
 
-	vdcManager := vcdclient.VdcManager{
-		VdcName: workloadVCDClient.ClusterOVDCName,
-		OrgName: workloadVCDClient.ClusterOrgName,
-		Client:  workloadVCDClient,
-		Vdc:     workloadVCDClient.Vdc,
+	vdcManager, err := vcdsdk.NewVDCManager(workloadVCDClient, workloadVCDClient.ClusterOrgName,
+		workloadVCDClient.ClusterOVDCName, "")
+	if err != nil {
+		return ctrl.Result{}, errors.Wrapf(err, "failed to create a vdc manager object when reconciling machine [%s]", vcdMachine.Name)
 	}
 
 	// get the vApp
@@ -987,8 +986,13 @@ func (r *VCDMachineReconciler) VCDClusterToVCDMachines(o client.Object) []ctrl.R
 	return result
 }
 
-func (r *VCDMachineReconciler) hasCloudInitExecutionFailedBefore(ctx context.Context, workloadVCDClient *vcdclient.Client, vm *govcd.VM) (bool, error) {
-	scriptExecutionStatus, err := workloadVCDClient.GetExtraConfigValue(vm, PostCustomizationScriptExecutionStatus)
+func (r *VCDMachineReconciler) hasCloudInitExecutionFailedBefore(ctx context.Context, workloadVCDClient *vcdsdk.Client, vm *govcd.VM) (bool, error) {
+	vdcManager, err := vcdsdk.NewVDCManager(workloadVCDClient, workloadVCDClient.ClusterOrgName,
+		workloadVCDClient.ClusterOVDCName, "")
+	if err != nil {
+		return false, errors.Wrapf(err, "failed to create a vdc manager object while checking cloud init failures")
+	}
+	scriptExecutionStatus, err := vdcManager.GetExtraConfigValue(vm, PostCustomizationScriptExecutionStatus)
 	if err != nil {
 		return false, errors.Wrapf(err, "unable to get extra config value for key [%s] for vm: [%s]: [%v]",
 			PostCustomizationScriptExecutionStatus, vm.VM.Name, err)
@@ -1000,7 +1004,7 @@ func (r *VCDMachineReconciler) hasCloudInitExecutionFailedBefore(ctx context.Con
 				scriptExecutionStatus, err)
 		}
 		if execStatus != 0 {
-			scriptExecutionFailureReason, err := workloadVCDClient.GetExtraConfigValue(vm, PostCustomizationScriptFailureReason)
+			scriptExecutionFailureReason, err := vdcManager.GetExtraConfigValue(vm, PostCustomizationScriptFailureReason)
 			if err != nil {
 				return false, errors.Wrapf(err, "unable to get extra config value for key [%s] for vm, "+
 					"(script execution status [%d]): [%s]: [%v]",
