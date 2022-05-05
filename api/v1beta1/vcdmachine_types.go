@@ -77,7 +77,7 @@ type VCDMachineStatus struct {
 	// +optional
 	Addresses []clusterv1.MachineAddress `json:"addresses,omitempty"`
 
-	// TemplatePath is the path of the template OVA that is to be used
+	// Template is the path of the template OVA that is to be used
 	// +optional
 	Template string `json:"template,omitempty"`
 

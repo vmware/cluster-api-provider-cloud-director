@@ -253,8 +253,8 @@ spec:
                   ready
                 type: boolean
               template:
-                description: TemplatePath is the path of the template OVA that is
-                  to be used
+                description: Template is the path of the template OVA that is to be
+                  used
                 type: string
             type: object
         type: object

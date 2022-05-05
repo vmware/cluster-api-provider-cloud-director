@@ -25,11 +25,6 @@ type VCDMachineTemplateResource struct {
 	Spec VCDMachineSpec `json:"spec"`
 }
 
-type VCDMachineTemplateResult struct {
-	// Spec is the specification of the desired behavior of the machine.
-	Status VCDMachineStatus `json:"status"`
-}
-
 // VCDMachineTemplateSpec defines the desired state of VCDMachineTemplate
 type VCDMachineTemplateSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
@@ -42,7 +37,6 @@ type VCDMachineTemplateSpec struct {
 type VCDMachineTemplateStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
-	Template VCDMachineTemplateResult `json:"template"`
 }
 
 //+kubebuilder:object:root=true
