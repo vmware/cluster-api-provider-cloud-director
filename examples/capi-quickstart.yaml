@@ -57,6 +57,7 @@ spec:
       catalog: tkgm-cat # Catalog hosting the TKGm template, which will be used to deploy the control plane VMs
       template: ubuntu-2004-kube-v1.20.8+vmware.1-tkg.1-17589475007677388652 # Name of the template to be used to create (or) upgrade the control plane nodes
       sizingPolicy: tkgm-sizing-policy # Sizing policy to be used for the control plane VMs (this must be pre-published on the chosen organization virtual datacenter)
+      placementPolicy: tkgm-placement-policy # Placement policy to be used for worker VMs (this must be pre-published on the chosen organization virtual datacenter)
       storageProfile: "*" # Storage profile to be used for the control plane VMs (this must be pre-published on the chosen organization virtual datacenter)
 ---
 apiVersion: controlplane.cluster.x-k8s.io/v1beta1
@@ -118,6 +119,7 @@ spec:
       catalog: tkgm-cat # Catalog hosting the TKGm template, which will be used to deploy the worker VMs
       template: ubuntu-2004-kube-v1.20.8+vmware.1-tkg.1-17589475007677388652 # Name of the template to be used to create (or) upgrade the worker nodes
       sizingPolicy: tkgm-sizing-policy # Sizing policy to be used for the worker VMs (this must be pre-published on the chosen organization virtual datacenter)
+      placementPolicy: tkgm-placement-policy # Placement policy to be used for worker VMs (this must be pre-published on the chosen organization virtual datacenter)
       storageProfile: "*" # Storage profile to be used for the worker VMs (this must be pre-published on the chosen organization virtual datacenter)
 ---
 apiVersion: bootstrap.cluster.x-k8s.io/v1beta1
