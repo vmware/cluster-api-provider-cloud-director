@@ -570,7 +570,7 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	//TODO: Sahithi: Check if error is really because of missing virtual service.
 	// In any other error cases, force create the new load balancer with the original control plane endpoint
 	// (if already present). Do not overwrite the existing control plane endpoint with a new endpoint.
-	if err != nil {
+	if err != nil || controlPlaneNodeIP == "" {
 		if vsError, ok := err.(*vcdsdk.VirtualServicePendingError); ok {
 			log.Info("Error getting load balancer. Virtual Service is still pending",
 				"virtualServiceName", vsError.VirtualServiceName, "error", err)
