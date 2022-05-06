@@ -168,8 +168,10 @@ func (r *RDEProjectorReconciler) reconcileNormal(ctx context.Context, rdeProject
 
 		// Create/Update/Patch the object with the ServerSideApply; types.ApplyPatchType indicates SSA;
 		// fieldManager specifies the owner of the fields getting patched.
+		forceApply := true
 		_, err = dr.Patch(ctx, obj.GetName(), types.ApplyPatchType, data, metav1.PatchOptions{
 			FieldManager: FieldManager,
+			Force:        &forceApply,
 		})
 		if err != nil {
 			return ctrl.Result{}, errors.Wrapf(err, "Error patching capi object [%v] via SSA; rdeId: [%s]", rdeProjector.Spec.RDEId, obj)
