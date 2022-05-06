@@ -100,9 +100,20 @@ func (capvcdGatewayManager *CapvcdGatewayManager) CreateL4LoadBalancer(ctx conte
 				return "", fmt.Errorf("unable to get internal IP address for one-arm mode: [%v]", err)
 			}
 
-			dnatRuleName := fmt.Sprintf("dnat-%s", virtualServiceName)
+			dnatRuleName := vcdsdk.GetDNATRuleName(virtualServiceName)
+
+			// create app port profile
+			appPortProfileName := vcdsdk.GetAppPortProfileName(dnatRuleName)
+			appPortProfile, err := capvcdGatewayManager.gatewayManager.CreateAppPortProfile(appPortProfileName, portDetail.externalPort)
+			if err != nil {
+				return "", fmt.Errorf("failed to create App Port Profile: [%v]", err)
+			}
+			if appPortProfile == nil || appPortProfile.NsxtAppPortProfile == nil {
+				return "", fmt.Errorf("creation of app port profile succeeded but app port profile is empty")
+			}
+
 			err = capvcdGatewayManager.gatewayManager.CreateDNATRule(ctx, dnatRuleName, externalIP,
-				internalIP, portDetail.externalPort, portDetail.internalPort)
+				internalIP, portDetail.externalPort, portDetail.internalPort, appPortProfile)
 			if err != nil {
 				return "", fmt.Errorf("unable to create dnat rule [%s] => [%s]: [%v]",
 					externalIP, internalIP, err)

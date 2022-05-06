@@ -2,12 +2,13 @@ package capisdk
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"github.com/pkg/errors"
 	"github.com/vmware/cloud-provider-for-cloud-director/pkg/vcdsdk"
 	swagger "github.com/vmware/cloud-provider-for-cloud-director/pkg/vcdswaggerclient"
 	"github.com/vmware/cluster-api-provider-cloud-director/pkg/util"
-	"github.com/vmware/cluster-api-provider-cloud-director/pkg/vcdtypes"
+	rdeType "github.com/vmware/cluster-api-provider-cloud-director/pkg/vcdtypes/rde_type_1_1_0"
 	"k8s.io/klog"
 	"net/http"
 	"reflect"
@@ -28,15 +29,50 @@ func NewCapvcdRdeManager(client *vcdsdk.Client) *CapvcdRdeManager {
 	}
 }
 
+func convertToMap(obj interface{}) (map[string]interface{}, error) {
+	byteArr, err := json.Marshal(obj)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read object [%v] to json: [%v]", obj, err)
+	}
+	var parsedMap map[string]interface{}
+	if err := json.Unmarshal(byteArr, &parsedMap); err != nil {
+		return nil, fmt.Errorf("failed to convert byte array [%s] to map[string]interface{}: [%v]", string(byteArr), err)
+	}
+	return parsedMap, nil
+}
+
+func patchObject(inputObj interface{}, patchMap map[string]interface{}) (map[string]interface{}, error) {
+	for k, v := range patchMap {
+		fields := strings.Split(k, ".")
+		updatedVal := reflect.ValueOf(v)
+		typ := reflect.TypeOf(inputObj)
+		klog.V(4).Infof("Assigning value %v to key %s in [%v]", v, k, typ)
+		objVal := reflect.ValueOf(inputObj).Elem()
+		for _, attr := range fields {
+			// cannot call fieldByName on a zero value
+			objVal = objVal.FieldByName(attr)
+			if objVal.Kind() == reflect.Ptr {
+				objVal = objVal.Elem()
+			}
+		}
+		objVal.Set(updatedVal)
+	}
+	updatedMap, err := convertToMap(inputObj)
+	if err != nil {
+		return nil, fmt.Errorf("failed to convert object [%v] to map[string]interface{}: [%v]", inputObj, err)
+	}
+	return updatedMap, nil
+}
+
 // SetIsManagementClusterInRDE: sets the isManagementCluster flag in RDE for the management cluster
 func (capvcdRdeManager *CapvcdRdeManager) SetIsManagementClusterInRDE(ctx context.Context, managementClusterRDEId string) error {
 	if managementClusterRDEId == "" {
 		klog.V(3).Infof("RDE ID for the management cluster not found. Skip setting isManagementCluster flag for the RDE.")
 		return nil
 	}
-	updatePatch := make(map[string]interface{})
-	updatePatch["Status.IsManagementCluster"] = true
-	_, err := capvcdRdeManager.PatchRDE(ctx, updatePatch, managementClusterRDEId)
+	capvcdStatusPatch := make(map[string]interface{})
+	capvcdStatusPatch["UsedAsManagementCluster"] = true
+	_, err := capvcdRdeManager.PatchRDE(ctx, nil, nil, capvcdStatusPatch, managementClusterRDEId)
 	if err != nil {
 		return fmt.Errorf("failed to set isManagementCluster flag for management cluster with RDE ID [%s]: [%v]",
 			managementClusterRDEId, err)
@@ -45,9 +81,12 @@ func (capvcdRdeManager *CapvcdRdeManager) SetIsManagementClusterInRDE(ctx contex
 }
 
 // PatchRDE: Update only specific fields in the RDE. Takes in a map with keys, which contain "." delimitted
-// strings, representing the CAPVCD RDE fields to be updated.
-// Example: To patch only the API version for the RDE
-func (capvcdRdeManager *CapvcdRdeManager) PatchRDE(ctx context.Context, patch map[string]interface{}, rdeID string) (rde *swagger.DefinedEntity, err error) {
+// strings, representing the spec, metadata and cavcd status fields to be updated.
+// Example: To patch only the "spec.capiYaml", "metadata.name", "status.capvcd.version" portion of the RDE, specPatch map should be something like this -
+// specPatch["CapiYaml"] = updated-yaml
+// metadataPatch["Name"] = updated-name
+// capvcdStatusPatch["Version"] = updated-version
+func (capvcdRdeManager *CapvcdRdeManager) PatchRDE(ctx context.Context, specPatch, metadataPatch, capvcdStatusPatch map[string]interface{}, rdeID string) (rde *swagger.DefinedEntity, err error) {
 	defer func() {
 		// recover from panic if panic occurs because of
 		// 1. calling Set() on a zero value
@@ -62,7 +101,7 @@ func (capvcdRdeManager *CapvcdRdeManager) PatchRDE(ctx context.Context, patch ma
 		if err != nil {
 			return nil, fmt.Errorf("failed to call get defined entity RDE with ID [%s]: [%s]", rdeID, err)
 		}
-		if len(patch) == 0 {
+		if len(specPatch) == 0 && len(metadataPatch) == 0 && len(capvcdStatusPatch) == 0 {
 			// no updates to the entity
 			return &rde, nil
 		}
@@ -76,27 +115,40 @@ func (capvcdRdeManager *CapvcdRdeManager) PatchRDE(ctx context.Context, patch ma
 			return nil, fmt.Errorf("failed to convert map to CAPVCD entity [%v]", err)
 		}
 
-		for k, v := range patch {
-			fields := strings.Split(k, ".")
-			updatedVal := reflect.ValueOf(v)
-			klog.V(4).Infof("Assigning value %v to key %s", v, k)
-			objVal := reflect.ValueOf(capvcdEntity).Elem()
-			for _, attr := range fields {
-				// cannot call fieldByName on a zero value
-				objVal = objVal.FieldByName(attr)
-				if objVal.Kind() == reflect.Ptr {
-					objVal = objVal.Elem()
-				}
+		// patch entity.spec portion of the CAPVCD RDE
+		if len(specPatch) != 0 {
+			rde.Entity["spec"], err = patchObject(&capvcdEntity.Spec, specPatch)
+			if err != nil {
+				return nil, fmt.Errorf("failed to patch spec of CAPVCD entity: [%v]", err)
 			}
-			objVal.Set(updatedVal)
+		}
+
+		// patch entity.metadata portion of the CAPVCD RDE
+		if len(metadataPatch) != 0 {
+			rde.Entity["metadata"], err = patchObject(&capvcdEntity.Metadata, metadataPatch)
+			if err != nil {
+				return nil, fmt.Errorf("failed to patch metadata of CAPVCD entity: [%v]", err)
+			}
+		}
+
+		// patch entity.status.capvcd portion of the CAPVCD RDE
+		if len(capvcdStatusPatch) != 0 {
+			// fetch the CAPVCD status from the RDE
+			statusIf, ok := rde.Entity["status"]
+			if !ok {
+				return nil, fmt.Errorf("error parsing status section of CAPVCD entity")
+			}
+			statusMap, ok := statusIf.(map[string]interface{})
+			if !ok {
+				return nil, fmt.Errorf("error parsing status section of CAPVCD entity to map[string]interface{}")
+			}
+			statusMap["capvcd"], err = patchObject(&capvcdEntity.Status.CAPVCDStatus, capvcdStatusPatch)
+			if err != nil {
+				return nil, fmt.Errorf("failed to patch capvcd status in the CAPVCD entity: [%v]", err)
+			}
 		}
 
 		// update the defined entity
-		capvcdEntityMap, err := util.ConvertCAPVCDEntityToMap(capvcdEntity)
-		if err != nil {
-			return nil, fmt.Errorf("failed to convert CAPVCD entity to map: [%v]", err)
-		}
-		rde.Entity = capvcdEntityMap
 		rde, resp, err = client.APIClient.DefinedEntityApi.UpdateDefinedEntity(ctx, rde, etag, rdeID, nil)
 		if err != nil {
 			klog.Errorf("failed to update defined entity with ID [%s]: [%v]. Remaining retry attempts: [%d]", rdeID, err, MaxUpdateRetries-retries+1)
@@ -112,18 +164,19 @@ func (capvcdRdeManager *CapvcdRdeManager) PatchRDE(ctx context.Context, patch ma
 	return nil, fmt.Errorf("failed to update defined entity with ID [%s]", rdeID)
 }
 
-func (capvcdRdeManager *CapvcdRdeManager) GetCAPVCDEntity(ctx context.Context, rdeID string) (*swagger.DefinedEntity, *vcdtypes.CAPVCDEntity, error) {
+// GetCAPVCDEntity parses CAPVCDStatus and CAPVCD
+func (capvcdRdeManager *CapvcdRdeManager) GetCAPVCDEntity(ctx context.Context, rdeID string) (*swagger.DefinedEntity, *rdeType.CAPVCDSpec, *rdeType.Metadata, *rdeType.CAPVCDStatus, error) {
 	client := capvcdRdeManager.Client
 	rde, resp, _, err := client.APIClient.DefinedEntityApi.GetDefinedEntity(ctx, rdeID)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to get defined entity with ID [%s]: [%v]", rdeID, err)
+		return nil, nil, nil, nil, fmt.Errorf("failed to get defined entity with ID [%s]: [%v]", rdeID, err)
 	}
 	if resp.StatusCode != http.StatusOK {
-		return nil, nil, fmt.Errorf("error getting defined entity with ID [%s]: [%v]", rdeID, err)
+		return nil, nil, nil, nil, fmt.Errorf("error getting defined entity with ID [%s]: [%v]", rdeID, err)
 	}
 	capvcdEntity, err := util.ConvertMapToCAPVCDEntity(rde.Entity)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to convert CAPVCD entity map to type CAPVCD entity: [%v]", err)
+		return nil, nil, nil, nil, fmt.Errorf("failed to convert CAPVCD entity map to type CAPVCD entity: [%v]", err)
 	}
-	return &rde, capvcdEntity, nil
+	return &rde, &capvcdEntity.Spec, &capvcdEntity.Metadata, &capvcdEntity.Status.CAPVCDStatus, nil
 }
