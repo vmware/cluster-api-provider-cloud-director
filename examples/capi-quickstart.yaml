@@ -35,6 +35,8 @@ spec:
   org: test_org # VCD organization name where the cluster should be deployed
   ovdc: test_orgvdc # VCD virtual datacenter name where the cluster should be deployed
   ovdcNetwork: test_orgvdc_net # VCD virtual datacenter network to be used by the cluster
+  parentUid: "urn:vcloud:entity:vmware:capvcdCluster:ParentUUID" # create the CAPVCD cluster from a specific management cluster associated with this UID.
+  useAsManagementCluster: false # intent to use the resultant CAPVCD cluster as a management cluster
   userContext:
     username: username # username of the VCD persona creating the cluster. If system administrator is the user, please use 'system/administrator' as the username.
     password: vmware # password associated with the user creating the cluster
