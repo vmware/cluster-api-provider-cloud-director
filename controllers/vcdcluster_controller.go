@@ -13,10 +13,11 @@ import (
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	infrav1 "github.com/vmware/cluster-api-provider-cloud-director/api/v1beta1"
+	"github.com/vmware/cluster-api-provider-cloud-director/pkg/capisdk"
 	"github.com/vmware/cluster-api-provider-cloud-director/pkg/config"
 	vcdutil "github.com/vmware/cluster-api-provider-cloud-director/pkg/util"
-	"github.com/vmware/cluster-api-provider-cloud-director/pkg/vcdclient"
-	swagger "github.com/vmware/cluster-api-provider-cloud-director/pkg/vcdswaggerclient"
+	"github.com/vmware/cloud-provider-for-cloud-director/pkg/vcdsdk"
+	swagger "github.com/vmware/cloud-provider-for-cloud-director/pkg/vcdswaggerclient"
 	rdeType "github.com/vmware/cluster-api-provider-cloud-director/pkg/vcdtypes/rde_type_1_1_0"
 	"github.com/vmware/go-vcloud-director/v2/govcd"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -219,14 +220,14 @@ func (r *VCDClusterReconciler) constructCapvcdRDE(ctx context.Context, cluster *
 	return rde, nil
 }
 
-func (r *VCDClusterReconciler) constructAndCreateRDEFromCluster(ctx context.Context, workloadVCDClient *vcdclient.Client, cluster *clusterv1.Cluster, vcdCluster *infrav1.VCDCluster) (string, error) {
+func (r *VCDClusterReconciler) constructAndCreateRDEFromCluster(ctx context.Context, workloadVCDClient *vcdsdk.Client, cluster *clusterv1.Cluster, vcdCluster *infrav1.VCDCluster) (string, error) {
 	log := ctrl.LoggerFrom(ctx)
 
 	rde, err := r.constructCapvcdRDE(ctx, cluster, vcdCluster)
 	if err != nil {
 		return "", fmt.Errorf("error occurred while constructing RDE payload for the cluster [%s]: [%v]", vcdCluster.Name, err)
 	}
-	resp, err := workloadVCDClient.ApiClient.DefinedEntityApi.CreateDefinedEntity(ctx, *rde,
+	resp, err := workloadVCDClient.APIClient.DefinedEntityApi.CreateDefinedEntity(ctx, *rde,
 		rde.EntityType, nil)
 	if err != nil {
 		return "", fmt.Errorf("error occurred during RDE creation for the cluster [%s]: [%v]", vcdCluster.Name, err)
@@ -235,7 +236,7 @@ func (r *VCDClusterReconciler) constructAndCreateRDEFromCluster(ctx context.Cont
 		return "", fmt.Errorf("error occurred during RDE creation for the cluster [%s]", vcdCluster.Name)
 	}
 	taskURL := resp.Header.Get(VCDLocationHeader)
-	task := govcd.NewTask(&workloadVCDClient.VcdClient.Client)
+	task := govcd.NewTask(&workloadVCDClient.VCDClient.Client)
 	task.Task.HREF = taskURL
 	err = task.Refresh()
 	if err != nil {
@@ -249,6 +250,9 @@ func (r *VCDClusterReconciler) constructAndCreateRDEFromCluster(ctx context.Cont
 // TODO: Remove uncommented code when decision to only keep capi.yaml as part of RDE spec is finalized
 func (r *VCDClusterReconciler) reconcileRDE(ctx context.Context, cluster *clusterv1.Cluster, vcdCluster *infrav1.VCDCluster, workloadVCDClient *vcdclient.Client) error {
 	log := ctrl.LoggerFrom(ctx)
+
+	capvcdRdeManager := capisdk.NewCapvcdRdeManager(workloadVCDClient)
+	_, capvcdEntity, err := capvcdRdeManager.GetCAPVCDEntity(ctx, vcdCluster.Status.InfraId)
 
 	_, capvcdSpec, capvcdMetadata, capvcdStatus, err := workloadVCDClient.GetCAPVCDEntity(ctx, vcdCluster.Status.InfraId)
 	if err != nil {

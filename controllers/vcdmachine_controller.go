@@ -15,7 +15,7 @@ import (
 	"github.com/replicatedhq/troubleshoot/pkg/redact"
 	infrav1 "github.com/vmware/cluster-api-provider-cloud-director/api/v1beta1"
 	"github.com/vmware/cluster-api-provider-cloud-director/pkg/config"
-	"github.com/vmware/cluster-api-provider-cloud-director/pkg/vcdclient"
+	"github.com/vmware/cloud-provider-for-cloud-director/pkg/vcdsdk"
 	"github.com/vmware/go-vcloud-director/v2/govcd"
 	"gopkg.in/yaml.v2"
 	"io/ioutil"
