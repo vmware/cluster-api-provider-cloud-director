@@ -84,6 +84,7 @@ type VCDClusterStatus struct {
 	// Important: Run "make" to regenerate code after modifying this file
 
 	// Ready denotes that the vcd cluster (infrastructure) is ready.
+	// +kubebuilder:default=false
 	Ready bool `json:"ready"`
 
 	// MetadataUpdated denotes that the metadata of Vapp is updated.

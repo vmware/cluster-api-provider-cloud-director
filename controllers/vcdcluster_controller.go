@@ -550,12 +550,19 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		infraID = noRDEID
 	}
 
+	// If the vcdClusterObject does not have the InfraId set, we need to set it. If it has one, we can reuse it.
 	if vcdCluster.Status.InfraId == "" {
-		// This implies we have to set the infraID into the vcdCluster Object.
+		// We need to set the Status.Ready to true and then reset it in order to get a differential for the Patch.
+		// Because if the Ready is not in the differential patch, there is an admission controller that fails.
+		// So we do something idiotic.
+		vcdCluster.Status.Ready = !vcdCluster.Status.Ready
+		oldVCDCluster := vcdCluster.DeepCopy()
+		vcdCluster.Status.Ready = !oldVCDCluster.Status.Ready
+
 		vcdCluster.Status.InfraId = infraID
-		if err := r.Status().Update(ctx, vcdCluster); err != nil {
+		if err := r.Status().Patch(ctx, vcdCluster, client.MergeFrom(oldVCDCluster)); err != nil {
 			return ctrl.Result{}, errors.Wrapf(err,
-				"unable to update status of vcdCluster [%s] with InfraID [%s]",
+				"unable to patch status of vcdCluster [%s] with InfraID [%s]",
 				vcdCluster.Name, infraID)
 		}
 		// Also update the client created already so that the CPI etc have the clusterID.

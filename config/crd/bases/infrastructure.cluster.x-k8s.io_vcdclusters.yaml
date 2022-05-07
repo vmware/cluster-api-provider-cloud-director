@@ -270,6 +270,7 @@ spec:
               parentUid:
                 type: string
               ready:
+                default: false
                 description: Ready denotes that the vcd cluster (infrastructure) is
                   ready.
                 type: boolean
