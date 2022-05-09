@@ -24,6 +24,8 @@ IMG ?= ${REGISTRY}/cluster-api-provider-cloud-director:${version}
 SHELL = /usr/bin/env bash -o pipefail
 .SHELLFLAGS = -ec
 
+.PHONY: vendor
+
 MANIFEST_DIR = infrastructure-vcd/v0.8.0
 all: build
 
