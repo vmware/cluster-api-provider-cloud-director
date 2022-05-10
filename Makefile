@@ -126,10 +126,6 @@ rm -rf $$TMP_DIR ;\
 }
 endef
 
-build-within-docker:
-	mkdir -p /build/cluster-api-provider-cloud-director
-	go build -ldflags "-X github.com/akrishnakuma/cluster-api-provider-cloud-director/version.Version=$(version)" -o /build/vcloud/cluster-api-provider-cloud-director main.go
-
 capi: generate fmt vet vendor
 	docker build -f Dockerfile . -t cluster-api-provider-cloud-director:$(version)
 	docker tag cluster-api-provider-cloud-director:$(version) $(IMG)
