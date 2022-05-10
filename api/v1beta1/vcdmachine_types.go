@@ -69,6 +69,10 @@ type VCDMachineStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
+	// ProviderID will be the container name in ProviderID format (vmware-cloud-director://<vm id>)
+	// +optional
+	ProviderID *string `json:"providerID,omitempty"`
+
 	// Ready denotes that the machine (docker container) is ready
 	// +optional
 	Ready bool `json:"ready"`
@@ -76,6 +80,10 @@ type VCDMachineStatus struct {
 	// Addresses contains the associated addresses for the docker machine.
 	// +optional
 	Addresses []clusterv1.MachineAddress `json:"addresses,omitempty"`
+
+	// TemplatePath is the path of the template OVA that is to be used
+	// +optional
+	Template string `json:"template,omitempty"`
 
 	// Conditions defines current service state of the DockerMachine.
 	// +optional

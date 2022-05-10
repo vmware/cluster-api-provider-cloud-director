@@ -707,6 +707,8 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	providerID := fmt.Sprintf("%s://%s", infrav1.VCDProviderID, vm.VM.ID)
 	vcdMachine.Spec.ProviderID = &providerID
 	vcdMachine.Status.Ready = true
+	vcdMachine.Status.Template = vcdMachine.Spec.Template
+	vcdMachine.Status.ProviderID = vcdMachine.Spec.ProviderID
 	conditions.MarkTrue(vcdMachine, ContainerProvisionedCondition)
 	err = r.reconcileNodeStatusInRDE(ctx, vcdCluster.Status.InfraId, machine.Name, machine.Status.Phase, workloadVCDClient)
 	if err != nil {

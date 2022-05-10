@@ -248,10 +248,18 @@ spec:
                   - type
                   type: object
                 type: array
+              providerID:
+                description: ProviderID will be the container name in ProviderID format
+                  (vmware-cloud-director://<vm id>)
+                type: string
               ready:
                 description: Ready denotes that the machine (docker container) is
                   ready
                 type: boolean
+              template:
+                description: TemplatePath is the path of the template OVA that is
+                  to be used
+                type: string
             type: object
         type: object
     served: true
