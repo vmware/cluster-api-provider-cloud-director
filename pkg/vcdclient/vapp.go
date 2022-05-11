@@ -171,6 +171,22 @@ func (vdc *VdcManager) AddMetadataToVApp(vAppName string, paramMap map[string]st
 	return nil
 }
 
+func (vdc *VdcManager) GetMetadataByKey(vApp *govcd.VApp, key string) (value string, err error) {
+	if vApp == nil || vApp.VApp == nil {
+		return "", fmt.Errorf("found nil value for vApp")
+	}
+	metadata, err := vApp.GetMetadata()
+	if err != nil {
+		return "", fmt.Errorf("unable to get metadata from vApp")
+	}
+	for _, metadataEntity := range metadata.MetadataEntry {
+		if key == metadataEntity.Key {
+			return metadataEntity.TypedValue.Value, nil
+		}
+	}
+	return "", fmt.Errorf("metadata record not found for {%s, %s}", key, value)
+}
+
 func (vdc *VdcManager) isVappNetworkPresentInVapp(vApp *govcd.VApp, ovdcNetworkName string) bool {
 	if vApp == nil || vApp.VApp == nil {
 		klog.Error("found nil value for vApp")
