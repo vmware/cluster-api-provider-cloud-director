@@ -184,6 +184,7 @@ func patchVCDMachine(ctx context.Context, patchHelper *patch.Helper, vcdMachine 
 
 const (
 	NetworkConfiguration                   = "guestinfo.postcustomization.networkconfiguration.status"
+	ProxyConfiguration                     = "guestinfo.postcustomization.proxy.setting.status"
 	KubeadmInit                            = "guestinfo.postcustomization.kubeinit.status"
 	KubectlApplyCpi                        = "guestinfo.postcustomization.kubectl.cpi.install.status"
 	KubectlApplyCsi                        = "guestinfo.postcustomization.kubectl.csi.install.status"
@@ -196,6 +197,7 @@ const (
 
 var controlPlanePostCustPhases = []string{
 	NetworkConfiguration,
+	ProxyConfiguration,
 	KubeadmInit,
 	KubectlApplyCpi,
 	KubectlApplyCsi,
@@ -474,6 +476,7 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 			fileSystemFormat := ""
 			vcdStorageProfileName := ""
 			reclaimPolicy := ReclaimPolicyRetain
+			proxyConfig := vcdCluster.Spec.ProxyConfig
 			if enableDefaultStorageClass {
 				k8sStorageClassName = vcdCluster.Spec.DefaultStorageClassOptions.K8sStorageClassName
 				if vcdCluster.Spec.DefaultStorageClassOptions.UseDeleteReclaimPolicy {
@@ -484,30 +487,36 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 			}
 			vcdHostFormatted := strings.Replace(vcdCluster.Spec.Site, "/", "\\/", -1)
 			guestCloudInit = fmt.Sprintf(
-				guestCloudInitTemplate,            // template script
-				b64OrgUser,                        // base 64 org/username
-				b64Password,                       // base64 password
-				b64RefreshToken,                   // refresh token
-				k8sStorageClassName,               // default storage class name
-				reclaimPolicy,                     // reclaim policy
-				vcdStorageProfileName,             // vcd storage profile
-				fileSystemFormat,                  // filesystem
-				workloadVCDClient.CpiVersion,      // cpi version
-				vcdHostFormatted,                  // vcd host
-				workloadVCDClient.ClusterOrgName,  // org
-				workloadVCDClient.ClusterOVDCName, // ovdc
-				workloadVCDClient.NetworkName,     // network
-				"",                                // vip subnet cidr - empty for now for CPI to select subnet
-				vAppName,                          // vApp name
-				workloadVCDClient.ClusterID,       // cluster id
-				workloadVCDClient.CsiVersion,      // csi version
-				vcdHostFormatted,                  // vcd host,
-				workloadVCDClient.ClusterOrgName,  // org
-				workloadVCDClient.ClusterOVDCName, // ovdc
-				vAppName,                          // vApp
-				workloadVCDClient.ClusterID,       // cluster id
+				guestCloudInitTemplate,                        // template script
+				b64OrgUser,                                    // base 64 org/username
+				b64Password,                                   // base64 password
+				b64RefreshToken,                               // refresh token
+				k8sStorageClassName,                           // default storage class name
+				reclaimPolicy,                                 // reclaim policy
+				vcdStorageProfileName,                         // vcd storage profile
+				fileSystemFormat,                              // filesystem
+				proxyConfig.HTTPProxy,                         // httpProxy
+				proxyConfig.HTTPSProxy,                        // httpsProxy
+				proxyConfig.NoProxy,                           // noProxy
+				proxyConfig.HTTPProxy,                         // HTTPProxy
+				proxyConfig.HTTPSProxy,                        // HTTPSProxy
+				proxyConfig.NoProxy,                           // NoProxy
+				workloadVCDClient.CpiVersion,                  // cpi version
+				vcdHostFormatted,                              // vcd host
+				workloadVCDClient.ClusterOrgName,              // org
+				workloadVCDClient.ClusterOVDCName,             // ovdc
+				workloadVCDClient.NetworkName,                 // network
+				"",                                            // vip subnet cidr - empty for now for CPI to select subnet
+				vAppName,                                      // vApp name
+				workloadVCDClient.ClusterID,                   // cluster id
+				workloadVCDClient.CsiVersion,                  // csi version
+				vcdHostFormatted,                              // vcd host,
+				workloadVCDClient.ClusterOrgName,              // org
+				workloadVCDClient.ClusterOVDCName,             // ovdc
+				vAppName,                                      // vApp
+				workloadVCDClient.ClusterID,                   // cluster id
 				strconv.FormatBool(enableDefaultStorageClass), // storage_class_enabled
-				machine.Name, // vm host name
+				machine.Name,                                  // vm host name
 			)
 
 		default:
@@ -707,8 +716,6 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	providerID := fmt.Sprintf("%s://%s", infrav1.VCDProviderID, vm.VM.ID)
 	vcdMachine.Spec.ProviderID = &providerID
 	vcdMachine.Status.Ready = true
-	vcdMachine.Status.Template = vcdMachine.Spec.Template
-	vcdMachine.Status.ProviderID = vcdMachine.Spec.ProviderID
 	conditions.MarkTrue(vcdMachine, ContainerProvisionedCondition)
 	err = r.reconcileNodeStatusInRDE(ctx, vcdCluster.Status.InfraId, machine.Name, machine.Status.Phase, workloadVCDClient)
 	if err != nil {

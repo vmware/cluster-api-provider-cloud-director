@@ -195,6 +195,17 @@ spec:
                 type: string
               parentUid:
                 type: string
+              proxyConfig:
+                description: ProxyConfig defines HTTP proxy environment variables
+                  for containerd
+                properties:
+                  httpProxy:
+                    type: string
+                  httpsProxy:
+                    type: string
+                  noProxy:
+                    type: string
+                type: object
               rdeId:
                 type: string
               site:

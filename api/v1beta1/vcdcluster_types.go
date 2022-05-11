@@ -51,6 +51,13 @@ type DefaultStorageClassOptions struct {
 	FileSystem string `json:"fileSystem,omitempty"`
 }
 
+// ProxyConfig defines HTTP proxy environment variables for containerd
+type ProxyConfig struct {
+	HTTPProxy  string `json:"httpProxy,omitempty"`
+	HTTPSProxy string `json:"httpsProxy,omitempty"`
+	NoProxy    string `json:"noProxy,omitempty"`
+}
+
 // VCDClusterSpec defines the desired state of VCDCluster
 type VCDClusterSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
@@ -76,6 +83,8 @@ type VCDClusterSpec struct {
 	ParentUID string `json:"parentUid,omitempty"`
 	// +optional
 	UseAsManagementCluster bool `json:"useAsManagementCluster,omitempty"`
+	// +optional
+	ProxyConfig ProxyConfig `json:"proxyConfig,omitempty"`
 }
 
 // VCDClusterStatus defines the observed state of VCDCluster
