@@ -31,6 +31,16 @@ write_files:
       storageProfile: "%s"
       filesystem: "%s"
     ---
+- path: /etc/environment
+  owner: root
+  append: true
+  content: |
+    http_proxy="%s"
+    https_proxy="%s"
+    no_proxy="%s"
+    HTTP_PROXY="%s"
+    HTTPS_PROXY="%s"
+    NO_PROXY="%s"
 - path: /root/control_plane.sh
   owner: root
   content: |
@@ -49,6 +59,7 @@ write_files:
        fi
        vmtoolsd --cmd "info-set guestinfo.post_customization_cloud_init_output $cloud_init_output"
     }
+    source /etc/environment
     mkdir -p /var/log/capvcd/customization
     trap 'catch $? $LINENO' ERR EXIT
     set -ex
@@ -69,6 +80,20 @@ write_files:
       # also remove ipv6 localhost entry from /etc/hosts
       sed -i 's/::1/127.0.0.1/g' /etc/hosts || true
     vmtoolsd --cmd "info-set guestinfo.postcustomization.networkconfiguration.status successful"
+    
+    vmtoolsd --cmd "info-set guestinfo.postcustomization.proxy.setting.status in_progress"
+    cat <<END > /etc/systemd/system/containerd.service.d/http-proxy.conf
+    [Service]
+    Environment="HTTP_PROXY=${http_proxy}"
+    Environment="HTTPS_PROXY=${https_proxy}"
+    Environment="http_proxy=${http_proxy}"
+    Environment="https_proxy=${https_proxy}"
+    Environment="no_proxy=${no_proxy}"
+    Environment="NO_PROXY=${no_proxy}"
+    END
+    systemctl daemon-reload
+    systemctl restart containerd
+    vmtoolsd --cmd "info-set guestinfo.postcustomization.proxy.setting.status successful"
 
     vmtoolsd --cmd "info-set guestinfo.postcustomization.kubeinit.status in_progress"
       for image in "coredns" "etcd" "kube-proxy" "kube-apiserver" "kube-controller-manager" "kube-scheduler"

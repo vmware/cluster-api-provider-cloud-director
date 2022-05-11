@@ -185,6 +185,7 @@ func patchVCDMachine(ctx context.Context, patchHelper *patch.Helper, vcdMachine 
 
 const (
 	NetworkConfiguration                   = "guestinfo.postcustomization.networkconfiguration.status"
+	ProxyConfiguration                     = "guestinfo.postcustomization.proxy.setting.status"
 	KubeadmInit                            = "guestinfo.postcustomization.kubeinit.status"
 	KubectlApplyCpi                        = "guestinfo.postcustomization.kubectl.cpi.install.status"
 	KubectlApplyCsi                        = "guestinfo.postcustomization.kubectl.csi.install.status"
@@ -197,6 +198,7 @@ const (
 
 var controlPlanePostCustPhases = []string{
 	NetworkConfiguration,
+	ProxyConfiguration,
 	KubeadmInit,
 	KubectlApplyCpi,
 	KubectlApplyCsi,
@@ -475,6 +477,7 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 			fileSystemFormat := ""
 			vcdStorageProfileName := ""
 			reclaimPolicy := ReclaimPolicyRetain
+			//proxyConfig := vcdCluster.Spec.ProxyConfig
 			if enableDefaultStorageClass {
 				k8sStorageClassName = vcdCluster.Spec.DefaultStorageClassOptions.K8sStorageClassName
 				if vcdCluster.Spec.DefaultStorageClassOptions.UseDeleteReclaimPolicy {
@@ -714,8 +717,6 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	providerID := fmt.Sprintf("%s://%s", infrav1.VCDProviderID, vm.VM.ID)
 	vcdMachine.Spec.ProviderID = &providerID
 	vcdMachine.Status.Ready = true
-	vcdMachine.Status.Template = vcdMachine.Spec.Template
-	vcdMachine.Status.ProviderID = vcdMachine.Spec.ProviderID
 	conditions.MarkTrue(vcdMachine, ContainerProvisionedCondition)
 	err = r.reconcileNodeStatusInRDE(ctx, vcdCluster.Status.InfraId, machine.Name, machine.Status.Phase, workloadVCDClient)
 	if err != nil {
