@@ -31,7 +31,6 @@ const (
 type VdcManager struct {
 	OrgName  string
 	VdcName  string
-	VAppName string // can be empty
 	Vdc      *govcd.Vdc
 	// client should be refreshed
 	Client *Client
@@ -132,7 +131,7 @@ func convertItemsToMarshalItems(items []*VirtualHardwareItem) []*VirtualHardware
 	return marshalItems
 }
 
-func NewVDCManager(client *Client, orgName string, vdcName string, vAppName string) (*VdcManager, error) {
+func NewVDCManager(client *Client, orgName string, vdcName string) (*VdcManager, error) {
 	if orgName == "" {
 		orgName = client.ClusterOrgName
 	}
@@ -144,7 +143,6 @@ func NewVDCManager(client *Client, orgName string, vdcName string, vAppName stri
 		Client:   client,
 		OrgName:  orgName,
 		VdcName:  vdcName,
-		VAppName: vAppName,
 	}
 	err := vdcManager.cacheVdcDetails()
 	if err != nil {
@@ -166,19 +164,20 @@ func (vdc *VdcManager) cacheVdcDetails() error {
 	return nil
 }
 
-func (vdc *VdcManager) FindAllVMsInVapp() ([]*types.Vm, error) {
+func (vdc *VdcManager) FindAllVMsInVapp(VAppName string) ([]*types.Vm, error) {
 
-	if vdc.VAppName == "" {
+	if VAppName == "" {
 		return nil, fmt.Errorf("VApp name is empty")
 	}
 
-	vApp, err := vdc.Vdc.GetVAppByName(vdc.VAppName, true)
+
+	vApp, err := vdc.Vdc.GetVAppByName(VAppName, true)
 	if err != nil {
-		return nil, fmt.Errorf("unable to find vApp [%s]: [%v]", vdc.VAppName, err)
+		return nil, fmt.Errorf("unable to find vApp [%s]: [%v]", VAppName, err)
 	}
 
 	if vApp.VApp == nil {
-		return nil, fmt.Errorf("unable to get VApp object in vapp of name [%s]", vdc.VAppName)
+		return nil, fmt.Errorf("unable to get VApp object in vapp of name [%s]", VAppName)
 	}
 
 	if vApp.VApp.Children == nil {
@@ -188,14 +187,14 @@ func (vdc *VdcManager) FindAllVMsInVapp() ([]*types.Vm, error) {
 	return vApp.VApp.Children.VM, nil
 }
 
-func (vdc *VdcManager) DeleteVApp() error {
+func (vdc *VdcManager) DeleteVApp(VAppName string) error {
 	vdc.Client.RWLock.Lock()
 	defer vdc.Client.RWLock.Unlock()
 
 	if vdc.Vdc == nil {
 		return fmt.Errorf("no Vdc created with name [%s]", vdc.Client.ClusterOVDCName)
 	}
-	vApp, err := vdc.Vdc.GetVAppByName(vdc.VAppName, true)
+	vApp, err := vdc.Vdc.GetVAppByName(VAppName, true)
 	if err != nil {
 		return govcd.ErrorEntityNotFound
 	}
@@ -203,13 +202,13 @@ func (vdc *VdcManager) DeleteVApp() error {
 	if err != nil {
 		task, err = vApp.Delete()
 		if err != nil {
-			return fmt.Errorf("failed to delete vApp [%s]: [%v]", vdc.VAppName, err)
+			return fmt.Errorf("failed to delete vApp [%s]: [%v]", VAppName, err)
 		}
 
 		// Undeploy can fail if the vApp is not running. But VApp will be in a state where it can be deleted
 		err = task.WaitTaskCompletion()
 		if err != nil {
-			return fmt.Errorf("failed to delete vApp [%s]: [%v]", vdc.VAppName, err)
+			return fmt.Errorf("failed to delete vApp [%s]: [%v]", VAppName, err)
 		}
 		// Deletion successful
 		return nil
@@ -220,7 +219,7 @@ func (vdc *VdcManager) DeleteVApp() error {
 	}
 	task, err = vApp.Delete()
 	if err != nil {
-		return fmt.Errorf("failed to delete vApp [%s]: [%v]", vdc.VAppName, err)
+		return fmt.Errorf("failed to delete vApp [%s]: [%v]", VAppName, err)
 	}
 	err = task.WaitTaskCompletion()
 	if err != nil {
@@ -230,43 +229,43 @@ func (vdc *VdcManager) DeleteVApp() error {
 }
 
 // no need to make reentrant since VCD will take care of it and Kubernetes will retry
-func (vdc *VdcManager) GetOrCreateVApp(ovdcNetworkName string) (*govcd.VApp, error) {
+func (vdc *VdcManager) GetOrCreateVApp(VAppName string, ovdcNetworkName string) (*govcd.VApp, error) {
 	if vdc.Vdc == nil {
 		return nil, fmt.Errorf("no Vdc created with name [%s]", vdc.Client.ClusterOVDCName)
 	}
 
-	vApp, err := vdc.Vdc.GetVAppByName(vdc.VAppName, true)
+	vApp, err := vdc.Vdc.GetVAppByName(VAppName, true)
 	if err != nil && err != govcd.ErrorEntityNotFound {
 		return nil, fmt.Errorf("unable to get vApp [%s] from Vdc [%s]: [%v]",
-			vdc.VAppName, vdc.Client.ClusterOVDCName, err)
+			VAppName, vdc.Client.ClusterOVDCName, err)
 	} else if vApp != nil {
 		if vApp.VApp == nil {
-			return nil, fmt.Errorf("vApp [%s] is invalid", vdc.VAppName)
+			return nil, fmt.Errorf("vApp [%s] is invalid", VAppName)
 		}
 		if !vdc.isVappNetworkPresentInVapp(vApp, ovdcNetworkName) {
 			// try adding ovdc network to the vApp
 			if err := vdc.addOvdcNetworkToVApp(vApp, ovdcNetworkName); err != nil {
-				return nil, fmt.Errorf("unable to add ovdc network [%s] to vApp [%s]: [%v]", ovdcNetworkName, vdc.VAppName, err)
+				return nil, fmt.Errorf("unable to add ovdc network [%s] to vApp [%s]: [%v]", ovdcNetworkName, VAppName, err)
 			}
-			klog.V(3).Infof("successfully added ovdc network [%s] to vApp [%s]", ovdcNetworkName, vdc.VAppName)
+			klog.V(3).Infof("successfully added ovdc network [%s] to vApp [%s]", ovdcNetworkName, VAppName)
 		}
 		return vApp, nil
 	}
 
 	// vapp not found, so create one
-	err = vdc.Vdc.ComposeRawVApp(vdc.VAppName, fmt.Sprintf("Description for [%s]", vdc.VAppName))
+	err = vdc.Vdc.ComposeRawVApp(VAppName, fmt.Sprintf("Description for [%s]", VAppName))
 	if err != nil {
-		return nil, fmt.Errorf("unable to compose raw vApp with name [%s]: [%v]", vdc.VAppName, err)
+		return nil, fmt.Errorf("unable to compose raw vApp with name [%s]: [%v]", VAppName, err)
 	}
 
-	vApp, err = vdc.Vdc.GetVAppByName(vdc.VAppName, true)
+	vApp, err = vdc.Vdc.GetVAppByName(VAppName, true)
 	if err != nil {
 		return nil, fmt.Errorf("unable to get vApp [%s] from Vdc [%s]: [%v]",
-			vdc.VAppName, vdc.Client.ClusterOVDCName, err)
+			VAppName, vdc.Client.ClusterOVDCName, err)
 	}
 
 	if err := vdc.addOvdcNetworkToVApp(vApp, ovdcNetworkName); err != nil {
-		return nil, fmt.Errorf("unable to add ovdc network [%s] to vApp [%s]: [%v]", ovdcNetworkName, vdc.VAppName, err)
+		return nil, fmt.Errorf("unable to add ovdc network [%s] to vApp [%s]: [%v]", ovdcNetworkName, VAppName, err)
 	}
 
 	return vApp, nil
@@ -306,21 +305,21 @@ func (vdc *VdcManager) isVappNetworkPresentInVapp(vApp *govcd.VApp, ovdcNetworkN
 
 // FindVMByName finds a VM in a vApp using the name. The client is expected to have a valid
 // bearer token when this function is called.
-func (vdc *VdcManager) FindVMByName(vmName string) (*govcd.VM, error) {
+func (vdc *VdcManager) FindVMByName(VAppName string, vmName string) (*govcd.VM, error) {
 	if vmName == "" {
 		return nil, fmt.Errorf("vmName mandatory for FindVMByName")
 	}
 
 	client := vdc.Client
-	klog.Infof("Trying to find vm [%s] in vApp [%s] by name", vmName, vdc.VAppName)
-	vApp, err := client.VDC.GetVAppByName(vdc.VAppName, true)
+	klog.Infof("Trying to find vm [%s] in vApp [%s] by name", vmName, VAppName)
+	vApp, err := client.VDC.GetVAppByName(VAppName, true)
 	if err != nil {
-		return nil, fmt.Errorf("unable to find vApp [%s] by name: [%v]", vdc.VAppName, err)
+		return nil, fmt.Errorf("unable to find vApp [%s] by name: [%v]", VAppName, err)
 	}
 
 	vm, err := vApp.GetVMByName(vmName, true)
 	if err != nil {
-		return nil, fmt.Errorf("unable to find vm [%s] in vApp [%s]: [%v]", vmName, vdc.VAppName, err)
+		return nil, fmt.Errorf("unable to find vm [%s] in vApp [%s]: [%v]", vmName, VAppName, err)
 	}
 
 	return vm, nil
@@ -328,23 +327,23 @@ func (vdc *VdcManager) FindVMByName(vmName string) (*govcd.VM, error) {
 
 // FindVMByUUID finds a VM in a vApp using the UUID. The client is expected to have a valid
 // bearer token when this function is called.
-func (vdc *VdcManager) FindVMByUUID(vcdVmUUID string) (*govcd.VM, error) {
+func (vdc *VdcManager) FindVMByUUID(VAppName string, vcdVmUUID string) (*govcd.VM, error) {
 	if vcdVmUUID == "" {
 		return nil, fmt.Errorf("vmUUID mandatory for FindVMByUUID")
 	}
 
-	klog.Infof("Trying to find vm [%s] in vApp [%s] by UUID", vcdVmUUID, vdc.VAppName)
+	klog.Infof("Trying to find vm [%s] in vApp [%s] by UUID", vcdVmUUID, VAppName)
 	vmUUID := strings.TrimPrefix(vcdVmUUID, VCDVMIDPrefix)
 
-	vApp, err := vdc.Client.VDC.GetVAppByName(vdc.VAppName, true)
+	vApp, err := vdc.Client.VDC.GetVAppByName(VAppName, true)
 	if err != nil {
-		return nil, fmt.Errorf("unable to find vApp [%s] by name: [%v]", vdc.VAppName, err)
+		return nil, fmt.Errorf("unable to find vApp [%s] by name: [%v]", VAppName, err)
 	}
 
 	vm, err := vApp.GetVMById(vmUUID, true)
 	if err != nil {
 		return nil, fmt.Errorf("unable to find vm UUID [%s] in vApp [%s]: [%v]",
-			vmUUID, vdc.VAppName, err)
+			vmUUID, VAppName, err)
 	}
 
 	return vm, nil
@@ -774,7 +773,7 @@ func (vdc *VdcManager) AddNewMultipleVM(vapp *govcd.VApp, vmNamePrefix string, v
 	return govcd.Task{}, nil
 }
 
-func (vdc *VdcManager) AddNewVM(vmNamePrefix string, vmNum int,
+func (vdc *VdcManager) AddNewVM(VAppName string, vmNamePrefix string, vmNum int,
 	catalogName string, templateName string, placementPolicyName string, computePolicyName string,
 	storageProfileName string, guestCustScript string, powerOn bool) error {
 
@@ -782,10 +781,10 @@ func (vdc *VdcManager) AddNewVM(vmNamePrefix string, vmNum int,
 		return fmt.Errorf("no Vdc created with name [%s]", vdc.VdcName)
 	}
 
-	vApp, err := vdc.Vdc.GetVAppByName(vdc.VAppName, true)
+	vApp, err := vdc.Vdc.GetVAppByName(VAppName, true)
 	if err != nil {
 		return fmt.Errorf("unable to get vApp [%s] from Vdc [%s]: [%v]",
-			vdc.VAppName, vdc.VdcName, err)
+			VAppName, vdc.VdcName, err)
 	}
 
 	orgManager, err := NewOrgManager(vdc.Client, vdc.Client.ClusterOrgName)
@@ -829,32 +828,32 @@ func (vdc *VdcManager) AddNewVM(vmNamePrefix string, vmNum int,
 	if err != nil {
 		return fmt.Errorf(
 			"unable to issue call to create VMs with prefix [%s] in vApp [%s] with template [%s/%s]: [%v]",
-			vmNamePrefix, vdc.VAppName, catalogName, templateName, err)
+			vmNamePrefix, VAppName, catalogName, templateName, err)
 	}
 
 	return nil
 }
 
-func (vdc *VdcManager) DeleteVM(vmName string) error {
-	vApp, err := vdc.Client.VDC.GetVAppByName(vdc.VAppName, true)
+func (vdc *VdcManager) DeleteVM(VAppName, vmName string) error {
+	vApp, err := vdc.Client.VDC.GetVAppByName(VAppName, true)
 	if err != nil {
-		return fmt.Errorf("unable to find vApp from name [%s]: [%v]", vdc.VAppName, err)
+		return fmt.Errorf("unable to find vApp from name [%s]: [%v]", VAppName, err)
 	}
 
 	vm, err := vApp.GetVMByName(vmName, true)
 	if err != nil {
-		return fmt.Errorf("unable to get vm [%s] in vApp [%s]: [%v]", vmName, vdc.VAppName, err)
+		return fmt.Errorf("unable to get vm [%s] in vApp [%s]: [%v]", vmName, VAppName, err)
 	}
 
 	if err = vm.Delete(); err != nil {
-		return fmt.Errorf("unable to delete vm [%s] in vApp [%s]: [%v]", vmName, vdc.VAppName, err)
+		return fmt.Errorf("unable to delete vm [%s] in vApp [%s]: [%v]", vmName, VAppName, err)
 	}
 
 	return nil
 }
 
-func (vdc *VdcManager) GetVAppNameFromVMName(vmName string) (string, error) {
-	vm, err := vdc.FindVMByName(vmName)
+func (vdc *VdcManager) GetVAppNameFromVMName(VAppName string, vmName string) (string, error) {
+	vm, err := vdc.FindVMByName(VAppName, vmName)
 	if err != nil {
 		return "", fmt.Errorf("unable to find VM struct from name [%s]: [%v]", vmName, err)
 	}
@@ -867,16 +866,16 @@ func (vdc *VdcManager) GetVAppNameFromVMName(vmName string) (string, error) {
 	return vApp.VApp.Name, nil
 }
 
-func (vdc *VdcManager) WaitForGuestScriptCompletion(vmName string) error {
-	vApp, err := vdc.Client.VDC.GetVAppByName(vdc.VAppName, true)
+func (vdc *VdcManager) WaitForGuestScriptCompletion(VAppName, vmName string) error {
+	vApp, err := vdc.Client.VDC.GetVAppByName(VAppName, true)
 	if err != nil {
 		return fmt.Errorf("unable to get vApp [%s] from Vdc [%s]: [%v]",
-			vdc.VAppName, vdc.Client.ClusterOVDCName, err)
+			VAppName, vdc.Client.ClusterOVDCName, err)
 	}
 
 	vm, err := vApp.GetVMByName(vmName, false)
 	if err != nil {
-		return fmt.Errorf("unable to get vm [%s] in vApp [%s]: [%v]", vmName, vdc.VAppName, err)
+		return fmt.Errorf("unable to get vm [%s] in vApp [%s]: [%v]", vmName, VAppName, err)
 	}
 	for {
 		status, err := vm.GetGuestCustomizationStatus()
@@ -925,14 +924,14 @@ func (vdc *VdcManager) RebootVm(vm *govcd.VM) error {
 	return nil
 }
 
-func (vdc *VdcManager) AddMetadataToVApp(paramMap map[string]string) error {
-	vApp, err := vdc.Vdc.GetVAppByName(vdc.VAppName, true)
+func (vdc *VdcManager) AddMetadataToVApp(VAppName string, paramMap map[string]string) error {
+	vApp, err := vdc.Vdc.GetVAppByName(VAppName, true)
 	if err != nil {
 		if err == govcd.ErrorEntityNotFound {
-			return fmt.Errorf("cannot get the vApp [%s] from Vdc [%s]: [%v]", vdc.VAppName, vdc.VdcName, err)
+			return fmt.Errorf("cannot get the vApp [%s] from Vdc [%s]: [%v]", VAppName, vdc.VdcName, err)
 		}
 		return fmt.Errorf("error while getting vApp [%s] from Vdc [%s]: [%v]",
-			vdc.VAppName, vdc.VdcName, err)
+			VAppName, vdc.VdcName, err)
 	}
 	if vApp == nil || vApp.VApp == nil {
 		return fmt.Errorf("cannot add metadata to a nil vApp")

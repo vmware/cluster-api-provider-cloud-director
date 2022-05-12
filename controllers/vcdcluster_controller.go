@@ -628,7 +628,7 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 
 	// create VApp
 	vdcManager, err := vcdsdk.NewVDCManager(workloadVCDClient, workloadVCDClient.ClusterOrgName,
-		workloadVCDClient.ClusterOVDCName, vcdCluster.Name)
+		workloadVCDClient.ClusterOVDCName)
 	if err != nil {
 		return ctrl.Result{}, errors.Wrapf(err, "Error creating vdc manager to to reconcile vcd infrastructure for cluster [%s]", vcdCluster.Name)
 	}
@@ -637,13 +637,13 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	}
 	//Todo duplicate check
 
-	_, err = vdcManager.GetOrCreateVApp(vcdCluster.Spec.OvdcNetwork)
+	_, err = vdcManager.GetOrCreateVApp(vcdCluster.Name, vcdCluster.Spec.OvdcNetwork)
 	if err != nil {
 		return ctrl.Result{}, errors.Wrapf(err, "Error creating Infra vApp for the cluster [%s]: [%v]", vcdCluster.Name, err)
 	}
 
 	if metadataMap != nil && len(metadataMap) > 0 && !vcdCluster.Status.VAppMetadataUpdated {
-		if err := vdcManager.AddMetadataToVApp(metadataMap); err != nil {
+		if err := vdcManager.AddMetadataToVApp(vcdCluster.Name, metadataMap); err != nil {
 			return ctrl.Result{}, fmt.Errorf("unable to add metadata [%s] to vApp [%s]: [%v]", metadataMap, vcdCluster.Name, err)
 		}
 		vcdCluster.Status.VAppMetadataUpdated = true
@@ -707,7 +707,7 @@ func (r *VCDClusterReconciler) reconcileDelete(ctx context.Context,
 		"virtual service", virtualServiceNamePrefix, "lb pool", lbPoolNamePrefix)
 
 	vdcManager, err := vcdsdk.NewVDCManager(workloadVCDClient, workloadVCDClient.ClusterOrgName,
-		workloadVCDClient.ClusterOVDCName, vcdCluster.Name)
+		workloadVCDClient.ClusterOVDCName)
 	if err != nil {
 		return ctrl.Result{}, errors.Wrapf(err, "Error creating vdc manager to to reconcile vcd infrastructure for cluster [%s]", vcdCluster.Name)
 	}
@@ -736,7 +736,7 @@ func (r *VCDClusterReconciler) reconcileDelete(ctx context.Context,
 				len(vApp.VApp.Children.VM), vcdCluster.Name)
 		} else {
 			log.Info("Deleting vApp of the cluster", "vAppName", vcdCluster.Name)
-			err = vdcManager.DeleteVApp()
+			err = vdcManager.DeleteVApp(vcdCluster.Name)
 			if err != nil {
 				return ctrl.Result{}, errors.Wrapf(err,
 					"Error occurred during cluster deletion; failed to delete vApp [%s]", vcdCluster.Name)

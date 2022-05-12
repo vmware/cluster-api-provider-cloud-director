@@ -10,15 +10,11 @@ import (
 	"fmt"
 	"k8s.io/klog"
 	"net/http"
+	"strings"
 	"sync"
 
 	swaggerClient "github.com/vmware/cloud-provider-for-cloud-director/pkg/vcdswaggerclient"
 	"github.com/vmware/go-vcloud-director/v2/govcd"
-)
-
-var (
-	clientCreatorLock sync.Mutex
-	clientSingleton   *Client = nil
 )
 
 // Client :
@@ -31,6 +27,35 @@ type Client struct {
 	APIClient *swaggerClient.APIClient
 	RWLock sync.RWMutex
 }
+
+func GetUserAndOrg(fullUserName string, clusterOrg string, currentUserOrg string) (userOrg string, userName string, err error) {
+	// If the full username is specified as org/user, the scenario is that the user
+	// may belong to an org different from the cluster, but still has the
+	// necessary rights to view the VMs on this org. Else if the username is
+	// specified as just user, the scenario is that the user is in the same org
+	// as the cluster.
+	parts := strings.Split(string(fullUserName), "/")
+	if len(parts) > 2 {
+		return "", "", fmt.Errorf(
+			"invalid username format; expected at most two fields separated by /, obtained [%d]",
+			len(parts))
+	}
+	// Add additional fallback to clusterOrg if current userOrg does not exist, this allows auth to continue properly
+	if len(parts) == 1 {
+		if currentUserOrg == "" {
+			userOrg = clusterOrg
+		} else {
+			userOrg = currentUserOrg
+		}
+		userName = parts[0]
+	} else {
+		userOrg = parts[0]
+		userName = parts[1]
+	}
+
+	return userOrg, userName, nil
+}
+
 
 //  TODO: Make sure this function still works properly with no issues after refactor
 func (client *Client) RefreshBearerToken() error {
@@ -103,25 +128,20 @@ func NewVCDClientFromSecrets(host string, orgName string, vdcName string, userOr
 
 	// TODO: validation of parameters
 
-	clientCreatorLock.Lock()
-	defer clientCreatorLock.Unlock()
+	// When getting the client from main.go, the user, orgName, userOrg would have correct values due to config.SetAuthorization()
+	// when user is sys/admin, userOrg and orgName will have different values, hence we need an additional parameter check to prevent overwrite
+	// as now user='admin' and userOrg='system', we would enter the fallback to clusterOrg which would return userOrg=clusterOrg
+	// so if userOrg is already set, we want the updated fallback to userOrg first which could fall back to clusterOrg if empty
+	// In vcdcluster controller's case, both orgName and userOrg will be the same as we pass in vcdcluster.Spec.Org to both
+	// but since username is still 'sys/admin', we will return correctly
 
-	// Return old client if everything matches. Else create new one and cache it.
-	// This is suboptimal but is not a common case.
-	if clientSingleton != nil {
-		if clientSingleton.VCDAuthConfig.Host == host &&
-			clientSingleton.ClusterOrgName == orgName &&
-			clientSingleton.ClusterOVDCName == vdcName &&
-			clientSingleton.VCDAuthConfig.UserOrg == userOrg &&
-			clientSingleton.VCDAuthConfig.User == user &&
-			clientSingleton.VCDAuthConfig.Password == password &&
-			clientSingleton.VCDAuthConfig.RefreshToken == refreshToken &&
-			clientSingleton.VCDAuthConfig.Insecure == insecure {
-			return clientSingleton, nil
-		}
+	// TODO: Remove pkg/config dependency from vcdsdk; currently common_system_test.go depends on pkg/config
+	newUserOrg, newUsername, err := GetUserAndOrg(user, orgName, userOrg)
+	if err != nil {
+		return nil, fmt.Errorf("error parsing username before authenticating to VCD: [%v]", err)
 	}
 
-	vcdAuthConfig := NewVCDAuthConfigFromSecrets(host, user, password, refreshToken, userOrg, insecure) //
+	vcdAuthConfig := NewVCDAuthConfigFromSecrets(host, newUsername, password, refreshToken, newUserOrg, insecure) //
 
 	vcdClient, apiClient, err := vcdAuthConfig.GetSwaggerClientFromSecrets()
 	if err != nil {
@@ -148,8 +168,7 @@ func NewVCDClientFromSecrets(host string, orgName string, vdcName string, userOr
 		}
 	}
 	client.VCDClient = vcdClient
-	clientSingleton = client
 
-	klog.Infof("Client singleton is sysadmin: [%v]", clientSingleton.VCDClient.Client.IsSysAdmin)
-	return clientSingleton, nil
+	klog.Infof("Client is sysadmin: [%v]", client.VCDClient.Client.IsSysAdmin)
+	return client, nil
 }
