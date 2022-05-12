@@ -29,9 +29,9 @@ const (
 )
 
 type VdcManager struct {
-	OrgName  string
-	VdcName  string
-	Vdc      *govcd.Vdc
+	OrgName string
+	VdcName string
+	Vdc     *govcd.Vdc
 	// client should be refreshed
 	Client *Client
 }
@@ -140,9 +140,9 @@ func NewVDCManager(client *Client, orgName string, vdcName string) (*VdcManager,
 	}
 
 	vdcManager := &VdcManager{
-		Client:   client,
-		OrgName:  orgName,
-		VdcName:  vdcName,
+		Client:  client,
+		OrgName: orgName,
+		VdcName: vdcName,
 	}
 	err := vdcManager.cacheVdcDetails()
 	if err != nil {
@@ -169,7 +169,6 @@ func (vdc *VdcManager) FindAllVMsInVapp(VAppName string) ([]*types.Vm, error) {
 	if VAppName == "" {
 		return nil, fmt.Errorf("VApp name is empty")
 	}
-
 
 	vApp, err := vdc.Vdc.GetVAppByName(VAppName, true)
 	if err != nil {
@@ -944,4 +943,20 @@ func (vdc *VdcManager) AddMetadataToVApp(VAppName string, paramMap map[string]st
 		}
 	}
 	return nil
+}
+
+func (vdc *VdcManager) GetMetadataByKey(vApp *govcd.VApp, key string) (value string, err error) {
+	if vApp == nil || vApp.VApp == nil {
+		return "", fmt.Errorf("found nil value for vApp")
+	}
+	metadata, err := vApp.GetMetadata()
+	if err != nil {
+		return "", fmt.Errorf("unable to get metadata from vApp")
+	}
+	for _, metadataEntity := range metadata.MetadataEntry {
+		if key == metadataEntity.Key {
+			return metadataEntity.TypedValue.Value, nil
+		}
+	}
+	return "", fmt.Errorf("metadata record not found for {%s, %s}", key, value)
 }
