@@ -37,8 +37,33 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 	"strconv"
 	"strings"
+	"text/template"
 	"time"
 )
+
+type ControlPlaneCloudInitScriptInput struct {
+	B64OrgUser                string // base 64 org/username
+	B64Password               string // base64 password
+	B64RefreshToken           string // refresh token
+	K8sStorageClassName       string // default storage class name
+	ReclaimPolicy             string // reclaim policy
+	VcdStorageProfileName     string // vcd storage profile
+	FileSystemFormat          string // filesystem
+	HTTPProxy                 string // httpProxy endpoint
+	HTTPSProxy                string // httpsProxy endpoint
+	NoProxy                   string // no proxy values
+	CpiVersion                string // cpi version
+	VcdHostFormatted          string // vcd host
+	ClusterOrgName            string // org
+	ClusterOVDCName           string // ovdc
+	NetworkName               string // network
+	VipSubnetCidr             string // vip subnet cidr - empty for now for CPI to select subnet
+	VAppName                  string // vApp name
+	ClusterID                 string // cluster id
+	CsiVersion                string // csi version
+	EnableDefaultStorageClass string // is_storage_class_enabled
+	MachineName               string // vm host name
+}
 
 const (
 	ReclaimPolicyDelete = "Delete"
@@ -486,39 +511,44 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 				vcdStorageProfileName = vcdCluster.Spec.DefaultStorageClassOptions.VCDStorageProfileName
 			}
 			vcdHostFormatted := strings.Replace(vcdCluster.Spec.Site, "/", "\\/", -1)
-			guestCloudInit = fmt.Sprintf(
-				guestCloudInitTemplate,                        // template script
-				b64OrgUser,                                    // base 64 org/username
-				b64Password,                                   // base64 password
-				b64RefreshToken,                               // refresh token
-				k8sStorageClassName,                           // default storage class name
-				reclaimPolicy,                                 // reclaim policy
-				vcdStorageProfileName,                         // vcd storage profile
-				fileSystemFormat,                              // filesystem
-				proxyConfig.HTTPProxy,                         // httpProxy
-				proxyConfig.HTTPSProxy,                        // httpsProxy
-				proxyConfig.NoProxy,                           // noProxy
-				proxyConfig.HTTPProxy,                         // HTTPProxy
-				proxyConfig.HTTPSProxy,                        // HTTPSProxy
-				proxyConfig.NoProxy,                           // NoProxy
-				workloadVCDClient.CpiVersion,                  // cpi version
-				vcdHostFormatted,                              // vcd host
-				workloadVCDClient.ClusterOrgName,              // org
-				workloadVCDClient.ClusterOVDCName,             // ovdc
-				workloadVCDClient.NetworkName,                 // network
-				"",                                            // vip subnet cidr - empty for now for CPI to select subnet
-				vAppName,                                      // vApp name
-				workloadVCDClient.ClusterID,                   // cluster id
-				workloadVCDClient.CsiVersion,                  // csi version
-				vcdHostFormatted,                              // vcd host,
-				workloadVCDClient.ClusterOrgName,              // org
-				workloadVCDClient.ClusterOVDCName,             // ovdc
-				vAppName,                                      // vApp
-				workloadVCDClient.ClusterID,                   // cluster id
-				strconv.FormatBool(enableDefaultStorageClass), // storage_class_enabled
-				machine.Name,                                  // vm host name
+			controlPlaneScriptTemplate := template.New("control_plane_script_template")
+			controlPlaneScriptTemplate, err = controlPlaneScriptTemplate.Parse(controlPlaneCloudInitScriptTemplate)
+			if err != nil {
+				return ctrl.Result{}, errors.Wrapf(err, "Error parsing able to query for VM [%s]",
+					controlPlaneCloudInitScriptTemplate)
+			}
+			var buf bytes.Buffer
+			err = controlPlaneScriptTemplate.Execute(
+				&buf,
+				ControlPlaneCloudInitScriptInput{
+					B64OrgUser:                b64OrgUser,
+					B64Password:               b64Password,
+					B64RefreshToken:           b64RefreshToken,
+					K8sStorageClassName:       k8sStorageClassName,
+					ReclaimPolicy:             reclaimPolicy,
+					VcdStorageProfileName:     vcdStorageProfileName,
+					FileSystemFormat:          fileSystemFormat,
+					HTTPProxy:                 proxyConfig.HTTPProxy,
+					HTTPSProxy:                proxyConfig.HTTPSProxy,
+					NoProxy:                   proxyConfig.NoProxy,
+					CpiVersion:                workloadVCDClient.CpiVersion,
+					CsiVersion:                workloadVCDClient.CsiVersion,
+					VcdHostFormatted:          vcdHostFormatted,
+					ClusterOrgName:            workloadVCDClient.ClusterOrgName,
+					ClusterOVDCName:           workloadVCDClient.ClusterOVDCName,
+					NetworkName:               workloadVCDClient.NetworkName,
+					VipSubnetCidr:             "", // vip subnet cidr - empty for now for CPI to select subnet
+					VAppName:                  vAppName,
+					ClusterID:                 workloadVCDClient.ClusterID,
+					EnableDefaultStorageClass: strconv.FormatBool(enableDefaultStorageClass),
+					MachineName:               machine.Name,
+				},
 			)
-
+			if err != nil {
+				return ctrl.Result{}, errors.Wrapf(err, "Error rendering control plane template: [%s]",
+					controlPlaneCloudInitScriptTemplate)
+			}
+			guestCloudInit = buf.String()
 		default:
 			guestCloudInit = fmt.Sprintf(
 				guestCloudInitTemplate, // template script
