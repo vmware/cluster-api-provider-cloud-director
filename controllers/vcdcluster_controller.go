@@ -559,8 +559,8 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	vcdCluster.Status.ParentUID = vcdCluster.Spec.ParentUID
 
 	// create load balancer for the cluster. Only one-arm load balancer is fully tested.
-	virtualServiceNamePrefix := vcdCluster.Name + "-" + vcdCluster.Status.InfraId
-	lbPoolNamePrefix := vcdCluster.Name + "-" + vcdCluster.Status.InfraId
+	virtualServiceNamePrefix := capisdk.GetVirtualServiceNamePrefix(vcdCluster.Name, vcdCluster.Status.InfraId)
+	lbPoolNamePrefix := capisdk.GetLoadBalancerPoolNamePrefix(vcdCluster.Name, vcdCluster.Status.InfraId)
 
 	controlPlaneNodeIP, err := gateway.GetLoadBalancer(ctx, fmt.Sprintf("%s-tcp", virtualServiceNamePrefix),
 		&vcdsdk.OneArm{
@@ -692,8 +692,8 @@ func (r *VCDClusterReconciler) reconcileDelete(ctx context.Context,
 	}
 
 	// Delete the load balancer components
-	virtualServiceNamePrefix := vcdCluster.Name + "-" + vcdCluster.Status.InfraId
-	lbPoolNamePrefix := vcdCluster.Name + "-" + vcdCluster.Status.InfraId
+	virtualServiceNamePrefix := capisdk.GetVirtualServiceNamePrefix(vcdCluster.Name, vcdCluster.Status.InfraId)
+	lbPoolNamePrefix := capisdk.GetVirtualServiceNamePrefix(vcdCluster.Name, vcdCluster.Status.InfraId)
 	err = gateway.DeleteLoadBalancer(ctx, virtualServiceNamePrefix, lbPoolNamePrefix, &vcdsdk.OneArm{
 		StartIP: r.Config.LB.OneArm.StartIP,
 		EndIP:   r.Config.LB.OneArm.EndIP,

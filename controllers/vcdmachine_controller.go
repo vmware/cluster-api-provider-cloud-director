@@ -603,7 +603,10 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	// Update loadbalancer pool with the IP of the control plane node as a new member.
 	// Note that this must be done before booting on the VM!
 	if util.IsControlPlaneMachine(machine) {
-		lbPoolName := vcdCluster.Name + "-" + vcdCluster.Status.InfraId + "-tcp"
+		lbPoolName := capisdk.GetLoadBalancerPoolNameUsingPrefix(
+			capisdk.GetLoadBalancerPoolNamePrefix(vcdCluster.Name, vcdCluster.Status.InfraId),
+			"tcp",
+		)
 		lbPoolRef, err := gateway.GetLoadBalancerPool(ctx, lbPoolName)
 		if err != nil {
 			return ctrl.Result{}, errors.Wrapf(err, "Error retrieving/updating load balancer pool [%s] for the "+
