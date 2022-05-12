@@ -249,7 +249,7 @@ func (r *VCDMachineReconciler) waitForPostCustomizationPhase(ctx context.Context
 	possibleStatuses := []string{"", "in_progress", "successful"}
 	currentStatus := possibleStatuses[0]
 	vdcManager, err := vcdsdk.NewVDCManager(workloadVCDClient, workloadVCDClient.ClusterOrgName,
-		workloadVCDClient.ClusterOVDCName, "")
+		workloadVCDClient.ClusterOVDCName)
 	if err != nil {
 		return errors.Wrapf(err, "failed to create a vdc manager object when waiting for post customization phase of VM")
 	}
@@ -424,7 +424,7 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	}
 
 	vdcManager, err := vcdsdk.NewVDCManager(workloadVCDClient, workloadVCDClient.ClusterOrgName,
-		workloadVCDClient.ClusterOVDCName, vcdCluster.Name)
+		workloadVCDClient.ClusterOVDCName)
 	if err != nil {
 		return ctrl.Result{}, errors.Wrapf(err, "failed to create a vdc manager object when reconciling machine [%s]", vcdMachine.Name)
 	}
@@ -549,7 +549,7 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	}
 	if !vmExists {
 		log.Info("Adding infra VM for the machine")
-		err = vdcManager.AddNewVM(machine.Name, 1, vcdMachine.Spec.Catalog,
+		err = vdcManager.AddNewVM(vcdCluster.Name, machine.Name, 1, vcdMachine.Spec.Catalog,
 			vcdMachine.Spec.Template, "", vcdMachine.Spec.SizingPolicy,
 			vcdMachine.Spec.StorageProfile, "", false)
 		if err != nil {
@@ -827,7 +827,7 @@ func (r *VCDMachineReconciler) reconcileDelete(ctx context.Context, cluster *clu
 	}
 
 	vdcManager, err := vcdsdk.NewVDCManager(workloadVCDClient, workloadVCDClient.ClusterOrgName,
-		workloadVCDClient.ClusterOVDCName, "")
+		workloadVCDClient.ClusterOVDCName)
 	if err != nil {
 		return ctrl.Result{}, errors.Wrapf(err, "failed to create a vdc manager object when reconciling machine [%s]", vcdMachine.Name)
 	}
@@ -976,7 +976,7 @@ func (r *VCDMachineReconciler) VCDClusterToVCDMachines(o client.Object) []ctrl.R
 
 func (r *VCDMachineReconciler) hasCloudInitExecutionFailedBefore(ctx context.Context, workloadVCDClient *vcdsdk.Client, vm *govcd.VM) (bool, error) {
 	vdcManager, err := vcdsdk.NewVDCManager(workloadVCDClient, workloadVCDClient.ClusterOrgName,
-		workloadVCDClient.ClusterOVDCName, "")
+		workloadVCDClient.ClusterOVDCName)
 	if err != nil {
 		return false, errors.Wrapf(err, "failed to create a vdc manager object while checking cloud init failures")
 	}
