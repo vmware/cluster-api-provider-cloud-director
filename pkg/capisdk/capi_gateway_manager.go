@@ -11,6 +11,22 @@ type CapvcdGatewayManager struct {
 	gatewayManager *vcdsdk.GatewayManager
 }
 
+func GetVirtualServiceNamePrefix(clusterName string, clusterID string) string {
+	return clusterName + "-" + clusterID
+}
+
+func GetLoadBalancerPoolNamePrefix(clusterName string, clusterID string) string {
+	return clusterName + "-" + clusterID
+}
+
+func GetVirtualServiceNameUsingPrefix(virtualServiceNamePrefix string, portSuffix string) string {
+	return fmt.Sprintf("%s-%s", virtualServiceNamePrefix, portSuffix)
+}
+
+func GetLoadBalancerPoolNameUsingPrefix(lbPoolNamePrefix string, portSuffix string) string {
+	return fmt.Sprintf("%s-%s", lbPoolNamePrefix, portSuffix)
+}
+
 func NewCapvcdGatewayManager(ctx context.Context, client *vcdsdk.Client, networkName string, ipamSubnet string) (*CapvcdGatewayManager, error) {
 	gatewayManager, err := vcdsdk.NewGatewayManager(ctx, client, networkName, ipamSubnet)
 	if err != nil {
@@ -20,6 +36,8 @@ func NewCapvcdGatewayManager(ctx context.Context, client *vcdsdk.Client, network
 		gatewayManager: gatewayManager,
 	}, nil
 }
+
+// TODO: remove CreateL4LoadBalancer, UpdateLoadBalancer and DeleteLoadBalancer and use the functions defined in CPI
 
 func (capvcdGatewayManager *CapvcdGatewayManager) CreateL4LoadBalancer(ctx context.Context, virtualServiceNamePrefix string,
 	lbPoolNamePrefix string, ips []string, tcpPort int32, externalTcpPort int32, oneArm *vcdsdk.OneArm) (string, error) {
@@ -72,8 +90,8 @@ func (capvcdGatewayManager *CapvcdGatewayManager) CreateL4LoadBalancer(ctx conte
 			continue
 		}
 
-		virtualServiceName := fmt.Sprintf("%s-%s", virtualServiceNamePrefix, portDetail.portSuffix)
-		lbPoolName := fmt.Sprintf("%s-%s", lbPoolNamePrefix, portDetail.portSuffix)
+		virtualServiceName := GetVirtualServiceNameUsingPrefix(virtualServiceNamePrefix, portDetail.portSuffix)
+		lbPoolName := GetLoadBalancerPoolNameUsingPrefix(lbPoolNamePrefix, portDetail.portSuffix)
 
 		vsSummary, err := capvcdGatewayManager.gatewayManager.GetVirtualService(ctx, virtualServiceName)
 		if err != nil {
@@ -151,7 +169,7 @@ func (capvcdGatewayManager *CapvcdGatewayManager) DeleteLoadBalancer(ctx context
 	lbPoolNamePrefix string, oneArm *vcdsdk.OneArm) error {
 
 	if capvcdGatewayManager.gatewayManager == nil {
-		return fmt.Errorf("referece to gateway manager is nil")
+		return fmt.Errorf("reference to gateway manager is nil")
 	}
 
 	client := capvcdGatewayManager.gatewayManager.Client
@@ -163,8 +181,8 @@ func (capvcdGatewayManager *CapvcdGatewayManager) DeleteLoadBalancer(ctx context
 
 	for _, suffix := range []string{"http", "https", "tcp"} {
 
-		virtualServiceName := fmt.Sprintf("%s-%s", virtualServiceNamePrefix, suffix)
-		lbPoolName := fmt.Sprintf("%s-%s", lbPoolNamePrefix, suffix)
+		virtualServiceName := GetVirtualServiceNameUsingPrefix(virtualServiceNamePrefix, suffix)
+		lbPoolName := GetLoadBalancerPoolNameUsingPrefix(lbPoolNamePrefix, suffix)
 
 		err = capvcdGatewayManager.gatewayManager.DeleteVirtualService(ctx, virtualServiceName, false)
 		if err != nil {
