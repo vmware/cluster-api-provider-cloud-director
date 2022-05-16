@@ -446,6 +446,13 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		}
 	} else {
 		log.V(3).Info("Reusing already available InfraID", "infraID", infraID)
+		capvcdRdeManager := capisdk.NewCapvcdRdeManager(workloadVCDClient)
+		if !strings.Contains(infraID, NoRdePrefix) {
+			_, err = capvcdRdeManager.ConvertRDE(ctx, infraID)
+			if err != nil {
+				log.Error(err, "failed to upgrade RDE", "rdeID", infraID)
+			}
+		}
 	}
 
 	// If there is no RDE ID specified (or) created for any reason, self-generate one and use.

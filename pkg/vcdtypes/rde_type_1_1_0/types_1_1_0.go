@@ -1,5 +1,9 @@
 package rde_type_1_1_0
 
+const (
+	CapvcdRDETypeVersion = "1.1.0"
+)
+
 type Metadata struct {
 	Name string `json:"name,omitempty"`
 	Org  string `json:"orgName,omitempty"`

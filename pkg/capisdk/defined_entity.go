@@ -182,3 +182,64 @@ func (capvcdRdeManager *CapvcdRdeManager) GetCAPVCDEntity(ctx context.Context, r
 	}
 	return &rde, &capvcdEntity.Spec, &capvcdEntity.Metadata, &capvcdEntity.Status.CAPVCDStatus, nil
 }
+
+func (capvcdRdeManager *CapvcdRdeManager) GetRDEVersion(ctx context.Context, rdeID string) (*swagger.DefinedEntity, string, error) {
+	definedEntity, resp, _, err := capvcdRdeManager.Client.APIClient.DefinedEntityApi.GetDefinedEntity(ctx, rdeID)
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to get RDE version for RDE [%s]: [%v]", rdeID, err)
+	} else if resp == nil || resp.StatusCode != http.StatusOK {
+		// TODO log failure response
+		return nil, "", fmt.Errorf("unexpected error while retrieving RDE [%s] to get the entity type version", rdeID)
+	}
+	entiyTypeSplitArr := strings.Split(definedEntity.EntityType, ":")
+
+	// last item of the array will be the version string
+	return &definedEntity, entiyTypeSplitArr[len(entiyTypeSplitArr)-1], nil
+}
+
+// ConvertRDE updates the RDE version. An empty RDE is created, which will reconciled eventually with proper values by CAPVCD.
+//  The function attempts upgrade multiple times as defined by MaxUpdateRetries to avoid failures due to incorrect ETag during update.
+func (capvcdRdeManager *CapvcdRdeManager) ConvertRDE(ctx context.Context, rdeID string) (*swagger.DefinedEntity, error) {
+	definedEntity, currRdeTypeVersion, err := capvcdRdeManager.GetRDEVersion(ctx, rdeID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetc RDE type version for RDE [%s]", rdeID)
+	}
+	if currRdeTypeVersion == rdeType.CapvcdRDETypeVersion {
+		klog.V(4).Infof("RDE [%s] is already upgraded to version [%s]", rdeID, rdeType.CapvcdRDETypeVersion)
+		return definedEntity, nil
+	}
+	for retries := 0; retries < MaxUpdateRetries; retries++ {
+		_, resp, etag, err := capvcdRdeManager.Client.APIClient.DefinedEntityApi.GetDefinedEntity(ctx, rdeID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get the defined entity to convert RDE to version [%s]", rdeType.CapvcdRDETypeVersion)
+		} else if resp == nil || resp.StatusCode != http.StatusOK {
+			// TODO log failure response
+			return nil, fmt.Errorf("unexpected error while retrieving RDE [%s] to convert to RDE version [%s]", rdeID, rdeType.CapvcdRDETypeVersion)
+		}
+
+		// empty RDE
+		newEmptyCapvcdEntity := rdeType.CAPVCDEntity{}
+		emptyCapvcdEntityMap, err := util.ConvertCAPVCDEntityToMap(&newEmptyCapvcdEntity)
+		if err != nil {
+			return nil, fmt.Errorf("failed to convert map[string]interface{} to CAPVCD entity object: [%v]", err)
+		}
+
+		upgradedCapvcdEntity := swagger.DefinedEntity{
+			EntityType: rdeType.CapvcdRDETypeVersion,
+			Entity:     emptyCapvcdEntityMap,
+		}
+
+		updatedRde, resp, err := capvcdRdeManager.Client.APIClient.DefinedEntityApi.UpdateDefinedEntity(
+			ctx, upgradedCapvcdEntity, etag, rdeID, nil)
+		if err != nil {
+			return nil, fmt.Errorf("error occurred during updating RDE version to [%s] for RDE with ID [%s]", rdeType.CapvcdRDETypeVersion, rdeID)
+		} else if resp != nil && resp.StatusCode != http.StatusPreconditionFailed {
+			klog.Errorf("wrong etag found when upgrading the defined entity [%s] to version [%s]. Retries remaining: [%d]",
+				rdeID, rdeType.CapvcdRDETypeVersion, MaxUpdateRetries-retries+1)
+			continue
+		}
+		return &updatedRde, nil
+	}
+
+	return nil, fmt.Errorf("failed to upgrade RDE [%s] to version [%s]", rdeID, rdeType.CapvcdRDETypeVersion)
+}
