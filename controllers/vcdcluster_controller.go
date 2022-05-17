@@ -43,9 +43,7 @@ const (
 	CAPVCDTypeNss     = "capvcdCluster"
 	CAPVCDTypeVersion = "1.1.0"
 
-	CAPVCDClusterKind             = "CAPVCDCluster"
-	CAPVCDClusterEntityApiVersion = "capvcd.vmware.com/v1.1"
-	CAPVCDClusterCniName          = "antrea" // TODO: Get the correct value for CNI name
+	CAPVCDClusterCniName = "antrea" // TODO: Get the correct value for CNI name
 
 	RDEStatusResolved = "RESOLVED"
 	VCDLocationHeader = "Location"
@@ -167,8 +165,8 @@ func (r *VCDClusterReconciler) constructCapvcdRDE(ctx context.Context, cluster *
 		Name:       vcdCluster.Name,
 	}
 	capvcdEntity := rdeType.CAPVCDEntity{
-		Kind:       CAPVCDClusterKind,
-		ApiVersion: CAPVCDClusterEntityApiVersion,
+		Kind:       capisdk.CAPVCDClusterKind,
+		ApiVersion: capisdk.CAPVCDClusterEntityApiVersion,
 		Metadata: rdeType.Metadata{
 			Name: vcdCluster.Name,
 			Org:  org,
@@ -319,6 +317,27 @@ func (r *VCDClusterReconciler) reconcileRDE(ctx context.Context, cluster *cluste
 		capvcdStatusPatch["UseAsManagementCluster"] = vcdCluster.Status.UseAsManagementCluster
 	}
 
+	cni := rdeType.Cni{
+		Name: CAPVCDClusterCniName,
+	}
+	if !reflect.DeepEqual(capvcdStatus.K8sNetwork.Cni, cni) {
+		capvcdStatusPatch["K8sNetwork.Cni"] = cni
+	}
+
+	pods := rdeType.Pods{
+		CidrBlocks: cluster.Spec.ClusterNetwork.Pods.CIDRBlocks,
+	}
+	if !reflect.DeepEqual(capvcdStatus.K8sNetwork.Pods, pods) {
+		capvcdStatusPatch["K8sNetwork.Pods"] = pods
+	}
+
+	services := rdeType.Services{
+		CidrBlocks: cluster.Spec.ClusterNetwork.Services.CIDRBlocks,
+	}
+	if !reflect.DeepEqual(capvcdStatus.K8sNetwork.Services, services) {
+		capvcdStatusPatch["K8sNetwork.Services"] = services
+	}
+
 	clusterApiStatusPhase := ClusterApiStatusPhaseNotReady
 	if cluster.Status.ControlPlaneReady {
 		clusterApiStatusPhase = ClusterApiStatusPhaseReady
@@ -451,6 +470,7 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 			_, err = capvcdRdeManager.ConvertRDE(ctx, infraID)
 			if err != nil {
 				log.Error(err, "failed to upgrade RDE", "rdeID", infraID)
+				return ctrl.Result{}, errors.Wrapf(err, "failed to upgrade RDE [%s]", infraID)
 			}
 		}
 	}
