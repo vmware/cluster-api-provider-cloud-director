@@ -65,6 +65,13 @@ type ControlPlaneCloudInitScriptInput struct {
 	MachineName               string // vm host name
 }
 
+type NodeCloudInitScriptInput struct {
+	HTTPProxy   string // httpProxy endpoint
+	HTTPSProxy  string // httpsProxy endpoint
+	NoProxy     string // no proxy values
+	MachineName string // vm host name
+}
+
 const (
 	ReclaimPolicyDelete = "Delete"
 	ReclaimPolicyRetain = "Retain"
@@ -512,10 +519,10 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 			}
 			vcdHostFormatted := strings.Replace(vcdCluster.Spec.Site, "/", "\\/", -1)
 			controlPlaneScriptTemplate := template.New("control_plane_script_template")
-			controlPlaneScriptTemplate, err = controlPlaneScriptTemplate.Parse(controlPlaneCloudInitScriptTemplate)
+			controlPlaneScriptTemplate, err = controlPlaneScriptTemplate.Parse(guestCloudInitTemplate)
 			if err != nil {
-				return ctrl.Result{}, errors.Wrapf(err, "Error parsing able to query for VM [%s]",
-					controlPlaneCloudInitScriptTemplate)
+				return ctrl.Result{}, errors.Wrapf(err, "Error parsing controlPlaneCloudInitScriptTemplate: [%s]",
+					guestCloudInitTemplate)
 			}
 			var buf bytes.Buffer
 			err = controlPlaneScriptTemplate.Execute(
@@ -545,15 +552,33 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 				},
 			)
 			if err != nil {
-				return ctrl.Result{}, errors.Wrapf(err, "Error rendering control plane template: [%s]",
-					controlPlaneCloudInitScriptTemplate)
+				return ctrl.Result{}, errors.Wrapf(err, "Error rendering control plane cloud init template: [%s]",
+					guestCloudInitTemplate)
 			}
 			guestCloudInit = buf.String()
 		default:
-			guestCloudInit = fmt.Sprintf(
-				guestCloudInitTemplate, // template script
-				machine.Name,           // vm host name
+			nodeScriptTemplate := template.New("node_script_template")
+			nodeScriptTemplate, err = nodeScriptTemplate.Parse(guestCloudInitTemplate)
+			if err != nil {
+				return ctrl.Result{}, errors.Wrapf(err, "Error parsing nodeCloudInitScriptTemplate [%s]",
+					guestCloudInitTemplate)
+			}
+			proxyConfig := vcdCluster.Spec.ProxyConfig
+			var buf bytes.Buffer
+			err = nodeScriptTemplate.Execute(
+				&buf,
+				NodeCloudInitScriptInput{
+					HTTPProxy:   proxyConfig.HTTPProxy,
+					HTTPSProxy:  proxyConfig.HTTPSProxy,
+					NoProxy:     proxyConfig.NoProxy,
+					MachineName: machine.Name,
+				},
 			)
+			if err != nil {
+				return ctrl.Result{}, errors.Wrapf(err, "Error rendering node cloud init template: [%s]",
+					guestCloudInitTemplate)
+			}
+			guestCloudInit = buf.String()
 		}
 	}
 
