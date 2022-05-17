@@ -509,7 +509,7 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 			fileSystemFormat := ""
 			vcdStorageProfileName := ""
 			reclaimPolicy := ReclaimPolicyRetain
-			//proxyConfig := vcdCluster.Spec.ProxyConfig
+			proxyConfig := vcdCluster.Spec.ProxyConfig
 			if enableDefaultStorageClass {
 				k8sStorageClassName = vcdCluster.Spec.DefaultStorageClassOptions.K8sStorageClassName
 				if vcdCluster.Spec.DefaultStorageClassOptions.UseDeleteReclaimPolicy {
@@ -519,33 +519,6 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 				vcdStorageProfileName = vcdCluster.Spec.DefaultStorageClassOptions.VCDStorageProfileName
 			}
 			vcdHostFormatted := strings.Replace(vcdCluster.Spec.Site, "/", "\\/", -1)
-<<<<<<< HEAD
-			guestCloudInit = fmt.Sprintf(
-				guestCloudInitTemplate,               // template script
-				b64OrgUser,                           // base 64 org/username
-				b64Password,                          // base64 password
-				b64RefreshToken,                      // refresh token
-				k8sStorageClassName,                  // default storage class name
-				reclaimPolicy,                        // reclaim policy
-				vcdStorageProfileName,                // vcd storage profile
-				fileSystemFormat,                     // filesystem
-				r.Config.ClusterResources.CpiVersion, // cpi version
-				vcdHostFormatted,                     // vcd host
-				workloadVCDClient.ClusterOrgName,     // org
-				workloadVCDClient.ClusterOVDCName,    // ovdc
-				vcdCluster.Spec.OvdcNetwork,          // network
-				"",                                   // vip subnet cidr - empty for now for CPI to select subnet
-				vAppName,                             // vApp name
-				vcdCluster.Status.InfraId,            // cluster id
-				r.Config.ClusterResources.CsiVersion, // csi version
-				vcdHostFormatted,                     // vcd host,
-				workloadVCDClient.ClusterOrgName,     // org
-				workloadVCDClient.ClusterOVDCName,    // ovdc
-				vAppName,                             // vApp
-				vcdCluster.Status.InfraId,            // cluster id
-				strconv.FormatBool(enableDefaultStorageClass), // storage_class_enabled
-				machine.Name, // vm host name
-=======
 			controlPlaneScriptTemplate := template.New("control_plane_script_template")
 			controlPlaneScriptTemplate, err = controlPlaneScriptTemplate.Parse(guestCloudInitTemplate)
 			if err != nil {
@@ -566,19 +539,18 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 					HTTPProxy:                 proxyConfig.HTTPProxy,
 					HTTPSProxy:                proxyConfig.HTTPSProxy,
 					NoProxy:                   proxyConfig.NoProxy,
-					CpiVersion:                workloadVCDClient.CpiVersion,
-					CsiVersion:                workloadVCDClient.CsiVersion,
+					CpiVersion:                r.Config.ClusterResources.CpiVersion,
+					CsiVersion:                r.Config.ClusterResources.CsiVersion,
 					VcdHostFormatted:          vcdHostFormatted,
 					ClusterOrgName:            workloadVCDClient.ClusterOrgName,
 					ClusterOVDCName:           workloadVCDClient.ClusterOVDCName,
-					NetworkName:               workloadVCDClient.NetworkName,
+					NetworkName:               vcdCluster.Spec.OvdcNetwork,
 					VipSubnetCidr:             "", // vip subnet cidr - empty for now for CPI to select subnet
 					VAppName:                  vAppName,
-					ClusterID:                 workloadVCDClient.ClusterID,
+					ClusterID:                 vcdCluster.Status.InfraId,
 					EnableDefaultStorageClass: strconv.FormatBool(enableDefaultStorageClass),
 					MachineName:               machine.Name,
 				},
->>>>>>> ac5b275 (reiew comments: render control plane template using text/template)
 			)
 			if err != nil {
 				return ctrl.Result{}, errors.Wrapf(err, "Error rendering control plane cloud init template: [%s]",
