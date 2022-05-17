@@ -213,8 +213,3 @@ type ComposeVAppWithVMs struct {
 	SourcedItemList     []*types.SourcedCompositionItemParam `xml:"SourcedItem,omitempty"`         // Composition item. One of: vApp vAppTemplate VM.
 	AllEULAsAccepted    bool                                 `xml:"AllEULAsAccepted,omitempty"`    // True confirms acceptance of all EULAs in a vApp template. Instantiation fails if this element is missing, empty, or set to false and one or more EulaSection elements are present.
 }
-
-type CapvcdRde interface {
-	GetVersion() string
-	//ConvertToMap() (map[string]interface{}, error)
-}

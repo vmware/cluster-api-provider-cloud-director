@@ -110,7 +110,7 @@ type Status struct {
 }
 
 type CAPVCDSpec struct {
-	CapiYaml string `json:"capiYaml,omitempty"`
+	CapiYaml string `json:"capiYaml"`
 }
 
 type CAPVCDEntity struct {

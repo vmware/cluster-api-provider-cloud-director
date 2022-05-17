@@ -1,10 +1,5 @@
 package rde_type_1_0_0
 
-import (
-	"encoding/json"
-	"fmt"
-)
-
 const (
 	CapvcdRDETypeVersion = "1.0.0"
 )
@@ -111,21 +106,4 @@ type CAPVCDEntity struct {
 	ApiVersion string      `json:"apiVersion"`
 	Status     Status      `json:"status"`
 	Kind       string      `json:"kind"`
-}
-
-func (capvcdEntity *CAPVCDEntity) GetVersion() string {
-	return CapvcdRDETypeVersion
-}
-
-func ReadFromMap(entityMap map[string]interface{}) (*CAPVCDEntity, error) {
-	var capvcdEntity CAPVCDEntity
-	entityByteArr, err := json.Marshal(&entityMap)
-	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal entity map: [%v]", err)
-	}
-	err = json.Unmarshal(entityByteArr, &capvcdEntity)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal entity byte array to capvcd entity: [%v]", err)
-	}
-	return &capvcdEntity, nil
 }
