@@ -6,5 +6,5 @@ releaseSeries:
   contract: v1alpha4
 - major: 0
   minor: 8
-  contract: v1alpha4
+  contract: v1beta1
 
