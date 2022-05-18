@@ -31,7 +31,7 @@ spec:
         - /opt/vcloud/bin/rdeprojector
         args:
         - --leader-elect
-        image: harbor-repo.vmware.com/vcloud/rde-projector:yanmo-latest-4
+        image: harbor-repo.vmware.com/vcloud/rde-projector:main-branch
         name: manager
         securityContext:
           allowPrivilegeEscalation: false
