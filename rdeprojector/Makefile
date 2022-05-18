@@ -1,8 +1,12 @@
 
-# Image URL to use all building/pushing image targets
-IMG ?= controller:latest
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
 ENVTEST_K8S_VERSION = 1.22
+GITROOT := $(shell git rev-parse --show-toplevel)
+version := $(shell cat ${GITROOT}/rdeprojector/release/version)
+
+REGISTRY ?= harbor-repo.vmware.com/vcloud
+# Image URL to use all building/pushing image targets
+IMG ?= ${REGISTRY}/rde-projector:${version}
 
 # Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
 ifeq (,$(shell go env GOBIN))
@@ -128,3 +132,13 @@ GOBIN=$(PROJECT_DIR)/bin go get $(2) ;\
 rm -rf $$TMP_DIR ;\
 }
 endef
+
+# Todo: add -ldflags after rdeproject is migrated to gitlab
+build-within-docker:
+	mkdir -p /build/cluster-api-provider-cloud-director
+	go build -o /build/vcloud/rdeprojector main.go
+
+rde-projector: generate fmt vet vendor
+	docker build -f Dockerfile . -t rde-projector:$(version)
+	docker tag rde-projector:$(version) $(IMG)
+	docker push $(IMG)

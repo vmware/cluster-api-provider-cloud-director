@@ -28,10 +28,10 @@ spec:
         runAsNonRoot: true
       containers:
       - command:
-        - /manager
+        - /opt/vcloud/bin/rdeprojector
         args:
         - --leader-elect
-        image: controller:latest
+        image: harbor-repo.vmware.com/vcloud/rde-projector:yanmo-latest-4
         name: manager
         securityContext:
           allowPrivilegeEscalation: false

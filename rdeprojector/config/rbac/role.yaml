@@ -1,0 +1,34 @@
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  creationTimestamp: null
+  name: manager-role
+rules:
+- apiGroups:
+  - capvcd.cloud-director.vmware.com
+  resources:
+  - rdeprojectors
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - capvcd.cloud-director.vmware.com
+  resources:
+  - rdeprojectors/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - capvcd.cloud-director.vmware.com
+  resources:
+  - rdeprojectors/status
+  verbs:
+  - get
+  - patch
+  - update
