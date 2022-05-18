@@ -109,6 +109,8 @@ type VCDClusterStatus struct {
 	ParentUID string `json:"parentUid,omitempty"`
 	// +optional
 	UseAsManagementCluster bool `json:"useAsManagementCluster,omitempty"`
+	// +optional
+	ProxyConfig ProxyConfig `json:"proxyConfig,omitempty"`
 }
 
 //+kubebuilder:object:root=true
