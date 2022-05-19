@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/vmware/cloud-provider-for-cloud-director/pkg/vcdsdk"
+	"github.com/vmware/cluster-api-provider-cloud-director/release"
 	"k8s.io/klog"
 )
 
@@ -40,7 +41,7 @@ func NewCapvcdGatewayManager(ctx context.Context, client *vcdsdk.Client, network
 // TODO: remove CreateL4LoadBalancer, UpdateLoadBalancer and DeleteLoadBalancer and use the functions defined in CPI
 
 func (capvcdGatewayManager *CapvcdGatewayManager) CreateL4LoadBalancer(ctx context.Context, virtualServiceNamePrefix string,
-	lbPoolNamePrefix string, ips []string, tcpPort int32, externalTcpPort int32, oneArm *vcdsdk.OneArm) (string, error) {
+	lbPoolNamePrefix string, ips []string, tcpPort int32, externalTcpPort int32, oneArm *vcdsdk.OneArm, clusterID string) (string, error) {
 
 	if capvcdGatewayManager.gatewayManager == nil {
 		return "", fmt.Errorf("referece to gateway manager is nil")
@@ -48,6 +49,7 @@ func (capvcdGatewayManager *CapvcdGatewayManager) CreateL4LoadBalancer(ctx conte
 	capvcdGatewayManager.gatewayManager.Client.RWLock.Lock()
 	defer capvcdGatewayManager.gatewayManager.Client.RWLock.Unlock()
 
+	rdeManager := vcdsdk.NewRDEManager(capvcdGatewayManager.gatewayManager.Client, clusterID, StatusComponentNameCAPVCD, release.CAPVCDVersion)
 	if tcpPort == 0 {
 		// nothing to do here
 		klog.V(3).Infof("There is no tcp port specified. Cannot create L4 load balancer")
@@ -108,6 +110,21 @@ func (capvcdGatewayManager *CapvcdGatewayManager) CreateL4LoadBalancer(ctx conte
 			if err = capvcdGatewayManager.gatewayManager.CheckIfVirtualServiceIsPending(ctx, virtualServiceName); err != nil {
 				return "", err
 			}
+
+			dnatRuleName := vcdsdk.GetDNATRuleName(virtualServiceName)
+			dnatRuleRef, err := capvcdGatewayManager.gatewayManager.GetNATRuleRef(ctx, dnatRuleName)
+			if err != nil {
+				return "", fmt.Errorf("failed to fetch DNAT rule [%s]: [%v]", dnatRuleName, err)
+			}
+			// Add virtual service to VCDResourceSet
+			err = rdeManager.AddToVCDResourceSet(ctx, vcdsdk.ComponentCAPVCD, vcdsdk.VcdResourceVirtualService,
+				virtualServiceName, vsSummary.Id, map[string]interface{}{
+					"virtualIP": dnatRuleRef.ExternalIP,
+				})
+			if err != nil {
+				return "", fmt.Errorf("failed to add VCD resource [%s] of type [%s] to VCDResourceSet of RDE [%s]: [%v]",
+					vsSummary.Name, vcdsdk.VcdResourceVirtualService, clusterID, err)
+			}
 			continue
 		}
 
@@ -129,6 +146,13 @@ func (capvcdGatewayManager *CapvcdGatewayManager) CreateL4LoadBalancer(ctx conte
 			if appPortProfile == nil || appPortProfile.NsxtAppPortProfile == nil {
 				return "", fmt.Errorf("creation of app port profile succeeded but app port profile is empty")
 			}
+			// Add App Port Profile to VCDResourceSet
+			err = rdeManager.AddToVCDResourceSet(ctx, vcdsdk.ComponentCAPVCD, vcdsdk.VcdResourceAppPortProfile, appPortProfileName,
+				appPortProfile.NsxtAppPortProfile.ID, nil)
+			if err != nil {
+				return "", fmt.Errorf("failed to Add VCD Resource [%s] of type [%s] to VCDResourceSet of RDE [%s]: [%v]",
+					appPortProfileName, vcdsdk.VcdResourceAppPortProfile, clusterID, err)
+			}
 
 			err = capvcdGatewayManager.gatewayManager.CreateDNATRule(ctx, dnatRuleName, externalIP,
 				internalIP, portDetail.externalPort, portDetail.internalPort, appPortProfile)
@@ -138,6 +162,23 @@ func (capvcdGatewayManager *CapvcdGatewayManager) CreateL4LoadBalancer(ctx conte
 			}
 			// use the internal IP to create virtual service
 			virtualServiceIP = internalIP
+
+			dnatRuleRef, err := capvcdGatewayManager.gatewayManager.GetNATRuleRef(ctx, dnatRuleName)
+			if err != nil {
+				return "", fmt.Errorf("unable to retrieve created dnat rule [%s]: [%v]", dnatRuleName, err)
+			}
+			if dnatRuleRef == nil {
+				return "", fmt.Errorf("retrieved dnat rule ref is nil")
+			}
+
+			// Add DNAT Rule to VCDResourceSet
+			err = rdeManager.AddToVCDResourceSet(ctx, vcdsdk.ComponentCAPVCD, vcdsdk.VcdResourceDNATRule,
+				dnatRuleName, dnatRuleRef.ID, nil)
+			if err != nil {
+				return "", fmt.Errorf("failed to add VCD Resource [%s] of type [%s] to VCDResourceSet of RDE [%s]: [%v]",
+					dnatRuleName, vcdsdk.VcdResourceDNATRule, clusterID, err)
+			}
+			externalIP = dnatRuleRef.ExternalIP
 		}
 
 		segRef, err := capvcdGatewayManager.gatewayManager.GetLoadBalancerSEG(ctx)
@@ -151,11 +192,26 @@ func (capvcdGatewayManager *CapvcdGatewayManager) CreateL4LoadBalancer(ctx conte
 			return "", fmt.Errorf("unable to create load balancer pool [%s]: [%v]", lbPoolName, err)
 		}
 
+		// Add LoadBalancerPool to VCDResourceSet
+		err = rdeManager.AddToVCDResourceSet(ctx, vcdsdk.ComponentCAPVCD, vcdsdk.VcdResourceLoadBalancerPool,
+			lbPoolRef.Name, lbPoolRef.Id, nil)
+		if err != nil {
+			return "", fmt.Errorf("failed to add VCD Resource [%s] of type [%s] to VCDResourceSet of RDE [%s]: [%v]",
+				lbPoolRef.Name, vcdsdk.VcdResourceLoadBalancerPool, rdeManager.ClusterID, err)
+		}
 		virtualServiceRef, err := capvcdGatewayManager.gatewayManager.CreateVirtualService(ctx, virtualServiceName, lbPoolRef, segRef,
 			virtualServiceIP, portDetail.serviceType, portDetail.externalPort, portDetail.useSSL, portDetail.certificateAlias)
 		if err != nil {
 			return "", fmt.Errorf("unable to create virtual service [%s] with address [%s:%d]: [%v]",
 				virtualServiceName, virtualServiceIP, portDetail.externalPort, err)
+		}
+		// Add virtual service to vcd resource set
+		err = rdeManager.AddToVCDResourceSet(ctx, vcdsdk.ComponentCAPVCD, vcdsdk.VcdResourceVirtualService,
+			virtualServiceRef.Name, virtualServiceRef.Id, map[string]interface{}{
+				"virtualIP": externalIP,
+			})
+		if err != nil {
+			return "", fmt.Errorf("failed to add virtual service [%s] to VCDResourceSet of RDE [%s]", virtualServiceRef.Name, rdeManager.ClusterID)
 		}
 		klog.V(3).Infof("Created Load Balancer with virtual service [%v], pool [%v] on capvcdGatewayManager [%s]\n",
 			virtualServiceRef, lbPoolRef, capvcdGatewayManager.gatewayManager.GatewayRef.Name)
@@ -166,7 +222,7 @@ func (capvcdGatewayManager *CapvcdGatewayManager) CreateL4LoadBalancer(ctx conte
 
 // DeleteLoadBalancer : create a new load balancer pool and virtual service pointing to it
 func (capvcdGatewayManager *CapvcdGatewayManager) DeleteLoadBalancer(ctx context.Context, virtualServiceNamePrefix string,
-	lbPoolNamePrefix string, oneArm *vcdsdk.OneArm) error {
+	lbPoolNamePrefix string, oneArm *vcdsdk.OneArm, clusterID string) error {
 
 	if capvcdGatewayManager.gatewayManager == nil {
 		return fmt.Errorf("reference to gateway manager is nil")
@@ -175,6 +231,8 @@ func (capvcdGatewayManager *CapvcdGatewayManager) DeleteLoadBalancer(ctx context
 	client := capvcdGatewayManager.gatewayManager.Client
 	client.RWLock.Lock()
 	defer client.RWLock.Unlock()
+
+	rdeManager := vcdsdk.NewRDEManager(capvcdGatewayManager.gatewayManager.Client, clusterID, StatusComponentNameCAPVCD, release.CAPVCDVersion)
 
 	// TODO: try to continue in case of errors
 	var err error
@@ -188,17 +246,41 @@ func (capvcdGatewayManager *CapvcdGatewayManager) DeleteLoadBalancer(ctx context
 		if err != nil {
 			return fmt.Errorf("unable to delete virtual service [%s]: [%v]", virtualServiceName, err)
 		}
+		err = rdeManager.RemoveFromVCDResourceSet(ctx, vcdsdk.ComponentCAPVCD, vcdsdk.VcdResourceVirtualService, virtualServiceName)
+		if err != nil {
+			return fmt.Errorf("failed to remove VCD Resource [%s] of type [%s] from VCDResourceSet of RDE [%s]: [%v]",
+				virtualServiceName, vcdsdk.VcdResourceVirtualService, clusterID, err)
+		}
 
 		err = capvcdGatewayManager.gatewayManager.DeleteLoadBalancerPool(ctx, lbPoolName, false)
 		if err != nil {
 			return fmt.Errorf("unable to delete load balancer pool [%s]: [%v]", lbPoolName, err)
 		}
+		err = rdeManager.RemoveFromVCDResourceSet(ctx, vcdsdk.ComponentCAPVCD, vcdsdk.VcdResourceLoadBalancerPool, lbPoolName)
+		if err != nil {
+			return fmt.Errorf("failed to remove VCD Resource [%s] of type [%s] from VCDResourceSet of RDE [%s]: [%v]",
+				lbPoolName, vcdsdk.VcdResourceLoadBalancerPool, clusterID, err)
+		}
 
 		if oneArm != nil {
-			dnatRuleName := fmt.Sprintf("dnat-%s", virtualServiceName)
+			// delete dnat rule
+			dnatRuleName := vcdsdk.GetDNATRuleName(virtualServiceName)
 			err = capvcdGatewayManager.gatewayManager.DeleteDNATRule(ctx, dnatRuleName, false)
 			if err != nil {
 				return fmt.Errorf("unable to delete dnat rule [%s]: [%v]", dnatRuleName, err)
+			}
+			err = rdeManager.RemoveFromVCDResourceSet(ctx, vcdsdk.ComponentCAPVCD, vcdsdk.VcdResourceDNATRule, dnatRuleName)
+			if err != nil {
+				return fmt.Errorf("failed to remove VCD Resource [%s] of type [%s] from VCDResourceSet of RDE [%s]: [%v]",
+					dnatRuleName, vcdsdk.VcdResourceDNATRule, clusterID, err)
+			}
+
+			// delete app port profile
+			appPortProfileName := vcdsdk.GetAppPortProfileName(dnatRuleName)
+			err = capvcdGatewayManager.gatewayManager.DeleteAppPortProfile(appPortProfileName, false)
+			if err != nil {
+				return fmt.Errorf("failed to remove VCD Resource [%s] of type [%s] from VCDResourceSet of RDE [%s]: [%v]",
+					appPortProfileName, vcdsdk.VcdResourceAppPortProfile, clusterID, err)
 			}
 		}
 	}
