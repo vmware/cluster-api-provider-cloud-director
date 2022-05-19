@@ -18,6 +18,7 @@ import (
 	"github.com/vmware/cluster-api-provider-cloud-director/pkg/capisdk"
 	"github.com/vmware/cluster-api-provider-cloud-director/pkg/config"
 	vcdutil "github.com/vmware/cluster-api-provider-cloud-director/pkg/util"
+	"github.com/vmware/cluster-api-provider-cloud-director/pkg/vcdtypes/rde_type_1_0_0"
 	rdeType "github.com/vmware/cluster-api-provider-cloud-director/pkg/vcdtypes/rde_type_1_1_0"
 	"github.com/vmware/cluster-api-provider-cloud-director/release"
 	"github.com/vmware/go-vcloud-director/v2/govcd"
@@ -39,10 +40,6 @@ import (
 )
 
 const (
-	CAPVCDTypeVendor  = "vmware"
-	CAPVCDTypeNss     = "capvcdCluster"
-	CAPVCDTypeVersion = "1.1.0"
-
 	CAPVCDClusterCniName = "antrea" // TODO: Get the correct value for CNI name
 
 	RDEStatusResolved = "RESOLVED"
@@ -56,7 +53,7 @@ const (
 )
 
 var (
-	CAPVCDEntityTypeID = fmt.Sprintf("urn:vcloud:type:%s:%s:%s", CAPVCDTypeVendor, CAPVCDTypeNss, CAPVCDTypeVersion)
+	CAPVCDEntityTypeID = fmt.Sprintf("urn:vcloud:type:%s:%s:%s", capisdk.CAPVCDTypeVendor, capisdk.CAPVCDTypeNss, capisdk.CAPVCDTypeVersion)
 )
 
 // VCDClusterReconciler reconciles a VCDCluster object
@@ -159,7 +156,6 @@ func (r *VCDClusterReconciler) constructCapvcdRDE(ctx context.Context, cluster *
 	for _, kcp := range kcpList.Items {
 		kubernetesVersion = kcp.Spec.Version
 	}
-
 	rde := &swagger.DefinedEntity{
 		EntityType: CAPVCDEntityTypeID,
 		Name:       vcdCluster.Name,
@@ -317,6 +313,7 @@ func (r *VCDClusterReconciler) reconcileRDE(ctx context.Context, cluster *cluste
 		capvcdStatusPatch["UseAsManagementCluster"] = vcdCluster.Status.UseAsManagementCluster
 	}
 
+	// TODO: CNI should go as part of rde.entity.status.capvcd.ClusterResourceSet
 	cni := rdeType.Cni{
 		Name: CAPVCDClusterCniName,
 	}
@@ -437,7 +434,7 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 			Filter: optional.NewString(fmt.Sprintf("name==%s", vcdCluster.Name)),
 		}
 		definedEntities, resp, err := workloadVCDClient.APIClient.DefinedEntityApi.GetDefinedEntitiesByEntityType(ctx,
-			CAPVCDTypeVendor, CAPVCDTypeNss, CAPVCDTypeVersion, 1, 25, nameFilter)
+			capisdk.CAPVCDTypeVendor, capisdk.CAPVCDTypeNss, capisdk.CAPVCDTypeVersion, 1, 25, nameFilter)
 		if err != nil {
 			log.Error(err, "Error while checking if RDE is already present for the cluster",
 				"entityTypeId", CAPVCDEntityTypeID)
@@ -467,10 +464,18 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		log.V(3).Info("Reusing already available InfraID", "infraID", infraID)
 		capvcdRdeManager := capisdk.NewCapvcdRdeManager(workloadVCDClient)
 		if !strings.Contains(infraID, NoRdePrefix) {
-			_, err = capvcdRdeManager.ConvertRDE(ctx, infraID)
+			_, err = capvcdRdeManager.ConvertToLatestRDEVersionFormat(ctx, infraID)
 			if err != nil {
-				log.Error(err, "failed to upgrade RDE", "rdeID", infraID)
+				log.Error(err, "failed to upgrade RDE", "rdeID", infraID,
+					"sourceVersion", rde_type_1_0_0.CapvcdRDETypeVersion,
+					"targetVersion", rdeType.CapvcdRDETypeVersion)
 				return ctrl.Result{}, errors.Wrapf(err, "failed to upgrade RDE [%s]", infraID)
+			}
+			// calling reconcileRDE here to avoid delay in updating the RDE contents
+			if err = r.reconcileRDE(ctx, cluster, vcdCluster, workloadVCDClient); err != nil {
+				// TODO: can we recover the RDE to a proper state if RDE fails to reconcile?
+				log.Error(err, "failed to reconcile RDE after upgrading RDE", "rdeID", infraID)
+				return ctrl.Result{}, errors.Wrapf(err, "failed to reconcile RDE after upgrading RDE [%s]", infraID)
 			}
 		}
 	}
@@ -674,7 +679,7 @@ func (r *VCDClusterReconciler) reconcileDelete(ctx context.Context,
 	// Delete RDE
 	if vcdCluster.Status.InfraId != "" && !strings.HasPrefix(vcdCluster.Status.InfraId, NoRdePrefix) {
 		definedEntities, resp, err := workloadVCDClient.APIClient.DefinedEntityApi.GetDefinedEntitiesByEntityType(ctx,
-			CAPVCDTypeVendor, CAPVCDTypeNss, CAPVCDTypeVersion, 1, 25,
+			capisdk.CAPVCDTypeVendor, capisdk.CAPVCDTypeNss, capisdk.CAPVCDTypeVersion, 1, 25,
 			&swagger.DefinedEntityApiGetDefinedEntitiesByEntityTypeOpts{
 				Filter: optional.NewString(fmt.Sprintf("id==%s", vcdCluster.Status.InfraId)),
 			})
