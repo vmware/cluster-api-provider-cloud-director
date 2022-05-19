@@ -235,7 +235,7 @@ func (capvcdRdeManager *CapvcdRdeManager) IsCapvcdEntityType_1_1_0_Registered() 
 		":",
 	)
 	entityTypeListUrl, err := capvcdRdeManager.Client.VCDClient.Client.OpenApiBuildEndpoint(
-		"1.0.0/entityType/" + entityTypeID)
+		"1.0.0/entityTypes/" + entityTypeID)
 	if err != nil {
 		klog.Errorf("failed to construct URL to get list of entity types")
 		return false
