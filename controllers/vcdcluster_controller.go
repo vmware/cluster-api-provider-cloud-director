@@ -365,6 +365,15 @@ func (r *VCDClusterReconciler) reconcileRDE(ctx context.Context, cluster *cluste
 	if !reflect.DeepEqual(updatedNodeStatus, capvcdStatus.NodeStatus) {
 		capvcdStatusPatch["NodeStatus"] = updatedNodeStatus
 	}
+	vcdResources := rdeType.VCDProperties{
+		Site:        vcdCluster.Spec.Site,
+		Org:         vcdCluster.Spec.Org,
+		Vdc:         vcdCluster.Spec.Ovdc,
+		OvdcNetwork: vcdCluster.Spec.OvdcNetwork,
+	}
+	if !reflect.DeepEqual(vcdResources, capvcdStatus.VcdProperties) {
+		capvcdStatusPatch["VcdProperties"] = vcdResources
+	}
 
 	obj := client.ObjectKey{
 		Namespace: cluster.Namespace,
