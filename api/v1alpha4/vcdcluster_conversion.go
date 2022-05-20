@@ -12,6 +12,7 @@ func (src *VCDCluster) ConvertTo(dstRaw conversion.Hub) error {
 		return err
 	}
 	dst.Spec.DefaultStorageClassOptions = v1beta1.DefaultStorageClassOptions{}
+	dst.Spec.ProxyConfig = v1beta1.ProxyConfig{}
 	// TODO: Update the new params to match previous release's Status; ex) dst.Spec.* = src.Status.*, maybe RDE.Status
 	dst.Spec.RDEId = src.Status.InfraId
 	dst.Spec.ParentUID = ""

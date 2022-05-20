@@ -108,6 +108,11 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}); err != nil {
 		return err
 	}
+	if err := s.AddGeneratedConversionFunc((*v1beta1.VCDMachineStatus)(nil), (*VCDMachineStatus)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1beta1_VCDMachineStatus_To_v1alpha4_VCDMachineStatus(a.(*v1beta1.VCDMachineStatus), b.(*VCDMachineStatus), scope)
+	}); err != nil {
+		return err
+	}
 	if err := s.AddGeneratedConversionFunc((*VCDMachineTemplate)(nil), (*v1beta1.VCDMachineTemplate)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1alpha4_VCDMachineTemplate_To_v1beta1_VCDMachineTemplate(a.(*VCDMachineTemplate), b.(*v1beta1.VCDMachineTemplate), scope)
 	}); err != nil {
@@ -341,6 +346,7 @@ func autoConvert_v1beta1_VCDClusterSpec_To_v1alpha4_VCDClusterSpec(in *v1beta1.V
 	// WARNING: in.RDEId requires manual conversion: does not exist in peer-type
 	// WARNING: in.ParentUID requires manual conversion: does not exist in peer-type
 	// WARNING: in.UseAsManagementCluster requires manual conversion: does not exist in peer-type
+	// WARNING: in.ProxyConfig requires manual conversion: does not exist in peer-type
 	return nil
 }
 

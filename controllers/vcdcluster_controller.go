@@ -559,6 +559,7 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	// After InfraId has been set, we can update parentUid, useAsMgmtCluster status
 	vcdCluster.Status.UseAsManagementCluster = vcdCluster.Spec.UseAsManagementCluster
 	vcdCluster.Status.ParentUID = vcdCluster.Spec.ParentUID
+	vcdCluster.Status.ProxyConfig = vcdCluster.Spec.ProxyConfig
 
 	// create load balancer for the cluster. Only one-arm load balancer is fully tested.
 	virtualServiceNamePrefix := capisdk.GetVirtualServiceNamePrefix(vcdCluster.Name, vcdCluster.Status.InfraId)

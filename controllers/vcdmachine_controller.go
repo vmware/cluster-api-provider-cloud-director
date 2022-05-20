@@ -38,8 +38,40 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 	"strconv"
 	"strings"
+	"text/template"
 	"time"
 )
+
+type ControlPlaneCloudInitScriptInput struct {
+	B64OrgUser                string // base 64 org/username
+	B64Password               string // base64 password
+	B64RefreshToken           string // refresh token
+	K8sStorageClassName       string // default storage class name
+	ReclaimPolicy             string // reclaim policy
+	VcdStorageProfileName     string // vcd storage profile
+	FileSystemFormat          string // filesystem
+	HTTPProxy                 string // httpProxy endpoint
+	HTTPSProxy                string // httpsProxy endpoint
+	NoProxy                   string // no proxy values
+	CpiVersion                string // cpi version
+	VcdHostFormatted          string // vcd host
+	ClusterOrgName            string // org
+	ClusterOVDCName           string // ovdc
+	NetworkName               string // network
+	VipSubnetCidr             string // vip subnet cidr - empty for now for CPI to select subnet
+	VAppName                  string // vApp name
+	ClusterID                 string // cluster id
+	CsiVersion                string // csi version
+	EnableDefaultStorageClass string // is_storage_class_enabled
+	MachineName               string // vm host name
+}
+
+type NodeCloudInitScriptInput struct {
+	HTTPProxy   string // httpProxy endpoint
+	HTTPSProxy  string // httpsProxy endpoint
+	NoProxy     string // no proxy values
+	MachineName string // vm host name
+}
 
 const (
 	ReclaimPolicyDelete = "Delete"
@@ -185,6 +217,7 @@ func patchVCDMachine(ctx context.Context, patchHelper *patch.Helper, vcdMachine 
 
 const (
 	NetworkConfiguration                   = "guestinfo.postcustomization.networkconfiguration.status"
+	ProxyConfiguration                     = "guestinfo.postcustomization.proxy.setting.status"
 	KubeadmInit                            = "guestinfo.postcustomization.kubeinit.status"
 	KubectlApplyCpi                        = "guestinfo.postcustomization.kubectl.cpi.install.status"
 	KubectlApplyCsi                        = "guestinfo.postcustomization.kubectl.csi.install.status"
@@ -197,6 +230,7 @@ const (
 
 var controlPlanePostCustPhases = []string{
 	NetworkConfiguration,
+	ProxyConfiguration,
 	KubeadmInit,
 	KubectlApplyCpi,
 	KubectlApplyCsi,
@@ -475,6 +509,7 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 			fileSystemFormat := ""
 			vcdStorageProfileName := ""
 			reclaimPolicy := ReclaimPolicyRetain
+			proxyConfig := vcdCluster.Spec.ProxyConfig
 			if enableDefaultStorageClass {
 				k8sStorageClassName = vcdCluster.Spec.DefaultStorageClassOptions.K8sStorageClassName
 				if vcdCluster.Spec.DefaultStorageClassOptions.UseDeleteReclaimPolicy {
@@ -484,38 +519,67 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 				vcdStorageProfileName = vcdCluster.Spec.DefaultStorageClassOptions.VCDStorageProfileName
 			}
 			vcdHostFormatted := strings.Replace(vcdCluster.Spec.Site, "/", "\\/", -1)
-			guestCloudInit = fmt.Sprintf(
-				guestCloudInitTemplate,               // template script
-				b64OrgUser,                           // base 64 org/username
-				b64Password,                          // base64 password
-				b64RefreshToken,                      // refresh token
-				k8sStorageClassName,                  // default storage class name
-				reclaimPolicy,                        // reclaim policy
-				vcdStorageProfileName,                // vcd storage profile
-				fileSystemFormat,                     // filesystem
-				r.Config.ClusterResources.CpiVersion, // cpi version
-				vcdHostFormatted,                     // vcd host
-				workloadVCDClient.ClusterOrgName,     // org
-				workloadVCDClient.ClusterOVDCName,    // ovdc
-				vcdCluster.Spec.OvdcNetwork,          // network
-				"",                                   // vip subnet cidr - empty for now for CPI to select subnet
-				vAppName,                             // vApp name
-				vcdCluster.Status.InfraId,            // cluster id
-				r.Config.ClusterResources.CsiVersion, // csi version
-				vcdHostFormatted,                     // vcd host,
-				workloadVCDClient.ClusterOrgName,     // org
-				workloadVCDClient.ClusterOVDCName,    // ovdc
-				vAppName,                             // vApp
-				vcdCluster.Status.InfraId,            // cluster id
-				strconv.FormatBool(enableDefaultStorageClass), // storage_class_enabled
-				machine.Name, // vm host name
+			controlPlaneScriptTemplate := template.New("control_plane_script_template")
+			controlPlaneScriptTemplate, err = controlPlaneScriptTemplate.Parse(guestCloudInitTemplate)
+			if err != nil {
+				return ctrl.Result{}, errors.Wrapf(err, "Error parsing controlPlaneCloudInitScriptTemplate: [%s]",
+					guestCloudInitTemplate)
+			}
+			var buf bytes.Buffer
+			err = controlPlaneScriptTemplate.Execute(
+				&buf,
+				ControlPlaneCloudInitScriptInput{
+					B64OrgUser:                b64OrgUser,
+					B64Password:               b64Password,
+					B64RefreshToken:           b64RefreshToken,
+					K8sStorageClassName:       k8sStorageClassName,
+					ReclaimPolicy:             reclaimPolicy,
+					VcdStorageProfileName:     vcdStorageProfileName,
+					FileSystemFormat:          fileSystemFormat,
+					HTTPProxy:                 proxyConfig.HTTPProxy,
+					HTTPSProxy:                proxyConfig.HTTPSProxy,
+					NoProxy:                   proxyConfig.NoProxy,
+					CpiVersion:                r.Config.ClusterResources.CpiVersion,
+					CsiVersion:                r.Config.ClusterResources.CsiVersion,
+					VcdHostFormatted:          vcdHostFormatted,
+					ClusterOrgName:            workloadVCDClient.ClusterOrgName,
+					ClusterOVDCName:           workloadVCDClient.ClusterOVDCName,
+					NetworkName:               vcdCluster.Spec.OvdcNetwork,
+					VipSubnetCidr:             "", // vip subnet cidr - empty for now for CPI to select subnet
+					VAppName:                  vAppName,
+					ClusterID:                 vcdCluster.Status.InfraId,
+					EnableDefaultStorageClass: strconv.FormatBool(enableDefaultStorageClass),
+					MachineName:               machine.Name,
+				},
 			)
-
+			if err != nil {
+				return ctrl.Result{}, errors.Wrapf(err, "Error rendering control plane cloud init template: [%s]",
+					guestCloudInitTemplate)
+			}
+			guestCloudInit = buf.String()
 		default:
-			guestCloudInit = fmt.Sprintf(
-				guestCloudInitTemplate, // template script
-				machine.Name,           // vm host name
+			nodeScriptTemplate := template.New("node_script_template")
+			nodeScriptTemplate, err = nodeScriptTemplate.Parse(guestCloudInitTemplate)
+			if err != nil {
+				return ctrl.Result{}, errors.Wrapf(err, "Error parsing nodeCloudInitScriptTemplate [%s]",
+					guestCloudInitTemplate)
+			}
+			proxyConfig := vcdCluster.Spec.ProxyConfig
+			var buf bytes.Buffer
+			err = nodeScriptTemplate.Execute(
+				&buf,
+				NodeCloudInitScriptInput{
+					HTTPProxy:   proxyConfig.HTTPProxy,
+					HTTPSProxy:  proxyConfig.HTTPSProxy,
+					NoProxy:     proxyConfig.NoProxy,
+					MachineName: machine.Name,
+				},
 			)
+			if err != nil {
+				return ctrl.Result{}, errors.Wrapf(err, "Error rendering node cloud init template: [%s]",
+					guestCloudInitTemplate)
+			}
+			guestCloudInit = buf.String()
 		}
 	}
 
