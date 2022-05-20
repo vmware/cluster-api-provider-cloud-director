@@ -9,10 +9,9 @@ RUN apt-get update && \
 ADD . /go/src/github.com/vmware/rdeprojector
 WORKDIR /go/src/github.com/vmware/rdeprojector
 
-ENV	CGO_ENABLED=0
-ENV	GOOS=linux
-ENV	GOARCH=amd64
-
+ENV CGO_ENABLED=0
+ENV GOOS=linux
+ENV GOARCH=amd64
 ENV GOPATH /go
 
 # Build
