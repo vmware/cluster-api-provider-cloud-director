@@ -98,7 +98,7 @@ type CAPVCDStatus struct {
 	ClusterResourceSet     []ClusterResource `json:"clusterResourceSet,omitempty"`
 	VcdProperties          VCDProperties     `json:"vcdProperties,omitempty"`
 	Private                PrivateSection    `json:"private,omitempty"`
-	VCDResourceSet         []VCDResource     `json:"VCDResourceSet,omitempty"`
+	VCDResourceSet         []VCDResource     `json:"vcdResourceSet,omitempty"`
 }
 
 type Status struct {

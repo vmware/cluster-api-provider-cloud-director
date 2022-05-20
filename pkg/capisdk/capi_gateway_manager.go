@@ -201,15 +201,17 @@ func (capvcdGatewayManager *CapvcdGatewayManager) CreateL4LoadBalancer(ctx conte
 		}
 		virtualServiceRef, err := capvcdGatewayManager.gatewayManager.CreateVirtualService(ctx, virtualServiceName, lbPoolRef, segRef,
 			virtualServiceIP, portDetail.serviceType, portDetail.externalPort, portDetail.useSSL, portDetail.certificateAlias)
+		if virtualServiceRef != nil {
+			// Add virtual service to vcd resource set
+			err = rdeManager.AddToVCDResourceSet(ctx, vcdsdk.ComponentCAPVCD, vcdsdk.VcdResourceVirtualService,
+				virtualServiceRef.Name, virtualServiceRef.Id, map[string]interface{}{
+					"virtualIP": externalIP,
+				})
+		}
 		if err != nil {
 			return "", fmt.Errorf("unable to create virtual service [%s] with address [%s:%d]: [%v]",
 				virtualServiceName, virtualServiceIP, portDetail.externalPort, err)
 		}
-		// Add virtual service to vcd resource set
-		err = rdeManager.AddToVCDResourceSet(ctx, vcdsdk.ComponentCAPVCD, vcdsdk.VcdResourceVirtualService,
-			virtualServiceRef.Name, virtualServiceRef.Id, map[string]interface{}{
-				"virtualIP": externalIP,
-			})
 		if err != nil {
 			return "", fmt.Errorf("failed to add virtual service [%s] to VCDResourceSet of RDE [%s]", virtualServiceRef.Name, rdeManager.ClusterID)
 		}
