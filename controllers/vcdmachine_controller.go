@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"github.com/pkg/errors"
 	"github.com/replicatedhq/troubleshoot/pkg/redact"
+	cpiutil "github.com/vmware/cloud-provider-for-cloud-director/pkg/util"
 	"github.com/vmware/cloud-provider-for-cloud-director/pkg/vcdsdk"
 	infrav1 "github.com/vmware/cluster-api-provider-cloud-director/api/v1beta1"
 	"github.com/vmware/cluster-api-provider-cloud-director/pkg/capisdk"
@@ -684,7 +685,8 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		}
 
 		updatedIPs := append(controlPlaneIPs, machineAddress)
-		err = capvcdGatewayManager.UpdateLoadBalancer(ctx, lbPoolName, updatedIPs, int32(6443))
+		updatedUniqueIPs := cpiutil.NewSet(updatedIPs).GetElements()
+		err = capvcdGatewayManager.UpdateLoadBalancer(ctx, lbPoolName, updatedUniqueIPs, int32(6443))
 		if err != nil {
 			return ctrl.Result{}, errors.Wrapf(err,
 				"Error updating the load balancer pool [%s] for the "+
