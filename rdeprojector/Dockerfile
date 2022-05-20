@@ -1,4 +1,4 @@
-FROM golang:1.16 as builder
+FROM golang:1.17 as builder
 
 RUN apt-get update && \
     apt-get -y install \
@@ -12,6 +12,7 @@ WORKDIR /go/src/github.com/vmware/rdeprojector
 ENV	CGO_ENABLED=0
 ENV	GOOS=linux
 ENV	GOARCH=amd64
+
 ENV GOPATH /go
 
 # Build
