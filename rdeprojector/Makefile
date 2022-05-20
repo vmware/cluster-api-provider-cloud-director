@@ -142,3 +142,8 @@ rde-projector: generate fmt vet vendor
 	docker build -f Dockerfile . -t rde-projector:$(version)
 	docker tag rde-projector:$(version) $(IMG)
 	docker push $(IMG)
+
+vendor: generate fmt vet
+	go mod edit -go=1.17
+	go mod tidy -compat=1.17
+	go mod vendor
