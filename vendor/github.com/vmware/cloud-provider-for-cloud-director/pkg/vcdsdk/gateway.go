@@ -13,6 +13,7 @@ import (
 	"github.com/antihax/optional"
 	"github.com/apparentlymart/go-cidr/cidr"
 	"github.com/peterhellberg/link"
+	"github.com/vmware/cloud-provider-for-cloud-director/pkg/util"
 	swaggerClient "github.com/vmware/cloud-provider-for-cloud-director/pkg/vcdswaggerclient"
 	"github.com/vmware/go-vcloud-director/v2/govcd"
 	"github.com/vmware/go-vcloud-director/v2/types/v56"
@@ -796,7 +797,7 @@ func (gm *GatewayManager) formLoadBalancerPool(lbPoolName string, ips []string,
 }
 
 func (gm *GatewayManager) CreateLoadBalancerPool(ctx context.Context, lbPoolName string,
-	ips []string, internalPort int32) (*swaggerClient.EntityReference, error) {
+	lbPoolIPList []string, internalPort int32) (*swaggerClient.EntityReference, error) {
 
 	client := gm.Client
 	if gm.GatewayRef == nil {
@@ -813,7 +814,8 @@ func (gm *GatewayManager) CreateLoadBalancerPool(ctx context.Context, lbPoolName
 		return lbPoolRef, nil
 	}
 
-	lbPool, lbPoolMembers := gm.formLoadBalancerPool(lbPoolName, ips, internalPort)
+	lbPoolUniqueIPList := util.NewSet(lbPoolIPList).GetElements()
+	lbPool, lbPoolMembers := gm.formLoadBalancerPool(lbPoolName, lbPoolUniqueIPList, internalPort)
 	resp, err := client.APIClient.EdgeGatewayLoadBalancerPoolsApi.CreateLoadBalancerPool(ctx, lbPool)
 	if err != nil {
 		return nil, fmt.Errorf("unable to create loadbalancer pool with name [%s], members [%+v]: resp [%+v]: [%v]",
@@ -906,7 +908,7 @@ func hasSameLBPoolMembers(array1 []swaggerClient.EdgeLoadBalancerPoolMember, arr
 	return true
 }
 
-func (gm *GatewayManager) UpdateLoadBalancerPool(ctx context.Context, lbPoolName string, ips []string,
+func (gm *GatewayManager) UpdateLoadBalancerPool(ctx context.Context, lbPoolName string, lbPoolIPList []string,
 	internalPort int32) (*swaggerClient.EntityReference, error) {
 	client := gm.Client
 	lbPoolRef, err := gm.getLoadBalancerPool(ctx, lbPoolName)
@@ -925,7 +927,9 @@ func (gm *GatewayManager) UpdateLoadBalancerPool(ctx context.Context, lbPoolName
 		return nil, fmt.Errorf("unable to get loadbalancer pool with id [%s], expected http response [%v], obtained [%v]", lbPoolRef.Id, http.StatusOK, resp.StatusCode)
 	}
 
-	if hasSameLBPoolMembers(lbPool.Members, ips) && lbPool.Members[0].Port == internalPort {
+	lbPoolUniqueIPList := util.NewSet(lbPoolIPList).GetElements()
+
+	if hasSameLBPoolMembers(lbPool.Members, lbPoolUniqueIPList) && lbPool.Members[0].Port == internalPort {
 		klog.Infof("No updates needed for the loadbalancer pool [%s]", lbPool.Name)
 		return lbPoolRef, nil
 	}
@@ -943,7 +947,8 @@ func (gm *GatewayManager) UpdateLoadBalancerPool(ctx context.Context, lbPoolName
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("unable to get loadbalancer pool with id [%s], expected http response [%v], obtained [%v]", lbPoolRef.Id, http.StatusOK, resp.StatusCode)
 	}
-	updatedLBPool, lbPoolMembers := gm.formLoadBalancerPool(lbPoolName, ips, internalPort)
+
+	updatedLBPool, lbPoolMembers := gm.formLoadBalancerPool(lbPoolName, lbPoolUniqueIPList, internalPort)
 	resp, err = client.APIClient.EdgeGatewayLoadBalancerPoolApi.UpdateLoadBalancerPool(ctx, updatedLBPool, lbPoolRef.Id)
 	if resp != nil && resp.StatusCode != http.StatusAccepted {
 		var responseMessageBytes []byte
