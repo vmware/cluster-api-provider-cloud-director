@@ -570,7 +570,7 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		// Add vm to VCDResourceSet
 		err = rdeManager.AddToVCDResourceSet(ctx, vcdsdk.ComponentCAPVCD, VcdResourceTypeVM, machine.Name, vm.VM.ID, nil)
 		if err != nil {
-			return ctrl.Result{}, errors.Wrapf(err, "Failed to add VCD Resource [%s] of type [%s] to VCDResourceSet of RDE [%s]: [%v]",
+			return ctrl.Result{}, errors.Wrapf(err, "Failed to remove from VCD Resource [%s] of type [%s] to VCDResourceSet of RDE [%s]: [%v]",
 				machine.Name, VcdResourceTypeVM, vcdCluster.Status.InfraId, err)
 		}
 	}
