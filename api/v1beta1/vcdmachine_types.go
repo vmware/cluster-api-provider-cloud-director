@@ -62,6 +62,11 @@ type VCDMachineSpec struct {
 	// against this machine
 	// +optional
 	Bootstrapped bool `json:"bootstrapped,omitempty"`
+
+	// NvidiaGPU is true when a VM should be created with the relevant binaries installed
+	// If true, then an appropriate placement policy should be set
+	// +optional
+	NvidiaGPU bool `json:"nvidiaGPU,omitempty"`
 }
 
 // VCDMachineStatus defines the observed state of VCDMachine

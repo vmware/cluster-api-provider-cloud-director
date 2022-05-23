@@ -225,6 +225,8 @@ const (
 	KubeadmTokenGenerate                   = "guestinfo.postcustomization.kubeadm.token.generate.status"
 	KubectlApplyDefaultStorageClass        = "guestinfo.postcustomization.kubectl.default_storage_class.install.status"
 	KubeadmNodeJoin                        = "guestinfo.postcustomization.kubeadm.node.join.status"
+	NvidiaRuntimeInstall                   = "guestinfo.postcustomization.nvidia.runtime.install.status"
+	NvidiaContainerdConfiguration          = "guestinfo.postcustomization.containerd.nvidia.configuration.status"
 	PostCustomizationScriptExecutionStatus = "guestinfo.post_customization_script_execution_status"
 	PostCustomizationScriptFailureReason   = "guestinfo.post_customization_script_execution_failure_reason"
 )
@@ -241,7 +243,9 @@ var controlPlanePostCustPhases = []string{
 
 var joinPostCustPhases = []string{
 	NetworkConfiguration,
+	NvidiaRuntimeInstall,
 	KubeadmNodeJoin,
+	//NvidiaContainerdConfiguration,
 }
 
 func removeFromSlice(remove string, arr []string) []string {
