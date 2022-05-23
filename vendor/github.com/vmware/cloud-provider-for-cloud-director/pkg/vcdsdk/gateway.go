@@ -1199,7 +1199,6 @@ func (gatewayManager *GatewayManager) UpdateVirtualServicePort(ctx context.Conte
 	}, nil
 }
 
-// TODO: separate out rde operations: how?
 func (gatewayManager *GatewayManager) CreateVirtualService(ctx context.Context, virtualServiceName string,
 	lbPoolRef *swaggerClient.EntityReference, segRef *swaggerClient.EntityReference,
 	freeIP string, vsType string, externalPort int32,
@@ -1332,13 +1331,13 @@ func (gatewayManager *GatewayManager) CreateVirtualService(ctx context.Context, 
 			virtualServiceName, err)
 	}
 
-	if err = gatewayManager.CheckIfVirtualServiceIsPending(ctx, virtualServiceName); err != nil {
-		return nil, err
-	}
-
 	virtualServiceRef := &swaggerClient.EntityReference{
 		Name: vsSummary.Name,
 		Id:   vsSummary.Id,
+	}
+
+	if err = gatewayManager.CheckIfVirtualServiceIsPending(ctx, virtualServiceName); err != nil {
+		return virtualServiceRef, err
 	}
 
 	klog.Infof("Created virtual service [%v] on gateway [%v]\n", virtualServiceRef, gatewayManager.GatewayRef.Name)
