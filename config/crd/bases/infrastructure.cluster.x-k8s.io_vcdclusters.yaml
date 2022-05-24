@@ -271,6 +271,11 @@ spec:
                 type: string
               parentUid:
                 type: string
+              rdeVersionInUse:
+                default: 1.0.0
+                description: RdeVersionInUse indicates the version of capvcdCluster
+                  entity type used by CAPVCD.
+                type: string
               ready:
                 description: Ready denotes that the vcd cluster (infrastructure) is
                   ready.
@@ -278,6 +283,7 @@ spec:
               useAsManagementCluster:
                 type: boolean
             required:
+            - rdeVersionInUse
             - ready
             type: object
         required:

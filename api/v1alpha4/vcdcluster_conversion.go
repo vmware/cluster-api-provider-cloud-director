@@ -16,6 +16,7 @@ func (src *VCDCluster) ConvertTo(dstRaw conversion.Hub) error {
 	dst.Spec.RDEId = src.Status.InfraId
 	dst.Spec.ParentUID = ""
 	dst.Spec.UseAsManagementCluster = false
+	dst.Status.RdeVersionInUse = ""
 	return nil
 }
 

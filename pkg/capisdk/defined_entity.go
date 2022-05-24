@@ -73,7 +73,7 @@ func patchObject(inputObj interface{}, patchMap map[string]interface{}) (map[str
 	return updatedMap, nil
 }
 
-// SetIsManagementClusterInRDE: sets the isManagementCluster flag in RDE for the management cluster
+// SetIsManagementClusterInRDE : sets the isManagementCluster flag in RDE for the management cluster
 func (capvcdRdeManager *CapvcdRdeManager) SetIsManagementClusterInRDE(ctx context.Context, managementClusterRDEId string) error {
 	if managementClusterRDEId == "" {
 		klog.V(3).Infof("RDE ID for the management cluster not found. Skip setting isManagementCluster flag for the RDE.")
@@ -89,7 +89,7 @@ func (capvcdRdeManager *CapvcdRdeManager) SetIsManagementClusterInRDE(ctx contex
 	return nil
 }
 
-// PatchRDE: Update only specific fields in the RDE. Takes in a map with keys, which contain "." delimitted
+// PatchRDE : Update only specific fields in the RDE. Takes in a map with keys, which contain "." delimitted
 // strings, representing the spec, metadata and cavcd status fields to be updated.
 // Example: To patch only the "spec.capiYaml", "metadata.name", "status.capvcd.version" portion of the RDE, specPatch map should be something like this -
 // specPatch["CapiYaml"] = updated-yaml
@@ -256,7 +256,7 @@ func (capvcdRdeManager *CapvcdRdeManager) convertTo_1_1_0_Format(ctx context.Con
 		return srcRde, nil
 	}
 	for retries := 0; retries < MaxUpdateRetries; retries++ {
-		_, resp, etag, err := capvcdRdeManager.Client.APIClient.DefinedEntityApi.GetDefinedEntity(ctx, srcRde.Id)
+		srcCapvcdEntity, resp, etag, err := capvcdRdeManager.Client.APIClient.DefinedEntityApi.GetDefinedEntity(ctx, srcRde.Id)
 		if err != nil {
 			var responseMessageBytes []byte
 			if gsErr, ok := err.(swagger.GenericSwaggerError); ok {
@@ -274,7 +274,23 @@ func (capvcdRdeManager *CapvcdRdeManager) convertTo_1_1_0_Format(ctx context.Con
 					resp.StatusCode, srcRde.Id, http.StatusOK)
 			}
 		}
-		// create empty RDE
+
+		// extract existing virtual IPs and persistentVolumes from the RDE
+		var existingVIPs, existingPVs interface{}
+		existingVIPs = make([]string, 0)
+		existingPVs = make([]string, 0)
+		// extract persistentVolumes and virtual IPs from srcCapvcdEntity as they need to be kept as is
+		if srcEntityStatus, ok := srcCapvcdEntity.Entity["status"]; ok {
+			if statusMap, ok := srcEntityStatus.(map[string]interface{}); ok {
+				if pvs, ok := statusMap["persistentVolumes"]; ok {
+					existingPVs = pvs
+				}
+				if vips, ok := statusMap["virtualIPs"]; ok {
+					existingVIPs = vips
+				}
+			}
+		}
+
 		dstEmptyCapvcdEntity := rdeType.CAPVCDEntity{
 			Kind: CAPVCDClusterKind,
 			Spec: rdeType.CAPVCDSpec{
@@ -282,14 +298,20 @@ func (capvcdRdeManager *CapvcdRdeManager) convertTo_1_1_0_Format(ctx context.Con
 			},
 			ApiVersion: CAPVCDClusterEntityApiVersion,
 		}
-		emptyCapvcdEntityMap, err := util.ConvertCAPVCDEntityToMap(&dstEmptyCapvcdEntity)
+		dstCapvcdEntityMap, err := util.ConvertCAPVCDEntityToMap(&dstEmptyCapvcdEntity)
 		if err != nil {
 			return nil, fmt.Errorf("failed to convert map[string]interface{} to CAPVCD entity object: [%v]", err)
 		}
 
+		// add back PVs and VIPs if present in the srcCapvcdEntity
+		dstCapvcdEntityMap["status"] = map[string]interface{}{
+			"persistentVolumes": existingPVs,
+			"virtualIPs":        existingVIPs,
+		}
+
 		dstCapvcdRde := swagger.DefinedEntity{
 			EntityType: CAPVCDEntityTypePrefix + ":" + rdeType.CapvcdRDETypeVersion,
-			Entity:     emptyCapvcdEntityMap,
+			Entity:     dstCapvcdEntityMap,
 			Name:       srcRde.Name,
 			ExternalId: srcRde.ExternalId,
 		}
@@ -328,7 +350,8 @@ func (capvcdRdeManager *CapvcdRdeManager) convertTo_1_1_0_Format(ctx context.Con
 
 // ConvertToLatestRDEVersionFormat updates the RDE version. The upgraded RDE will only contain minimal information related to the cluster after upgrade.
 //  CAPVCD will reconcile the RDE eventually with proper data by CAPVCD.
-//  The function attempts upgrade multiple times as defined by MaxUpdateRetries to avoid failures due to incorrect ETag during update.
+//  The function attempts upgrade multiple times as defined by MaxUpdateRetries to avoid failures due to incorrect ETag.
+// 	"entity.status.persistentVolumes" and "entity.status.virtualIPs" in the existing RDE will be retained in the upgraded RDE.
 func (capvcdRdeManager *CapvcdRdeManager) ConvertToLatestRDEVersionFormat(ctx context.Context, rdeID string) (*swagger.DefinedEntity, error) {
 	if !capvcdRdeManager.IsCapvcdEntityType_1_1_0_Registered() {
 		return nil, fmt.Errorf("CAPVCD entity type with version [%s] not registered", CAPVCDTypeVersion)

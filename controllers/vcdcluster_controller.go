@@ -18,7 +18,6 @@ import (
 	"github.com/vmware/cluster-api-provider-cloud-director/pkg/capisdk"
 	"github.com/vmware/cluster-api-provider-cloud-director/pkg/config"
 	vcdutil "github.com/vmware/cluster-api-provider-cloud-director/pkg/util"
-	"github.com/vmware/cluster-api-provider-cloud-director/pkg/vcdtypes/rde_type_1_0_0"
 	rdeType "github.com/vmware/cluster-api-provider-cloud-director/pkg/vcdtypes/rde_type_1_1_0"
 	"github.com/vmware/go-vcloud-director/v2/govcd"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -469,12 +468,13 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		}
 	} else {
 		log.V(3).Info("Reusing already available InfraID", "infraID", infraID)
-		capvcdRdeManager := capisdk.NewCapvcdRdeManager(workloadVCDClient)
-		if !strings.Contains(infraID, NoRdePrefix) {
+		if !strings.Contains(infraID, NoRdePrefix) && vcdCluster.Status.RdeVersionInUse != rdeType.CapvcdRDETypeVersion {
+			capvcdRdeManager := capisdk.NewCapvcdRdeManager(workloadVCDClient)
+			log.Info("Upgrading RDE", "rdeID", infraID,
+				"targetRDEVersion", rdeType.CapvcdRDETypeVersion)
 			_, err = capvcdRdeManager.ConvertToLatestRDEVersionFormat(ctx, infraID)
 			if err != nil {
 				log.Error(err, "failed to upgrade RDE", "rdeID", infraID,
-					"sourceVersion", rde_type_1_0_0.CapvcdRDETypeVersion,
 					"targetVersion", rdeType.CapvcdRDETypeVersion)
 				return ctrl.Result{}, errors.Wrapf(err, "failed to upgrade RDE [%s]", infraID)
 			}
@@ -484,6 +484,7 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 				log.Error(err, "failed to reconcile RDE after upgrading RDE", "rdeID", infraID)
 				return ctrl.Result{}, errors.Wrapf(err, "failed to reconcile RDE after upgrading RDE [%s]", infraID)
 			}
+			vcdCluster.Status.RdeVersionInUse = rdeType.CapvcdRDETypeVersion
 		}
 	}
 
