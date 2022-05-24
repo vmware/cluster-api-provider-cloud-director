@@ -17,6 +17,8 @@ import (
 
 const (
 	MaxUpdateRetries = 10
+
+	StatusComponentNameCAPVCD = "cluster-api-provider-cloud-director"
 )
 
 type CapvcdRdeManager struct {

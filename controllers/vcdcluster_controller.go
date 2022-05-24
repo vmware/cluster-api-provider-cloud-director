@@ -19,6 +19,7 @@ import (
 	"github.com/vmware/cluster-api-provider-cloud-director/pkg/config"
 	vcdutil "github.com/vmware/cluster-api-provider-cloud-director/pkg/util"
 	rdeType "github.com/vmware/cluster-api-provider-cloud-director/pkg/vcdtypes/rde_type_1_1_0"
+	"github.com/vmware/cluster-api-provider-cloud-director/release"
 	"github.com/vmware/go-vcloud-director/v2/govcd"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -45,8 +46,6 @@ const (
 	CAPVCDClusterKind             = "CAPVCDCluster"
 	CAPVCDClusterEntityApiVersion = "capvcd.vmware.com/v1.1"
 	CAPVCDClusterCniName          = "antrea" // TODO: Get the correct value for CNI name
-	VcdCsiName                    = "cloud-director-named-disk-csi-driver"
-	VcdCpiName                    = "cloud-provider-for-cloud-director"
 
 	RDEStatusResolved = "RESOLVED"
 	VCDLocationHeader = "Location"
@@ -54,7 +53,8 @@ const (
 	ClusterApiStatusPhaseReady    = "Ready"
 	ClusterApiStatusPhaseNotReady = "Not Ready"
 
-	NoRdePrefix = `NO_RDE_`
+	NoRdePrefix     = `NO_RDE_`
+	VCDResourceVApp = "VApp"
 )
 
 var (
@@ -493,7 +493,7 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 				vcdCluster.Name)
 		}
 		controlPlaneNodeIP, err = capvcdGatewayManger.CreateL4LoadBalancer(ctx, virtualServiceNamePrefix, lbPoolNamePrefix,
-			[]string{}, r.Config.LB.Ports.TCP, r.Config.LB.Ports.TCP, (*vcdsdk.OneArm)(r.Config.LB.OneArm))
+			[]string{}, r.Config.LB.Ports.TCP, r.Config.LB.Ports.TCP, (*vcdsdk.OneArm)(r.Config.LB.OneArm), infraID)
 		if err != nil {
 			if vsError, ok := err.(*vcdsdk.VirtualServicePendingError); ok {
 				log.Info("Error creating load balancer for cluster. Virtual Service is still pending",
@@ -532,15 +532,27 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		}
 	}
 
+	rdeManager := vcdsdk.NewRDEManager(workloadVCDClient, vcdCluster.Status.InfraId, capisdk.StatusComponentNameCAPVCD, release.CAPVCDVersion)
+
 	// create VApp
 	vdcManager, err := vcdsdk.NewVDCManager(workloadVCDClient, workloadVCDClient.ClusterOrgName,
 		workloadVCDClient.ClusterOVDCName)
 	if err != nil {
 		return ctrl.Result{}, errors.Wrapf(err, "Error creating vdc manager to to reconcile vcd infrastructure for cluster [%s]", vcdCluster.Name)
 	}
-	_, err = vdcManager.GetOrCreateVApp(vcdCluster.Name, vcdCluster.Spec.OvdcNetwork)
+	clusterVApp, err := vdcManager.GetOrCreateVApp(vcdCluster.Name, vcdCluster.Spec.OvdcNetwork)
 	if err != nil {
 		return ctrl.Result{}, errors.Wrapf(err, "Error creating Infra vApp for the cluster [%s]: [%v]", vcdCluster.Name, err)
+	}
+	if clusterVApp == nil || clusterVApp.VApp == nil {
+		return ctrl.Result{}, errors.Wrapf(err, "found nil value for VApp [%s]", vcdCluster.Name)
+	}
+	// Add VApp to VCDResourceSet
+	err = rdeManager.AddToVCDResourceSet(ctx, vcdsdk.ComponentCAPVCD, VCDResourceVApp,
+		vcdCluster.Name, clusterVApp.VApp.ID, nil)
+	if err != nil {
+		return ctrl.Result{}, errors.Wrapf(err, "failed to add resource [%s] of type [%s] to VCDResourceSet of RDE [%s]: [%v]",
+			vcdCluster.Name, VCDResourceVApp, infraID, err)
 	}
 
 	// Update the vcdCluster resource with updated information
@@ -587,7 +599,8 @@ func (r *VCDClusterReconciler) reconcileDelete(ctx context.Context,
 	// Delete the load balancer components
 	virtualServiceNamePrefix := capisdk.GetVirtualServiceNamePrefix(vcdCluster.Name, vcdCluster.Status.InfraId)
 	lbPoolNamePrefix := capisdk.GetLoadBalancerPoolNamePrefix(vcdCluster.Name, vcdCluster.Status.InfraId)
-	err = gateway.DeleteLoadBalancer(ctx, virtualServiceNamePrefix, lbPoolNamePrefix, (*vcdsdk.OneArm)(r.Config.LB.OneArm))
+	err = gateway.DeleteLoadBalancer(ctx, virtualServiceNamePrefix, lbPoolNamePrefix,
+		(*vcdsdk.OneArm)(r.Config.LB.OneArm), vcdCluster.Status.InfraId)
 	if err != nil {
 		return ctrl.Result{}, errors.Wrapf(err,
 			"Error occurred during cluster [%s] deletion; unable to delete the load balancer [%s]: [%v]",
@@ -621,6 +634,13 @@ func (r *VCDClusterReconciler) reconcileDelete(ctx context.Context,
 			}
 			log.Info("Successfully deleted vApp of the cluster", "vAppName", vcdCluster.Name)
 		}
+	}
+	// Remove vapp from VCDResourceSet in the RDE
+	rdeManager := vcdsdk.NewRDEManager(workloadVCDClient, vcdCluster.Status.InfraId, capisdk.StatusComponentNameCAPVCD, release.CAPVCDVersion)
+	err = rdeManager.RemoveFromVCDResourceSet(ctx, vcdsdk.ComponentCAPVCD, VCDResourceVApp, vcdCluster.Name)
+	if err != nil {
+		return ctrl.Result{}, errors.Wrapf(err, "failed to delete VCD Resource [%s] of type [%s] from VCDResourceSet of RDE [%s]: [%v]",
+			vcdCluster.Name, VCDResourceVApp, vcdCluster.Status.InfraId, err)
 	}
 
 	// TODO: If RDE deletion fails, should we throw an error during reconciliation?
