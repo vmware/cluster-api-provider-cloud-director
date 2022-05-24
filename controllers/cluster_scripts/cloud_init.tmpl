@@ -1,5 +1,5 @@
 #cloud-config
-write_files:{{ if .ControlPlane }}
+write_files: {{- if .ControlPlane }}
 - path: /root/vcloud-basic-auth.yaml
   owner: root
   content: |
@@ -29,8 +29,8 @@ write_files:{{ if .ControlPlane }}
     parameters:
       storageProfile: "{{ .VcdStorageProfileName }}"
       filesystem: "{{ .FileSystemFormat }}"
-    ---{{ end }}
-- path: /root/{{ if .ControlPlane }}control_plane{{ else }}node{{ end }}.sh
+    --- {{- end }}
+- path: /root/ {{- if .ControlPlane -}} control_plane {{- else -}} node {{- end -}} .sh
   owner: root
   content: |
     #!/usr/bin/env bash
@@ -51,7 +51,7 @@ write_files:{{ if .ControlPlane }}
     trap 'catch $? $LINENO' ERR EXIT
     set -ex
 
-    echo "$(date) Post Customization script execution in progress" &>> /var/log/capvcd/customization/status.log{{ if .ControlPlane }}
+    echo "$(date) Post Customization script execution in progress" &>> /var/log/capvcd/customization/status.log {{- if .ControlPlane }}
 
     VCLOUD_BASIC_AUTH_PATH=/root/vcloud-basic-auth.yaml
     VCLOUD_CONFIGMAP_PATH=/root/vcloud-configmap.yaml
@@ -59,7 +59,7 @@ write_files:{{ if .ControlPlane }}
     VCLOUD_CSI_CONFIGMAP_PATH=/root/vcloud-csi-configmap.yaml
     CSI_DRIVER_PATH=/root/csi-driver.yaml
     CSI_CONTROLLER_PATH=/root/csi-controller.yaml
-    CSI_NODE_PATH=/root/csi-node.yaml{{ end }}
+    CSI_NODE_PATH=/root/csi-node.yaml {{- end }}
 
     vmtoolsd --cmd "info-set guestinfo.postcustomization.networkconfiguration.status in_progress"
     echo 'net.ipv6.conf.all.disable_ipv6 = 1' >> /etc/sysctl.conf
@@ -88,7 +88,7 @@ write_files:{{ if .ControlPlane }}
     END
     systemctl daemon-reload
     systemctl restart containerd
-    vmtoolsd --cmd "info-set guestinfo.postcustomization.proxy.setting.status successful"{{ if .NvidiaGPU }}
+    vmtoolsd --cmd "info-set guestinfo.postcustomization.proxy.setting.status successful" {{- if .NvidiaGPU }}
 
     vmtoolsd --cmd "info-set guestinfo.postcustomization.nvidia.runtime.install.status in_progress"
     DISTRIBUTION=$(. /etc/os-release;echo $ID$VERSION_ID)
@@ -97,9 +97,9 @@ write_files:{{ if .ControlPlane }}
 
     apt-get update
     apt-get install -y nvidia-container-runtime
-    vmtoolsd --cmd "info-set guestinfo.postcustomization.nvidia.runtime.install.status successful"{{ end }}
+    vmtoolsd --cmd "info-set guestinfo.postcustomization.nvidia.runtime.install.status successful" {{- end }}
 
-    vmtoolsd --cmd "info-set {{ if .ControlPlane }}guestinfo.postcustomization.kubeinit.status{{ else }}guestinfo.postcustomization.kubeadm.node.join.status{{ end }} in_progress"
+    vmtoolsd --cmd "info-set {{ if .ControlPlane -}} guestinfo.postcustomization.kubeinit.status {{- else -}} guestinfo.postcustomization.kubeadm.node.join.status {{- end }} in_progress"
     for IMAGE in "coredns" "etcd" "kube-proxy" "kube-apiserver" "kube-controller-manager" "kube-scheduler"
     do
       IMAGE_REF=$(ctr -n=k8s.io image list | cut -d" " -f1 | grep $IMAGE)
@@ -113,10 +113,10 @@ write_files:{{ if .ControlPlane }}
       echo "file /run/cluster-api/bootstrap-success.complete not found" &>> /var/log/capvcd/customization/error.log
     exit 1
     fi
-    export KUBECONFIG=/etc/kubernetes/{{ if .ControlPlane }}admin{{ else }}kubelet{{ end }}.conf
-    kubectl get po -A -owide{{ if .ControlPlane }}
-    vmtoolsd --cmd "info-set guestinfo.kubeconfig $(cat /etc/kubernetes/admin.conf | base64 | tr -d '\n')"{{ end }}
-    vmtoolsd --cmd "info-set {{ if .ControlPlane }}guestinfo.postcustomization.kubeinit.status{{ else }}guestinfo.postcustomization.kubeadm.node.join.status{{ end }} successful"{{ if .ControlPlane }}
+    export KUBECONFIG=/etc/kubernetes/ {{- if .ControlPlane -}} admin {{- else -}} kubelet {{- end -}} .conf
+    kubectl get po -A -owide {{- if .ControlPlane }}
+    vmtoolsd --cmd "info-set guestinfo.kubeconfig $(cat /etc/kubernetes/admin.conf | base64 | tr -d '\n')" {{- end }}
+    vmtoolsd --cmd "info-set {{ if .ControlPlane -}} guestinfo.postcustomization.kubeinit.status {{- else -}} guestinfo.postcustomization.kubeadm.node.join.status {{- end }} successful" {{- if .ControlPlane }}
 
     vmtoolsd --cmd "info-set guestinfo.postcustomization.kubectl.cpi.install.status in_progress"
     kubectl apply -f $VCLOUD_BASIC_AUTH_PATH
@@ -161,7 +161,7 @@ write_files:{{ if .ControlPlane }}
     if [[ "$STORAGE_CLASS_ENABLED" == "true" ]]; then
       kubectl apply -f /root/default-storage-class.yaml
     fi
-    vmtoolsd --cmd "info-set guestinfo.postcustomization.kubectl.default_storage_class.install.status successful"{{ else if .NvidiaGPU }}
+    vmtoolsd --cmd "info-set guestinfo.postcustomization.kubectl.default_storage_class.install.status successful" {{- else if .NvidiaGPU }}
 
     vmtoolsd --cmd "info-set guestinfo.postcustomization.containerd.nvidia.configuration.status in_progress"
     cat > /etc/containerd/config.toml << EOF
@@ -202,17 +202,17 @@ write_files:{{ if .ControlPlane }}
     EOF
 
     systemctl restart containerd
-    vmtoolsd --cmd "info-set guestinfo.postcustomization.containerd.nvidia.configuration.status successful"{{ end }}
+    vmtoolsd --cmd "info-set guestinfo.postcustomization.containerd.nvidia.configuration.status successful" {{- end }}
 
     echo "$(date) post customization script execution completed" &>> /var/log/capvcd/customization/status.log
     exit 0
-runcmd:{{ if .ControlPlane }}
-- '[ ! -f /root/vcloud-basic-auth.yaml ] && cloud-init clean && sudo reboot'{{ end }}
-- '[ ! -f /root/{{ if .ControlPlane }}control_plane{{ else }}node{{ end }}.sh ] && cloud-init clean && sudo reboot'
+runcmd: {{- if .ControlPlane }}
+- '[ ! -f /root/vcloud-basic-auth.yaml ] && cloud-init clean && sudo reboot' {{- end }}
+- '[ ! -f /root/ {{- if .ControlPlane -}} control_plane {{- else -}} node {{- end -}} .sh ] && cloud-init clean && sudo reboot'
 {{/* Only checking if /run/kubeadm/kubeadm(-join-config).yaml as this is the main file for kubeadm (init | join).*/}}
 {{/* Ignoring checks for .cert and .key files*/}}
-- '[ ! -f /run/kubeadm/kubeadm{{ if not .ControlPlane }}-join-config{{ end }}.yaml ] && cloud-init clean && sudo reboot'
-- bash /root/{{ if .ControlPlane }}control_plane{{ else }}node{{ end }}.sh
+- '[ ! -f /run/kubeadm/kubeadm {{- if not .ControlPlane -}} -join-config {{- end -}} .yaml ] && cloud-init clean && sudo reboot'
+- bash /root/ {{- if .ControlPlane -}} control_plane {{- else -}} node {{- end -}} .sh
 timezone: UTC
 disable_root: false
 preserve_hostname: false

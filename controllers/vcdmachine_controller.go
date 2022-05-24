@@ -476,11 +476,7 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	// run `kubeadm join`. The joining control planes run `kubeadm join`, so these nodes use the join script.
 	// Although it is sufficient to just check if `kubeadm join` is in the bootstrap script, using the
 	// isControlPlaneMachine function is a simpler operation, so this function is called first.
-	//useControlPlaneScript := util.IsControlPlaneMachine(machine) && !strings.Contains(bootstrapJinjaScript, "kubeadm join")
-	useControlPlaneScript := true
-	if !util.IsControlPlaneMachine(machine) || strings.Contains(bootstrapJinjaScript, "kubeadm join") {
-		useControlPlaneScript = false
-	}
+	useControlPlaneScript := util.IsControlPlaneMachine(machine) && !strings.Contains(bootstrapJinjaScript, "kubeadm join")
 
 	// Construct a CloudInitScriptInput struct to pass into template.Execute() function to generate the necessary
 	// cloud init script for the relevant node type, i.e. control plane or worker node
@@ -525,12 +521,12 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 				EnableDefaultStorageClass: strconv.FormatBool(enableDefaultStorageClass),
 			}
 		} else if !util.IsControlPlaneMachine(machine) && vcdMachine.Spec.NvidiaGPU {
-			//if vcdMachine.Spec.PlacementPolicy == "" {
-			//	return ctrl.Result{},
-			//		fmt.Errorf(
-			//			"placement policy must be specified for field [nvidiaGPU: true] on machine [%s] in cluster [%s]",
-			//			machine.Name, vcdCluster.Name)
-			//}
+			if vcdMachine.Spec.PlacementPolicy == "" {
+				return ctrl.Result{},
+					fmt.Errorf(
+						"placement policy must be specified for field [nvidiaGPU: true] on machine [%s] in cluster [%s]",
+						machine.Name, vcdCluster.Name)
+			}
 			cloudInitInput.NvidiaGPU = true
 		}
 		cloudInitInput.HTTPSProxy = vcdCluster.Spec.ProxyConfig.HTTPProxy
