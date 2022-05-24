@@ -111,6 +111,11 @@ spec:
                       catalog:
                         description: Catalog hosting templates
                         type: string
+                      nvidiaGPU:
+                        description: NvidiaGPU is true when a VM should be created
+                          with the relevant binaries installed If true, then an appropriate
+                          placement policy should be set
+                        type: boolean
                       placementPolicy:
                         description: PlacementPolicy is the placement policy to be
                           used on this machine.

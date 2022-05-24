@@ -43,7 +43,10 @@ import (
 	"time"
 )
 
-type ControlPlaneCloudInitScriptInput struct {
+type CloudInitScriptInput struct {
+	ControlPlane              bool   // control plane node
+	NvidiaGPU                 bool   // configure containerd for NVIDIA libraries
+	BootstrapRunCmd           string // bootstrap run command
 	B64OrgUser                string // base 64 org/username
 	B64Password               string // base64 password
 	B64RefreshToken           string // refresh token
@@ -67,13 +70,6 @@ type ControlPlaneCloudInitScriptInput struct {
 	MachineName               string // vm host name
 }
 
-type NodeCloudInitScriptInput struct {
-	HTTPProxy   string // httpProxy endpoint
-	HTTPSProxy  string // httpsProxy endpoint
-	NoProxy     string // no proxy values
-	MachineName string // vm host name
-}
-
 const (
 	ReclaimPolicyDelete = "Delete"
 	ReclaimPolicyRetain = "Retain"
@@ -81,11 +77,8 @@ const (
 
 // The following `embed` directives read the file in the mentioned path and copy the content into the declared variable.
 // These variables need to be global within the package.
-//go:embed cluster_scripts/cloud_init_control_plane.yaml
-var controlPlaneCloudInitScriptTemplate string
-
-//go:embed cluster_scripts/cloud_init_node.yaml
-var nodeCloudInitScriptTemplate string
+//go:embed cluster_scripts/cloud_init.tmpl
+var cloudInitScriptTemplate string
 
 // VCDMachineReconciler reconciles a VCDMachine object
 type VCDMachineReconciler struct {
@@ -243,9 +236,7 @@ var controlPlanePostCustPhases = []string{
 
 var joinPostCustPhases = []string{
 	NetworkConfiguration,
-	NvidiaRuntimeInstall,
 	KubeadmNodeJoin,
-	//NvidiaContainerdConfiguration,
 }
 
 func removeFromSlice(remove string, arr []string) []string {
@@ -485,36 +476,25 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	// run `kubeadm join`. The joining control planes run `kubeadm join`, so these nodes use the join script.
 	// Although it is sufficient to just check if `kubeadm join` is in the bootstrap script, using the
 	// isControlPlaneMachine function is a simpler operation, so this function is called first.
+	//useControlPlaneScript := util.IsControlPlaneMachine(machine) && !strings.Contains(bootstrapJinjaScript, "kubeadm join")
 	useControlPlaneScript := true
 	if !util.IsControlPlaneMachine(machine) || strings.Contains(bootstrapJinjaScript, "kubeadm join") {
 		useControlPlaneScript = false
 	}
 
-	// We have control over the content in the guest Cloud Init Script. However, we can't control the content
-	// in the Jinja script. Hence, do any fmt.Sprintf calls first and then merge the two scripts. This is cleaner
-	// than calling custom sanitization libraries since there doesn't seem to be a clearly good one. Also cleaner
-	// than handcrafting one.
-	guestCloudInit := ""
+	// Construct a CloudInitScriptInput struct to pass into template.Execute() function to generate the necessary
+	// cloud init script for the relevant node type, i.e. control plane or worker node
+	cloudInitInput := CloudInitScriptInput{}
 	if !vcdMachine.Spec.Bootstrapped {
-		guestCloudInitTemplate := controlPlaneCloudInitScriptTemplate
-		if !useControlPlaneScript {
-			guestCloudInitTemplate = nodeCloudInitScriptTemplate
-		}
-
-		switch {
-		case useControlPlaneScript:
-			orgUserStr := fmt.Sprintf("%s/%s", workloadVCDClient.VCDAuthConfig.UserOrg,
-				workloadVCDClient.VCDAuthConfig.User)
-			b64OrgUser := b64.StdEncoding.EncodeToString([]byte(orgUserStr))
-			b64Password := b64.StdEncoding.EncodeToString([]byte(vcdCluster.Spec.UserCredentialsContext.Password))
-			b64RefreshToken := b64.StdEncoding.EncodeToString([]byte(
-				vcdCluster.Spec.UserCredentialsContext.RefreshToken))
-			enableDefaultStorageClass := vcdCluster.Spec.DefaultStorageClassOptions.VCDStorageProfileName != ""
-			k8sStorageClassName := ""
-			fileSystemFormat := ""
-			vcdStorageProfileName := ""
-			reclaimPolicy := ReclaimPolicyRetain
-			proxyConfig := vcdCluster.Spec.ProxyConfig
+		if useControlPlaneScript {
+			var (
+				orgUserStr                = fmt.Sprintf("%s/%s", workloadVCDClient.VCDAuthConfig.UserOrg, workloadVCDClient.VCDAuthConfig.User)
+				enableDefaultStorageClass = vcdCluster.Spec.DefaultStorageClassOptions.VCDStorageProfileName != ""
+				k8sStorageClassName       = ""
+				fileSystemFormat          = ""
+				vcdStorageProfileName     = ""
+				reclaimPolicy             = ReclaimPolicyRetain
+			)
 			if enableDefaultStorageClass {
 				k8sStorageClassName = vcdCluster.Spec.DefaultStorageClassOptions.K8sStorageClassName
 				if vcdCluster.Spec.DefaultStorageClassOptions.UseDeleteReclaimPolicy {
@@ -523,72 +503,44 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 				fileSystemFormat = vcdCluster.Spec.DefaultStorageClassOptions.FileSystem
 				vcdStorageProfileName = vcdCluster.Spec.DefaultStorageClassOptions.VCDStorageProfileName
 			}
-			vcdHostFormatted := strings.Replace(vcdCluster.Spec.Site, "/", "\\/", -1)
-			controlPlaneScriptTemplate := template.New("control_plane_script_template")
-			controlPlaneScriptTemplate, err = controlPlaneScriptTemplate.Parse(guestCloudInitTemplate)
-			if err != nil {
-				return ctrl.Result{}, errors.Wrapf(err, "Error parsing controlPlaneCloudInitScriptTemplate: [%s]",
-					guestCloudInitTemplate)
+
+			cloudInitInput = CloudInitScriptInput{
+				ControlPlane:              true,
+				B64OrgUser:                b64.StdEncoding.EncodeToString([]byte(orgUserStr)),
+				B64Password:               b64.StdEncoding.EncodeToString([]byte(vcdCluster.Spec.UserCredentialsContext.Password)),
+				B64RefreshToken:           b64.StdEncoding.EncodeToString([]byte(vcdCluster.Spec.UserCredentialsContext.RefreshToken)),
+				K8sStorageClassName:       k8sStorageClassName,
+				ReclaimPolicy:             reclaimPolicy,
+				VcdStorageProfileName:     vcdStorageProfileName,
+				FileSystemFormat:          fileSystemFormat,
+				CpiVersion:                r.Config.ClusterResources.CpiVersion,
+				CsiVersion:                r.Config.ClusterResources.CsiVersion,
+				VcdHostFormatted:          strings.Replace(vcdCluster.Spec.Site, "/", "\\/", -1),
+				ClusterOrgName:            workloadVCDClient.ClusterOrgName,
+				ClusterOVDCName:           workloadVCDClient.ClusterOVDCName,
+				NetworkName:               vcdCluster.Spec.OvdcNetwork,
+				VipSubnetCidr:             "", // vip subnet cidr - empty for now for CPI to select subnet
+				VAppName:                  vAppName,
+				ClusterID:                 vcdCluster.Status.InfraId,
+				EnableDefaultStorageClass: strconv.FormatBool(enableDefaultStorageClass),
 			}
-			var buf bytes.Buffer
-			err = controlPlaneScriptTemplate.Execute(
-				&buf,
-				ControlPlaneCloudInitScriptInput{
-					B64OrgUser:                b64OrgUser,
-					B64Password:               b64Password,
-					B64RefreshToken:           b64RefreshToken,
-					K8sStorageClassName:       k8sStorageClassName,
-					ReclaimPolicy:             reclaimPolicy,
-					VcdStorageProfileName:     vcdStorageProfileName,
-					FileSystemFormat:          fileSystemFormat,
-					HTTPProxy:                 proxyConfig.HTTPProxy,
-					HTTPSProxy:                proxyConfig.HTTPSProxy,
-					NoProxy:                   proxyConfig.NoProxy,
-					CpiVersion:                r.Config.ClusterResources.CpiVersion,
-					CsiVersion:                r.Config.ClusterResources.CsiVersion,
-					VcdHostFormatted:          vcdHostFormatted,
-					ClusterOrgName:            workloadVCDClient.ClusterOrgName,
-					ClusterOVDCName:           workloadVCDClient.ClusterOVDCName,
-					NetworkName:               vcdCluster.Spec.OvdcNetwork,
-					VipSubnetCidr:             "", // vip subnet cidr - empty for now for CPI to select subnet
-					VAppName:                  vAppName,
-					ClusterID:                 vcdCluster.Status.InfraId,
-					EnableDefaultStorageClass: strconv.FormatBool(enableDefaultStorageClass),
-					MachineName:               machine.Name,
-				},
-			)
-			if err != nil {
-				return ctrl.Result{}, errors.Wrapf(err, "Error rendering control plane cloud init template: [%s]",
-					guestCloudInitTemplate)
-			}
-			guestCloudInit = buf.String()
-		default:
-			nodeScriptTemplate := template.New("node_script_template")
-			nodeScriptTemplate, err = nodeScriptTemplate.Parse(guestCloudInitTemplate)
-			if err != nil {
-				return ctrl.Result{}, errors.Wrapf(err, "Error parsing nodeCloudInitScriptTemplate [%s]",
-					guestCloudInitTemplate)
-			}
-			proxyConfig := vcdCluster.Spec.ProxyConfig
-			var buf bytes.Buffer
-			err = nodeScriptTemplate.Execute(
-				&buf,
-				NodeCloudInitScriptInput{
-					HTTPProxy:   proxyConfig.HTTPProxy,
-					HTTPSProxy:  proxyConfig.HTTPSProxy,
-					NoProxy:     proxyConfig.NoProxy,
-					MachineName: machine.Name,
-				},
-			)
-			if err != nil {
-				return ctrl.Result{}, errors.Wrapf(err, "Error rendering node cloud init template: [%s]",
-					guestCloudInitTemplate)
-			}
-			guestCloudInit = buf.String()
+		} else if !util.IsControlPlaneMachine(machine) && vcdMachine.Spec.NvidiaGPU {
+			//if vcdMachine.Spec.PlacementPolicy == "" {
+			//	return ctrl.Result{},
+			//		fmt.Errorf(
+			//			"placement policy must be specified for field [nvidiaGPU: true] on machine [%s] in cluster [%s]",
+			//			machine.Name, vcdCluster.Name)
+			//}
+			cloudInitInput.NvidiaGPU = true
 		}
+		cloudInitInput.HTTPSProxy = vcdCluster.Spec.ProxyConfig.HTTPProxy
+		cloudInitInput.HTTPSProxy = vcdCluster.Spec.ProxyConfig.HTTPSProxy
+		cloudInitInput.NoProxy = vcdCluster.Spec.ProxyConfig.NoProxy
+		cloudInitInput.MachineName = machine.Name
+
 	}
 
-	mergedCloudInitBytes, err := MergeJinjaToCloudInitScript(guestCloudInit, bootstrapJinjaScript)
+	mergedCloudInitBytes, err := MergeJinjaToCloudInitScript(cloudInitInput, bootstrapJinjaScript)
 	if err != nil {
 		return ctrl.Result{}, errors.Wrapf(err,
 			"Error merging bootstrap jinja script with the cloudInit script for [%s/%s] [%s]",
@@ -598,7 +550,7 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	redactedCloudInit := string(mergedCloudInitBytes)
 	if util.IsControlPlaneMachine(machine) {
 		// redact secrets
-		// NOTE: the position of the key in cluster_scripts/cloud_init_control_plane.yaml is important as the following
+		// NOTE: the position of the key in cluster_scripts/cloud_init is important as the following
 		// code expects the secret to be the first element in write_files.
 		redactedCloudInit, err = redactCloudInit(string(mergedCloudInitBytes), []string{"write_files", "0", "content"})
 		if err != nil {
@@ -751,7 +703,11 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	// wait for each vm phase
 	phases := controlPlanePostCustPhases
 	if !useControlPlaneScript {
-		phases = joinPostCustPhases
+		if vcdMachine.Spec.NvidiaGPU {
+			phases = []string{joinPostCustPhases[0], NvidiaRuntimeInstall, joinPostCustPhases[1], NvidiaContainerdConfiguration}
+		} else {
+			phases = joinPostCustPhases
+		}
 	}
 	for _, phase := range phases {
 		if err = vApp.Refresh(); err != nil {
@@ -1092,9 +1048,10 @@ func (r *VCDMachineReconciler) hasCloudInitExecutionFailedBefore(ctx context.Con
 // MergeJinjaToCloudInitScript : merges the cloud init config with a jinja config and adds a
 // `#cloudconfig` header. Does a couple of special handling: takes jinja's runcmd and embeds
 // it into a fixed location in the cloudInitConfig. Returns the merged bytes or nil and error.
-func MergeJinjaToCloudInitScript(cloudInitConfig string, jinjaConfig string) ([]byte, error) {
+func MergeJinjaToCloudInitScript(cloudInitConfig CloudInitScriptInput, jinjaConfig string) ([]byte, error) {
 	jinja := make(map[string]interface{})
-	if err := yaml.Unmarshal([]byte(jinjaConfig), &jinja); err != nil {
+	err := yaml.Unmarshal([]byte(jinjaConfig), &jinja)
+	if err != nil {
 		return nil, fmt.Errorf("unable to unmarshal yaml [%s]: [%v]", jinjaConfig, err)
 	}
 
@@ -1117,14 +1074,21 @@ func MergeJinjaToCloudInitScript(cloudInitConfig string, jinjaConfig string) ([]
 			}
 			formattedJinjaCmd += indent + jinjaLineStr + "\n"
 		}
-
-		cloudInitModified = strings.Trim(
-			strings.Replace(cloudInitConfig,
-				"__JINJA_RUNCMD_REPLACE_ME__", strings.Trim(formattedJinjaCmd, "\n"), 1), "\r\n")
+		cloudInitConfig.BootstrapRunCmd = strings.Trim(strings.Trim(formattedJinjaCmd, "\n"), "\r\n")
 	}
+	cloudInitTemplate := template.New("cloud_init_script_template")
+
+	if cloudInitTemplate, err = cloudInitTemplate.Parse(cloudInitScriptTemplate); err != nil {
+		return nil, errors.Wrapf(err, "Error parsing cloudInitScriptTemplate [%s]", cloudInitTemplate.Name())
+	}
+	buff := bytes.Buffer{}
+	if err = cloudInitTemplate.Execute(&buff, cloudInitConfig); err != nil {
+		return nil, errors.Wrapf(err, "Error rendering cloud init template: [%s]", cloudInitTemplate.Name())
+	}
+	cloudInit := buff.String()
 
 	vcdCloudInit := make(map[string]interface{})
-	if err := yaml.Unmarshal([]byte(cloudInitModified), &vcdCloudInit); err != nil {
+	if err := yaml.Unmarshal([]byte(cloudInit), &vcdCloudInit); err != nil {
 		return nil, fmt.Errorf("unable to unmarshal cloud init with embedded jinja script: [%v]: [%v]",
 			cloudInitModified, err)
 	}
