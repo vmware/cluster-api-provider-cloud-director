@@ -540,8 +540,6 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 
 	log.Info(fmt.Sprintf("Cloud init Script: [%s]", redactedCloudInit))
 
-	rdeManager := vcdsdk.NewRDEManager(workloadVCDClient, vcdCluster.Status.InfraId, capisdk.StatusComponentNameCAPVCD, release.CAPVCDVersion)
-
 	vmExists := true
 	vm, err := vApp.GetVMByName(machine.Name, true)
 	if err != nil && err != govcd.ErrorEntityNotFound {
@@ -567,12 +565,9 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		if vm == nil || vm.VM == nil {
 			return ctrl.Result{}, errors.Wrapf(err, "Obtained nil VM after creating VM [%s]", machine.Name)
 		}
-		// Add vm to VCDResourceSet
-		err = rdeManager.AddToVCDResourceSet(ctx, vcdsdk.ComponentCAPVCD, VcdResourceTypeVM, machine.Name, vm.VM.ID, nil)
-		if err != nil {
-			return ctrl.Result{}, errors.Wrapf(err, "Failed to remove from VCD Resource [%s] of type [%s] to VCDResourceSet of RDE [%s]: [%v]",
-				machine.Name, VcdResourceTypeVM, vcdCluster.Status.InfraId, err)
-		}
+
+		// NOTE: VMs are not added to VCDResourceSet intentionally as the VMs can be obtained from the VApp and
+		// 	VCDResourceSet can get bloated with VMs if the cluster contains a large number of worker nodes
 	}
 
 	// set address in machine status
