@@ -50,7 +50,7 @@ type VCDMachineSpec struct {
 	// +optional
 	SizingPolicy string `json:"sizingPolicy,omitempty"`
 
-	// StorageProfile is the storage profile to be used on this machince
+	// StorageProfile is the storage profile to be used on this machine
 	// +optional
 	StorageProfile string `json:"storageProfile,omitempty"`
 
