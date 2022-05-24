@@ -88,6 +88,10 @@ type VCDClusterStatus struct {
 	// Ready denotes that the vcd cluster (infrastructure) is ready.
 	Ready bool `json:"ready"`
 
+	// RdeVersionInUse indicates the version of capvcdCluster entity type used by CAPVCD.
+	// +kubebuilder:default="1.0.0"
+	RdeVersionInUse string `json:"rdeVersionInUse"`
+
 	// Conditions defines current service state of the VCDCluster.
 	// +optional
 	Conditions clusterv1.Conditions `json:"conditions,omitempty"`
