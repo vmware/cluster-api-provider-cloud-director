@@ -520,19 +520,12 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 				ClusterID:                 vcdCluster.Status.InfraId,
 				EnableDefaultStorageClass: strconv.FormatBool(enableDefaultStorageClass),
 			}
-		} else if !util.IsControlPlaneMachine(machine) && vcdMachine.Spec.NvidiaGPU {
-			if vcdMachine.Spec.PlacementPolicy == "" {
-				return ctrl.Result{},
-					fmt.Errorf(
-						"placement policy must be specified for field [nvidiaGPU: true] on machine [%s] in cluster [%s]",
-						machine.Name, vcdCluster.Name)
-			}
-			cloudInitInput.NvidiaGPU = true
 		}
 		cloudInitInput.HTTPSProxy = vcdCluster.Spec.ProxyConfig.HTTPProxy
 		cloudInitInput.HTTPSProxy = vcdCluster.Spec.ProxyConfig.HTTPSProxy
 		cloudInitInput.NoProxy = vcdCluster.Spec.ProxyConfig.NoProxy
 		cloudInitInput.MachineName = machine.Name
+		cloudInitInput.NvidiaGPU = vcdMachine.Spec.NvidiaGPU
 
 	}
 

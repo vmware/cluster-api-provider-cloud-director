@@ -161,7 +161,7 @@ write_files: {{- if .ControlPlane }}
     if [[ "$STORAGE_CLASS_ENABLED" == "true" ]]; then
       kubectl apply -f /root/default-storage-class.yaml
     fi
-    vmtoolsd --cmd "info-set guestinfo.postcustomization.kubectl.default_storage_class.install.status successful" {{- else if .NvidiaGPU }}
+    vmtoolsd --cmd "info-set guestinfo.postcustomization.kubectl.default_storage_class.install.status successful" {{- end }} {{- if .NvidiaGPU }}
 
     vmtoolsd --cmd "info-set guestinfo.postcustomization.containerd.nvidia.configuration.status in_progress"
     cat > /etc/containerd/config.toml << EOF
