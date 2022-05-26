@@ -30,11 +30,17 @@ const (
 	CAPVCDClusterEntityApiVersion = "capvcd.vmware.com/v1.1"
 )
 
+// During upgrade from any old rde to a newer version format, we must be careful not to wipe out
+// sections maintained by other components like CSI, CPI, VKP.
+// Those sections can have their own upgrade logic independent of capvcd's upgrades.
+// Below is the retain list of the sections in "status" that CAPVCD should not touch.
 var (
 	sectionsInStatusRetainedDuringRDEUpgrade = []string{
 		"persistentVolumes",
 		"virtualIPs",
 		"vkp",
+		"cpi",
+		"csi",
 	}
 )
 
