@@ -383,7 +383,7 @@ func (capvcdRdeManager *CapvcdRdeManager) ConvertToLatestRDEVersionFormat(ctx co
 	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to convert RDE [%s] from source version [%s] to destination version [%s]",
-			srcRde.Id, srcRde.EntityType, dstRde.EntityType)
+			srcRde.Id, srcRde.EntityType, rdeType.CapvcdRDETypeVersion)
 	}
 
 	return dstRde, nil
