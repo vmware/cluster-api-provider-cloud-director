@@ -11,14 +11,12 @@ import (
 	"context"
 	"fmt"
 	"github.com/antihax/optional"
-	"github.com/apparentlymart/go-cidr/cidr"
 	"github.com/peterhellberg/link"
 	"github.com/vmware/cloud-provider-for-cloud-director/pkg/util"
 	swaggerClient "github.com/vmware/cloud-provider-for-cloud-director/pkg/vcdswaggerclient"
 	"github.com/vmware/go-vcloud-director/v2/govcd"
 	"github.com/vmware/go-vcloud-director/v2/types/v56"
 	"k8s.io/klog"
-	"net"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -137,141 +135,6 @@ func (gm *GatewayManager) getOVDCNetwork(ctx context.Context, networkName string
 	}
 
 	return &ovdcNetwork, nil
-}
-
-func getUnusedIPAddressInRange(startIPAddress string, endIPAddress string,
-	usedIPAddresses map[string]bool) string {
-
-	// This is not the best approach and can be optimized further by skipping ranges.
-	freeIP := ""
-	startIP, _, _ := net.ParseCIDR(fmt.Sprintf("%s/32", startIPAddress))
-	endIP, _, _ := net.ParseCIDR(fmt.Sprintf("%s/32", endIPAddress))
-	for !startIP.Equal(endIP) && usedIPAddresses[startIP.String()] {
-		startIP = cidr.Inc(startIP)
-	}
-	// either the last IP is free or an intermediate IP is not yet used
-	if !startIP.Equal(endIP) || startIP.Equal(endIP) && !usedIPAddresses[startIP.String()] {
-		freeIP = startIP.String()
-	}
-
-	if freeIP != "" {
-		klog.Infof("Obtained unused IP [%s] in range [%s-%s]\n", freeIP, startIPAddress, endIPAddress)
-	}
-
-	return freeIP
-}
-
-func (gm *GatewayManager) GetUnusedInternalIPAddress(ctx context.Context, oneArm *OneArm) (string, error) {
-
-	if oneArm == nil {
-		return "", fmt.Errorf("unable to get unused internal IP address as oneArm is nil")
-	}
-	client := gm.Client
-	if gm.GatewayRef == nil {
-		return "", fmt.Errorf("gateway reference should not be nil")
-	}
-
-	usedIPAddress := make(map[string]bool)
-	pageNum := int32(1)
-	for {
-		lbVSSummaries, resp, err := client.APIClient.EdgeGatewayLoadBalancerVirtualServicesApi.GetVirtualServiceSummariesForGateway(
-			ctx, pageNum, 25, gm.GatewayRef.Id, nil)
-		if err != nil {
-			return "", fmt.Errorf("unable to get virtual service summaries for gateway [%s]: resp: [%v]: [%v]",
-				gm.GatewayRef.Name, resp, err)
-		}
-		if len(lbVSSummaries.Values) == 0 {
-			break
-		}
-		for _, lbVSSummary := range lbVSSummaries.Values {
-			usedIPAddress[lbVSSummary.VirtualIpAddress] = true
-		}
-
-		pageNum++
-	}
-
-	freeIP := getUnusedIPAddressInRange(oneArm.StartIP, oneArm.EndIP, usedIPAddress)
-	if freeIP == "" {
-		return "", fmt.Errorf("unable to find unused IP address in range [%s-%s]",
-			oneArm.StartIP, oneArm.EndIP)
-	}
-
-	return freeIP, nil
-}
-
-// There are races here since there is no 'acquisition' of an IP. However, since k8s retries, it will
-// be correct.
-func (gm *GatewayManager) GetUnusedExternalIPAddress(ctx context.Context, ipamSubnet string) (string, error) {
-	client := gm.Client
-	if gm.GatewayRef == nil {
-		return "", fmt.Errorf("gateway reference should not be nil")
-	}
-
-	// First, get list of ip ranges for the IPAMSubnet subnet mask
-	edgeGW, resp, err := client.APIClient.EdgeGatewayApi.GetEdgeGateway(ctx, gm.GatewayRef.Id)
-	if err != nil {
-		return "", fmt.Errorf("unable to retrieve edge gateway details for [%s]: resp [%+v]: [%v]",
-			gm.GatewayRef.Name, resp, err)
-	}
-
-	ipRangesList := make([]*swaggerClient.IpRanges, 0)
-	for _, edgeGWUplink := range edgeGW.EdgeGatewayUplinks {
-		for _, subnet := range edgeGWUplink.Subnets.Values {
-			subnetMask := fmt.Sprintf("%s/%d", subnet.Gateway, subnet.PrefixLength)
-			// if there is no specified subnet, look at all ranges
-			if ipamSubnet == "" {
-				ipRangesList = append(ipRangesList, subnet.IpRanges)
-			} else if subnetMask == ipamSubnet {
-				ipRangesList = append(ipRangesList, subnet.IpRanges)
-				break
-			}
-		}
-	}
-	if len(ipRangesList) == 0 {
-		return "", fmt.Errorf(
-			"unable to get appropriate ipRange corresponding to IPAM subnet mask [%s]",
-			ipamSubnet)
-	}
-
-	// Next, get the list of used IP addresses for this gateway
-	usedIPs := make(map[string]bool)
-	pageNum := int32(1)
-	for {
-		gwUsedIPAddresses, resp, err := client.APIClient.EdgeGatewayApi.GetUsedIpAddresses(ctx, pageNum, 25,
-			gm.GatewayRef.Id, nil)
-		if err != nil {
-			return "", fmt.Errorf("unable to get used IP addresses of gateway [%s]: [%+v]: [%v]",
-				gm.GatewayRef.Name, resp, err)
-		}
-		if len(gwUsedIPAddresses.Values) == 0 {
-			break
-		}
-
-		for _, gwUsedIPAddress := range gwUsedIPAddresses.Values {
-			usedIPs[gwUsedIPAddress.IpAddress] = true
-		}
-
-		pageNum++
-	}
-
-	// Now get a free IP that is not used.
-	freeIP := ""
-	for _, ipRanges := range ipRangesList {
-		for _, ipRange := range ipRanges.Values {
-			freeIP = getUnusedIPAddressInRange(ipRange.StartAddress,
-				ipRange.EndAddress, usedIPs)
-			if freeIP != "" {
-				break
-			}
-		}
-	}
-	if freeIP == "" {
-		return "", fmt.Errorf("unable to obtain free IP from gateway [%s]; all are used",
-			gm.GatewayRef.Name)
-	}
-	klog.Infof("Using unused IP [%s] on gateway [%v]\n", freeIP, gm.GatewayRef.Name)
-
-	return freeIP, nil
 }
 
 // TODO: There could be a race here as we don't book a slot. Retry repeatedly to get a LB Segment.
@@ -1405,8 +1268,8 @@ func (gm *GatewayManager) IsNSXTBackedGateway() bool {
 	return isNSXTBackedGateway
 }
 
-func (gateway *GatewayManager) GetLoadBalancerPool(ctx context.Context, lbPoolName string) (*swaggerClient.EntityReference, error) {
-	lbPoolRef, err := gateway.getLoadBalancerPool(ctx, lbPoolName)
+func (gm *GatewayManager) GetLoadBalancerPool(ctx context.Context, lbPoolName string) (*swaggerClient.EntityReference, error) {
+	lbPoolRef, err := gm.getLoadBalancerPool(ctx, lbPoolName)
 	if err != nil {
 		return nil, fmt.Errorf("unable to get reference for LB pool [%s]: [%v]", lbPoolName, err)
 	}
@@ -1416,8 +1279,8 @@ func (gateway *GatewayManager) GetLoadBalancerPool(ctx context.Context, lbPoolNa
 	return lbPoolRef, nil
 }
 
-func (gateway *GatewayManager) GetLoadBalancerPoolMemberIPs(ctx context.Context, lbPoolRef *swaggerClient.EntityReference) ([]string, error) {
-	client := gateway.Client
+func (gm *GatewayManager) GetLoadBalancerPoolMemberIPs(ctx context.Context, lbPoolRef *swaggerClient.EntityReference) ([]string, error) {
+	client := gm.Client
 	if lbPoolRef == nil {
 		return nil, govcd.ErrorEntityNotFound
 	}
