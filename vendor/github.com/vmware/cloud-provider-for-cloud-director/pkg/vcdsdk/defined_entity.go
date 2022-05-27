@@ -61,6 +61,10 @@ func NewRDEManager(client *Client, clusterID string, statusComponentName string,
 	}
 }
 
+func IsValidEntityId(entityTypeID string) bool {
+	return entityTypeID != "" && !strings.HasPrefix(entityTypeID, NoRdePrefix)
+}
+
 func IsCAPVCDEntityType(entityTypeID string) bool {
 	entityTypeIDSplit := strings.Split(entityTypeID, ":")
 	// format is urn:vcloud:type:<vendor>:<nss>:<version>
@@ -192,7 +196,7 @@ func (rdeManager *RDEManager) AddToVCDResourceSet(ctx context.Context, component
 		updatedStatusMap, err := addToVCDResourceSet(component, rdeManager.StatusComponentName,
 			rdeManager.StatusComponentVersion, statusMap, vcdResource)
 		if err != nil {
-			return fmt.Errorf("error occurred when updating VCDResource set of CPI status in RDE [%s]: [%v]", rdeManager.ClusterID, err)
+			return fmt.Errorf("error occurred when updating VCDResource set of %s status in RDE [%s]: [%v]", rdeManager.ClusterID, component, err)
 		}
 		rde.Entity["status"] = updatedStatusMap
 		_, resp, err = rdeManager.Client.APIClient.DefinedEntityApi.UpdateDefinedEntity(ctx, rde, etag, rdeManager.ClusterID, nil)
@@ -206,8 +210,8 @@ func (rdeManager *RDEManager) AddToVCDResourceSet(ctx context.Context, component
 					responseMessageBytes = gsErr.Body()
 				}
 				return fmt.Errorf(
-					"failed to add resource [%s] having ID [%s] to VCDResourseSet of CPI in RDE [%s]; expected http response [%v], obtained [%v]: resp: [%#v]: [%v]",
-					vcdResource.Name, vcdResource.ID, rdeManager.ClusterID, http.StatusOK, resp.StatusCode, string(responseMessageBytes), err)
+					"failed to add resource [%s] having ID [%s] to VCDResourseSet of %s in RDE [%s]; expected http response [%v], obtained [%v]: resp: [%#v]: [%v]",
+					vcdResource.Name, vcdResource.ID, component, rdeManager.ClusterID, http.StatusOK, resp.StatusCode, string(responseMessageBytes), err)
 			}
 			// resp.StatusCode is http.StatusOK
 			klog.Infof("successfully added resource [%s] having ID [%s] to VCDResourceSet of [%s] in RDE [%s]",
@@ -216,7 +220,7 @@ func (rdeManager *RDEManager) AddToVCDResourceSet(ctx context.Context, component
 		} else if err != nil {
 			return fmt.Errorf("error while updating the RDE [%s]: [%v]", rdeManager.ClusterID, err)
 		} else {
-			return fmt.Errorf("invalid response obtained when updating VCDResoruceSet of CPI in RDE [%s]", rdeManager.ClusterID)
+			return fmt.Errorf("invalid response obtained when updating VCDResoruceSet of %s in RDE [%s]", component, rdeManager.ClusterID)
 		}
 	}
 	return nil
@@ -301,11 +305,11 @@ func (rdeManager *RDEManager) RemoveFromVCDResourceSet(ctx context.Context, comp
 
 		statusEntity, ok := rde.Entity["status"]
 		if !ok {
-			return fmt.Errorf("failed to parse status in RDE [%s] to remove virtual service [%s] from CPI status", rdeManager.ClusterID, resourceName)
+			return fmt.Errorf("failed to parse status in RDE [%s] to remove [%s] from %s status", rdeManager.ClusterID, resourceName, component)
 		}
 		statusMap, ok := statusEntity.(map[string]interface{})
 		if !ok {
-			return fmt.Errorf("failed to parse status in RDE [%s] into map[string]interface{} to remove virtual service [%s] from CPI status", rdeManager.ClusterID, resourceName)
+			return fmt.Errorf("failed to parse status in RDE [%s] into map[string]interface{} to remove [%s] from %s status", rdeManager.ClusterID, resourceName, component)
 		}
 		updatedStatus, err := removeFromVCDResourceSet(component, rdeManager.StatusComponentName,
 			rdeManager.StatusComponentVersion, statusMap, VCDResource{
@@ -313,7 +317,7 @@ func (rdeManager *RDEManager) RemoveFromVCDResourceSet(ctx context.Context, comp
 				Name: resourceName,
 			})
 		if err != nil {
-			return fmt.Errorf("failed to remove resource [%s] from VCDResourceSet in CPI status section of RDE [%s]: [%v]", resourceName, rdeManager.ClusterID, err)
+			return fmt.Errorf("failed to remove resource [%s] from VCDResourceSet in %s status section of RDE [%s]: [%v]", resourceName, component, rdeManager.ClusterID, err)
 		}
 		rde.Entity["status"] = updatedStatus
 
@@ -328,7 +332,7 @@ func (rdeManager *RDEManager) RemoveFromVCDResourceSet(ctx context.Context, comp
 					responseMessageBytes = gsErr.Body()
 				}
 				return fmt.Errorf(
-					"failed to update CPI status for RDE [%s]; expected http response [%v], obtained [%v]: resp: [%#v]: [%v]",
+					"failed to update %s status for RDE [%s]; expected http response [%v], obtained [%v]: resp: [%#v]: [%v]", component,
 					rdeManager.ClusterID, http.StatusOK, resp.StatusCode, string(responseMessageBytes), err)
 			}
 			// resp.StatusCode is http.StatusOK
@@ -338,7 +342,7 @@ func (rdeManager *RDEManager) RemoveFromVCDResourceSet(ctx context.Context, comp
 		} else if err != nil {
 			return fmt.Errorf("error while removing virtual service [%s] from the RDE [%s]: [%v]", resourceName, rdeManager.ClusterID, err)
 		} else {
-			return fmt.Errorf("invalid response obtained when updating VCDResoruceSet of CPI in RDE [%s]", rdeManager.ClusterID)
+			return fmt.Errorf("invalid response obtained when updating VCDResoruceSet of %s in RDE [%s]", component, rdeManager.ClusterID)
 		}
 	}
 	return nil

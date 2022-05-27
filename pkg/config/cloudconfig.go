@@ -14,25 +14,11 @@ import (
 	"fmt"
 	yaml "gopkg.in/yaml.v2"
 	"io"
-	"strings"
 )
 
 // VCDConfig :
 type VCDConfig struct {
-	Host    string `yaml:"host"`
-	VDC     string `yaml:"vdc"`
-	Org     string `yaml:"org"`
-	UserOrg string // this defaults to Org or a prefix of User
-
-	// It is allowed to pass the following variables using the config. However
-	// that is unsafe security practice. However there can be user scenarios and
-	// testing scenarios where this is sensible.
-	User         string
-	Secret       string
-	RefreshToken string
-
-	VDCNetwork string `yaml:"network"`
-	VIPSubnet  string `yaml:"vipSubnet"`
+	VIPSubnet string `yaml:"vipSubnet"`
 }
 
 // Ports :
@@ -135,7 +121,6 @@ func ParseCloudConfig(configReader io.Reader) (*CloudConfig, error) {
 	if err = decoder.Decode(&config); err != nil {
 		return nil, fmt.Errorf("Unable to decode yaml file: [%v]", err)
 	}
-	config.VCD.Host = strings.TrimRight(config.VCD.Host, "/")
 
 	return config, nil
 }

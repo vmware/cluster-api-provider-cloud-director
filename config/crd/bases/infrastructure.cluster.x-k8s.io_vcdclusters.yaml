@@ -171,8 +171,6 @@ spec:
                 - host
                 - port
                 type: object
-              defaultComputePolicy:
-                type: string
               defaultStorageClassOptions:
                 properties:
                   fileSystem:
@@ -197,6 +195,17 @@ spec:
                 type: string
               parentUid:
                 type: string
+              proxyConfig:
+                description: ProxyConfig defines HTTP proxy environment variables
+                  for containerd
+                properties:
+                  httpProxy:
+                    type: string
+                  httpsProxy:
+                    type: string
+                  noProxy:
+                    type: string
+                type: object
               rdeId:
                 type: string
               site:
@@ -271,13 +280,35 @@ spec:
                 type: string
               parentUid:
                 type: string
+              proxyConfig:
+                description: ProxyConfig defines HTTP proxy environment variables
+                  for containerd
+                properties:
+                  httpProxy:
+                    type: string
+                  httpsProxy:
+                    type: string
+                  noProxy:
+                    type: string
+                type: object
+              rdeVersionInUse:
+                default: 1.1.0
+                description: RdeVersionInUse indicates the version of capvcdCluster
+                  entity type used by CAPVCD.
+                type: string
               ready:
+                default: false
                 description: Ready denotes that the vcd cluster (infrastructure) is
                   ready.
                 type: boolean
               useAsManagementCluster:
                 type: boolean
+              vappmetadataUpdated:
+                description: MetadataUpdated denotes that the metadata of Vapp is
+                  updated.
+                type: boolean
             required:
+            - rdeVersionInUse
             - ready
             type: object
         required:
