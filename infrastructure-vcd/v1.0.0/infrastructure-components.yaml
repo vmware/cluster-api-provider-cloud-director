@@ -252,7 +252,7 @@ spec:
               parentUid:
                 type: string
               rdeVersionInUse:
-                default: 1.0.0
+                default: 1.1.0
                 description: RdeVersionInUse indicates the version of capvcdCluster entity type used by CAPVCD.
                 type: string
               ready:

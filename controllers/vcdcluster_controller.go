@@ -503,6 +503,7 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	if vcdCluster.Status.InfraId == "" {
 		// This implies we have to set the infraID into the vcdCluster Object.
 		vcdCluster.Status.InfraId = infraID
+		vcdCluster.Status.RdeVersionInUse = rdeType.CapvcdRDETypeVersion
 		if err := r.Status().Update(ctx, vcdCluster); err != nil {
 			return ctrl.Result{}, errors.Wrapf(err,
 				"unable to update status of vcdCluster [%s] with InfraID [%s]",
