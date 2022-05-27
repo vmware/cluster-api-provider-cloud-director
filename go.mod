@@ -10,7 +10,7 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/replicatedhq/troubleshoot v0.31.4
 	github.com/stretchr/testify v1.7.1
-	github.com/vmware/cloud-provider-for-cloud-director v0.0.0-20220519234318-2fb355a5863c
+	github.com/vmware/cloud-provider-for-cloud-director v0.0.0-20220527153215-61b34e2b3931
 	github.com/vmware/go-vcloud-director/v2 v2.15.0
 	gopkg.in/yaml.v2 v2.4.0
 	k8s.io/api v0.23.6
