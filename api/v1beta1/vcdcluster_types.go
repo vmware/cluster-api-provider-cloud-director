@@ -51,6 +51,13 @@ type DefaultStorageClassOptions struct {
 	FileSystem string `json:"fileSystem,omitempty"`
 }
 
+// ProxyConfig defines HTTP proxy environment variables for containerd
+type ProxyConfig struct {
+	HTTPProxy  string `json:"httpProxy,omitempty"`
+	HTTPSProxy string `json:"httpsProxy,omitempty"`
+	NoProxy    string `json:"noProxy,omitempty"`
+}
+
 // VCDClusterSpec defines the desired state of VCDCluster
 type VCDClusterSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
@@ -69,15 +76,15 @@ type VCDClusterSpec struct {
 	// +kubebuilder:validation:Required
 	UserCredentialsContext UserCredentialsContext `json:"userContext"`
 	// +optional
-	DefaultStorageClassOptions *DefaultStorageClassOptions `json:"defaultStorageClassOptions"`
-	// +optional
-	DefaultComputePolicy string `json:"defaultComputePolicy,omitempty"`
+	DefaultStorageClassOptions DefaultStorageClassOptions `json:"defaultStorageClassOptions"`
 	// + optional
 	RDEId string `json:"rdeId,omitempty"`
 	// +optional
 	ParentUID string `json:"parentUid,omitempty"`
 	// +optional
 	UseAsManagementCluster bool `json:"useAsManagementCluster,omitempty"`
+	// +optional
+	ProxyConfig ProxyConfig `json:"proxyConfig,omitempty"`
 }
 
 // VCDClusterStatus defines the observed state of VCDCluster
@@ -86,7 +93,12 @@ type VCDClusterStatus struct {
 	// Important: Run "make" to regenerate code after modifying this file
 
 	// Ready denotes that the vcd cluster (infrastructure) is ready.
+	// +kubebuilder:default=false
 	Ready bool `json:"ready"`
+
+	// MetadataUpdated denotes that the metadata of Vapp is updated.
+	// +optional
+	VAppMetadataUpdated bool `json:"vappmetadataUpdated,omitempty"`
 
 	// Conditions defines current service state of the VCDCluster.
 	// +optional
@@ -97,6 +109,8 @@ type VCDClusterStatus struct {
 	ParentUID string `json:"parentUid,omitempty"`
 	// +optional
 	UseAsManagementCluster bool `json:"useAsManagementCluster,omitempty"`
+	// +optional
+	ProxyConfig ProxyConfig `json:"proxyConfig,omitempty"`
 }
 
 //+kubebuilder:object:root=true

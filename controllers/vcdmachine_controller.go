@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"github.com/pkg/errors"
 	"github.com/replicatedhq/troubleshoot/pkg/redact"
+	cpiutil "github.com/vmware/cloud-provider-for-cloud-director/pkg/util"
 	"github.com/vmware/cloud-provider-for-cloud-director/pkg/vcdsdk"
 	infrav1 "github.com/vmware/cluster-api-provider-cloud-director/api/v1beta1"
 	"github.com/vmware/cluster-api-provider-cloud-director/pkg/capisdk"
@@ -38,8 +39,40 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 	"strconv"
 	"strings"
+	"text/template"
 	"time"
 )
+
+type ControlPlaneCloudInitScriptInput struct {
+	B64OrgUser                string // base 64 org/username
+	B64Password               string // base64 password
+	B64RefreshToken           string // refresh token
+	K8sStorageClassName       string // default storage class name
+	ReclaimPolicy             string // reclaim policy
+	VcdStorageProfileName     string // vcd storage profile
+	FileSystemFormat          string // filesystem
+	HTTPProxy                 string // httpProxy endpoint
+	HTTPSProxy                string // httpsProxy endpoint
+	NoProxy                   string // no proxy values
+	CpiVersion                string // cpi version
+	VcdHostFormatted          string // vcd host
+	ClusterOrgName            string // org
+	ClusterOVDCName           string // ovdc
+	NetworkName               string // network
+	VipSubnetCidr             string // vip subnet cidr - empty for now for CPI to select subnet
+	VAppName                  string // vApp name
+	ClusterID                 string // cluster id
+	CsiVersion                string // csi version
+	EnableDefaultStorageClass string // is_storage_class_enabled
+	MachineName               string // vm host name
+}
+
+type NodeCloudInitScriptInput struct {
+	HTTPProxy   string // httpProxy endpoint
+	HTTPSProxy  string // httpsProxy endpoint
+	NoProxy     string // no proxy values
+	MachineName string // vm host name
+}
 
 const (
 	ReclaimPolicyDelete = "Delete"
@@ -185,9 +218,8 @@ func patchVCDMachine(ctx context.Context, patchHelper *patch.Helper, vcdMachine 
 
 const (
 	NetworkConfiguration                   = "guestinfo.postcustomization.networkconfiguration.status"
+	ProxyConfiguration                     = "guestinfo.postcustomization.proxy.setting.status"
 	KubeadmInit                            = "guestinfo.postcustomization.kubeinit.status"
-	TkrGetVersions                         = "guestinfo.postcustomization.tkr.get_versions.status"
-	KubectlApplyCni                        = "guestinfo.postcustomization.kubectl.cni.install.status"
 	KubectlApplyCpi                        = "guestinfo.postcustomization.kubectl.cpi.install.status"
 	KubectlApplyCsi                        = "guestinfo.postcustomization.kubectl.csi.install.status"
 	KubeadmTokenGenerate                   = "guestinfo.postcustomization.kubeadm.token.generate.status"
@@ -199,9 +231,8 @@ const (
 
 var controlPlanePostCustPhases = []string{
 	NetworkConfiguration,
+	ProxyConfiguration,
 	KubeadmInit,
-	TkrGetVersions,
-	KubectlApplyCni,
 	KubectlApplyCpi,
 	KubectlApplyCsi,
 	KubeadmTokenGenerate,
@@ -244,7 +275,10 @@ func redactCloudInit(cloudInitYaml string, path []string) (string, error) {
 
 }
 
-func (r *VCDMachineReconciler) waitForPostCustomizationPhase(ctx context.Context, workloadVCDClient *vcdsdk.Client, vm *govcd.VM, phase string) error {
+func (r *VCDMachineReconciler) waitForPostCustomizationPhase(ctx context.Context,
+	workloadVCDClient *vcdsdk.Client, vm *govcd.VM, phase string) error {
+	log := ctrl.LoggerFrom(ctx)
+
 	startTime := time.Now()
 	possibleStatuses := []string{"", "in_progress", "successful"}
 	currentStatus := possibleStatuses[0]
@@ -262,6 +296,8 @@ func (r *VCDMachineReconciler) waitForPostCustomizationPhase(ctx context.Context
 			return errors.Wrapf(err, "unable to get extra config value for key [%s] for vm: [%s]: [%v]",
 				phase, vm.VM.Name, err)
 		}
+		log.Info("Obtained machine status ", "phase", phase, "status", newStatus)
+
 		if !strInSlice(newStatus, possibleStatuses) {
 			return errors.Wrapf(err, "invalid postcustomiation phase: [%s] for key [%s] for vm [%s]",
 				newStatus, phase, vm.VM.Name)
@@ -329,12 +365,14 @@ func (r *VCDMachineReconciler) reconcileNodeStatusInRDE(ctx context.Context, rde
 		nodeStatusMap = make(map[string]string)
 	}
 	nodeStatusMap[nodeName] = status
-	capvcdStatusPatch["NodeStatus"] = nodeStatusMap
+	capvcdStatusPatch["Status.NodeStatus"] = nodeStatusMap
 
 	// update defined entity
 	updatedRDE, err := capvcdRdeManager.PatchRDE(ctx, nil, nil, capvcdStatusPatch, rdeID)
 	if err != nil {
-		return fmt.Errorf("failed to update defined entity with ID [%s] with node status for VCDMachine [%s]: [%v]", rdeID, nodeName, err)
+		return fmt.Errorf(
+			"failed to update defined entity with ID [%s] with node status for VCDMachine [%s]: [%v]",
+			rdeID, nodeName, err)
 	}
 	if updatedRDE.State != RDEStatusResolved {
 		// try to resolve the defined entity
@@ -469,11 +507,12 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 			b64Password := b64.StdEncoding.EncodeToString([]byte(vcdCluster.Spec.UserCredentialsContext.Password))
 			b64RefreshToken := b64.StdEncoding.EncodeToString([]byte(
 				vcdCluster.Spec.UserCredentialsContext.RefreshToken))
-			enableDefaultStorageClass := vcdCluster.Spec.DefaultStorageClassOptions != nil
+			enableDefaultStorageClass := vcdCluster.Spec.DefaultStorageClassOptions.VCDStorageProfileName != ""
 			k8sStorageClassName := ""
 			fileSystemFormat := ""
 			vcdStorageProfileName := ""
 			reclaimPolicy := ReclaimPolicyRetain
+			proxyConfig := vcdCluster.Spec.ProxyConfig
 			if enableDefaultStorageClass {
 				k8sStorageClassName = vcdCluster.Spec.DefaultStorageClassOptions.K8sStorageClassName
 				if vcdCluster.Spec.DefaultStorageClassOptions.UseDeleteReclaimPolicy {
@@ -483,39 +522,67 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 				vcdStorageProfileName = vcdCluster.Spec.DefaultStorageClassOptions.VCDStorageProfileName
 			}
 			vcdHostFormatted := strings.Replace(vcdCluster.Spec.Site, "/", "\\/", -1)
-			guestCloudInit = fmt.Sprintf(
-				guestCloudInitTemplate,                        // template script
-				b64OrgUser,                                    // base 64 org/username
-				b64Password,                                   // base64 password
-				b64RefreshToken,                               // refresh token
-				k8sStorageClassName,                           // default storage class name
-				reclaimPolicy,                                 // reclaim policy
-				vcdStorageProfileName,                         // vcd storage profile
-				fileSystemFormat,                              // filesystem
-				r.Config.ClusterResources.CniVersion,          // cni version
-				r.Config.ClusterResources.CpiVersion,          // cpi version
-				vcdHostFormatted,                              // vcd host
-				workloadVCDClient.ClusterOrgName,              // org
-				workloadVCDClient.ClusterOVDCName,             // ovdc
-				vcdCluster.Spec.OvdcNetwork,                   // network
-				"",                                            // vip subnet cidr - empty for now for CPI to select subnet
-				vAppName,                                      // vApp name
-				vcdCluster.Status.InfraId,                     // cluster id
-				r.Config.ClusterResources.CsiVersion,          // csi version
-				vcdHostFormatted,                              // vcd host,
-				workloadVCDClient.ClusterOrgName,              // org
-				workloadVCDClient.ClusterOVDCName,             // ovdc
-				vAppName,                                      // vApp
-				vcdCluster.Status.InfraId,                     // cluster id
-				strconv.FormatBool(enableDefaultStorageClass), // storage_class_enabled
-				machine.Name,                                  // vm host name
+			controlPlaneScriptTemplate := template.New("control_plane_script_template")
+			controlPlaneScriptTemplate, err = controlPlaneScriptTemplate.Parse(guestCloudInitTemplate)
+			if err != nil {
+				return ctrl.Result{}, errors.Wrapf(err, "Error parsing controlPlaneCloudInitScriptTemplate: [%s]",
+					guestCloudInitTemplate)
+			}
+			var buf bytes.Buffer
+			err = controlPlaneScriptTemplate.Execute(
+				&buf,
+				ControlPlaneCloudInitScriptInput{
+					B64OrgUser:                b64OrgUser,
+					B64Password:               b64Password,
+					B64RefreshToken:           b64RefreshToken,
+					K8sStorageClassName:       k8sStorageClassName,
+					ReclaimPolicy:             reclaimPolicy,
+					VcdStorageProfileName:     vcdStorageProfileName,
+					FileSystemFormat:          fileSystemFormat,
+					HTTPProxy:                 proxyConfig.HTTPProxy,
+					HTTPSProxy:                proxyConfig.HTTPSProxy,
+					NoProxy:                   proxyConfig.NoProxy,
+					CpiVersion:                r.Config.ClusterResources.CpiVersion,
+					CsiVersion:                r.Config.ClusterResources.CsiVersion,
+					VcdHostFormatted:          vcdHostFormatted,
+					ClusterOrgName:            workloadVCDClient.ClusterOrgName,
+					ClusterOVDCName:           workloadVCDClient.ClusterOVDCName,
+					NetworkName:               vcdCluster.Spec.OvdcNetwork,
+					VipSubnetCidr:             "", // vip subnet cidr - empty for now for CPI to select subnet
+					VAppName:                  vAppName,
+					ClusterID:                 vcdCluster.Status.InfraId,
+					EnableDefaultStorageClass: strconv.FormatBool(enableDefaultStorageClass),
+					MachineName:               machine.Name,
+				},
 			)
-
+			if err != nil {
+				return ctrl.Result{}, errors.Wrapf(err, "Error rendering control plane cloud init template: [%s]",
+					guestCloudInitTemplate)
+			}
+			guestCloudInit = buf.String()
 		default:
-			guestCloudInit = fmt.Sprintf(
-				guestCloudInitTemplate, // template script
-				machine.Name,           // vm host name
+			nodeScriptTemplate := template.New("node_script_template")
+			nodeScriptTemplate, err = nodeScriptTemplate.Parse(guestCloudInitTemplate)
+			if err != nil {
+				return ctrl.Result{}, errors.Wrapf(err, "Error parsing nodeCloudInitScriptTemplate [%s]",
+					guestCloudInitTemplate)
+			}
+			proxyConfig := vcdCluster.Spec.ProxyConfig
+			var buf bytes.Buffer
+			err = nodeScriptTemplate.Execute(
+				&buf,
+				NodeCloudInitScriptInput{
+					HTTPProxy:   proxyConfig.HTTPProxy,
+					HTTPSProxy:  proxyConfig.HTTPSProxy,
+					NoProxy:     proxyConfig.NoProxy,
+					MachineName: machine.Name,
+				},
 			)
+			if err != nil {
+				return ctrl.Result{}, errors.Wrapf(err, "Error rendering node cloud init template: [%s]",
+					guestCloudInitTemplate)
+			}
+			guestCloudInit = buf.String()
 		}
 	}
 
@@ -549,9 +616,9 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	}
 	if !vmExists {
 		log.Info("Adding infra VM for the machine")
-		err = vdcManager.AddNewVM(vcdCluster.Name, machine.Name, 1, vcdMachine.Spec.Catalog,
-			vcdMachine.Spec.Template, "", vcdMachine.Spec.SizingPolicy,
-			vcdMachine.Spec.StorageProfile, "", false)
+		err = vdcManager.AddNewVM(vcdCluster.Name, machine.Name, 1,
+			vcdMachine.Spec.Catalog, vcdMachine.Spec.Template, vcdMachine.Spec.PlacementPolicy,
+			vcdMachine.Spec.SizingPolicy, vcdMachine.Spec.StorageProfile, "", false)
 		if err != nil {
 			return ctrl.Result{}, errors.Wrapf(err, "Error provisioning infrastructure for the machine; unable to create VM [%s] in vApp [%s]",
 				machine.Name, vApp.VApp.Name)
@@ -620,7 +687,8 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		}
 
 		updatedIPs := append(controlPlaneIPs, machineAddress)
-		err = capvcdGatewayManager.UpdateLoadBalancer(ctx, lbPoolName, updatedIPs, int32(6443))
+		updatedUniqueIPs := cpiutil.NewSet(updatedIPs).GetElements()
+		err = capvcdGatewayManager.UpdateLoadBalancer(ctx, lbPoolName, updatedUniqueIPs, int32(6443))
 		if err != nil {
 			return ctrl.Result{}, errors.Wrapf(err,
 				"Error updating the load balancer pool [%s] for the "+
@@ -685,7 +753,9 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	}
 	for _, phase := range phases {
 		if err = vApp.Refresh(); err != nil {
-			return ctrl.Result{}, errors.Wrapf(err, "Error while bootstrapping the machine [%s/%s]; unable to refresh vapp", vAppName, vm.VM.Name)
+			return ctrl.Result{},
+				errors.Wrapf(err, "Error while bootstrapping the machine [%s/%s]; unable to refresh vapp",
+					vAppName, vm.VM.Name)
 		}
 		log.Info(fmt.Sprintf("Start: waiting for the bootstrapping phase [%s] to complete", phase))
 		if err = r.waitForPostCustomizationPhase(ctx, workloadVCDClient, vm, phase); err != nil {
@@ -714,9 +784,7 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	vcdMachine.Status.Ready = true
 	vcdMachine.Status.Template = vcdMachine.Spec.Template
 	vcdMachine.Status.ProviderID = vcdMachine.Spec.ProviderID
-
 	conditions.MarkTrue(vcdMachine, ContainerProvisionedCondition)
-
 	err = r.reconcileNodeStatusInRDE(ctx, vcdCluster.Status.InfraId, machine.Name, machine.Status.Phase, workloadVCDClient)
 	if err != nil {
 		if _, ok := err.(*NoRDEError); ok {
@@ -777,9 +845,7 @@ func (r *VCDMachineReconciler) reconcileDelete(ctx context.Context, cluster *clu
 		vcdCluster.Spec.UserCredentialsContext.Password, vcdCluster.Spec.UserCredentialsContext.RefreshToken,
 		true, true)
 	if err != nil {
-		return ctrl.Result{}, errors.Wrapf(err,
-			"Error creating VCD client to reconcile the machine [%s/%s] deletion",
-			vcdCluster.Name, vcdMachine.Name)
+		return ctrl.Result{}, errors.Wrapf(err, "Unable to create VCD client to reconcile infrastructure for the Machine [%s]", machine.Name)
 	}
 
 	gateway, err := vcdsdk.NewGatewayManager(ctx, workloadVCDClient, vcdCluster.Spec.OvdcNetwork, r.Config.VCD.VIPSubnet)
@@ -791,6 +857,7 @@ func (r *VCDMachineReconciler) reconcileDelete(ctx context.Context, cluster *clu
 	if err != nil {
 		return ctrl.Result{}, errors.Wrapf(err, "failed to create a CAPVCD's gateway manager object while reconciling machine [%s]", vcdMachine.Name)
 	}
+
 	if util.IsControlPlaneMachine(machine) {
 		// remove the address from the lbpool
 		log.Info("Deleting the control plane IP from the load balancer pool")
@@ -846,6 +913,19 @@ func (r *VCDMachineReconciler) reconcileDelete(ctx context.Context, cluster *clu
 		}
 	}
 	if vApp != nil {
+		// Delete the VM if and only if rdeId (matches) present in the vApp
+		if !vcdCluster.Status.VAppMetadataUpdated {
+			return ctrl.Result{}, errors.Errorf("Error occurred during the machine deletion; Metadata not found in vApp")
+		}
+		metadataInfraId, err := vdcManager.GetMetadataByKey(vApp, CapvcdInfraId)
+		if err != nil {
+			return ctrl.Result{}, errors.Errorf("Error occurred during fetching metadata in vApp")
+		}
+		// checking the metadata value and vcdCluster.Status.InfraId are equal or not
+		if metadataInfraId != vcdCluster.Status.InfraId {
+			return ctrl.Result{}, errors.Wrapf(err,
+				"Error occurred during the machine deletion; failed to delete vApp [%s]", vcdCluster.Name)
+		}
 		// delete the vm
 		vm, err := vApp.GetVMByName(machine.Name, true)
 		if err != nil {
@@ -983,7 +1063,6 @@ func (r *VCDMachineReconciler) hasCloudInitExecutionFailedBefore(ctx context.Con
 	if err != nil {
 		return false, errors.Wrapf(err, "failed to create a vdc manager object while checking cloud init failures")
 	}
-
 	scriptExecutionStatus, err := vdcManager.GetExtraConfigValue(vm, PostCustomizationScriptExecutionStatus)
 	if err != nil {
 		return false, errors.Wrapf(err, "unable to get extra config value for key [%s] for vm: [%s]: [%v]",

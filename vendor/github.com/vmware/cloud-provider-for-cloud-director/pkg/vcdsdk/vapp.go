@@ -152,14 +152,14 @@ func NewVDCManager(client *Client, orgName string, vdcName string) (*VdcManager,
 }
 
 func (vdc *VdcManager) cacheVdcDetails() error {
-	org, err := vdc.Client.VCDClient.GetOrgByName(vdc.Client.ClusterOrgName)
+	org, err := vdc.Client.VCDClient.GetOrgByName(vdc.OrgName)
 	if err != nil {
-		return fmt.Errorf("unable to get org from name [%s]: [%v]", vdc.Client.ClusterOrgName, err)
+		return fmt.Errorf("unable to get org from name [%s]: [%v]", vdc.OrgName, err)
 	}
 
-	vdc.Vdc, err = org.GetVDCByName(vdc.Client.ClusterOVDCName, true)
+	vdc.Vdc, err = org.GetVDCByName(vdc.VdcName, true)
 	if err != nil {
-		return fmt.Errorf("unable to get Vdc [%s] from org [%s]: [%v]", vdc.Client.ClusterOVDCName, vdc.Client.ClusterOrgName, err)
+		return fmt.Errorf("unable to get Vdc [%s] from org [%s]: [%v]", vdc.VdcName, vdc.OrgName, err)
 	}
 	return nil
 }
@@ -525,10 +525,11 @@ func (vdc *VdcManager) AddNewMultipleVM(vapp *govcd.VApp, vmNamePrefix string, v
 
 	klog.V(3).Infof("start adding %d VMs\n", vmNum)
 
-	orgManager, err := NewOrgManager(vdc.Client, vdc.OrgName)
+	orgManager, err := NewOrgManager(vdc.Client, vdc.Client.ClusterOrgName)
 	if err != nil {
-		return govcd.Task{}, fmt.Errorf("failed to create org manager object: [%v]", err)
+		return govcd.Task{}, fmt.Errorf("error creating orgManager: [%v]", err)
 	}
+
 	catalog, err := orgManager.GetCatalogByName(catalogName)
 	if err != nil {
 		return govcd.Task{}, fmt.Errorf("unable to find catalog [%s] in org [%s]: [%v]",
@@ -785,10 +786,11 @@ func (vdc *VdcManager) AddNewVM(VAppName string, vmNamePrefix string, vmNum int,
 			VAppName, vdc.VdcName, err)
 	}
 
-	orgManager, err := NewOrgManager(vdc.Client, vdc.OrgName)
+	orgManager, err := NewOrgManager(vdc.Client, vdc.Client.ClusterOrgName)
 	if err != nil {
-		return fmt.Errorf("failed to create org manager object: [%v]", err)
+		return fmt.Errorf("error creating an orgManager object: [%v]", err)
 	}
+
 	catalog, err := orgManager.GetCatalogByName(catalogName)
 	if err != nil {
 		return fmt.Errorf("unable to find catalog [%s] in org [%s]: [%v]",

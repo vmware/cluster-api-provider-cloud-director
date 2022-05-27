@@ -11,6 +11,16 @@ type CapvcdGatewayManager struct {
 	gatewayManager *vcdsdk.GatewayManager
 }
 
+func NewCapvcdGatewayManager(ctx context.Context, client *vcdsdk.Client, networkName string, ipamSubnet string) (*CapvcdGatewayManager, error) {
+	gatewayManager, err := vcdsdk.NewGatewayManager(ctx, client, networkName, ipamSubnet)
+	if err != nil {
+		return nil, fmt.Errorf("error creating gateway manager: [%v]", err)
+	}
+	return &CapvcdGatewayManager{
+		gatewayManager: gatewayManager,
+	}, nil
+}
+
 func GetVirtualServiceNamePrefix(clusterName string, clusterID string) string {
 	return clusterName + "-" + clusterID
 }
@@ -25,16 +35,6 @@ func GetVirtualServiceNameUsingPrefix(virtualServiceNamePrefix string, portSuffi
 
 func GetLoadBalancerPoolNameUsingPrefix(lbPoolNamePrefix string, portSuffix string) string {
 	return fmt.Sprintf("%s-%s", lbPoolNamePrefix, portSuffix)
-}
-
-func NewCapvcdGatewayManager(ctx context.Context, client *vcdsdk.Client, networkName string, ipamSubnet string) (*CapvcdGatewayManager, error) {
-	gatewayManager, err := vcdsdk.NewGatewayManager(ctx, client, networkName, ipamSubnet)
-	if err != nil {
-		return nil, fmt.Errorf("error creating gateway manager: [%v]", err)
-	}
-	return &CapvcdGatewayManager{
-		gatewayManager: gatewayManager,
-	}, nil
 }
 
 // TODO: remove CreateL4LoadBalancer, UpdateLoadBalancer and DeleteLoadBalancer and use the functions defined in CPI
@@ -119,19 +119,8 @@ func (capvcdGatewayManager *CapvcdGatewayManager) CreateL4LoadBalancer(ctx conte
 			}
 
 			dnatRuleName := vcdsdk.GetDNATRuleName(virtualServiceName)
-
-			// create app port profile
-			appPortProfileName := vcdsdk.GetAppPortProfileName(dnatRuleName)
-			appPortProfile, err := capvcdGatewayManager.gatewayManager.CreateAppPortProfile(appPortProfileName, portDetail.externalPort)
-			if err != nil {
-				return "", fmt.Errorf("failed to create App Port Profile: [%v]", err)
-			}
-			if appPortProfile == nil || appPortProfile.NsxtAppPortProfile == nil {
-				return "", fmt.Errorf("creation of app port profile succeeded but app port profile is empty")
-			}
-
 			err = capvcdGatewayManager.gatewayManager.CreateDNATRule(ctx, dnatRuleName, externalIP,
-				internalIP, portDetail.externalPort, portDetail.internalPort, appPortProfile)
+				internalIP, portDetail.externalPort, portDetail.internalPort)
 			if err != nil {
 				return "", fmt.Errorf("unable to create dnat rule [%s] => [%s]: [%v]",
 					externalIP, internalIP, err)
