@@ -943,7 +943,7 @@ spec:
       containers:
       - command:
         - /opt/vcloud/bin/cluster-api-provider-cloud-director
-        image: harbor-repo.vmware.com/vcloud/cluster-api-provider-cloud-director:main-branch
+        image: harbor-repo.vmware.com/vcloud/cluster-api-provider-cloud-director:vkp-branch
         livenessProbe:
           httpGet:
             path: /healthz
