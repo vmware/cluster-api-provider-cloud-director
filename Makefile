@@ -22,10 +22,10 @@ IMG ?= ${REGISTRY}/cluster-api-provider-cloud-director:${version}
 # Options are set to exit when a recipe line exits non-zero or a piped command fails.
 SHELL = /usr/bin/env bash -o pipefail
 .SHELLFLAGS = -ec
+MANIFEST_DIR = infrastructure-vcd/v1.0.0
 
 .PHONY: vendor
 
-MANIFEST_DIR = infrastructure-vcd/v1.0.0
 all: build
 
 ##@ General
