@@ -40,15 +40,7 @@ import (
 )
 
 const (
-	CAPVCDTypeVendor  = "vmware"
-	CAPVCDTypeNss     = "capvcdCluster"
-	CAPVCDTypeVersion = "1.1.0"
-
-	CAPVCDClusterKind             = "CAPVCDCluster"
-	CAPVCDClusterEntityApiVersion = "capvcd.vmware.com/v1.1"
-	CAPVCDClusterCniName          = "antrea" // TODO: Get the correct value for CNI name
-	VcdCsiName                    = "cloud-director-named-disk-csi-driver"
-	VcdCpiName                    = "cloud-provider-for-cloud-director"
+	CAPVCDClusterCniName = "antrea" // TODO: Get the correct value for CNI name
 
 	RDEStatusResolved = "RESOLVED"
 	VCDLocationHeader = "Location"
@@ -62,7 +54,7 @@ const (
 )
 
 var (
-	CAPVCDEntityTypeID = fmt.Sprintf("urn:vcloud:type:%s:%s:%s", CAPVCDTypeVendor, CAPVCDTypeNss, CAPVCDTypeVersion)
+	CAPVCDEntityTypeID = fmt.Sprintf("urn:vcloud:type:%s:%s:%s", capisdk.CAPVCDTypeVendor, capisdk.CAPVCDTypeNss, rdeType.CapvcdRDETypeVersion)
 )
 
 // VCDClusterReconciler reconciles a VCDCluster object
@@ -165,14 +157,13 @@ func (r *VCDClusterReconciler) constructCapvcdRDE(ctx context.Context, cluster *
 	for _, kcp := range kcpList.Items {
 		kubernetesVersion = kcp.Spec.Version
 	}
-
 	rde := &swagger.DefinedEntity{
 		EntityType: CAPVCDEntityTypeID,
 		Name:       vcdCluster.Name,
 	}
 	capvcdEntity := rdeType.CAPVCDEntity{
-		Kind:       CAPVCDClusterKind,
-		ApiVersion: CAPVCDClusterEntityApiVersion,
+		Kind:       capisdk.CAPVCDClusterKind,
+		ApiVersion: capisdk.CAPVCDClusterEntityApiVersion,
 		Metadata: rdeType.Metadata{
 			Name: vcdCluster.Name,
 			Org:  org,
@@ -452,7 +443,7 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 			Filter: optional.NewString(fmt.Sprintf("name==%s", vcdCluster.Name)),
 		}
 		definedEntities, resp, err := workloadVCDClient.APIClient.DefinedEntityApi.GetDefinedEntitiesByEntityType(ctx,
-			CAPVCDTypeVendor, CAPVCDTypeNss, CAPVCDTypeVersion, 1, 25, nameFilter)
+			capisdk.CAPVCDTypeVendor, capisdk.CAPVCDTypeNss, rdeType.CapvcdRDETypeVersion, 1, 25, nameFilter)
 		if err != nil {
 			log.Error(err, "Error while checking if RDE is already present for the cluster",
 				"entityTypeId", CAPVCDEntityTypeID)
@@ -472,6 +463,7 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 				} else {
 					infraID = rdeID
 				}
+				vcdCluster.Status.RdeVersionInUse = rdeType.CapvcdRDETypeVersion
 			} else {
 				log.Info("RDE for the cluster is already present; skipping RDE creation", "InfraId",
 					definedEntities.Values[0].Id)
@@ -480,6 +472,25 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		}
 	} else {
 		log.V(3).Info("Reusing already available InfraID", "infraID", infraID)
+		if !strings.Contains(infraID, NoRdePrefix) && vcdCluster.Status.RdeVersionInUse != rdeType.CapvcdRDETypeVersion {
+			capvcdRdeManager := capisdk.NewCapvcdRdeManager(workloadVCDClient)
+			log.Info("Upgrading RDE", "rdeID", infraID,
+				"targetRDEVersion", rdeType.CapvcdRDETypeVersion)
+			_, err = capvcdRdeManager.ConvertToLatestRDEVersionFormat(ctx, infraID)
+			if err != nil {
+				log.Error(err, "failed to upgrade RDE", "rdeID", infraID,
+					"sourceVersion", vcdCluster.Status.RdeVersionInUse,
+					"targetVersion", rdeType.CapvcdRDETypeVersion)
+				return ctrl.Result{}, errors.Wrapf(err, "failed to upgrade RDE [%s]", infraID)
+			}
+			// calling reconcileRDE here to avoid delay in updating the RDE contents
+			if err = r.reconcileRDE(ctx, cluster, vcdCluster, workloadVCDClient); err != nil {
+				// TODO: can we recover the RDE to a proper state if RDE fails to reconcile?
+				log.Error(err, "failed to reconcile RDE after upgrading RDE", "rdeID", infraID)
+				return ctrl.Result{}, errors.Wrapf(err, "failed to reconcile RDE after upgrading RDE [%s]", infraID)
+			}
+			vcdCluster.Status.RdeVersionInUse = rdeType.CapvcdRDETypeVersion
+		}
 	}
 
 	// If there is no RDE ID specified (or) created for any reason, self-generate one and use.
@@ -749,7 +760,7 @@ func (r *VCDClusterReconciler) reconcileDelete(ctx context.Context,
 	// Delete RDE
 	if vcdCluster.Status.InfraId != "" && !strings.HasPrefix(vcdCluster.Status.InfraId, NoRdePrefix) {
 		definedEntities, resp, err := workloadVCDClient.APIClient.DefinedEntityApi.GetDefinedEntitiesByEntityType(ctx,
-			CAPVCDTypeVendor, CAPVCDTypeNss, CAPVCDTypeVersion, 1, 25,
+			capisdk.CAPVCDTypeVendor, capisdk.CAPVCDTypeNss, rdeType.CapvcdRDETypeVersion, 1, 25,
 			&swagger.DefinedEntityApiGetDefinedEntitiesByEntityTypeOpts{
 				Filter: optional.NewString(fmt.Sprintf("id==%s", vcdCluster.Status.InfraId)),
 			})

@@ -126,7 +126,6 @@ func main() {
 	if err = (&controllers.VCDMachineReconciler{
 		Client: mgr.GetClient(),
 		Config: capvcdConfig,
-		// Scheme:    mgr.GetScheme(),
 	}).SetupWithManager(ctx, mgr, controller.Options{
 		MaxConcurrentReconciles: concurrency,
 	}); err != nil {
@@ -169,6 +168,8 @@ func main() {
 		setupLog.Error(err, "unable to set up ready check")
 		os.Exit(1)
 	}
+
+	// TODO: check if entity type [capvcdCluster:1.1.0] is already registered
 
 	setupLog.Info("starting manager")
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {

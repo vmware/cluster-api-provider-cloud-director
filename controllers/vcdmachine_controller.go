@@ -18,6 +18,7 @@ import (
 	infrav1 "github.com/vmware/cluster-api-provider-cloud-director/api/v1beta1"
 	"github.com/vmware/cluster-api-provider-cloud-director/pkg/capisdk"
 	"github.com/vmware/cluster-api-provider-cloud-director/pkg/config"
+	"github.com/vmware/cluster-api-provider-cloud-director/release"
 	"github.com/vmware/go-vcloud-director/v2/govcd"
 	"gopkg.in/yaml.v2"
 	"io/ioutil"
@@ -77,6 +78,8 @@ type NodeCloudInitScriptInput struct {
 const (
 	ReclaimPolicyDelete = "Delete"
 	ReclaimPolicyRetain = "Retain"
+
+	VcdResourceTypeVM = "virtual-machine"
 )
 
 // The following `embed` directives read the file in the mentioned path and copy the content into the declared variable.
@@ -91,8 +94,6 @@ var nodeCloudInitScriptTemplate string
 type VCDMachineReconciler struct {
 	client.Client
 	Config *config.CAPVCDConfig
-	//Scheme    *runtime.Scheme
-	//VcdClient *vcdclient.Client
 }
 
 //+kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=vcdmachines,verbs=get;list;watch;create;update;patch;delete
@@ -628,6 +629,12 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 			return ctrl.Result{}, errors.Wrapf(err, "Error provisioning infrastructure for the machine; unable to find newly created VM [%s] in vApp [%s]",
 				vm.VM.Name, vAppName)
 		}
+		if vm == nil || vm.VM == nil {
+			return ctrl.Result{}, errors.Wrapf(err, "Obtained nil VM after creating VM [%s]", machine.Name)
+		}
+
+		// NOTE: VMs are not added to VCDResourceSet intentionally as the VMs can be obtained from the VApp and
+		// 	VCDResourceSet can get bloated with VMs if the cluster contains a large number of worker nodes
 	}
 
 	// set address in machine status
@@ -975,6 +982,13 @@ func (r *VCDMachineReconciler) reconcileDelete(ctx context.Context, cluster *clu
 			}
 		}
 		log.Info("Successfully deleted infra resources of the machine")
+	}
+	// Remove VM from VCDResourceSet of RDE
+	rdeManager := vcdsdk.NewRDEManager(workloadVCDClient, vcdCluster.Status.InfraId, capisdk.StatusComponentNameCAPVCD, release.CAPVCDVersion)
+	err = rdeManager.RemoveFromVCDResourceSet(ctx, vcdsdk.ComponentCAPVCD, VcdResourceTypeVM, machine.Name)
+	if err != nil {
+		return ctrl.Result{}, errors.Wrapf(err, "failed to delete VCD Resource [%s] of type [%s] from VCDResourceSet of RDE [%s]: [%v]",
+			machine.Name, VcdResourceTypeVM, vcdCluster.Status.InfraId, err)
 	}
 
 	err = r.reconcileNodeStatusInRDE(ctx, vcdCluster.Status.InfraId, machine.Name, machine.Status.Phase, workloadVCDClient)
