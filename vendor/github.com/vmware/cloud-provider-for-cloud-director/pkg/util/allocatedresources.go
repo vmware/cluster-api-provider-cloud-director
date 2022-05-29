@@ -6,8 +6,8 @@ import (
 )
 
 type AllocatedResourcesMap struct {
+	RWLock sync.RWMutex
 	allocatedResources map[string][]swaggerClient.EntityReference
-	lock sync.RWMutex
 }
 
 func (ar *AllocatedResourcesMap) Insert(key string, value *swaggerClient.EntityReference) {
@@ -15,8 +15,12 @@ func (ar *AllocatedResourcesMap) Insert(key string, value *swaggerClient.EntityR
 		return
 	}
 
-	ar.lock.Lock()
-	defer ar.lock.Unlock()
+	ar.RWLock.Lock()
+	defer ar.RWLock.Unlock()
+
+	if ar.allocatedResources == nil {
+		ar.allocatedResources = make(map[string][]swaggerClient.EntityReference)
+	}
 
 	if _, ok := ar.allocatedResources[key]; !ok {
 		ar.allocatedResources[key] = make([]swaggerClient.EntityReference, 1)
@@ -40,8 +44,8 @@ func (ar *AllocatedResourcesMap) Insert(key string, value *swaggerClient.EntityR
 }
 
 func (ar *AllocatedResourcesMap) Get(key string) ([]swaggerClient.EntityReference) {
-	ar.lock.RLock()
-	defer ar.lock.RUnlock()
+	ar.RWLock.RLock()
+	defer ar.RWLock.RUnlock()
 
 	values, ok := ar.allocatedResources[key]
 	if !ok {

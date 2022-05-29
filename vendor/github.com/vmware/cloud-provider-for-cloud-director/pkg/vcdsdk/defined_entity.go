@@ -154,7 +154,7 @@ func (rdeManager *RDEManager) AddToVCDResourceSet(ctx context.Context, component
 	resourceName string, resourceId string, additionalDetails map[string]interface{}) error {
 	if rdeManager.ClusterID == "" || strings.HasPrefix(rdeManager.ClusterID, NoRdePrefix) {
 		// Indicates that the RDE ID is either empty or it was auto-generated.
-		klog.Infof("ClusterID [%s] is empty or generated, hence not removing VCDResource [%s:%s] from RDE",
+		klog.Infof("ClusterID [%s] is empty or generated, hence not adding VCDResource [%s:%s] from RDE",
 			rdeManager.ClusterID, resourceType, resourceId)
 		return nil
 	}
