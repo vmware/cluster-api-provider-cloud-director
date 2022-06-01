@@ -12,6 +12,7 @@ import (
 	"github.com/antihax/optional"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
+	vcdsdkutil "github.com/vmware/cloud-provider-for-cloud-director/pkg/util"
 	"github.com/vmware/cloud-provider-for-cloud-director/pkg/vcdsdk"
 	swagger "github.com/vmware/cloud-provider-for-cloud-director/pkg/vcdswaggerclient"
 	infrav1 "github.com/vmware/cluster-api-provider-cloud-director/api/v1beta1"
@@ -46,6 +47,7 @@ const (
 
 	ClusterApiStatusPhaseReady    = "Ready"
 	ClusterApiStatusPhaseNotReady = "Not Ready"
+	CapvcdInfraId                 = "CapvcdInfraId"
 
 	NoRdePrefix     = `NO_RDE_`
 	VCDResourceVApp = "VApp"
@@ -240,12 +242,10 @@ func (r *VCDClusterReconciler) constructAndCreateRDEFromCluster(ctx context.Cont
 	return rdeID, nil
 }
 
-// TODO: Remove uncommented code when decision to only keep capi.yaml as part of RDE spec is finalized
 func (r *VCDClusterReconciler) reconcileRDE(ctx context.Context, cluster *clusterv1.Cluster, vcdCluster *infrav1.VCDCluster, workloadVCDClient *vcdsdk.Client) error {
 	log := ctrl.LoggerFrom(ctx)
 
 	capvcdRdeManager := capisdk.NewCapvcdRdeManager(workloadVCDClient)
-
 	_, capvcdSpec, capvcdMetadata, capvcdStatus, err := capvcdRdeManager.GetCAPVCDEntity(ctx, vcdCluster.Status.InfraId)
 	if err != nil {
 		return fmt.Errorf("failed to get RDE with ID [%s] for cluster [%s]: [%v]", vcdCluster.Status.InfraId, vcdCluster.Name, err)
@@ -407,6 +407,7 @@ func (r *VCDClusterReconciler) reconcileRDE(ctx context.Context, cluster *cluste
 		log.Info("Resolved defined entity of cluster", "InfraId", vcdCluster.Status.InfraId)
 	}
 	return nil
+
 }
 
 func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clusterv1.Cluster,
@@ -500,27 +501,36 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		infraID = noRDEID
 	}
 
+	// If the vcdClusterObject does not have the InfraId set, we need to set it. If it has one, we can reuse it.
 	if vcdCluster.Status.InfraId == "" {
-		// This implies we have to set the infraID into the vcdCluster Object.
+		oldVCDCluster := vcdCluster.DeepCopy()
+
 		vcdCluster.Status.InfraId = infraID
 		vcdCluster.Status.RdeVersionInUse = rdeType.CapvcdRDETypeVersion
-		if err := r.Status().Update(ctx, vcdCluster); err != nil {
+		if err := r.Status().Patch(ctx, vcdCluster, client.MergeFrom(oldVCDCluster)); err != nil {
 			return ctrl.Result{}, errors.Wrapf(err,
-				"unable to update status of vcdCluster [%s] with InfraID [%s]",
-				vcdCluster.Name, infraID)
+				"unable to patch status of vcdCluster [%s] with InfraID [%s], RDEVersion [%s]",
+				vcdCluster.Name, infraID, rdeType.CapvcdRDETypeVersion)
 		}
 	}
 
 	// After InfraId has been set, we can update parentUid, useAsMgmtCluster status
 	vcdCluster.Status.UseAsManagementCluster = vcdCluster.Spec.UseAsManagementCluster
 	vcdCluster.Status.ParentUID = vcdCluster.Spec.ParentUID
+	vcdCluster.Status.ProxyConfig = vcdCluster.Spec.ProxyConfig
 
 	// create load balancer for the cluster. Only one-arm load balancer is fully tested.
 	virtualServiceNamePrefix := capisdk.GetVirtualServiceNamePrefix(vcdCluster.Name, vcdCluster.Status.InfraId)
 	lbPoolNamePrefix := capisdk.GetLoadBalancerPoolNamePrefix(vcdCluster.Name, vcdCluster.Status.InfraId)
 
+	rdeManager := vcdsdk.NewRDEManager(workloadVCDClient, vcdCluster.Status.InfraId,
+		capisdk.StatusComponentNameCAPVCD, release.CAPVCDVersion)
+
 	controlPlaneNodeIP, err := gateway.GetLoadBalancer(ctx, fmt.Sprintf("%s-tcp", virtualServiceNamePrefix),
-		(*vcdsdk.OneArm)(r.Config.LB.OneArm))
+		&vcdsdk.OneArm{
+			StartIP: r.Config.LB.OneArm.StartIP,
+			EndIP:   r.Config.LB.OneArm.EndIP,
+		})
 	//TODO: Sahithi: Check if error is really because of missing virtual service.
 	// In any other error cases, force create the new load balancer with the original control plane endpoint
 	// (if already present). Do not overwrite the existing control plane endpoint with a new endpoint.
@@ -532,13 +542,50 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		}
 
 		log.Info("Creating load balancer for the cluster")
-		capvcdGatewayManger, err := capisdk.NewCapvcdGatewayManager(ctx, workloadVCDClient, vcdCluster.Spec.OvdcNetwork, r.Config.VCD.VIPSubnet)
+		gatewayManager, err := vcdsdk.NewGatewayManager(ctx, workloadVCDClient, vcdCluster.Spec.OvdcNetwork,
+			r.Config.VCD.VIPSubnet)
 		if err != nil {
-			return ctrl.Result{}, errors.Wrapf(err, "failed to create capvcd's gateway manager object to reconcile cluster [%s]",
-				vcdCluster.Name)
+			return ctrl.Result{}, errors.Wrapf(err,
+				"failed to create capvcd's gateway manager object to reconcile cluster [%s]", vcdCluster.Name)
 		}
-		controlPlaneNodeIP, err = capvcdGatewayManger.CreateL4LoadBalancer(ctx, virtualServiceNamePrefix, lbPoolNamePrefix,
-			[]string{}, r.Config.LB.Ports.TCP, r.Config.LB.Ports.TCP, (*vcdsdk.OneArm)(r.Config.LB.OneArm), infraID)
+
+		resourcesAllocated := &vcdsdkutil.AllocatedResourcesMap{}
+		controlPlaneNodeIP, err = gatewayManager.CreateLoadBalancer(ctx, virtualServiceNamePrefix, lbPoolNamePrefix,
+			[]string{}, []vcdsdk.PortDetails{
+				{
+					Protocol:     "TCP",
+					PortSuffix:   "tcp",
+					ExternalPort: 6443,
+					InternalPort: 6443,
+				},
+			}, &vcdsdk.OneArm{
+				StartIP: r.Config.LB.OneArm.StartIP,
+				EndIP:   r.Config.LB.OneArm.EndIP,
+			}, resourcesAllocated)
+
+		// Update VCDResourceSet even if the creation has failed since we may have partially
+		// created set of resources
+		for _, key := range []string{vcdsdk.VcdResourceDNATRule, vcdsdk.VcdResourceVirtualService,
+			vcdsdk.VcdResourceLoadBalancerPool, vcdsdk.VcdResourceAppPortProfile} {
+			if values := resourcesAllocated.Get(key); values != nil {
+				for _, value := range values {
+					additionalDetails := make(map[string]interface{})
+					if key == vcdsdk.VcdResourceVirtualService {
+						additionalDetails = map[string]interface{}{
+							"virtualIP": controlPlaneNodeIP,
+						}
+					}
+					err = rdeManager.AddToVCDResourceSet(ctx, vcdsdk.ComponentCAPVCD, key,
+						value.Name, value.Id, additionalDetails)
+					if err != nil {
+						return ctrl.Result{}, errors.Wrapf(err,
+							"failed to add resource [%s] of type [%s] to VCDResourceSet of RDE [%s]: [%v]",
+							value.Name, key, infraID, err)
+					}
+				}
+			}
+		}
+
 		if err != nil {
 			if vsError, ok := err.(*vcdsdk.VirtualServicePendingError); ok {
 				log.Info("Error creating load balancer for cluster. Virtual Service is still pending",
@@ -549,7 +596,10 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 				"Error creating create load balancer [%s] for the cluster [%s]: [%v]",
 				virtualServiceNamePrefix, vcdCluster.Name, err)
 		}
+		log.Info("Resources Allocated in creation of load balancer",
+			"resourcesAllocated", resourcesAllocated)
 	}
+
 	vcdCluster.Spec.ControlPlaneEndpoint = infrav1.APIEndpoint{
 		Host: controlPlaneNodeIP,
 		Port: 6443,
@@ -577,13 +627,12 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		}
 	}
 
-	rdeManager := vcdsdk.NewRDEManager(workloadVCDClient, vcdCluster.Status.InfraId, capisdk.StatusComponentNameCAPVCD, release.CAPVCDVersion)
-
 	// create VApp
 	vdcManager, err := vcdsdk.NewVDCManager(workloadVCDClient, workloadVCDClient.ClusterOrgName,
 		workloadVCDClient.ClusterOVDCName)
 	if err != nil {
-		return ctrl.Result{}, errors.Wrapf(err, "Error creating vdc manager to to reconcile vcd infrastructure for cluster [%s]", vcdCluster.Name)
+		return ctrl.Result{}, errors.Wrapf(err,
+			"Error creating vdc manager to to reconcile vcd infrastructure for cluster [%s]", vcdCluster.Name)
 	}
 	clusterVApp, err := vdcManager.GetOrCreateVApp(vcdCluster.Name, vcdCluster.Spec.OvdcNetwork)
 	if err != nil {
@@ -614,7 +663,6 @@ func (r *VCDClusterReconciler) reconcileDelete(ctx context.Context,
 	vcdCluster *infrav1.VCDCluster) (ctrl.Result, error) {
 
 	log := ctrl.LoggerFrom(ctx)
-
 	patchHelper, err := patch.NewHelper(vcdCluster, r.Client)
 	if err != nil {
 		return ctrl.Result{}, err
@@ -622,6 +670,8 @@ func (r *VCDClusterReconciler) reconcileDelete(ctx context.Context,
 	conditions.MarkFalse(vcdCluster, LoadBalancerAvailableCondition, clusterv1.DeletingReason,
 		clusterv1.ConditionSeverityInfo, "")
 
+	// restore vcdCluster status
+	vcdCluster.Status.VAppMetadataUpdated = true
 	if err := patchVCDCluster(ctx, patchHelper, vcdCluster); err != nil {
 		return ctrl.Result{}, errors.Wrap(err, "Error occurred during cluster deletion; failed to patch VCDCluster")
 	}
@@ -636,16 +686,26 @@ func (r *VCDClusterReconciler) reconcileDelete(ctx context.Context,
 			vcdCluster.Name)
 	}
 
-	gateway, err := capisdk.NewCapvcdGatewayManager(ctx, workloadVCDClient, vcdCluster.Spec.OvdcNetwork, r.Config.VCD.VIPSubnet)
+	gateway, err := vcdsdk.NewGatewayManager(ctx, workloadVCDClient, vcdCluster.Spec.OvdcNetwork, r.Config.VCD.VIPSubnet)
 	if err != nil {
 		return ctrl.Result{}, errors.Wrapf(err, "failed to create gateway manager using the workload client to reconcile cluster [%s]", vcdCluster.Name)
 	}
 
 	// Delete the load balancer components
 	virtualServiceNamePrefix := capisdk.GetVirtualServiceNamePrefix(vcdCluster.Name, vcdCluster.Status.InfraId)
-	lbPoolNamePrefix := capisdk.GetLoadBalancerPoolNamePrefix(vcdCluster.Name, vcdCluster.Status.InfraId)
-	err = gateway.DeleteLoadBalancer(ctx, virtualServiceNamePrefix, lbPoolNamePrefix,
-		(*vcdsdk.OneArm)(r.Config.LB.OneArm), vcdCluster.Status.InfraId)
+	lbPoolNamePrefix := capisdk.GetVirtualServiceNamePrefix(vcdCluster.Name, vcdCluster.Status.InfraId)
+	_, err = gateway.DeleteLoadBalancer(ctx, virtualServiceNamePrefix, lbPoolNamePrefix,
+		[]vcdsdk.PortDetails{
+			{
+				Protocol:     "TCP",
+				PortSuffix:   "tcp",
+				ExternalPort: 6443,
+				InternalPort: 6443,
+			},
+		}, &vcdsdk.OneArm{
+			StartIP: r.Config.LB.OneArm.StartIP,
+			EndIP:   r.Config.LB.OneArm.EndIP,
+		})
 	if err != nil {
 		return ctrl.Result{}, errors.Wrapf(err,
 			"Error occurred during cluster [%s] deletion; unable to delete the load balancer [%s]: [%v]",
@@ -659,13 +719,26 @@ func (r *VCDClusterReconciler) reconcileDelete(ctx context.Context,
 	if err != nil {
 		return ctrl.Result{}, errors.Wrapf(err, "Error creating vdc manager to to reconcile vcd infrastructure for cluster [%s]", vcdCluster.Name)
 	}
-
 	// Delete vApp
 	vApp, err := workloadVCDClient.VDC.GetVAppByName(vcdCluster.Name, true)
 	if err != nil {
 		log.Error(err, fmt.Sprintf("Error occurred during cluster deletion; vApp [%s] not found", vcdCluster.Name))
 	}
 	if vApp != nil {
+		//Delete the vApp if and only if rdeId (matches) present in the vApp
+		if !vcdCluster.Status.VAppMetadataUpdated {
+			return ctrl.Result{}, errors.Errorf("Error occurred during cluster deletion; Field [VAppMetadataUpdated] is %t", vcdCluster.Status.VAppMetadataUpdated)
+		}
+		metadataInfraId, err := vdcManager.GetMetadataByKey(vApp, CapvcdInfraId)
+		if err != nil {
+			return ctrl.Result{}, errors.Errorf("Error occurred during fetching metadata in vApp")
+		}
+		// checking the metadata value and vcdCluster.Status.InfraId are equal or not
+		if metadataInfraId != vcdCluster.Status.InfraId {
+			return ctrl.Result{},
+				errors.Errorf("error occurred during cluster deletion; failed to delete vApp [%s]",
+					vcdCluster.Name)
+		}
 		if vApp.VApp.Children != nil {
 			return ctrl.Result{}, errors.Errorf(
 				"Error occurred during cluster deletion; %d VMs detected in the vApp %s",
@@ -681,10 +754,12 @@ func (r *VCDClusterReconciler) reconcileDelete(ctx context.Context,
 		}
 	}
 	// Remove vapp from VCDResourceSet in the RDE
-	rdeManager := vcdsdk.NewRDEManager(workloadVCDClient, vcdCluster.Status.InfraId, capisdk.StatusComponentNameCAPVCD, release.CAPVCDVersion)
+	rdeManager := vcdsdk.NewRDEManager(workloadVCDClient, vcdCluster.Status.InfraId,
+		capisdk.StatusComponentNameCAPVCD, release.CAPVCDVersion)
 	err = rdeManager.RemoveFromVCDResourceSet(ctx, vcdsdk.ComponentCAPVCD, VCDResourceVApp, vcdCluster.Name)
 	if err != nil {
-		return ctrl.Result{}, errors.Wrapf(err, "failed to delete VCD Resource [%s] of type [%s] from VCDResourceSet of RDE [%s]: [%v]",
+		return ctrl.Result{}, errors.Wrapf(err,
+			"failed to delete VCD Resource [%s] of type [%s] from VCDResourceSet of RDE [%s]: [%v]",
 			vcdCluster.Name, VCDResourceVApp, vcdCluster.Status.InfraId, err)
 	}
 

@@ -228,8 +228,9 @@ github.com/spf13/pflag
 # github.com/stretchr/testify v1.7.1
 ## explicit; go 1.13
 github.com/stretchr/testify/assert
-# github.com/vmware/cloud-provider-for-cloud-director v0.0.0-20220523163637-d2413c55ce91
-## explicit; go 1.16
+# github.com/vmware/cloud-provider-for-cloud-director v0.0.0-20220529190526-5ecf051bba6a
+## explicit; go 1.17
+github.com/vmware/cloud-provider-for-cloud-director/pkg/util
 github.com/vmware/cloud-provider-for-cloud-director/pkg/vcdsdk
 github.com/vmware/cloud-provider-for-cloud-director/pkg/vcdswaggerclient
 # github.com/vmware/go-vcloud-director/v2 v2.15.0
