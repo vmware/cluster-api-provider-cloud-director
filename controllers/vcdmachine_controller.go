@@ -655,11 +655,6 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		},
 	}
 
-	capvcdGatewayManager, err := capisdk.NewCapvcdGatewayManager(ctx, workloadVCDClient, vcdCluster.Spec.OvdcNetwork, r.Config.VCD.VIPSubnet)
-	if err != nil {
-		return ctrl.Result{}, errors.Wrapf(err, "failed to create a CAPVCD's gateway manager object while reconciling machine [%s]", vcdMachine.Name)
-	}
-
 	gateway, err := vcdsdk.NewGatewayManager(ctx, workloadVCDClient, vcdCluster.Spec.OvdcNetwork, r.Config.VCD.VIPSubnet)
 	if err != nil {
 		return ctrl.Result{}, errors.Wrapf(err, "failed to create gateway manager object while reconciling machine [%s]", vcdMachine.Name)
@@ -672,6 +667,9 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 			capisdk.GetLoadBalancerPoolNamePrefix(vcdCluster.Name, vcdCluster.Status.InfraId),
 			"tcp",
 		)
+		virtualServiceName := capisdk.GetVirtualServiceNameUsingPrefix(
+			capisdk.GetVirtualServiceNamePrefix(vcdCluster.Name, vcdCluster.Status.InfraId),
+			"tcp")
 		lbPoolRef, err := gateway.GetLoadBalancerPool(ctx, lbPoolName)
 		if err != nil {
 			return ctrl.Result{}, errors.Wrapf(err, "Error retrieving/updating load balancer pool [%s] for the "+
@@ -686,7 +684,8 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 
 		updatedIPs := append(controlPlaneIPs, machineAddress)
 		updatedUniqueIPs := cpiutil.NewSet(updatedIPs).GetElements()
-		err = capvcdGatewayManager.UpdateLoadBalancer(ctx, lbPoolName, updatedUniqueIPs, int32(6443))
+		err = gateway.UpdateLoadBalancer(ctx, lbPoolName, virtualServiceName,
+			updatedUniqueIPs, r.Config.LB.Ports.TCP, r.Config.LB.Ports.TCP)
 		if err != nil {
 			return ctrl.Result{}, errors.Wrapf(err,
 				"Error updating the load balancer pool [%s] for the "+
@@ -851,15 +850,15 @@ func (r *VCDMachineReconciler) reconcileDelete(ctx context.Context, cluster *clu
 		return ctrl.Result{}, errors.Wrapf(err, "failed to create gateway manager object while reconciling machine [%s]", vcdMachine.Name)
 	}
 
-	capvcdGatewayManager, err := capisdk.NewCapvcdGatewayManager(ctx, workloadVCDClient, vcdCluster.Spec.OvdcNetwork, r.Config.VCD.VIPSubnet)
-	if err != nil {
-		return ctrl.Result{}, errors.Wrapf(err, "failed to create a CAPVCD's gateway manager object while reconciling machine [%s]", vcdMachine.Name)
-	}
-
 	if util.IsControlPlaneMachine(machine) {
 		// remove the address from the lbpool
 		log.Info("Deleting the control plane IP from the load balancer pool")
-		lbPoolName := vcdCluster.Name + "-" + vcdCluster.Status.InfraId + "-tcp"
+		lbPoolName := capisdk.GetLoadBalancerPoolNameUsingPrefix(
+			capisdk.GetLoadBalancerPoolNamePrefix(vcdCluster.Name, vcdCluster.Status.InfraId),
+			"tcp")
+		virtualServiceName := capisdk.GetVirtualServiceNameUsingPrefix(
+			capisdk.GetVirtualServiceNamePrefix(vcdCluster.Name, vcdCluster.Status.InfraId),
+			"tcp")
 		lbPoolRef, err := gateway.GetLoadBalancerPool(ctx, lbPoolName)
 		if err != nil && err != govcd.ErrorEntityNotFound {
 			return ctrl.Result{}, errors.Wrapf(err, "Error while deleting the infra resources of the machine [%s/%s]; failed to get load balancer pool [%s]", vcdCluster.Name, vcdMachine.Name, lbPoolName)
@@ -885,7 +884,8 @@ func (r *VCDMachineReconciler) reconcileDelete(ctx context.Context, cluster *clu
 					updatedIPs = append(controlPlaneIPs[:i], controlPlaneIPs[i+1:]...)
 				}
 			}
-			err = capvcdGatewayManager.UpdateLoadBalancer(ctx, lbPoolName, updatedIPs, int32(6443))
+			err = gateway.UpdateLoadBalancer(ctx, lbPoolName, virtualServiceName, updatedIPs,
+				r.Config.LB.Ports.TCP, r.Config.LB.Ports.TCP)
 			if err != nil {
 				return ctrl.Result{}, errors.Wrapf(err,
 					"Error while deleting the infra resources of the machine [%s/%s]; error deleting the control plane from the load balancer pool [%s]",
@@ -1055,7 +1055,8 @@ func (r *VCDMachineReconciler) VCDClusterToVCDMachines(o client.Object) []ctrl.R
 	return result
 }
 
-func (r *VCDMachineReconciler) hasCloudInitExecutionFailedBefore(ctx context.Context, workloadVCDClient *vcdsdk.Client, vm *govcd.VM) (bool, error) {
+func (r *VCDMachineReconciler) hasCloudInitExecutionFailedBefore(ctx context.Context,
+	workloadVCDClient *vcdsdk.Client, vm *govcd.VM) (bool, error) {
 	vdcManager, err := vcdsdk.NewVDCManager(workloadVCDClient, workloadVCDClient.ClusterOrgName,
 		workloadVCDClient.ClusterOVDCName)
 	if err != nil {

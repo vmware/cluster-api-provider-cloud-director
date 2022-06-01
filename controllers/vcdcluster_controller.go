@@ -416,7 +416,7 @@ func (r *VCDClusterReconciler) reconcileRDE(ctx context.Context, cluster *cluste
 		ApiEndpoints: []vcdtypes.ApiEndpoints{
 			{
 				Host: vcdCluster.Spec.ControlPlaneEndpoint.Host,
-				Port: 6443,
+				Port: r.Config.LB.Ports.TCP,
 			},
 		},
 	}
@@ -581,13 +581,15 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		}
 
 		log.Info("Creating load balancer for the cluster")
-		capvcdGatewayManger, err := capisdk.NewCapvcdGatewayManager(ctx, workloadVCDClient, vcdCluster.Spec.OvdcNetwork, r.Config.VCD.VIPSubnet)
-		if err != nil {
-			return ctrl.Result{}, errors.Wrapf(err, "failed to create capvcd's gateway manager object to reconcile cluster [%s]",
-				vcdCluster.Name)
-		}
-		controlPlaneNodeIP, err = capvcdGatewayManger.CreateL4LoadBalancer(ctx, virtualServiceNamePrefix, lbPoolNamePrefix,
-			[]string{}, r.Config.LB.Ports.TCP, r.Config.LB.Ports.TCP, &vcdsdk.OneArm{
+		controlPlaneNodeIP, err = gateway.CreateLoadBalancer(ctx, virtualServiceNamePrefix, lbPoolNamePrefix,
+			[]string{}, []vcdsdk.PortDetails{
+				{
+					Protocol:     "TCP",
+					PortSuffix:   "tcp",
+					ExternalPort: r.Config.LB.Ports.TCP,
+					InternalPort: r.Config.LB.Ports.TCP,
+				},
+			}, &vcdsdk.OneArm{
 				StartIP: r.Config.LB.OneArm.StartIP,
 				EndIP:   r.Config.LB.OneArm.EndIP,
 			})
@@ -604,7 +606,7 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	}
 	vcdCluster.Spec.ControlPlaneEndpoint = infrav1.APIEndpoint{
 		Host: controlPlaneNodeIP,
-		Port: 6443,
+		Port: int(r.Config.LB.Ports.TCP),
 	}
 	log.Info(fmt.Sprintf("Control plane endpoint for the cluster is [%s]", controlPlaneNodeIP))
 
@@ -689,7 +691,7 @@ func (r *VCDClusterReconciler) reconcileDelete(ctx context.Context,
 			vcdCluster.Name)
 	}
 
-	gateway, err := capisdk.NewCapvcdGatewayManager(ctx, workloadVCDClient, vcdCluster.Spec.OvdcNetwork, r.Config.VCD.VIPSubnet)
+	gateway, err := vcdsdk.NewGatewayManager(ctx, workloadVCDClient, vcdCluster.Spec.OvdcNetwork, r.Config.VCD.VIPSubnet)
 	if err != nil {
 		return ctrl.Result{}, errors.Wrapf(err, "failed to create gateway manager using the workload client to reconcile cluster [%s]", vcdCluster.Name)
 	}
@@ -697,10 +699,18 @@ func (r *VCDClusterReconciler) reconcileDelete(ctx context.Context,
 	// Delete the load balancer components
 	virtualServiceNamePrefix := capisdk.GetVirtualServiceNamePrefix(vcdCluster.Name, vcdCluster.Status.InfraId)
 	lbPoolNamePrefix := capisdk.GetVirtualServiceNamePrefix(vcdCluster.Name, vcdCluster.Status.InfraId)
-	err = gateway.DeleteLoadBalancer(ctx, virtualServiceNamePrefix, lbPoolNamePrefix, &vcdsdk.OneArm{
-		StartIP: r.Config.LB.OneArm.StartIP,
-		EndIP:   r.Config.LB.OneArm.EndIP,
-	})
+	_, err = gateway.DeleteLoadBalancer(ctx, virtualServiceNamePrefix, lbPoolNamePrefix,
+		[]vcdsdk.PortDetails{
+			{
+				Protocol:     "TCP",
+				PortSuffix:   "tcp",
+				ExternalPort: r.Config.LB.Ports.TCP,
+				InternalPort: r.Config.LB.Ports.TCP,
+			},
+		}, &vcdsdk.OneArm{
+			StartIP: r.Config.LB.OneArm.StartIP,
+			EndIP:   r.Config.LB.OneArm.EndIP,
+		})
 	if err != nil {
 		return ctrl.Result{}, errors.Wrapf(err,
 			"Error occurred during cluster [%s] deletion; unable to delete the load balancer [%s]: [%v]",
