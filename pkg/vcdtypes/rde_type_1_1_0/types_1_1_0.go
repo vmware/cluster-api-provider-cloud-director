@@ -103,6 +103,7 @@ type CAPVCDStatus struct {
 	VcdProperties          VCDProperties     `json:"vcdProperties,omitempty"`
 	Private                PrivateSection    `json:"private,omitempty"`
 	VCDResourceSet         []VCDResource     `json:"vcdResourceSet,omitempty"`
+	CapiStatusYaml         string            `json:"capiStatusYaml,omitempty"`
 }
 
 type Status struct {
