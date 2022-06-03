@@ -17,6 +17,7 @@ limitations under the License.
 package v1beta1
 
 import (
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 )
@@ -57,6 +58,10 @@ type VCDMachineSpec struct {
 	// StorageProfile is the storage profile to be used on this machince
 	// +optional
 	StorageProfile string `json:"storageProfile,omitempty"`
+
+	// DiskSize is the size, in bytes, of the disk for this machine
+	// +optional
+	DiskSize resource.Quantity `json:"diskSize,omitempty"`
 
 	// Bootstrapped is true when the kubeadm bootstrapping has been run
 	// against this machine

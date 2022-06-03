@@ -23,6 +23,7 @@ import (
 	"io/ioutil"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/klog"
 	"net/http"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
@@ -637,6 +638,25 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 					"control plane machine [%s] of the cluster [%s]", lbPoolName, machine.Name, vcdCluster.Name)
 		}
 		log.Info("Updated the load balancer pool with the control plane machine IP", "lbpool", lbPoolName)
+	}
+
+	// only resize hard disk if the user has requested so by specifying such in the VCDMachineTemplate spec
+	// check isn't strictly required as we ensure that specified number is larger than what's in the template and left
+	// empty this will just be 0. However, this makes it clear from a standpoint of inspecting the code what we are doing
+	if !vcdMachine.Spec.DiskSize.IsZero() {
+		// go-vcd expects value in MB, so we scale it as such
+		diskSize := vcdMachine.Spec.DiskSize.ScaledValue(resource.Mega)
+		diskSettings := vm.VM.VmSpecSection.DiskSection.DiskSettings
+		// if the specified disk size is less than what is defined in the template, then we ignore the field
+		if len(diskSettings) != 0 && diskSettings[0].SizeMb < diskSize {
+			diskSettings[0].SizeMb = diskSize
+			vm.VM.VmSpecSection.DiskSection.DiskSettings = diskSettings
+
+			if _, err = vm.UpdateInternalDisks(vm.VM.VmSpecSection); err != nil {
+				return ctrl.Result{},
+					errors.Wrapf(err, "Error while provisioning the infrastructure VM for the machine [%s] of the cluster [%s]; failed to resize hard disk", vm.VM.Name, vApp.VApp.Name)
+			}
+		}
 	}
 
 	vmStatus, err := vm.GetStatus()
