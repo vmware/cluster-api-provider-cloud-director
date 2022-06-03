@@ -25,7 +25,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/klog"
-	"net/http"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	"sigs.k8s.io/cluster-api/util"
 	"sigs.k8s.io/cluster-api/util/annotations"
@@ -343,56 +342,6 @@ func (r *VCDMachineReconciler) waitForPostCustomizationPhase(ctx context.Context
 
 }
 
-func (r *VCDMachineReconciler) reconcileNodeStatusInRDE(ctx context.Context, rdeID string, nodeName string, status string,
-	workloadVCDClient *vcdsdk.Client) error {
-
-	if rdeID == "" || strings.HasPrefix(rdeID, NoRdePrefix) {
-		return NewNoRDEError("RDE ID is empty or generated; hence will not be updated")
-	}
-
-	capvcdRdeManager := capisdk.NewCapvcdRdeManager(workloadVCDClient)
-
-	capvcdStatusPatch := make(map[string]interface{})
-	_, _, _, capvcdStatus, err := capvcdRdeManager.GetCAPVCDEntity(ctx, rdeID)
-	if err != nil {
-		return fmt.Errorf("failed to get CAPVCD entity with ID [%s] to sync node details for machine [%s]: [%v]", rdeID, nodeName, err)
-	}
-	nodeStatusMap := capvcdStatus.NodeStatus
-	if nodeStatus, ok := nodeStatusMap[nodeName]; ok && nodeStatus == status {
-		// no update needed
-		return nil
-	}
-	if nodeStatusMap == nil {
-		nodeStatusMap = make(map[string]string)
-	}
-	nodeStatusMap[nodeName] = status
-	capvcdStatusPatch["Status.NodeStatus"] = nodeStatusMap
-
-	// update defined entity
-	updatedRDE, err := capvcdRdeManager.PatchRDE(ctx, nil, nil, capvcdStatusPatch, rdeID)
-	if err != nil {
-		return fmt.Errorf(
-			"failed to update defined entity with ID [%s] with node status for VCDMachine [%s]: [%v]",
-			rdeID, nodeName, err)
-	}
-	if updatedRDE.State != RDEStatusResolved {
-		// try to resolve the defined entity
-		entityState, resp, err := workloadVCDClient.APIClient.DefinedEntityApi.ResolveDefinedEntity(ctx, updatedRDE.Id)
-		if err != nil {
-			return fmt.Errorf("failed to resolve defined entity with ID [%s] for cluster [%s]", updatedRDE.Id, updatedRDE.Name)
-		}
-		if resp.StatusCode != http.StatusOK {
-			return fmt.Errorf("error while resolving defined entity with ID [%s] for cluster [%s] with message: [%s]", updatedRDE.Id, updatedRDE.Name, entityState.Message)
-		}
-
-		if entityState.State != RDEStatusResolved {
-			return fmt.Errorf("defined entity resolution failed for RDE with ID [%s] for cluster [%s] with message: [%s]", updatedRDE.Id, updatedRDE.Name, entityState.Message)
-
-		}
-	}
-	return nil
-}
-
 func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clusterv1.Cluster,
 	machine *clusterv1.Machine, vcdMachine *infrav1.VCDMachine, vcdCluster *infrav1.VCDCluster) (res ctrl.Result, retErr error) {
 
@@ -407,29 +356,9 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	}
 
 	if vcdMachine.Spec.ProviderID != nil {
-		err := r.reconcileNodeStatusInRDE(ctx, vcdCluster.Status.InfraId, machine.Name, machine.Status.Phase,
-			workloadVCDClient)
-		if err != nil {
-			if _, ok := err.(*NoRDEError); ok {
-				log.V(3).Info("RDE NOT set up to track this cluster.",
-					"infraID", vcdCluster.Status.InfraId)
-			} else {
-				log.Error(err, "Error during RDE reconciliation of the Node status")
-			}
-		}
 		vcdMachine.Status.Ready = true
 		conditions.MarkTrue(vcdMachine, ContainerProvisionedCondition)
 		return ctrl.Result{}, nil
-	}
-
-	err = r.reconcileNodeStatusInRDE(ctx, vcdCluster.Status.InfraId, machine.Name, machine.Status.Phase,
-		workloadVCDClient)
-	if err != nil {
-		if _, ok := err.(*NoRDEError); ok {
-			log.V(3).Info("RDE NOT set up to track this cluster.", "infraID", vcdCluster.Status.InfraId)
-		} else {
-			log.Error(err, "Error during RDE reconciliation of the Node status")
-		}
 	}
 
 	if machine.Spec.Bootstrap.DataSecretName == nil {
@@ -790,15 +719,6 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	vcdMachine.Status.Template = vcdMachine.Spec.Template
 	vcdMachine.Status.ProviderID = vcdMachine.Spec.ProviderID
 	conditions.MarkTrue(vcdMachine, ContainerProvisionedCondition)
-	err = r.reconcileNodeStatusInRDE(ctx, vcdCluster.Status.InfraId, machine.Name, machine.Status.Phase, workloadVCDClient)
-	if err != nil {
-		if _, ok := err.(*NoRDEError); ok {
-			log.V(3).Info("RDE NOT set up to track this cluster.", "infraID", vcdCluster.Status.InfraId)
-		} else {
-			log.Error(err, "Error reconciling node status of the RDE",
-				"RDEId", vcdCluster.Status.InfraId, "nodeStatus", machine.Status.Phase)
-		}
-	}
 
 	return ctrl.Result{}, nil
 }
@@ -989,16 +909,6 @@ func (r *VCDMachineReconciler) reconcileDelete(ctx context.Context, cluster *clu
 	if err != nil {
 		return ctrl.Result{}, errors.Wrapf(err, "failed to delete VCD Resource [%s] of type [%s] from VCDResourceSet of RDE [%s]: [%v]",
 			machine.Name, VcdResourceTypeVM, vcdCluster.Status.InfraId, err)
-	}
-
-	err = r.reconcileNodeStatusInRDE(ctx, vcdCluster.Status.InfraId, machine.Name, machine.Status.Phase, workloadVCDClient)
-	if err != nil {
-		if _, ok := err.(*NoRDEError); ok {
-			log.V(3).Info("RDE NOT set up to track this cluster.", "infraID", vcdCluster.Status.InfraId)
-		} else {
-			log.Error(err, "Error reconciling the node status in the RDE",
-				"InfraId", vcdCluster.Status.InfraId)
-		}
 	}
 
 	controllerutil.RemoveFinalizer(vcdMachine, infrav1.MachineFinalizer)
