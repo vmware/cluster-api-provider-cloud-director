@@ -313,7 +313,7 @@ func (r *VCDClusterReconciler) reconcileRDE(ctx context.Context, cluster *cluste
 		capvcdStatusPatch["UseAsManagementCluster"] = vcdCluster.Status.UseAsManagementCluster
 	}
 	// fill CAPIStatusYaml
-	capiStatusYaml, err := getCapiStausYaml(ctx, r.Client, *cluster, *vcdCluster)
+	capiStatusYaml, err := getCapiStatusYaml(ctx, r.Client, *cluster, *vcdCluster)
 	if err != nil {
 		log.Error(err, "failed to populate capiStatusYaml in RDE", "rdeID", vcdCluster.Status.InfraId)
 	}

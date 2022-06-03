@@ -15,12 +15,16 @@ import (
 	"strings"
 )
 
+// filterTypeMetaAndObjectMetaFromK8sObjectMap is a helper function to remove extraneous contents in "objectmeta" and "typemeta"
+//  keys. The function moves name and namespace from "objectmeta" key to "metadata" key and moves all the keys from "typemeta"
+//  key to objMap
 func filterTypeMetaAndObjectMetaFromK8sObjectMap(objMap map[string]interface{}) error {
 	if _, ok := objMap["typemeta"]; ok {
 		typeMetaMap, ok := objMap["typemeta"].(map[interface{}]interface{})
 		if !ok {
 			return fmt.Errorf("failed to convert typemeta [%v] to map[interface{}]interface{}", objMap["typemeta"])
 		}
+		// move contents of typeMetaMap to objMap. This preserves keys like apiVersion and Kind
 		for k, v := range typeMetaMap {
 			objMap[k.(string)] = v
 		}
@@ -32,11 +36,13 @@ func filterTypeMetaAndObjectMetaFromK8sObjectMap(objMap map[string]interface{}) 
 		if !ok {
 			return fmt.Errorf("failed to convert objectmeta [%v] to map[interface{}]interface{}", objMap["objectmeta"])
 		}
+		// remove all keys from objectMetaMap except for name and namespace.
 		for k, _ := range objectMetaMap {
 			if k.(string) != "name" && k.(string) != "namespace" {
 				delete(objectMetaMap, k)
 			}
 		}
+		// preserve name and namespace of the object as part of "metadata"
 		objMap["metadata"] = objectMetaMap
 		delete(objMap, "objectmeta")
 	}
@@ -270,7 +276,7 @@ func getCapiYaml(ctx context.Context, cli client.Client, cluster clusterv1.Clust
 
 }
 
-func getCapiStausYaml(ctx context.Context, cli client.Client, cluster clusterv1.Cluster, vcdCluster infrav1.VCDCluster) (string, error) {
+func getCapiStatusYaml(ctx context.Context, cli client.Client, cluster clusterv1.Cluster, vcdCluster infrav1.VCDCluster) (string, error) {
 	capiYamlObjects, err := getK8sClusterObjects(ctx, cli, cluster, vcdCluster)
 	if err != nil {
 		return "", fmt.Errorf("failed to get k8s objects related to cluster [%s]: [%v]", cluster.Name, err)
