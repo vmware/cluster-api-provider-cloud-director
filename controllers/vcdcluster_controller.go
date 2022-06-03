@@ -24,6 +24,7 @@ import (
 	"github.com/vmware/go-vcloud-director/v2/govcd"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/klog"
 	"net/http"
 	"reflect"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
@@ -180,7 +181,7 @@ func (r *VCDClusterReconciler) constructCapvcdRDE(ctx context.Context, cluster *
 					Phase:        "",
 					ApiEndpoints: []rdeType.ApiEndpoints{},
 				},
-				NodeStatus:             make(map[string]string),
+				NodePool:               nil,
 				CapvcdVersion:          r.Config.ClusterResources.CapvcdVersion,
 				UseAsManagementCluster: vcdCluster.Spec.UseAsManagementCluster,
 				K8sNetwork: rdeType.K8sNetwork{
@@ -361,18 +362,14 @@ func (r *VCDClusterReconciler) reconcileRDE(ctx context.Context, cluster *cluste
 	}
 
 	// update node status. Needed to remove stray nodes which were already deleted
-	machineList, err := getMachineListFromCluster(ctx, r.Client, *cluster)
+	nodePoolList, err := getNodePoolList(ctx, r.Client, *cluster)
 	if err != nil {
-		return fmt.Errorf("error getting machine list for cluster with name [%s]: [%v]", cluster.Name, err)
+		klog.Errorf("failed to get node pool list from cluster [%s]: [%v]", cluster.Name, err)
+	}
+	if !reflect.DeepEqual(nodePoolList, capvcdStatus.NodePool) {
+		capvcdStatusPatch["NodePool"] = nodePoolList
 	}
 
-	updatedNodeStatus := make(map[string]string)
-	for _, machine := range machineList.Items {
-		updatedNodeStatus[machine.Name] = machine.Status.Phase
-	}
-	if !reflect.DeepEqual(updatedNodeStatus, capvcdStatus.NodeStatus) {
-		capvcdStatusPatch["NodeStatus"] = updatedNodeStatus
-	}
 	vcdResources := rdeType.VCDProperties{
 		Site:        vcdCluster.Spec.Site,
 		Org:         vcdCluster.Spec.Org,
