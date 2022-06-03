@@ -23,8 +23,8 @@ import (
 	"io/ioutil"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/klog"
+	"math"
 	"net/http"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	"sigs.k8s.io/cluster-api/util"
@@ -75,6 +75,8 @@ const (
 	ReclaimPolicyDelete = "Delete"
 	ReclaimPolicyRetain = "Retain"
 )
+
+const Mebibyte = 1048576
 
 // The following `embed` directives read the file in the mentioned path and copy the content into the declared variable.
 // These variables need to be global within the package.
@@ -644,11 +646,18 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	// check isn't strictly required as we ensure that specified number is larger than what's in the template and left
 	// empty this will just be 0. However, this makes it clear from a standpoint of inspecting the code what we are doing
 	if !vcdMachine.Spec.DiskSize.IsZero() {
-		// go-vcd expects value in MB, so we scale it as such
-		diskSize := vcdMachine.Spec.DiskSize.ScaledValue(resource.Mega)
+		// go-vcd expects value in MB (2^10 = 1024 * 1024 bytes), so we scale it as such
+		diskSize, ok := vcdMachine.Spec.DiskSize.AsInt64()
+		if !ok {
+			return ctrl.Result{},
+				fmt.Errorf("error while provisioning the infrastructure VM for the machine [%s] of the cluster [%s]; failed to parse disk size quantity [%s]", vm.VM.Name, vApp.VApp.Name, vcdMachine.Spec.DiskSize.String())
+		}
+		diskSize = int64(math.Floor(float64(diskSize) / float64(Mebibyte)))
 		diskSettings := vm.VM.VmSpecSection.DiskSection.DiskSettings
 		// if the specified disk size is less than what is defined in the template, then we ignore the field
 		if len(diskSettings) != 0 && diskSettings[0].SizeMb < diskSize {
+			log.Info(fmt.Sprintf("resizing hard disk on infrastructure VM for the machine [%s] of the cluster [%s]; resizing from [%sMB] to [%sMB]", vm.VM.Name, vApp.VApp.Name, diskSettings[0].SizeMb, diskSize))
+
 			diskSettings[0].SizeMb = diskSize
 			vm.VM.VmSpecSection.DiskSection.DiskSettings = diskSettings
 
