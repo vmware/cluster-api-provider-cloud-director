@@ -201,6 +201,7 @@ func (r *VCDClusterReconciler) constructCapvcdRDE(ctx context.Context, cluster *
 					Vdc:         vdc,
 					OvdcNetwork: vcdCluster.Spec.OvdcNetwork,
 				},
+				CapiStatusYaml: "",
 			},
 		},
 	}
@@ -310,6 +311,14 @@ func (r *VCDClusterReconciler) reconcileRDE(ctx context.Context, cluster *cluste
 	}
 	if capvcdStatus.UseAsManagementCluster != vcdCluster.Status.UseAsManagementCluster {
 		capvcdStatusPatch["UseAsManagementCluster"] = vcdCluster.Status.UseAsManagementCluster
+	}
+	// fill CAPIStatusYaml
+	capiStatusYaml, err := getCapiStatusYaml(ctx, r.Client, *cluster, *vcdCluster)
+	if err != nil {
+		log.Error(err, "failed to populate capiStatusYaml in RDE", "rdeID", vcdCluster.Status.InfraId)
+	}
+	if capvcdStatus.CapiStatusYaml != capiStatusYaml {
+		capvcdStatusPatch["CapiStatusYaml"] = capiStatusYaml
 	}
 
 	// TODO: CNI should go as part of rde.entity.status.capvcd.ClusterResourceSet

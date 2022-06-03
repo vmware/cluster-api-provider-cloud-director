@@ -15,6 +15,40 @@ import (
 	"strings"
 )
 
+// filterTypeMetaAndObjectMetaFromK8sObjectMap is a helper function to remove extraneous contents in "objectmeta" and "typemeta"
+//  keys. The function moves name and namespace from "objectmeta" key to "metadata" key and moves all the keys from "typemeta"
+//  key to objMap
+func filterTypeMetaAndObjectMetaFromK8sObjectMap(objMap map[string]interface{}) error {
+	if _, ok := objMap["typemeta"]; ok {
+		typeMetaMap, ok := objMap["typemeta"].(map[interface{}]interface{})
+		if !ok {
+			return fmt.Errorf("failed to convert typemeta [%v] to map[interface{}]interface{}", objMap["typemeta"])
+		}
+		// move contents of typeMetaMap to objMap. This preserves keys like apiVersion and Kind
+		for k, v := range typeMetaMap {
+			objMap[k.(string)] = v
+		}
+		delete(objMap, "typemeta")
+	}
+
+	if _, ok := objMap["objectmeta"]; ok {
+		objectMetaMap, ok := objMap["objectmeta"].(map[interface{}]interface{})
+		if !ok {
+			return fmt.Errorf("failed to convert objectmeta [%v] to map[interface{}]interface{}", objMap["objectmeta"])
+		}
+		// remove all keys from objectMetaMap except for name and namespace.
+		for k, _ := range objectMetaMap {
+			if k.(string) != "name" && k.(string) != "namespace" {
+				delete(objectMetaMap, k)
+			}
+		}
+		// preserve name and namespace of the object as part of "metadata"
+		objMap["metadata"] = objectMetaMap
+		delete(objMap, "objectmeta")
+	}
+	return nil
+}
+
 func yamlWithoutStatus(obj interface{}) (string, error) {
 	// Redact the password and refresh token
 	// get yaml string for obj
@@ -33,29 +67,40 @@ func yamlWithoutStatus(obj interface{}) (string, error) {
 		delete(objMap, "status")
 	}
 
-	if _, ok := objMap["typemeta"]; ok {
-		typeMetaMap, ok := objMap["typemeta"].(map[interface{}]interface{})
-		if !ok {
-			return "", fmt.Errorf("failed to convert typemeta [%v] to map[interface{}]interface{}: [%v]", objMap["typemeta"], err)
-		}
-		for k, v := range typeMetaMap {
-			objMap[k.(string)] = v
-		}
-		delete(objMap, "typemeta")
+	err = filterTypeMetaAndObjectMetaFromK8sObjectMap(objMap)
+	if err != nil {
+		return "", fmt.Errorf("failed to remove type meta and object meta from kubernetes object [%v]: [%v]", objMap, err)
 	}
 
-	if _, ok := objMap["objectmeta"]; ok {
-		objectMetaMap, ok := objMap["objectmeta"].(map[interface{}]interface{})
-		if !ok {
-			return "", fmt.Errorf("failed to convert objectmeta [%v] to map[interface{}]interface{}: [%v]", objMap["objectmeta"], err)
-		}
-		for k, _ := range objectMetaMap {
-			if k.(string) != "name" && k.(string) != "namespace" {
-				delete(objectMetaMap, k)
-			}
-		}
-		objMap["metadata"] = objectMetaMap
-		delete(objMap, "objectmeta")
+	// marshal back to a string
+	output, err := yaml.Marshal(objMap)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal modified object: [%v]", err)
+	}
+	return string(output), nil
+}
+
+func getK8sObjectStatus(obj interface{}) (string, error) {
+	// Redact the password and refresh token
+	// get yaml string for obj
+	objInByteArr, err := yaml.Marshal(obj)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal object: [%v]", err)
+	}
+
+	objMap := make(map[string]interface{})
+	if err := yaml.Unmarshal(objInByteArr, &objMap); err != nil {
+		return "", fmt.Errorf("failed to unmarshal object to map[string]interface{}: [%v]", err)
+	}
+
+	// delete spec key
+	if _, ok := objMap["spec"]; ok {
+		delete(objMap, "spec")
+	}
+
+	err = filterTypeMetaAndObjectMetaFromK8sObjectMap(objMap)
+	if err != nil {
+		return "", fmt.Errorf("failed to remove type meta and object meta from kubernetes object [%v]: [%v]", objMap, err)
 	}
 
 	// marshal back to a string
@@ -148,7 +193,7 @@ func getKubeadmConfigTemplateByObjRef(ctx context.Context, cli client.Client, ob
 	return kubeadmConfigTemplate, nil
 }
 
-func getCapiYaml(ctx context.Context, cli client.Client, cluster clusterv1.Cluster, vcdCluster infrav1.VCDCluster) (string, error) {
+func getK8sClusterObjects(ctx context.Context, cli client.Client, cluster clusterv1.Cluster, vcdCluster infrav1.VCDCluster) ([]interface{}, error) {
 	// Redacting username, password and refresh token from the UserCredentialsContext for security purposes.
 	vcdCluster.Spec.UserCredentialsContext.Username = "***REDACTED***"
 	vcdCluster.Spec.UserCredentialsContext.Password = "***REDACTED***"
@@ -160,12 +205,12 @@ func getCapiYaml(ctx context.Context, cli client.Client, cluster clusterv1.Clust
 
 	kcpList, err := getAllKubeadmControlPlaneForCluster(ctx, cli, cluster)
 	if err != nil {
-		return "", fmt.Errorf("failed to get all KCPs from Cluster object: [%v]", err)
+		return nil, fmt.Errorf("failed to get all KCPs from Cluster object: [%v]", err)
 	}
 
 	mdList, err := getAllMachineDeploymentsForCluster(ctx, cli, cluster)
 	if err != nil {
-		return "", fmt.Errorf("failed to get all the MachineDeployments from Cluster: [%v]", err)
+		return nil, fmt.Errorf("failed to get all the MachineDeployments from Cluster: [%v]", err)
 	}
 
 	vcdMachineTemplateNameToObjRef := make(map[string]v1.ObjectReference)
@@ -183,7 +228,7 @@ func getCapiYaml(ctx context.Context, cli client.Client, cluster clusterv1.Clust
 	for _, objRef := range vcdMachineTemplateNameToObjRef {
 		vcdMachineTemplate, err := getVCDMachineTemplateByObjRef(ctx, cli, objRef)
 		if err != nil {
-			return "", fmt.Errorf("failed to get VCDMachineTemplate by ObjectReference [%v]: [%v]", objRef, err)
+			return nil, fmt.Errorf("failed to get VCDMachineTemplate by ObjectReference [%v]: [%v]", objRef, err)
 		}
 		vcdMachineTemplates = append(vcdMachineTemplates, vcdMachineTemplate)
 	}
@@ -192,7 +237,7 @@ func getCapiYaml(ctx context.Context, cli client.Client, cluster clusterv1.Clust
 	for _, objRef := range kubeadmConfigTemplateNameToObjRef {
 		kubeadmConifgTemplate, err := getKubeadmConfigTemplateByObjRef(ctx, cli, *objRef)
 		if err != nil {
-			return "", fmt.Errorf("failed to get KubeadmConfigTemplate by ObjectReference [%v]: [%v]", objRef, err)
+			return nil, fmt.Errorf("failed to get KubeadmConfigTemplate by ObjectReference [%v]: [%v]", objRef, err)
 		}
 		kubeadmConfigTemplates = append(kubeadmConfigTemplates, kubeadmConifgTemplate)
 	}
@@ -210,6 +255,14 @@ func getCapiYaml(ctx context.Context, cli client.Client, cluster clusterv1.Clust
 	for _, md := range mdList.Items {
 		capiYamlObjects = append(capiYamlObjects, md)
 	}
+	return capiYamlObjects, nil
+}
+
+func getCapiYaml(ctx context.Context, cli client.Client, cluster clusterv1.Cluster, vcdCluster infrav1.VCDCluster) (string, error) {
+	capiYamlObjects, err := getK8sClusterObjects(ctx, cli, cluster, vcdCluster)
+	if err != nil {
+		return "", fmt.Errorf("failed to get k8s objects related to cluster [%s]: [%v]", cluster.Name, err)
+	}
 	yamlObjects := make([]string, len(capiYamlObjects))
 	for idx, obj := range capiYamlObjects {
 		yamlString, err := yamlWithoutStatus(obj)
@@ -221,4 +274,20 @@ func getCapiYaml(ctx context.Context, cli client.Client, cluster clusterv1.Clust
 
 	return strings.Join(yamlObjects, "---\n"), nil
 
+}
+
+func getCapiStatusYaml(ctx context.Context, cli client.Client, cluster clusterv1.Cluster, vcdCluster infrav1.VCDCluster) (string, error) {
+	capiYamlObjects, err := getK8sClusterObjects(ctx, cli, cluster, vcdCluster)
+	if err != nil {
+		return "", fmt.Errorf("failed to get k8s objects related to cluster [%s]: [%v]", cluster.Name, err)
+	}
+	yamlObjects := make([]string, len(capiYamlObjects))
+	for idx, obj := range capiYamlObjects {
+		yamlStatusString, err := getK8sObjectStatus(obj)
+		if err != nil {
+			return "", fmt.Errorf("failed to extract status from kuberenets object: [%v]", err)
+		}
+		yamlObjects[idx] = yamlStatusString
+	}
+	return strings.Join(yamlObjects, "---\n"), nil
 }
