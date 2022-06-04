@@ -1299,7 +1299,7 @@ func (gm *GatewayManager) GetLoadBalancerPoolMemberIPs(ctx context.Context, lbPo
 }
 
 func (gm *GatewayManager) CreateLoadBalancer(ctx context.Context, virtualServiceNamePrefix string, lbPoolNamePrefix string,
-	ips []string, portDetailsList []PortDetails, oneArm *OneArm) (string, error) {
+	ips []string, portDetailsList []PortDetails, oneArm *OneArm, noTier0 bool) (string, error) {
 	if len(portDetailsList) == 0 {
 		// nothing to do here
 		klog.Infof("There is no port specified. Hence nothing to do.")
@@ -1343,14 +1343,24 @@ func (gm *GatewayManager) CreateLoadBalancer(ctx context.Context, virtualService
 		}
 	}
 
+	skipIPAddress := externalIP
 	if externalIP == "" {
-		externalIP, err = gm.GetUnusedExternalIPAddress(ctx, gm.IPAMSubnet)
-		if err != nil {
-			return "", fmt.Errorf("unable to get unused IP address from subnet [%s]: [%v]",
-				gm.IPAMSubnet, err)
+		if noTier0 {
+			externalIP, err = gm.GetUnusedInternalIPAddress(ctx, oneArm, nil)
+			if err != nil {
+				return "", fmt.Errorf("unable to get unused internal IP address from onearm range [%v]: [%v]",
+					oneArm, err)
+			}
+			skipIPAddress = externalIP
+		} else {
+			externalIP, err = gm.GetUnusedExternalIPAddress(ctx, gm.IPAMSubnet)
+			if err != nil {
+				return "", fmt.Errorf("unable to get unused IP address from subnet [%s]: [%v]",
+					gm.IPAMSubnet, err)
+			}
 		}
 	}
-	klog.Infof("Using external IP [%s] for virtual service\n", externalIP)
+	klog.Infof("Using mIP [%s] for virtual service\n", externalIP)
 
 	for _, portDetails := range portDetailsList {
 		if portDetails.InternalPort == 0 {
@@ -1383,7 +1393,7 @@ func (gm *GatewayManager) CreateLoadBalancer(ctx context.Context, virtualService
 
 		virtualServiceIP := externalIP
 		if oneArm != nil {
-			internalIP, err := gm.GetUnusedInternalIPAddress(ctx, oneArm)
+			internalIP, err := gm.GetUnusedInternalIPAddress(ctx, oneArm, []string{skipIPAddress})
 			if err != nil {
 				return "", fmt.Errorf("unable to get internal IP address for one-arm mode: [%v]", err)
 			}

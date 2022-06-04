@@ -484,7 +484,8 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		return ctrl.Result{}, errors.Wrapf(err, "Error creating VCD client to reconcile Cluster [%s] infrastructure", vcdCluster.Name)
 	}
 
-	gateway, err := vcdsdk.NewGatewayManager(ctx, workloadVCDClient, vcdCluster.Spec.OvdcNetwork, r.Config.VCD.VIPSubnet)
+	gateway, err := vcdsdk.NewGatewayManager(ctx, workloadVCDClient, vcdCluster.Spec.OvdcNetwork,
+		vcdCluster.Spec.LoadBalancer.VIPSubnetCIDR)
 	if err != nil {
 		return ctrl.Result{}, errors.Wrapf(err, "failed to create gateway manager using the workload client to reconcile cluster [%s]", vcdCluster.Name)
 	}
@@ -592,7 +593,7 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 			}, &vcdsdk.OneArm{
 				StartIP: r.Config.LB.OneArm.StartIP,
 				EndIP:   r.Config.LB.OneArm.EndIP,
-			})
+			}, vcdCluster.Spec.LoadBalancer.DisableTier0Usage)
 		if err != nil {
 			if vsError, ok := err.(*vcdsdk.VirtualServicePendingError); ok {
 				log.Info("Error creating load balancer for cluster. Virtual Service is still pending",

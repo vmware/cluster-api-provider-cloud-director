@@ -187,6 +187,15 @@ spec:
                 required:
                 - vcdStorageProfileName
                 type: object
+              loadBalancer:
+                description: LoadBalancer defines loadbalancer details on a per-cluster
+                  level
+                properties:
+                  disableTier0Usage:
+                    type: boolean
+                  vipSubnetCIDR:
+                    type: string
+                type: object
               org:
                 type: string
               ovdc:

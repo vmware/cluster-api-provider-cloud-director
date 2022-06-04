@@ -500,6 +500,9 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 				vcdStorageProfileName = vcdCluster.Spec.DefaultStorageClassOptions.VCDStorageProfileName
 			}
 
+			formattedVcdHost := strings.Replace(vcdCluster.Spec.Site, "/", "\\/", -1)
+			formattedVipSubnetCidr := strings.Replace(vcdCluster.Spec.LoadBalancer.VIPSubnetCIDR,
+				"/", "\\/", -1)
 			cloudInitInput = CloudInitScriptInput{
 				ControlPlane:              true,
 				B64OrgUser:                b64.StdEncoding.EncodeToString([]byte(orgUserStr)),
@@ -511,22 +514,22 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 				FileSystemFormat:          fileSystemFormat,
 				CpiVersion:                r.Config.ClusterResources.CpiVersion,
 				CsiVersion:                r.Config.ClusterResources.CsiVersion,
-				VcdHostFormatted:          strings.Replace(vcdCluster.Spec.Site, "/", "\\/", -1),
+				VcdHostFormatted:          formattedVcdHost,
 				ClusterOrgName:            workloadVCDClient.ClusterOrgName,
 				ClusterOVDCName:           workloadVCDClient.ClusterOVDCName,
 				NetworkName:               vcdCluster.Spec.OvdcNetwork,
-				VipSubnetCidr:             "", // vip subnet cidr - empty for now for CPI to select subnet
+				VipSubnetCidr:             formattedVipSubnetCidr,
 				VAppName:                  vAppName,
 				ClusterID:                 vcdCluster.Status.InfraId,
 				EnableDefaultStorageClass: strconv.FormatBool(enableDefaultStorageClass),
 			}
 		}
+		// The following are common to both control-plane and worker nodes
 		cloudInitInput.HTTPSProxy = vcdCluster.Spec.ProxyConfig.HTTPProxy
 		cloudInitInput.HTTPSProxy = vcdCluster.Spec.ProxyConfig.HTTPSProxy
 		cloudInitInput.NoProxy = vcdCluster.Spec.ProxyConfig.NoProxy
 		cloudInitInput.MachineName = machine.Name
 		cloudInitInput.NvidiaGPU = vcdMachine.Spec.NvidiaGPU
-
 	}
 
 	mergedCloudInitBytes, err := MergeJinjaToCloudInitScript(cloudInitInput, bootstrapJinjaScript)
