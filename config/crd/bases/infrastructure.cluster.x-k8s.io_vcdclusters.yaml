@@ -191,7 +191,9 @@ spec:
                 description: LoadBalancer defines loadbalancer details on a per-cluster
                   level
                 properties:
-                  disableTier0Usage:
+                  useOneArmRangeForCCM:
+                    type: boolean
+                  useOneArmRangeForControlPlane:
                     type: boolean
                   vipSubnetCIDR:
                     type: string

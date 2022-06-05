@@ -593,7 +593,7 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 			}, &vcdsdk.OneArm{
 				StartIP: r.Config.LB.OneArm.StartIP,
 				EndIP:   r.Config.LB.OneArm.EndIP,
-			}, vcdCluster.Spec.LoadBalancer.DisableTier0Usage)
+			}, vcdCluster.Spec.LoadBalancer.UseOneArmRangeForControlPlane)
 		if err != nil {
 			if vsError, ok := err.(*vcdsdk.VirtualServicePendingError); ok {
 				log.Info("Error creating load balancer for cluster. Virtual Service is still pending",

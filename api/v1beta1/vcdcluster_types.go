@@ -61,8 +61,8 @@ type ProxyConfig struct {
 
 // LoadBalancer defines loadbalancer details on a per-cluster level
 type LoadBalancer struct {
-	VIPSubnetCIDR     string `json:"vipSubnetCIDR,omitempty"`
-	DisableTier0Usage bool   `json:"disableTier0Usage,omitempty"`
+	VIPSubnetCIDR                 string `json:"vipSubnetCIDR,omitempty"`
+	UseOneArmRangeForControlPlane bool   `json:"useOneArmRangeForControlPlane,omitempty"`
 }
 
 // VCDClusterSpec defines the desired state of VCDCluster
