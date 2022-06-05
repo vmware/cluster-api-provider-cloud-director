@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/pkg/errors"
 	infrav1 "github.com/vmware/cluster-api-provider-cloud-director/api/v1beta1"
+	rdeType "github.com/vmware/cluster-api-provider-cloud-director/pkg/vcdtypes/rde_type_1_1_0"
 	"gopkg.in/yaml.v2"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -191,6 +192,96 @@ func getKubeadmConfigTemplateByObjRef(ctx context.Context, cli client.Client, ob
 	}
 
 	return kubeadmConfigTemplate, nil
+}
+
+func getAllMachinesInMachineDeployment(ctx context.Context, cli client.Client, machineDeployment clusterv1.MachineDeployment) (*clusterv1.MachineList, error) {
+	machineListLabels := map[string]string{clusterv1.MachineDeploymentLabelName: machineDeployment.Name}
+	machineList := &clusterv1.MachineList{}
+	if err := cli.List(ctx, machineList, client.InNamespace(machineDeployment.Namespace), client.MatchingLabels(machineListLabels)); err != nil {
+		return nil, errors.Wrapf(err, "error getting machine list for the cluster [%s]", machineDeployment.Name)
+	}
+	return machineList, nil
+}
+
+func getAllMachinesInKCP(ctx context.Context, cli client.Client, kcp kcpv1.KubeadmControlPlane, clusterName string) ([]clusterv1.Machine, error) {
+	machineListLabels := map[string]string{clusterv1.ClusterLabelName: clusterName}
+	machineList := &clusterv1.MachineList{}
+	if err := cli.List(ctx, machineList, client.InNamespace(kcp.Namespace), client.MatchingLabels(machineListLabels)); err != nil {
+		return nil, errors.Wrapf(err, "error getting machine list associated with KCP [%s]: [%v]", kcp.Name, err)
+	}
+	// TODO find a better way to find all machines in KCP
+	machinesWithKCPOwnerRef := make([]clusterv1.Machine, 0)
+	for _, m := range machineList.Items {
+		for _, ref := range m.OwnerReferences {
+			if ref.Kind == "KubeadmControlPlane" && ref.Name == kcp.Name {
+				machinesWithKCPOwnerRef = append(machinesWithKCPOwnerRef, m)
+				break
+			}
+		}
+	}
+	return machinesWithKCPOwnerRef, nil
+}
+
+func getNodePoolList(ctx context.Context, cli client.Client, cluster clusterv1.Cluster) ([]rdeType.NodePool, error) {
+	nodePoolList := make([]rdeType.NodePool, 0)
+	mds, err := getAllMachineDeploymentsForCluster(ctx, cli, cluster)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query all machine deployments for the cluster [%s]: [%v]", cluster.Name, err)
+	}
+	for _, md := range mds.Items {
+		// create a node pool for each machine deployment
+		vcdMachineTemplate, err := getVCDMachineTemplateFromMachineDeployment(ctx, cli, md)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get VCDMachineTemplate associated with the MachineDeployment [%s]: [%v]", md.Name, err)
+		}
+		// query all machines in machine deployment using machine deployment label
+		machineList, err := getAllMachinesInMachineDeployment(ctx, cli, md)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get MachineList for MachineDeployment [%s]: [%v]", md.Name, err)
+		}
+		nodeStatusMap := make(map[string]string)
+		for _, machine := range machineList.Items {
+			nodeStatusMap[machine.Name] = machine.Status.Phase
+		}
+		nodePool := rdeType.NodePool{
+			Name:            md.Name,
+			SizingPolicy:    vcdMachineTemplate.Spec.Template.Spec.SizingPolicy,
+			PlacementPolicy: vcdMachineTemplate.Spec.Template.Spec.PlacementPolicy,
+			Replicas:        md.Status.Replicas,
+			NodeStatus:      nodeStatusMap,
+		}
+		nodePoolList = append(nodePoolList, nodePool)
+	}
+
+	kcpList, err := getAllKubeadmControlPlaneForCluster(ctx, cli, cluster)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query all KubeadmControlPlane objects for the cluster [%s]: [%v]", cluster.Name, err)
+	}
+	for _, kcp := range kcpList.Items {
+		// create a node pool for each kcp
+		vcdMachineTemplate, err := getVCDMachineTemplateFromKCP(ctx, cli, kcp)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get VCDMachineTemplate associated with KubeadmControlPlane [%s]: [%v]", kcp.Name, err)
+		}
+		// query all machines with the kcp
+		machineArr, err := getAllMachinesInKCP(ctx, cli, kcp, cluster.Name)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get Machines associated with the KubeadmControlPlane [%s]: [%v]", kcp.Name, err)
+		}
+		nodeStatusMap := make(map[string]string)
+		for _, machine := range machineArr {
+			nodeStatusMap[machine.Name] = machine.Status.Phase
+		}
+		nodePool := rdeType.NodePool{
+			Name:            kcp.Name,
+			SizingPolicy:    vcdMachineTemplate.Spec.Template.Spec.SizingPolicy,
+			PlacementPolicy: vcdMachineTemplate.Spec.Template.Spec.PlacementPolicy,
+			Replicas:        kcp.Status.Replicas,
+			NodeStatus:      nodeStatusMap,
+		}
+		nodePoolList = append(nodePoolList, nodePool)
+	}
+	return nodePoolList, nil
 }
 
 func getK8sClusterObjects(ctx context.Context, cli client.Client, cluster clusterv1.Cluster, vcdCluster infrav1.VCDCluster) ([]interface{}, error) {

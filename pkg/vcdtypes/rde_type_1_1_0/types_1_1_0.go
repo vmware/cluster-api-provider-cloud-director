@@ -88,12 +88,22 @@ type VCDResource struct {
 	AdditionalDetails map[string]interface{} `json:"additionalDetails,omitempty"`
 }
 
+type NodePool struct {
+	Name            string            `json:"name,omitempty"`
+	SizingPolicy    string            `json:"sizingPolicy,omitempty"`
+	PlacementPolicy string            `json:"placementPolicy,omitempty"`
+	DiskSizeMb      int32             `json:"diskSizeMb,omitempty"`
+	NvidiaGpu       string            `json:"nvidiaGpu,omitempty"`
+	Replicas        int32             `json:"replicas,omitempty"`
+	NodeStatus      map[string]string `json:"nodeStatus,omitempty"`
+}
+
 type CAPVCDStatus struct {
 	Phase                  string            `json:"phase,omitempty"`
 	Kubernetes             string            `json:"kubernetes,omitempty"`
 	Uid                    string            `json:"uid,omitempty"`
 	ClusterAPIStatus       ClusterApiStatus  `json:"clusterApiStatus,omitempty"`
-	NodeStatus             map[string]string `json:"nodeStatus,omitempty"`
+	NodePool               []NodePool        `json:"nodePool,omitempty"`
 	CapvcdVersion          string            `json:"capvcdVersion,omitempty"`
 	UseAsManagementCluster bool              `json:"useAsManagementCluster,omitempty"`
 	Errors                 []string          `json:"errors,omitempty"`
