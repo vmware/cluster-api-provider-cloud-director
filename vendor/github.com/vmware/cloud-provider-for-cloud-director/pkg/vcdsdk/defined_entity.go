@@ -7,6 +7,7 @@ import (
 	swaggerClient "github.com/vmware/cloud-provider-for-cloud-director/pkg/vcdswaggerclient"
 	"k8s.io/klog"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 )
@@ -32,6 +33,7 @@ const (
 
 	CAPVCDEntityTypeVendor = "vmware"
 	CAPVCDEntityTypeNss    = "capvcdCluster"
+	CAPVCDEntityTypePrefix = "urn:vcloud:type:vmware:capvcdCluster"
 
 	NativeClusterEntityTypeVendor = "cse"
 	NativeClusterEntityTypeNss    = "nativeCluster"
@@ -104,6 +106,15 @@ func IsNativeClusterEntityType(entityTypeID string) bool {
 	return entityTypeIDSplit[3] == NativeClusterEntityTypeVendor && entityTypeIDSplit[4] == NativeClusterEntityTypeNss
 }
 
+// EntityType contains only the required properties in get entity type response
+type EntityType struct {
+	ID      string                 `json:"id"`
+	Name    string                 `json:"name"`
+	Nss     string                 `json:"nss"`
+	Version string                 `json:"version"`
+	Schema  map[string]interface{} `json:"schema"`
+}
+
 func convertMapToComponentStatus(componentStatusMap map[string]interface{}) (*ComponentStatus, error) {
 	componentStatusBytes, err := json.Marshal(componentStatusMap)
 	if err != nil {
@@ -119,7 +130,9 @@ func convertMapToComponentStatus(componentStatusMap map[string]interface{}) (*Co
 	return &cs, nil
 }
 
-func addToVCDResourceSet(component string, componentName string, componentVersion string, statusMap map[string]interface{}, vcdResource VCDResource) (map[string]interface{}, error) {
+// AddVCDResourceToStatusMap updates the input status map with VCDResource created from the input parameters. This function doesn't make any
+// 	calls to VCD.
+func AddVCDResourceToStatusMap(component string, componentName string, componentVersion string, statusMap map[string]interface{}, vcdResource VCDResource) (map[string]interface{}, error) {
 	// get the component info from the status
 	componentIf, ok := statusMap[component]
 	if !ok {
@@ -150,6 +163,8 @@ func addToVCDResourceSet(component string, componentName string, componentVersio
 		componentMap[ComponentStatusFieldVCDResourceSet] = []VCDResource{
 			vcdResource,
 		}
+		componentMap["name"] = componentName
+		componentMap["version"] = componentVersion
 		return statusMap, nil
 	}
 
@@ -516,6 +531,32 @@ func (rdeManager *RDEManager) AddToEventSet(ctx context.Context, componentSectio
 	return nil
 }
 
+func (rdeManager *RDEManager) IsCapvcdEntityTypeRegistered(version string) bool {
+	entityTypeID := strings.Join(
+		[]string{
+			CAPVCDEntityTypePrefix,
+			version,
+		},
+		":",
+	)
+	entityTypeListUrl, err := rdeManager.Client.VCDClient.Client.OpenApiBuildEndpoint(
+		"1.0.0/entityTypes/" + entityTypeID)
+	if err != nil {
+		klog.Errorf("failed to construct URL to get list of entity types")
+		return false
+	}
+	var output EntityType
+	err = rdeManager.Client.VCDClient.Client.OpenApiGetItem(
+		rdeManager.Client.VCDClient.Client.APIVersion, entityTypeListUrl,
+		url.Values{}, &output, nil)
+	if err != nil {
+		klog.Errorf("CAPVCD entity type [%s] not registered: [%v]", entityTypeID, err)
+		return false
+	}
+	klog.V(4).Info("Found CAPVCD entity type")
+	return true
+}
+
 // AddToVCDResourceSet adds a VCDResource to the VCDResourceSet of the component in the RDE
 func (rdeManager *RDEManager) AddToVCDResourceSet(ctx context.Context, component string, resourceType string,
 	resourceName string, resourceId string, additionalDetails map[string]interface{}) error {
@@ -541,14 +582,13 @@ func (rdeManager *RDEManager) AddToVCDResourceSet(ctx context.Context, component
 
 		// Only entity of type capvcdCluster should be updated.
 		if !IsCAPVCDEntityType(rde.EntityType) {
-			nonCapvcdEntityError := NonCAPVCDEntityError{
-				EntityTypeID: rde.EntityType,
-			}
-			return nonCapvcdEntityError
+			klog.V(3).Infof("entity type of RDE [%s] is [%s]. skipping adding resource [%s] of type [%s] to status of component [%s]",
+				rde.Id, rde.EntityType, resourceName, resourceType, component)
+			return nil
 		}
 		statusIf, ok := rde.Entity["status"]
 		if !ok {
-			return fmt.Errorf("failed to update RDE [%s] with VCDResourse set information", rdeManager.ClusterID)
+			return fmt.Errorf("failed to update RDE [%s] with VCDResource set information", rdeManager.ClusterID)
 		}
 		statusMap, ok := statusIf.(map[string]interface{})
 		if !ok {
@@ -560,7 +600,7 @@ func (rdeManager *RDEManager) AddToVCDResourceSet(ctx context.Context, component
 			Name:              resourceName,
 			AdditionalDetails: additionalDetails,
 		}
-		updatedStatusMap, err := addToVCDResourceSet(component, rdeManager.StatusComponentName,
+		updatedStatusMap, err := AddVCDResourceToStatusMap(component, rdeManager.StatusComponentName,
 			rdeManager.StatusComponentVersion, statusMap, vcdResource)
 		if err != nil {
 			return fmt.Errorf("error occurred when updating VCDResource set of %s status in RDE [%s]: [%v]", rdeManager.ClusterID, component, err)
@@ -581,8 +621,8 @@ func (rdeManager *RDEManager) AddToVCDResourceSet(ctx context.Context, component
 					vcdResource.Name, vcdResource.ID, component, rdeManager.ClusterID, http.StatusOK, resp.StatusCode, string(responseMessageBytes), err)
 			}
 			// resp.StatusCode is http.StatusOK
-			klog.Infof("successfully added resource [%s] having ID [%s] to VCDResourceSet of [%s] in RDE [%s]",
-				vcdResource.Name, vcdResource.ID, component, rdeManager.ClusterID)
+			klog.Infof("successfully added resource [%s] of type [%s] having ID [%s] to VCDResourceSet of [%s] in RDE [%s]",
+				vcdResource.Name, vcdResource.Type, vcdResource.ID, component, rdeManager.ClusterID)
 			return nil
 		} else if err != nil {
 			return fmt.Errorf("error while updating the RDE [%s]: [%v]", rdeManager.ClusterID, err)
@@ -593,9 +633,9 @@ func (rdeManager *RDEManager) AddToVCDResourceSet(ctx context.Context, component
 	return nil
 }
 
-// removeFromVCDResourceSet removes a VCDResource from VCDResourceSet if type and name of the resource matches
+// RemoveVCDResourceSetFromStatusMap removes a VCDResource from VCDResourceSet if type and name of the resource matches
 // If the component is absent, an empty component is initialized.
-func removeFromVCDResourceSet(component string, componentName string, componentVersion string,
+func RemoveVCDResourceSetFromStatusMap(component string, componentName string, componentVersion string,
 	statusMap map[string]interface{}, vcdResource VCDResource) (map[string]interface{}, error) {
 	// get the component info from the status
 	componentIf, ok := statusMap[component]
@@ -678,7 +718,7 @@ func (rdeManager *RDEManager) RemoveFromVCDResourceSet(ctx context.Context, comp
 		if !ok {
 			return fmt.Errorf("failed to parse status in RDE [%s] into map[string]interface{} to remove [%s] from %s status", rdeManager.ClusterID, resourceName, component)
 		}
-		updatedStatus, err := removeFromVCDResourceSet(component, rdeManager.StatusComponentName,
+		updatedStatus, err := RemoveVCDResourceSetFromStatusMap(component, rdeManager.StatusComponentName,
 			rdeManager.StatusComponentVersion, statusMap, VCDResource{
 				Type: resourceType,
 				Name: resourceName,
@@ -740,9 +780,11 @@ func (rdeManager *RDEManager) removeErrorsfromComponentMap(componentRdeSectionNa
 	// errorName and vcdResourceId
 	matchingErrorsRemoved := false
 	for i := 0; i < len(componentStatus.ErrorSet); i++ {
-		// If vcdResourceId is present, it takes the precedence, else match the entry against vcdResourceName as well.
-		if (vcdResourceId == "" && componentStatus.ErrorSet[i].Name == errorName && (vcdResourceName != "" && componentStatus.ErrorSet[i].VcdResourceName == vcdResourceName)) ||
-			(vcdResourceId != "" && componentStatus.ErrorSet[i].Name == errorName && componentStatus.ErrorSet[i].VcdResourceId == vcdResourceId) {
+		// If both vcdResourceId and vcdResourceName are empty, just match the entry with errorName
+		// If vcdResourceId is present, it takes the precedence, else match the entry against vcdResourceName.
+		if (vcdResourceId == "" && vcdResourceName == "" && componentStatus.ErrorSet[i].Name == errorName) ||
+			(vcdResourceId != "" && componentStatus.ErrorSet[i].Name == errorName && componentStatus.ErrorSet[i].VcdResourceId == vcdResourceId) ||
+			(vcdResourceId == "" && componentStatus.ErrorSet[i].Name == errorName && vcdResourceName != "" && componentStatus.ErrorSet[i].VcdResourceName == vcdResourceName) {
 			componentStatus.ErrorSet = append(componentStatus.ErrorSet[:i], componentStatus.ErrorSet[i+1:]...)
 			i--
 			matchingErrorsRemoved = true
