@@ -1502,7 +1502,6 @@ func (gm *GatewayManager) CreateLoadBalancer(ctx context.Context, virtualService
 		}
 		resourcesAllocated.Insert(VcdResourceLoadBalancerPool, lbPoolRef)
 
-
 		virtualServiceRef, err := gm.CreateVirtualService(ctx, virtualServiceName, lbPoolRef, segRef,
 			virtualServiceIP, portDetails.Protocol, portDetails.ExternalPort,
 			portDetails.UseSSL, portDetails.CertAlias)

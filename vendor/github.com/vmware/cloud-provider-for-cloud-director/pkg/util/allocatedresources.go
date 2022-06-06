@@ -6,7 +6,7 @@ import (
 )
 
 type AllocatedResourcesMap struct {
-	RWLock sync.RWMutex
+	RWLock             sync.RWMutex
 	allocatedResources map[string][]swaggerClient.EntityReference
 }
 
@@ -43,7 +43,7 @@ func (ar *AllocatedResourcesMap) Insert(key string, value *swaggerClient.EntityR
 	return
 }
 
-func (ar *AllocatedResourcesMap) Get(key string) ([]swaggerClient.EntityReference) {
+func (ar *AllocatedResourcesMap) Get(key string) []swaggerClient.EntityReference {
 	ar.RWLock.RLock()
 	defer ar.RWLock.RUnlock()
 
@@ -54,4 +54,3 @@ func (ar *AllocatedResourcesMap) Get(key string) ([]swaggerClient.EntityReferenc
 
 	return values
 }
-
