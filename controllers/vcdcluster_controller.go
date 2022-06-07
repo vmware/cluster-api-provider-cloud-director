@@ -642,6 +642,14 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	}
 	//Todo duplicate check
 
+	if vdcManager.Vdc == nil {
+		return ctrl.Result{}, errors.Errorf("no Vdc created with vdc manager name [%s]", vdcManager.Client.ClusterOVDCName)
+	}
+	_, err = vdcManager.Vdc.GetVAppByName(vcdCluster.Name, true)
+	if err != nil && err == govcd.ErrorEntityNotFound {
+		vcdCluster.Status.VAppMetadataUpdated = false
+	}
+
 	_, err = vdcManager.GetOrCreateVApp(vcdCluster.Name, vcdCluster.Spec.OvdcNetwork)
 	if err != nil {
 		return ctrl.Result{}, errors.Wrapf(err, "Error creating Infra vApp for the cluster [%s]: [%v]", vcdCluster.Name, err)
