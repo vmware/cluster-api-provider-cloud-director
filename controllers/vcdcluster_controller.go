@@ -756,7 +756,7 @@ func (r *VCDClusterReconciler) reconcileDelete(ctx context.Context,
 		}, &vcdsdk.OneArm{
 			StartIP: r.Config.LB.OneArm.StartIP,
 			EndIP:   r.Config.LB.OneArm.EndIP,
-		})
+		}, nil)
 	if err != nil {
 		err = capvcdRdeManager.AddToErrorSet(ctx, capisdk.LoadBalancerDeleteError, "", virtualServiceNamePrefix, fmt.Sprintf("%v", err))
 		return ctrl.Result{}, errors.Wrapf(err,

@@ -48,6 +48,18 @@ const (
 	LoadBalancerDeleteError = "LoadBalancerDeleteError"
 	VappDeleteError         = "VappDeleteError"
 	RdeDeleteError          = "RdeDeleteError"
+
+	// VCDMachine Events
+	InfraVmPoweredOn         = "VcdMachineInfraVMPoweredOn"
+	CloudInitScriptGenerated = "VcdMachineBootstrapScriptGenerated"
+	InfraVmBootstrapped      = "VcdMachineBootstrapped"
+	InfraVmDeleted           = "VcdMachineInfraVmDeleted"
+
+	// VCDMachine Errors
+	ScriptGenerationError = "VcdMachineScriptGenerationError"
+	InfraVMCreationError  = "VcdMachineInfraVMCreationError"
+	ScriptExecutionError  = "VcdMachineScriptExecutionError"
+	InfraVmDeleteError    = "VcdMachineInfraVmDeleteError"
 )
 
 // During upgrade from any old rde to a newer version format, we must be careful not to wipe out
