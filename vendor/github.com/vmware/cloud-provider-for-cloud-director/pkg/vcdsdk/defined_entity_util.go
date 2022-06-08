@@ -14,11 +14,11 @@ func (e CapvcdRdeFoundError) Error() string {
 }
 
 type CPIStatus struct {
-	Name           string               `json:"name,omitempty"`
+	Name           string        `json:"name,omitempty"`
 	Version        string        `json:"version,omitempty"`
 	VCDResourceSet []VCDResource `json:"vcdResourceSet,omitempty"`
 	Errors         []string      `json:"errors,omitempty"`
-	VirtualIPs     []string             `json:"virtualIPs,omitempty"`
+	VirtualIPs     []string      `json:"virtualIPs,omitempty"`
 }
 
 func GetVirtualIPsFromRDE(rde *swaggerClient.DefinedEntity) ([]string, error) {

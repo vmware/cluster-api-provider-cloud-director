@@ -8,7 +8,7 @@ package util
 import "sync"
 
 type Set struct {
-	lock sync.RWMutex
+	lock     sync.RWMutex
 	elements map[string]bool
 }
 
@@ -33,7 +33,7 @@ func (s Set) GetElements() []string {
 	idx := 0
 	for key, _ := range s.elements {
 		elementList[idx] = key
-		idx ++
+		idx++
 	}
 
 	return elementList

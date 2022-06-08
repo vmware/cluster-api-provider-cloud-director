@@ -442,6 +442,7 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	if infraID == "" && len(vcdCluster.Spec.RDEId) > 0 {
 		infraID = vcdCluster.Spec.RDEId
 	}
+	capvcdRdeManager := capisdk.NewCapvcdRdeManager(workloadVCDClient)
 
 	// Create a new RDE if it was not already created or assigned.
 	if infraID == "" {
@@ -487,6 +488,10 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 				log.Error(err, "failed to upgrade RDE", "rdeID", infraID,
 					"sourceVersion", vcdCluster.Status.RdeVersionInUse,
 					"targetVersion", rdeType.CapvcdRDETypeVersion)
+				err1 := capvcdRdeManager.AddToErrorSet(ctx, capisdk.RdeUpgradeError, "", vcdCluster.Name, fmt.Sprintf("%v", err))
+				if err1 != nil {
+					log.Error(err1, "failed to add RdeUpgradeError (RDE upgrade failed) ", "rdeID", infraID)
+				}
 				return ctrl.Result{}, errors.Wrapf(err, "failed to upgrade RDE [%s]", infraID)
 			}
 			// calling reconcileRDE here to avoid delay in updating the RDE contents
@@ -494,6 +499,14 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 				// TODO: can we recover the RDE to a proper state if RDE fails to reconcile?
 				log.Error(err, "failed to reconcile RDE after upgrading RDE", "rdeID", infraID)
 				return ctrl.Result{}, errors.Wrapf(err, "failed to reconcile RDE after upgrading RDE [%s]", infraID)
+			}
+			err = capvcdRdeManager.AddToEventSet(ctx, capisdk.RdeUpgraded, infraID, "", "")
+			if err != nil {
+				log.Error(err, "failed to add RDE-upgrade event (RDE upgraded successfully) ", "rdeID", infraID)
+			}
+			err = capvcdRdeManager.RdeManager.RemoveErrorByNameOrIdFromErrorSet(ctx, vcdsdk.ComponentCAPVCD, capisdk.RdeUpgradeError, "", "")
+			if err != nil {
+				log.Error(err, "failed to remove RDE-upgrade error (RDE upgraded successfully) ", "rdeID", infraID)
 			}
 			vcdCluster.Status.RdeVersionInUse = rdeType.CapvcdRDETypeVersion
 		}
@@ -505,6 +518,11 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		noRDEID := NoRdePrefix + uuid.New().String()
 		log.Info("Error retrieving InfraId. Hence using a self-generated UUID", "UUID", noRDEID)
 		infraID = noRDEID
+	} else {
+		err = capvcdRdeManager.AddToEventSet(ctx, capisdk.RdeAvailable, infraID, "", "")
+		if err != nil {
+			log.Error(err, "failed to add RdeAvailable event", "rdeID", infraID)
+		}
 	}
 
 	// If the vcdClusterObject does not have the InfraId set, we need to set it. If it has one, we can reuse it.
@@ -520,6 +538,8 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		}
 	}
 
+	rdeManager := vcdsdk.NewRDEManager(workloadVCDClient, vcdCluster.Status.InfraId,
+		capisdk.StatusComponentNameCAPVCD, release.CAPVCDVersion)
 	// After InfraId has been set, we can update parentUid, useAsMgmtCluster status
 	vcdCluster.Status.UseAsManagementCluster = vcdCluster.Spec.UseAsManagementCluster
 	vcdCluster.Status.ParentUID = vcdCluster.Spec.ParentUID
@@ -529,9 +549,6 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	virtualServiceNamePrefix := capisdk.GetVirtualServiceNamePrefix(vcdCluster.Name, vcdCluster.Status.InfraId)
 	lbPoolNamePrefix := capisdk.GetLoadBalancerPoolNamePrefix(vcdCluster.Name, vcdCluster.Status.InfraId)
 
-	rdeManager := vcdsdk.NewRDEManager(workloadVCDClient, vcdCluster.Status.InfraId,
-		capisdk.StatusComponentNameCAPVCD, release.CAPVCDVersion)
-
 	controlPlaneNodeIP, err := gateway.GetLoadBalancer(ctx, fmt.Sprintf("%s-tcp", virtualServiceNamePrefix),
 		&vcdsdk.OneArm{
 			StartIP: r.Config.LB.OneArm.StartIP,
@@ -540,6 +557,7 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	//TODO: Sahithi: Check if error is really because of missing virtual service.
 	// In any other error cases, force create the new load balancer with the original control plane endpoint
 	// (if already present). Do not overwrite the existing control plane endpoint with a new endpoint.
+	var virtualServiceHref string
 	if err != nil || controlPlaneNodeIP == "" {
 		if vsError, ok := err.(*vcdsdk.VirtualServicePendingError); ok {
 			log.Info("Error getting load balancer. Virtual Service is still pending",
@@ -580,6 +598,7 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 						additionalDetails = map[string]interface{}{
 							"virtualIP": controlPlaneNodeIP,
 						}
+						virtualServiceHref = value.Id
 					}
 					err = rdeManager.AddToVCDResourceSet(ctx, vcdsdk.ComponentCAPVCD, key,
 						value.Name, value.Id, additionalDetails)
@@ -596,6 +615,10 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 			if vsError, ok := err.(*vcdsdk.VirtualServicePendingError); ok {
 				log.Info("Error creating load balancer for cluster. Virtual Service is still pending",
 					"virtualServiceName", vsError.VirtualServiceName, "error", err)
+				err1 := capvcdRdeManager.AddToErrorSet(ctx, capisdk.LoadbalancerPending, virtualServiceHref, "", fmt.Sprintf("%v", err))
+				if err1 != nil {
+					log.Error(err1, "failed to add LoadBalancerPending error into RDE", "rdeID", infraID)
+				}
 				return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
 			}
 			return ctrl.Result{}, errors.Wrapf(err,
@@ -611,6 +634,15 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		Port: 6443,
 	}
 	log.Info(fmt.Sprintf("Control plane endpoint for the cluster is [%s]", controlPlaneNodeIP))
+
+	err = capvcdRdeManager.AddToEventSet(ctx, capisdk.LoadBalancerAvailable, virtualServiceHref, "", "")
+	if err != nil {
+		log.Error(err, "failed to add LoadBalancerAvailable event into RDE", "rdeID", infraID)
+	}
+	err = capvcdRdeManager.RdeManager.RemoveErrorByNameOrIdFromErrorSet(ctx, vcdsdk.ComponentCAPVCD, capisdk.LoadbalancerPending, "", "")
+	if err != nil {
+		log.Error(err, "failed to remove LoadBalancerPending error (RDE upgraded successfully) ", "rdeID", infraID)
+	}
 
 	if !strings.HasPrefix(vcdCluster.Status.InfraId, NoRdePrefix) {
 		_, resp, _, err := workloadVCDClient.APIClient.DefinedEntityApi.GetDefinedEntity(ctx, vcdCluster.Status.InfraId)
@@ -642,6 +674,10 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	}
 	clusterVApp, err := vdcManager.GetOrCreateVApp(vcdCluster.Name, vcdCluster.Spec.OvdcNetwork)
 	if err != nil {
+		err1 := capvcdRdeManager.AddToErrorSet(ctx, capisdk.VappCreationError, "", vcdCluster.Name, fmt.Sprintf("%v", err))
+		if err1 != nil {
+			log.Error(err1, "failed to add VappCreationError into RDE", "rdeID", infraID)
+		}
 		return ctrl.Result{}, errors.Wrapf(err, "Error creating Infra vApp for the cluster [%s]: [%v]", vcdCluster.Name, err)
 	}
 	if clusterVApp == nil || clusterVApp.VApp == nil {
@@ -654,6 +690,14 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		return ctrl.Result{}, errors.Wrapf(err, "failed to add resource [%s] of type [%s] to VCDResourceSet of RDE [%s]: [%v]",
 			vcdCluster.Name, VCDResourceVApp, infraID, err)
 	}
+	err = capvcdRdeManager.AddToEventSet(ctx, capisdk.InfraVappAvailable, clusterVApp.VApp.ID, "", "")
+	if err != nil {
+		log.Error(err, "failed to add InfraVappAvailable event into RDE", "rdeID", infraID)
+	}
+	err = capvcdRdeManager.RdeManager.RemoveErrorByNameOrIdFromErrorSet(ctx, vcdsdk.ComponentCAPVCD, capisdk.VappCreationError, "", "")
+	if err != nil {
+		log.Error(err, "failed to remove VappCreationError from RDE", "rdeID", infraID)
+	}
 
 	// Update the vcdCluster resource with updated information
 	// TODO Check if updating ovdcNetwork, Org and Ovdc should be done somewhere earlier in the code.
@@ -661,7 +705,12 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 
 	vcdCluster.Status.Ready = true
 	conditions.MarkTrue(vcdCluster, LoadBalancerAvailableCondition)
-
+	if cluster.Status.ControlPlaneReady {
+		err = capvcdRdeManager.AddToEventSet(ctx, capisdk.ControlplaneReady, infraID, "", "")
+		if err != nil {
+			log.Error(err, "failed to add ControlPlaneReady event into RDE", "rdeID", infraID)
+		}
+	}
 	return ctrl.Result{}, nil
 }
 
@@ -691,6 +740,7 @@ func (r *VCDClusterReconciler) reconcileDelete(ctx context.Context,
 			"Error occurred during cluster deletion; unable to create client for the workload cluster [%s]",
 			vcdCluster.Name)
 	}
+	capvcdRdeManager := capisdk.NewCapvcdRdeManager(workloadVCDClient)
 
 	gateway, err := vcdsdk.NewGatewayManager(ctx, workloadVCDClient, vcdCluster.Spec.OvdcNetwork, r.Config.VCD.VIPSubnet)
 	if err != nil {
@@ -711,14 +761,26 @@ func (r *VCDClusterReconciler) reconcileDelete(ctx context.Context,
 		}, &vcdsdk.OneArm{
 			StartIP: r.Config.LB.OneArm.StartIP,
 			EndIP:   r.Config.LB.OneArm.EndIP,
-		})
+		}, nil)
 	if err != nil {
+		err1 := capvcdRdeManager.AddToErrorSet(ctx, capisdk.LoadBalancerDeleteError, "", virtualServiceNamePrefix, fmt.Sprintf("%v", err))
+		if err1 != nil {
+			log.Error(err1, "failed to add LoadBalancerDeleteError into RDE", "rdeID", vcdCluster.Status.InfraId)
+		}
 		return ctrl.Result{}, errors.Wrapf(err,
 			"Error occurred during cluster [%s] deletion; unable to delete the load balancer [%s]: [%v]",
 			vcdCluster.Name, virtualServiceNamePrefix, err)
 	}
 	log.Info("Deleted the load balancer components (virtual service, lb pool, dnat rule) of the cluster",
 		"virtual service", virtualServiceNamePrefix, "lb pool", lbPoolNamePrefix)
+	err = capvcdRdeManager.AddToEventSet(ctx, capisdk.LoadbalancerDeleted, virtualServiceNamePrefix, "", "")
+	if err != nil {
+		log.Error(err, "failed to add LoadBalancerDeleted event into RDE", "rdeID", vcdCluster.Status.InfraId)
+	}
+	err = capvcdRdeManager.RdeManager.RemoveErrorByNameOrIdFromErrorSet(ctx, vcdsdk.ComponentCAPVCD, capisdk.LoadBalancerDeleteError, "", "")
+	if err != nil {
+		log.Error(err, "failed to remove LoadBalanceDeleteError from RDE", "rdeID", vcdCluster.Status.InfraId)
+	}
 
 	vdcManager, err := vcdsdk.NewVDCManager(workloadVCDClient, workloadVCDClient.ClusterOrgName,
 		workloadVCDClient.ClusterOVDCName)
@@ -753,6 +815,10 @@ func (r *VCDClusterReconciler) reconcileDelete(ctx context.Context,
 			log.Info("Deleting vApp of the cluster", "vAppName", vcdCluster.Name)
 			err = vdcManager.DeleteVApp(vcdCluster.Name)
 			if err != nil {
+				err1 := capvcdRdeManager.AddToErrorSet(ctx, capisdk.VappDeleteError, "", vcdCluster.Name, fmt.Sprintf("%v", err))
+				if err1 != nil {
+					log.Error(err1, "failed to add VappDeleteError into RDE", "rdeID", vcdCluster.Status.InfraId)
+				}
 				return ctrl.Result{}, errors.Wrapf(err,
 					"Error occurred during cluster deletion; failed to delete vApp [%s]", vcdCluster.Name)
 			}
@@ -767,6 +833,14 @@ func (r *VCDClusterReconciler) reconcileDelete(ctx context.Context,
 		return ctrl.Result{}, errors.Wrapf(err,
 			"failed to delete VCD Resource [%s] of type [%s] from VCDResourceSet of RDE [%s]: [%v]",
 			vcdCluster.Name, VCDResourceVApp, vcdCluster.Status.InfraId, err)
+	}
+	err = capvcdRdeManager.AddToEventSet(ctx, capisdk.VappDeleted, "", "", "")
+	if err != nil {
+		log.Error(err, "failed to add vAppDeleted event into RDE", "rdeID", vcdCluster.Status.InfraId)
+	}
+	err = capvcdRdeManager.RdeManager.RemoveErrorByNameOrIdFromErrorSet(ctx, vcdsdk.ComponentCAPVCD, capisdk.VappDeleteError, "", "")
+	if err != nil {
+		log.Error(err, "failed to remove vAppDeleteError from RDE", "rdeID", vcdCluster.Status.InfraId)
 	}
 
 	// TODO: If RDE deletion fails, should we throw an error during reconciliation?
@@ -796,6 +870,10 @@ func (r *VCDClusterReconciler) reconcileDelete(ctx context.Context,
 			resp, err = workloadVCDClient.APIClient.DefinedEntityApi.DeleteDefinedEntity(ctx,
 				vcdCluster.Status.InfraId, nil)
 			if err != nil {
+				err1 := capvcdRdeManager.AddToErrorSet(ctx, capisdk.RdeDeleteError, "", "", fmt.Sprintf("%v", err))
+				if err1 != nil {
+					log.Error(err1, "failed to add RdeDeleteError into RDE", "rdeID", vcdCluster.Status.InfraId)
+				}
 				return ctrl.Result{}, errors.Wrapf(err, "error occurred during RDE deletion; failed to execute delete defined entity call for RDE with ID [%s]", vcdCluster.Status.InfraId)
 			}
 			if resp.StatusCode != http.StatusNoContent {

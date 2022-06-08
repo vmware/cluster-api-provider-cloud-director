@@ -10,11 +10,13 @@ import (
 	"github.com/vmware/cluster-api-provider-cloud-director/pkg/util"
 	"github.com/vmware/cluster-api-provider-cloud-director/pkg/vcdtypes/rde_type_1_0_0"
 	rdeType "github.com/vmware/cluster-api-provider-cloud-director/pkg/vcdtypes/rde_type_1_1_0"
+	"github.com/vmware/cluster-api-provider-cloud-director/release"
 	"k8s.io/klog"
 	"net/http"
 	"net/url"
 	"reflect"
 	"strings"
+	"time"
 )
 
 const (
@@ -28,6 +30,36 @@ const (
 
 	CAPVCDClusterKind             = "CAPVCDCluster"
 	CAPVCDClusterEntityApiVersion = "capvcd.vmware.com/v1.1"
+	DefaultRollingWindowSize      = 20
+
+	// VCDCluster Events
+	RdeAvailable          = "RdeAvailable"
+	RdeUpgraded           = "RdeUpgraded"
+	LoadBalancerAvailable = "LoadBalancerAvailable"
+	InfraVappAvailable    = "InfraVappAvailable"
+	ControlplaneReady     = "ControlplaneReady"
+	LoadbalancerDeleted   = "LoadbalancerDeleted"
+	VappDeleted           = "vAppDeleted"
+
+	// VCDCluster Errors
+	RdeUpgradeError         = "RdeUpgradeError"
+	LoadbalancerPending     = "LoadBalancerPending"
+	VappCreationError       = "vAppCreationError"
+	LoadBalancerDeleteError = "LoadBalancerDeleteError"
+	VappDeleteError         = "VappDeleteError"
+	RdeDeleteError          = "RdeDeleteError"
+
+	// VCDMachine Events
+	InfraVmPoweredOn         = "VcdMachineInfraVMPoweredOn"
+	CloudInitScriptGenerated = "VcdMachineBootstrapScriptGenerated"
+	InfraVmBootstrapped      = "VcdMachineBootstrapped"
+	InfraVmDeleted           = "VcdMachineInfraVmDeleted"
+
+	// VCDMachine Errors
+	ScriptGenerationError = "VcdMachineScriptGenerationError"
+	InfraVMCreationError  = "VcdMachineInfraVMCreationError"
+	ScriptExecutionError  = "VcdMachineScriptExecutionError"
+	InfraVmDeleteError    = "VcdMachineInfraVmDeleteError"
 )
 
 // During upgrade from any old rde to a newer version format, we must be careful not to wipe out
@@ -45,12 +77,19 @@ var (
 )
 
 type CapvcdRdeManager struct {
-	Client *vcdsdk.Client
+	Client     *vcdsdk.Client
+	RdeManager *vcdsdk.RDEManager
 }
 
 func NewCapvcdRdeManager(client *vcdsdk.Client) *CapvcdRdeManager {
 	return &CapvcdRdeManager{
 		Client: client,
+		RdeManager: &vcdsdk.RDEManager{
+			Client:                 client,
+			StatusComponentName:    StatusComponentNameCAPVCD,
+			StatusComponentVersion: release.CAPVCDVersion,
+			ClusterID:              "",
+		},
 	}
 }
 
@@ -387,4 +426,30 @@ func (capvcdRdeManager *CapvcdRdeManager) ConvertToLatestRDEVersionFormat(ctx co
 	}
 
 	return dstRde, nil
+}
+
+func (capvcdRdeManager *CapvcdRdeManager) AddToErrorSet(ctx context.Context, errorName, vcdResourceId, vcdResourceName, detailedErrorMsg string) error {
+	backendErr := vcdsdk.BackendError{
+		Name:            errorName,
+		OccurredAt:      time.Now(),
+		VcdResourceId:   vcdResourceId,
+		VcdResourceName: vcdResourceName,
+	}
+	if detailedErrorMsg != "" {
+		backendErr.AdditionalDetails = map[string]interface{}{"error": detailedErrorMsg}
+	}
+	return capvcdRdeManager.RdeManager.AddToErrorSet(ctx, vcdsdk.ComponentCAPVCD, backendErr, DefaultRollingWindowSize)
+}
+
+func (capvcdRdeManager *CapvcdRdeManager) AddToEventSet(ctx context.Context, eventName, vcdResourceId, vcdResourceName, detailedEventMsg string) error {
+	backendEvent := vcdsdk.BackendEvent{
+		Name:            eventName,
+		OccurredAt:      time.Now(),
+		VcdResourceId:   vcdResourceId,
+		VcdResourceName: vcdResourceName,
+	}
+	if detailedEventMsg != "" {
+		backendEvent.AdditionalDetails = map[string]interface{}{"event": detailedEventMsg}
+	}
+	return capvcdRdeManager.RdeManager.AddToEventSet(ctx, vcdsdk.ComponentCAPVCD, backendEvent, DefaultRollingWindowSize)
 }
