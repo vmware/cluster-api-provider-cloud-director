@@ -25,6 +25,17 @@ spec:
     name: capi-cluster # name of the VCDCluster object associated with the cluster.
     namespace: default # kubernetes namespace in which the VCDCluster object resides. Should be the same namespace as that of the Cluster object
 ---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: capi-user-credentials
+  namespace: default
+type: Opaque
+data:
+  username: username # username of the VCD persona creating the cluster. If system administrator is the user, please use 'system/administrator' as the username.
+  password: vmware # password associated with the user creating the cluster
+  refreshToken: "" # refresh token of the client registered with VCD for creating clusters. username and password can be left blank if refresh token is provided
+---
 apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
 kind: VCDCluster
 metadata:
@@ -38,9 +49,9 @@ spec:
   parentUid: "urn:vcloud:entity:vmware:capvcdCluster:ParentUUID" # create the CAPVCD cluster from a specific management cluster associated with this UID.
   useAsManagementCluster: false # intent to use the resultant CAPVCD cluster as a management cluster
   userContext:
-    username: username # username of the VCD persona creating the cluster. If system administrator is the user, please use 'system/administrator' as the username.
-    password: vmware # password associated with the user creating the cluster
-    refreshToken: "" # refresh token of the client registered with VCD for creating clusters. username and password can be left blank if refresh token is provided
+    secretRef:
+      name: capi-user-credentials # name of the secret containing the credentials of the VCD persona creating the cluster
+      namespace: default # name of the secret containing the credentials of the VCD persona creating the cluster
   defaultStorageClassOptions: # default storage class configuration options. include this field only if a default storage class needs to be created
     vcdStorageProfileName: "*" # name of the VCD storage profile used to create the storage class
     k8sStorageClassName: "vcd-dev-disk" # name of the storage class in kubernetes
