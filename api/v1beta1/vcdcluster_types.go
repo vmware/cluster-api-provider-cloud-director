@@ -17,6 +17,7 @@ limitations under the License.
 package v1beta1
 
 import (
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 )
@@ -36,9 +37,10 @@ type APIEndpoint struct {
 	Port int `json:"port"`
 }
 type UserCredentialsContext struct {
-	Username     string `json:"username,omitempty"`
-	Password     string `json:"password,omitempty"`
-	RefreshToken string `json:"refreshToken,omitempty"`
+	Username     string              `json:"username,omitempty"`
+	Password     string              `json:"password,omitempty"`
+	RefreshToken string              `json:"refreshToken,omitempty"`
+	SecretRef    *v1.SecretReference `json:"secretRef,omitempty"`
 }
 
 type DefaultStorageClassOptions struct {
