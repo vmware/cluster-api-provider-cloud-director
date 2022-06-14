@@ -609,7 +609,7 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 					ExternalPort: int32(controlPlanePort),
 					InternalPort: int32(controlPlanePort),
 				},
-			}, oneArm, vcdCluster.Spec.LoadBalancer.UseOneArm,
+			}, oneArm, !vcdCluster.Spec.LoadBalancer.UseOneArm,
 			nil, vcdCluster.Spec.ControlPlaneEndpoint.Host)
 		if err != nil {
 			if vsError, ok := err.(*vcdsdk.VirtualServicePendingError); ok {

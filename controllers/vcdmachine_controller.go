@@ -644,7 +644,7 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		// At this point the vcdCluster.Spec.ControlPlaneEndpoint should have been set correctly.
 		err = gateway.UpdateLoadBalancer(ctx, lbPoolName, virtualServiceName, updatedUniqueIPs,
 			int32(vcdCluster.Spec.ControlPlaneEndpoint.Port), int32(vcdCluster.Spec.ControlPlaneEndpoint.Port),
-			oneArm, vcdCluster.Spec.LoadBalancer.UseOneArm)
+			oneArm, !vcdCluster.Spec.LoadBalancer.UseOneArm)
 		if err != nil {
 			return ctrl.Result{}, errors.Wrapf(err,
 				"Error updating the load balancer pool [%s] for the "+
@@ -889,7 +889,7 @@ func (r *VCDMachineReconciler) reconcileDelete(ctx context.Context, cluster *clu
 			// At this point the vcdCluster.Spec.ControlPlaneEndpoint should have been set correctly.
 			err = gateway.UpdateLoadBalancer(ctx, lbPoolName, virtualServiceName, updatedIPs,
 				int32(vcdCluster.Spec.ControlPlaneEndpoint.Port), int32(vcdCluster.Spec.ControlPlaneEndpoint.Port),
-				oneArm, vcdCluster.Spec.LoadBalancer.UseOneArm)
+				oneArm, !vcdCluster.Spec.LoadBalancer.UseOneArm)
 			if err != nil {
 				return ctrl.Result{}, errors.Wrapf(err,
 					"Error while deleting the infra resources of the machine [%s/%s]; error deleting the control plane from the load balancer pool [%s]",
