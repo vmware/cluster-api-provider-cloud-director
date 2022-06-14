@@ -634,14 +634,17 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 
 		updatedIPs := append(controlPlaneIPs, machineAddress)
 		updatedUniqueIPs := cpiutil.NewSet(updatedIPs).GetElements()
-		err = gateway.UpdateLoadBalancer(ctx, lbPoolName, virtualServiceName,
-			updatedUniqueIPs, r.Config.LB.Ports.TCP, r.Config.LB.Ports.TCP)
+		// At this point the vcdCluster.Spec.ControlPlaneEndpoint should have been set correctly.
+		err = gateway.UpdateLoadBalancer(ctx, lbPoolName, virtualServiceName, updatedUniqueIPs,
+			int32(vcdCluster.Spec.ControlPlaneEndpoint.Port), int32(vcdCluster.Spec.ControlPlaneEndpoint.Port),
+			nil, true)
 		if err != nil {
 			return ctrl.Result{}, errors.Wrapf(err,
 				"Error updating the load balancer pool [%s] for the "+
 					"control plane machine [%s] of the cluster [%s]", lbPoolName, machine.Name, vcdCluster.Name)
 		}
-		log.Info("Updated the load balancer pool with the control plane machine IP", "lbpool", lbPoolName)
+		log.Info("Updated the load balancer pool with the control plane machine IP",
+			"lbpool", lbPoolName)
 	}
 
 	// only resize hard disk if the user has requested so by specifying such in the VCDMachineTemplate spec
@@ -658,7 +661,9 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		diskSettings := vm.VM.VmSpecSection.DiskSection.DiskSettings
 		// if the specified disk size is less than what is defined in the template, then we ignore the field
 		if len(diskSettings) != 0 && diskSettings[0].SizeMb < diskSize {
-			log.Info(fmt.Sprintf("resizing hard disk on infrastructure VM for the machine [%s] of the cluster [%s]; resizing from [%sMB] to [%sMB]", vm.VM.Name, vApp.VApp.Name, diskSettings[0].SizeMb, diskSize))
+			log.Info(
+				fmt.Sprintf("resizing hard disk on VM for machine [%s] of cluster [%s]; resizing from [%dMB] to [%dMB]",
+					vm.VM.Name, vApp.VApp.Name, diskSettings[0].SizeMb, diskSize))
 
 			diskSettings[0].SizeMb = diskSize
 			vm.VM.VmSpecSection.DiskSection.DiskSettings = diskSettings
@@ -866,8 +871,11 @@ func (r *VCDMachineReconciler) reconcileDelete(ctx context.Context, cluster *clu
 					updatedIPs = append(controlPlaneIPs[:i], controlPlaneIPs[i+1:]...)
 				}
 			}
+
+			// At this point the vcdCluster.Spec.ControlPlaneEndpoint should have been set correctly.
 			err = gateway.UpdateLoadBalancer(ctx, lbPoolName, virtualServiceName, updatedIPs,
-				r.Config.LB.Ports.TCP, r.Config.LB.Ports.TCP)
+				int32(vcdCluster.Spec.ControlPlaneEndpoint.Port), int32(vcdCluster.Spec.ControlPlaneEndpoint.Port),
+				nil, true)
 			if err != nil {
 				return ctrl.Result{}, errors.Wrapf(err,
 					"Error while deleting the infra resources of the machine [%s/%s]; error deleting the control plane from the load balancer pool [%s]",

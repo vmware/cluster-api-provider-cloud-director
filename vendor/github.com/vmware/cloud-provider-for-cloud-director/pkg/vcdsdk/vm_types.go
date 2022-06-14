@@ -1,8 +1,8 @@
 package vcdsdk
 
 import (
-"encoding/xml"
-"github.com/vmware/go-vcloud-director/v2/types/v56"
+	"encoding/xml"
+	"github.com/vmware/go-vcloud-director/v2/types/v56"
 	"time"
 )
 

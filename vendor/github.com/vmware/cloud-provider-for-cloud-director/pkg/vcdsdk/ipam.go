@@ -16,7 +16,7 @@ import (
 
 type IPRange struct {
 	StartIP string
-	EndIP string
+	EndIP   string
 }
 
 // GetUnusedExternalIPAddress returns the first unused IP address in the gateway from an ipamSubnet
@@ -57,7 +57,7 @@ func (gm *GatewayManager) GetUnusedExternalIPAddress(ctx context.Context, allowe
 			for _, ipRangeValue := range subnet.IpRanges.Values {
 				ipRangeList = append(ipRangeList, IPRange{
 					StartIP: ipRangeValue.StartAddress,
-					EndIP: ipRangeValue.EndAddress,
+					EndIP:   ipRangeValue.EndAddress,
 				})
 			}
 		}
