@@ -187,6 +187,13 @@ spec:
                 required:
                 - vcdStorageProfileName
                 type: object
+              loadBalancer:
+                description: LoadBalancer defines load-balancer configuration for
+                  the Cluster both for the control plane nodes and for the CPI
+                properties:
+                  useOneArm:
+                    type: boolean
+                type: object
               org:
                 type: string
               ovdc:

@@ -17,6 +17,9 @@ func (src *VCDCluster) ConvertTo(dstRaw conversion.Hub) error {
 	dst.Spec.RDEId = src.Status.InfraId
 	dst.Spec.ParentUID = ""
 	dst.Spec.UseAsManagementCluster = false // defaults to false
+
+	// In v1alpha4 DNAT rules (and one-arm) are used by default. Therefore, use that in v1beta1
+	dst.Spec.LoadBalancer.UseOneArm = true
 	return nil
 }
 
