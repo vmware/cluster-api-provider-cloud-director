@@ -5,10 +5,10 @@ write_files: {{- if .ControlPlane }}
   content: |
     ---
     apiVersion: v1
-    data:
+    data: {{- if not .B64RefreshToken }}
       username: "{{ .B64OrgUser }}"
-      password: "{{ .B64Password }}"
-      refreshToken: "{{ .B64RefreshToken }}"
+      password: "{{ .B64Password }}" {{- else }}
+      refreshToken: "{{ .B64RefreshToken }}" {{- end }}
     kind: Secret
     metadata:
       name: vcloud-basic-auth
