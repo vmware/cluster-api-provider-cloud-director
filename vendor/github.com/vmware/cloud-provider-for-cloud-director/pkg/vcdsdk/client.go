@@ -22,10 +22,10 @@ type Client struct {
 	VCDAuthConfig   *VCDAuthConfig // s
 	ClusterOrgName  string
 	ClusterOVDCName string
-	VCDClient *govcd.VCDClient
-	VDC       *govcd.Vdc // TODO: Incrementally remove and test in tests
-	APIClient *swaggerClient.APIClient
-	RWLock sync.RWMutex
+	VCDClient       *govcd.VCDClient
+	VDC             *govcd.Vdc // TODO: Incrementally remove and test in tests
+	APIClient       *swaggerClient.APIClient
+	RWLock          sync.RWMutex
 }
 
 func GetUserAndOrg(fullUserName string, clusterOrg string, currentUserOrg string) (userOrg string, userName string, err error) {
@@ -55,7 +55,6 @@ func GetUserAndOrg(fullUserName string, clusterOrg string, currentUserOrg string
 
 	return userOrg, userName, nil
 }
-
 
 //  TODO: Make sure this function still works properly with no issues after refactor
 func (client *Client) RefreshBearerToken() error {

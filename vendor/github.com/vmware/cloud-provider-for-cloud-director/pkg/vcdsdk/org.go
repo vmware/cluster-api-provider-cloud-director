@@ -10,20 +10,20 @@ import (
 
 type OrgManager struct {
 	// client should be refreshed separately
-	Client *Client
+	Client  *Client
 	OrgName string
 }
 
 func NewOrgManager(client *Client, orgName string) (*OrgManager, error) {
 	// if orgName is empty, use the clusteOrgName from the client as the orgName
-	if orgName == "" && client.ClusterOrgName == ""{
+	if orgName == "" && client.ClusterOrgName == "" {
 		if client.ClusterOrgName == "" {
 			return nil, fmt.Errorf("could not find a valid OrgName to create orgManager")
 		}
 		orgName = client.ClusterOrgName
 	}
 	return &OrgManager{
-		Client: client,
+		Client:  client,
 		OrgName: orgName,
 	}, nil
 }

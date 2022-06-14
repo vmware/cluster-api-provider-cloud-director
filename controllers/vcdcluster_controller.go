@@ -568,11 +568,15 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	virtualServiceNamePrefix := capisdk.GetVirtualServiceNamePrefix(vcdCluster.Name, vcdCluster.Status.InfraId)
 	lbPoolNamePrefix := capisdk.GetLoadBalancerPoolNamePrefix(vcdCluster.Name, vcdCluster.Status.InfraId)
 
-	controlPlaneNodeIP, err := gateway.GetLoadBalancer(ctx, fmt.Sprintf("%s-tcp", virtualServiceNamePrefix),
-		&vcdsdk.OneArm{
+	var oneArm *vcdsdk.OneArm = nil
+	if vcdCluster.Spec.LoadBalancer.UseOneArm {
+		oneArm = &vcdsdk.OneArm{
 			StartIP: r.Config.LB.OneArm.StartIP,
 			EndIP:   r.Config.LB.OneArm.EndIP,
-		})
+		}
+	}
+	controlPlaneNodeIP, err := gateway.GetLoadBalancer(ctx,
+		fmt.Sprintf("%s-tcp", virtualServiceNamePrefix), oneArm)
 	//TODO: Sahithi: Check if error is really because of missing virtual service.
 	// In any other error cases, force create the new load balancer with the original control plane endpoint
 	// (if already present). Do not overwrite the existing control plane endpoint with a new endpoint.
@@ -583,19 +587,30 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 			return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
 		}
 
-		log.Info("Creating load balancer for the cluster")
+		controlPlanePort := vcdCluster.Spec.ControlPlaneEndpoint.Port
+		if controlPlanePort == 0 {
+			controlPlanePort = int(r.Config.LB.Ports.TCP)
+		}
+
+		if vcdCluster.Spec.ControlPlaneEndpoint.Host != "" {
+			log.Info("Creating load balancer for the cluster at user-specified endpoint",
+				"host", vcdCluster.Spec.ControlPlaneEndpoint.Host, "port", controlPlanePort)
+		} else {
+			log.Info("Creating load balancer for the cluster")
+		}
+
+		// here we set enableVirtualServiceSharedIP to ensure that we don't use a DNAT rule. The variable is possibly
+		// badly named. Though the user-facing name is good, the internal variable name could be better.
 		controlPlaneNodeIP, err = gateway.CreateLoadBalancer(ctx, virtualServiceNamePrefix, lbPoolNamePrefix,
 			[]string{}, []vcdsdk.PortDetails{
 				{
 					Protocol:     "TCP",
 					PortSuffix:   "tcp",
-					ExternalPort: r.Config.LB.Ports.TCP,
-					InternalPort: r.Config.LB.Ports.TCP,
+					ExternalPort: int32(controlPlanePort),
+					InternalPort: int32(controlPlanePort),
 				},
-			}, &vcdsdk.OneArm{
-				StartIP: r.Config.LB.OneArm.StartIP,
-				EndIP:   r.Config.LB.OneArm.EndIP,
-			})
+			}, oneArm, !vcdCluster.Spec.LoadBalancer.UseOneArm,
+			nil, vcdCluster.Spec.ControlPlaneEndpoint.Host)
 		if err != nil {
 			if vsError, ok := err.(*vcdsdk.VirtualServicePendingError); ok {
 				log.Info("Error creating load balancer for cluster. Virtual Service is still pending",
@@ -712,6 +727,13 @@ func (r *VCDClusterReconciler) reconcileDelete(ctx context.Context,
 	// Delete the load balancer components
 	virtualServiceNamePrefix := capisdk.GetVirtualServiceNamePrefix(vcdCluster.Name, vcdCluster.Status.InfraId)
 	lbPoolNamePrefix := capisdk.GetVirtualServiceNamePrefix(vcdCluster.Name, vcdCluster.Status.InfraId)
+	var oneArm *vcdsdk.OneArm = nil
+	if vcdCluster.Spec.LoadBalancer.UseOneArm {
+		oneArm = &vcdsdk.OneArm{
+			StartIP: r.Config.LB.OneArm.StartIP,
+			EndIP:   r.Config.LB.OneArm.EndIP,
+		}
+	}
 	_, err = gateway.DeleteLoadBalancer(ctx, virtualServiceNamePrefix, lbPoolNamePrefix,
 		[]vcdsdk.PortDetails{
 			{
@@ -720,10 +742,7 @@ func (r *VCDClusterReconciler) reconcileDelete(ctx context.Context,
 				ExternalPort: r.Config.LB.Ports.TCP,
 				InternalPort: r.Config.LB.Ports.TCP,
 			},
-		}, &vcdsdk.OneArm{
-			StartIP: r.Config.LB.OneArm.StartIP,
-			EndIP:   r.Config.LB.OneArm.EndIP,
-		})
+		}, oneArm)
 	if err != nil {
 		return ctrl.Result{}, errors.Wrapf(err,
 			"Error occurred during cluster [%s] deletion; unable to delete the load balancer [%s]: [%v]",
