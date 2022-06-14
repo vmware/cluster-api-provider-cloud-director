@@ -36,6 +36,7 @@ type APIEndpoint struct {
 	// Port is the port on which the API server is serving.
 	Port int `json:"port"`
 }
+
 type UserCredentialsContext struct {
 	Username     string              `json:"username,omitempty"`
 	Password     string              `json:"password,omitempty"`
@@ -58,6 +59,12 @@ type ProxyConfig struct {
 	HTTPProxy  string `json:"httpProxy,omitempty"`
 	HTTPSProxy string `json:"httpsProxy,omitempty"`
 	NoProxy    string `json:"noProxy,omitempty"`
+}
+
+// LoadBalancer defines loadbalancer details on a per-cluster level
+type LoadBalancer struct {
+	VIPSubnetCIDR                 string `json:"vipSubnetCIDR,omitempty"`
+	UseOneArmRangeForControlPlane bool   `json:"useOneArmRangeForControlPlane,omitempty"`
 }
 
 // VCDClusterSpec defines the desired state of VCDCluster
@@ -87,6 +94,8 @@ type VCDClusterSpec struct {
 	UseAsManagementCluster bool `json:"useAsManagementCluster,omitempty"`
 	// +optional
 	ProxyConfig ProxyConfig `json:"proxyConfig,omitempty"`
+	//+optional
+	LoadBalancer LoadBalancer `json:"loadBalancer,omitempty"`
 }
 
 // VCDClusterStatus defines the observed state of VCDCluster

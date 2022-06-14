@@ -17,6 +17,13 @@ func (src *VCDCluster) ConvertTo(dstRaw conversion.Hub) error {
 	dst.Spec.RDEId = src.Status.InfraId
 	dst.Spec.ParentUID = ""
 	dst.Spec.UseAsManagementCluster = false // defaults to false
+
+	// These are the values used in v1alpha4 clusters
+	dst.Spec.LoadBalancer = v1beta1.LoadBalancer{
+		VIPSubnetCIDR:                 "",    // empty string means use any range in the gateway
+		UseOneArmRangeForControlPlane: false, // false means use gateway subnets
+	}
+
 	return nil
 }
 
