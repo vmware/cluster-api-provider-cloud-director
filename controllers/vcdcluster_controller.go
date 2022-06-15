@@ -650,7 +650,7 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 
 	vcdCluster.Spec.ControlPlaneEndpoint = infrav1.APIEndpoint{
 		Host: controlPlaneNodeIP,
-		Port: 6443,
+		Port: int(r.Config.LB.Ports.TCP),
 	}
 	log.Info(fmt.Sprintf("Control plane endpoint for the cluster is [%s]", controlPlaneNodeIP))
 
@@ -799,8 +799,8 @@ func (r *VCDClusterReconciler) reconcileDelete(ctx context.Context,
 			{
 				Protocol:     "TCP",
 				PortSuffix:   "tcp",
-				ExternalPort: 6443,
-				InternalPort: 6443,
+				ExternalPort: r.Config.LB.Ports.TCP,
+				InternalPort: r.Config.LB.Ports.TCP,
 			},
 		}, oneArm, resourcesAllocated)
 	if err != nil {
