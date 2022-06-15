@@ -31,7 +31,7 @@ func (s Set) GetElements() []string {
 
 	elementList := make([]string, len(s.elements))
 	idx := 0
-	for key, _ := range s.elements {
+	for key := range s.elements {
 		elementList[idx] = key
 		idx++
 	}

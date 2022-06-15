@@ -17,6 +17,7 @@ limitations under the License.
 package v1beta1
 
 import (
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 )
@@ -36,9 +37,10 @@ type APIEndpoint struct {
 	Port int `json:"port"`
 }
 type UserCredentialsContext struct {
-	Username     string `json:"username,omitempty"`
-	Password     string `json:"password,omitempty"`
-	RefreshToken string `json:"refreshToken,omitempty"`
+	Username     string              `json:"username,omitempty"`
+	Password     string              `json:"password,omitempty"`
+	RefreshToken string              `json:"refreshToken,omitempty"`
+	SecretRef    *v1.SecretReference `json:"secretRef,omitempty"`
 }
 
 type DefaultStorageClassOptions struct {
@@ -56,6 +58,11 @@ type ProxyConfig struct {
 	HTTPProxy  string `json:"httpProxy,omitempty"`
 	HTTPSProxy string `json:"httpsProxy,omitempty"`
 	NoProxy    string `json:"noProxy,omitempty"`
+}
+
+// LoadBalancer defines load-balancer configuration for the Cluster both for the control plane nodes and for the CPI
+type LoadBalancer struct {
+	UseOneArm bool `json:"useOneArm,omitempty"`
 }
 
 // VCDClusterSpec defines the desired state of VCDCluster
@@ -85,6 +92,8 @@ type VCDClusterSpec struct {
 	UseAsManagementCluster bool `json:"useAsManagementCluster,omitempty"`
 	// +optional
 	ProxyConfig ProxyConfig `json:"proxyConfig,omitempty"`
+	// +optional
+	LoadBalancer LoadBalancer `json:"loadBalancer,omitempty"`
 }
 
 // VCDClusterStatus defines the observed state of VCDCluster

@@ -15,8 +15,8 @@ import (
 const (
 	NoRdePrefix = `NO_RDE_`
 
-	MaxRDEUpdateRetries = 10
-
+	MaxRDEUpdateRetries                = 10
+	DefaultRollingWindowSize           = 10
 	ComponentStatusFieldVCDResourceSet = "vcdResourceSet"
 	ComponentStatusFieldErrorSet       = "errorSet"
 	ComponentStatusFieldEventSet       = "eventSet"
@@ -46,11 +46,16 @@ type VCDResource struct {
 	AdditionalDetails map[string]interface{} `json:"additionalDetails,omitempty"`
 }
 
+// TODO: In the future, add subErrorType to AdditionalDetails to handle/match deeper level components removal such as (virtualServiceError, dnatRuleUpdateError, etc)
+// We would need to make AdditionalDetails it's own struct, include a SubErrorType struct/string inside of it
+// During removal, we could match certain subErrorTypes such as delete all LB creation errors that were from subErrorType: virtualServiceFailures
+// AdditionalDetails structure would look something like:
+// additionalDetails : { subErrorType: DNATRuleFailed, additionalInfo: map[string]interface{} }
 type BackendError struct {
 	Name              string                 `json:"name,omitempty"`
-	OccurredAt        time.Time              `json:"occurredAt, omitempty"`
-	VcdResourceId     string                 `json:"vcdResourceId, omitempty"`
-	VcdResourceName   string                 `json:"vcdResourceName, omitempty"`
+	OccurredAt        time.Time              `json:"occurredAt,omitempty"`
+	VcdResourceId     string                 `json:"vcdResourceId,omitempty"`
+	VcdResourceName   string                 `json:"vcdResourceName,omitempty"`
 	AdditionalDetails map[string]interface{} `json:"additionalDetails,omitempty"`
 }
 
@@ -58,7 +63,7 @@ type BackendEvent struct {
 	Name              string                 `json:"name,omitempty"`
 	OccurredAt        time.Time              `json:"occurredAt,omitempty"`
 	VcdResourceId     string                 `json:"vcdResourceId,omitempty"`
-	VcdResourceName   string                 `json:"vcdResourceName, omitempty"`
+	VcdResourceName   string                 `json:"vcdResourceName,omitempty"`
 	AdditionalDetails map[string]interface{} `json:"additionalDetails,omitempty"`
 }
 
@@ -201,6 +206,12 @@ status:
      errorSet:
        - <newError>
 */
+
+// TODO requested from Sahithi:
+// 1. Implement a method that takes list of errors (or) list of events
+// 2. When 1 is implemented, modify removeErrorByNameOrIdFromErrorSet to sort elements by timestamps before removal
+// as the order coming in are not necessary sorted by timestamps
+// 3.A method that will remove errors and addition of success event at the same time
 func (rdeManager *RDEManager) AddToErrorSet(ctx context.Context, componentSectionName string, newError BackendError, rollingWindowSize int) error {
 	if rdeManager.ClusterID == "" || strings.HasPrefix(rdeManager.ClusterID, NoRdePrefix) {
 		// Indicates that the RDE ID is either empty or it was auto-generated.
