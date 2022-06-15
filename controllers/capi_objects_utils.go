@@ -382,3 +382,34 @@ func getCapiStatusYaml(ctx context.Context, cli client.Client, cluster clusterv1
 	}
 	return strings.Join(yamlObjects, "---\n"), nil
 }
+
+func getUserCredentialsForCluster(ctx context.Context, cli client.Client, definedCreds infrav1.UserCredentialsContext) (infrav1.UserCredentialsContext, error) {
+	username, password, refreshToken := definedCreds.Username, definedCreds.Password, definedCreds.RefreshToken
+	if definedCreds.SecretRef != nil {
+		secretNamespacedName := types.NamespacedName{
+			Name:      definedCreds.SecretRef.Name,
+			Namespace: definedCreds.SecretRef.Namespace,
+		}
+		userCredsSecret := &v1.Secret{}
+		if err := cli.Get(ctx, secretNamespacedName, userCredsSecret); err != nil {
+			return infrav1.UserCredentialsContext{}, errors.Wrapf(err, "error getting secret [%s] in namespace [%s]",
+				secretNamespacedName.Name, secretNamespacedName.Namespace)
+		}
+		if b, exists := userCredsSecret.Data["username"]; exists {
+			username = strings.TrimRight(string(b), "\n")
+		}
+		if b, exists := userCredsSecret.Data["password"]; exists {
+			password = strings.TrimRight(string(b), "\n")
+		}
+		if b, exists := userCredsSecret.Data["refreshToken"]; exists {
+			refreshToken = strings.TrimRight(string(b), "\n")
+		}
+	}
+	userCredentials := infrav1.UserCredentialsContext{
+		Username:     username,
+		Password:     password,
+		RefreshToken: refreshToken,
+	}
+
+	return userCredentials, nil
+}

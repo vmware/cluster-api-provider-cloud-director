@@ -2,12 +2,7 @@ package capisdk
 
 import (
 	"fmt"
-	"github.com/vmware/cloud-provider-for-cloud-director/pkg/vcdsdk"
 )
-
-type CapvcdGatewayManager struct {
-	gatewayManager *vcdsdk.GatewayManager
-}
 
 func GetVirtualServiceNamePrefix(clusterName string, clusterID string) string {
 	return clusterName + "-" + clusterID

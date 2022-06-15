@@ -16,8 +16,12 @@ func (src *VCDCluster) ConvertTo(dstRaw conversion.Hub) error {
 	// TODO: Update the new params to match previous release's Status; ex) dst.Spec.* = src.Status.*, maybe RDE.Status
 	dst.Spec.RDEId = src.Status.InfraId
 	dst.Spec.ParentUID = ""
-	dst.Spec.UseAsManagementCluster = false
+	dst.Spec.UseAsManagementCluster = false // defaults to false
 	dst.Status.RdeVersionInUse = "1.0.0"
+
+	// In v1alpha4 DNAT rules (and one-arm) are used by default. Therefore, use that in v1beta1
+	dst.Spec.LoadBalancer.UseOneArm = true
+
 	return nil
 }
 

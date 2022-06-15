@@ -17,6 +17,7 @@ limitations under the License.
 package v1beta1
 
 import (
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 )
@@ -58,10 +59,19 @@ type VCDMachineSpec struct {
 	// +optional
 	StorageProfile string `json:"storageProfile,omitempty"`
 
+	// DiskSize is the size, in bytes, of the disk for this machine
+	// +optional
+	DiskSize resource.Quantity `json:"diskSize,omitempty"`
+
 	// Bootstrapped is true when the kubeadm bootstrapping has been run
 	// against this machine
 	// +optional
 	Bootstrapped bool `json:"bootstrapped,omitempty"`
+
+	// NvidiaGPU is true when a VM should be created with the relevant binaries installed
+	// If true, then an appropriate placement policy should be set
+	// +optional
+	NvidiaGPU bool `json:"nvidiaGPU,omitempty"`
 }
 
 // VCDMachineStatus defines the observed state of VCDMachine

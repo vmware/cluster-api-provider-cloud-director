@@ -1347,8 +1347,8 @@ func (gatewayManager *GatewayManager) GetLoadBalancerPoolMemberIPs(ctx context.C
 }
 
 func (gm *GatewayManager) CreateLoadBalancer(ctx context.Context, virtualServiceNamePrefix string, lbPoolNamePrefix string,
-	ips []string, portDetailsList []PortDetails, oneArm *OneArm,
-	resourcesAllocated *util.AllocatedResourcesMap) (string, error) {
+	ips []string, portDetailsList []PortDetails, oneArm *OneArm, enableVirtualServiceSharedIP bool,
+	portNameToIP map[string]string, providedIP string, resourcesAllocated *util.AllocatedResourcesMap) (string, error) {
 	if len(portDetailsList) == 0 {
 		// nothing to do here
 		klog.Infof("There is no port specified. Hence nothing to do.")
@@ -1359,13 +1359,29 @@ func (gm *GatewayManager) CreateLoadBalancer(ctx context.Context, virtualService
 		return "", fmt.Errorf("gateway reference should not be nil")
 	}
 
+	klog.Infof("Using provided IP [%s]\n", providedIP)
+
 	client := gm.Client
 	client.RWLock.Lock()
 	defer client.RWLock.Unlock()
 
+	// get shared ip when vsSharedIP is true and portNameToIP is not nil
+	sharedVirtualIP := ""
+	portNamesToCreate := make(map[string]bool) // golang does not have set data structure
+	if enableVirtualServiceSharedIP && portNameToIP != nil {
+		for portName, ip := range portNameToIP {
+			if ip != "" {
+				sharedVirtualIP = ip
+			} else {
+				portNamesToCreate[portName] = true
+			}
+		}
+	}
+
 	// Separately loop through all DNAT rules to see if any exist, so that we can reuse the external IP in case a
 	// partial creation of load-balancer is continued and an externalIP was claimed earlier by a dnat rule
-	externalIP := ""
+	externalIP := providedIP
+	sharedInternalIP := ""
 	var err error
 	if oneArm != nil {
 		for _, portDetails := range portDetailsList {
@@ -1389,6 +1405,27 @@ func (gm *GatewayManager) CreateLoadBalancer(ctx context.Context, virtualService
 			}
 
 			externalIP = dnatRuleRef.ExternalIP
+			if enableVirtualServiceSharedIP {
+				sharedInternalIP = dnatRuleRef.InternalIP
+			}
+		}
+	}
+
+	// 3 variables: enableVirtualServiceSharedIP, oneArm, sharedIP
+	// if enableVirtualServiceSharedIP is true and oneArm is nil, no internal ip is used
+	// if enableVirtualServiceSharedIP is true and oneArm is not nil, an internal ip will be used and shared
+	// if enableVirtualServiceSharedIP is false and oneArm is nil: this is an error case which is handled earlier
+	// if enableVirtualServiceSharedIP is false and oneArm is not nil, a pair of internal IPs will be used and not shared
+	if enableVirtualServiceSharedIP && oneArm == nil { // no internal ip used so no dnat rule needed
+		if sharedVirtualIP != "" { // shared virtual ip is an external ip
+			externalIP = sharedVirtualIP
+		}
+	} else if enableVirtualServiceSharedIP && oneArm != nil { // internal ip used, dnat rule is needed
+		if sharedInternalIP == "" { // no dnat rule has been created yet
+			sharedInternalIP, err = gm.GetUnusedInternalIPAddress(ctx, oneArm)
+			if err != nil {
+				return "", fmt.Errorf("unable to get internal IP address for one-arm mode: [%v]", err)
+			}
 		}
 	}
 
@@ -1399,7 +1436,7 @@ func (gm *GatewayManager) CreateLoadBalancer(ctx context.Context, virtualService
 				gm.IPAMSubnet, err)
 		}
 	}
-	klog.Infof("Using external IP [%s] for virtual service\n", externalIP)
+	klog.Infof("Using VIP [%s] for virtual service\n", externalIP)
 
 	for _, portDetails := range portDetailsList {
 		if portDetails.InternalPort == 0 {
@@ -1437,9 +1474,16 @@ func (gm *GatewayManager) CreateLoadBalancer(ctx context.Context, virtualService
 
 		virtualServiceIP := externalIP
 		if oneArm != nil {
-			internalIP, err := gm.GetUnusedInternalIPAddress(ctx, oneArm)
-			if err != nil {
-				return "", fmt.Errorf("unable to get internal IP address for one-arm mode: [%v]", err)
+			internalIP := ""
+			if enableVirtualServiceSharedIP {
+				// a new feature in VCD >= 10.4 allows virtual services to be
+				// created with the same IP and different ports
+				internalIP = sharedInternalIP
+			} else {
+				internalIP, err = gm.GetUnusedInternalIPAddress(ctx, oneArm)
+				if err != nil {
+					return "", fmt.Errorf("unable to get internal IP address for one-arm mode: [%v]", err)
+				}
 			}
 
 			dnatRuleName := GetDNATRuleName(virtualServiceName)
@@ -1488,6 +1532,10 @@ func (gm *GatewayManager) CreateLoadBalancer(ctx context.Context, virtualService
 			})
 
 			externalIP = dnatRuleRef.ExternalIP
+		} else if oneArm == nil && enableVirtualServiceSharedIP { // use external ip for virtual services
+			// no dnat rule is needed because there is a feature in VCD >= 10.4
+			// in which multiple virtual services can be created with the same IP and different ports
+			virtualServiceIP = externalIP
 		}
 
 		segRef, err := gm.GetLoadBalancerSEG(ctx)
@@ -1510,7 +1558,9 @@ func (gm *GatewayManager) CreateLoadBalancer(ctx context.Context, virtualService
 			// error is because VirtualService is still in Pending state.
 			if _, ok := err.(*VirtualServicePendingError); ok {
 				resourcesAllocated.Insert("virtualService", virtualServiceRef)
-				return "", err
+				klog.Infof("Load Balancer with virtual service [%v], pool [%v] on gateway [%s] is pending\n",
+					virtualServiceRef, lbPoolRef, gm.GatewayRef.Name)
+				continue
 			}
 			return "", err
 		}
@@ -1627,7 +1677,7 @@ func (gm *GatewayManager) DeleteLoadBalancer(ctx context.Context, virtualService
 }
 
 func (gm *GatewayManager) UpdateLoadBalancer(ctx context.Context, lbPoolName string, virtualServiceName string,
-	ips []string, internalPort int32, externalPort int32, resourcesAllocated *util.AllocatedResourcesMap) (string, error) {
+	ips []string, internalPort int32, externalPort int32, oneArm *OneArm, enableVirtualServiceSharedIP bool, resourcesAllocated *util.AllocatedResourcesMap) (string, error) {
 
 	if gm == nil {
 		return "", fmt.Errorf("GatewayManager cannot be nil")
@@ -1657,33 +1707,35 @@ func (gm *GatewayManager) UpdateLoadBalancer(ctx context.Context, lbPoolName str
 		}
 		return "", fmt.Errorf("unable to update virtual service [%s] with port [%d]: [%v]", virtualServiceName, externalPort, err)
 	}
+	if !(enableVirtualServiceSharedIP && oneArm == nil) { // dnat not used if vsSharedIP is used and oneArm is nil
+		// update app port profile
+		dnatRuleName := GetDNATRuleName(virtualServiceName)
+		appPortProfileName := GetAppPortProfileName(dnatRuleName)
+		appPortProfileRef, err := gm.UpdateAppPortProfile(appPortProfileName, externalPort)
+		if err != nil {
+			return "", fmt.Errorf("unable to update application port profile [%s] with external port [%d]: [%v]", appPortProfileName, externalPort, err)
+		}
+		if appPortProfileRef != nil && appPortProfileRef.NsxtAppPortProfile != nil {
+			resourcesAllocated.Insert(VcdResourceAppPortProfile, &swaggerClient.EntityReference{
+				Name: appPortProfileName,
+				Id:   appPortProfileRef.NsxtAppPortProfile.ID,
+			})
+		}
 
-	// update app port profile
-	dnatRuleName := GetDNATRuleName(virtualServiceName)
-	appPortProfileName := GetAppPortProfileName(dnatRuleName)
-	appPortProfileRef, err := gm.UpdateAppPortProfile(appPortProfileName, externalPort)
-	if err != nil {
-		return "", fmt.Errorf("unable to update application port profile [%s] with external port [%d]: [%v]", appPortProfileName, externalPort, err)
-	}
-	if appPortProfileRef != nil && appPortProfileRef.NsxtAppPortProfile != nil {
-		resourcesAllocated.Insert(VcdResourceAppPortProfile, &swaggerClient.EntityReference{
-			Name: appPortProfileName,
-			Id: appPortProfileRef.NsxtAppPortProfile.ID,
+		// update DNAT rule
+		dnatRuleRef, err := gm.GetNATRuleRef(ctx, dnatRuleName)
+		if err != nil {
+			return "", fmt.Errorf("unable to retrieve created dnat rule [%s]: [%v]", dnatRuleName, err)
+		}
+		_, err = gm.UpdateDNATRule(ctx, dnatRuleName, dnatRuleRef.ExternalIP, dnatRuleRef.InternalIP, externalPort)
+		if err != nil {
+			return "", fmt.Errorf("unable to update DNAT rule [%s]: [%v]", dnatRuleName, err)
+		}
+		resourcesAllocated.Insert(VcdResourceDNATRule, &swaggerClient.EntityReference{
+			Name: dnatRuleName,
+			Id:   dnatRuleRef.ID,
 		})
+		return dnatRuleRef.ExternalIP, nil
 	}
-
-	// update DNAT rule
-	dnatRuleRef, err := gm.GetNATRuleRef(ctx, dnatRuleName)
-	if err != nil {
-		return "", fmt.Errorf("unable to retrieve created dnat rule [%s]: [%v]", dnatRuleName, err)
-	}
-	_, err = gm.UpdateDNATRule(ctx, dnatRuleName, dnatRuleRef.ExternalIP, dnatRuleRef.InternalIP, externalPort)
-	if err != nil {
-		return "", fmt.Errorf("unable to update DNAT rule [%s]: [%v]", dnatRuleName, err)
-	}
-	resourcesAllocated.Insert(VcdResourceDNATRule, &swaggerClient.EntityReference{
-		Name: dnatRuleName,
-		Id: dnatRuleRef.ID,
-	})
-	return dnatRuleRef.ExternalIP, nil
+	return "", nil
 }

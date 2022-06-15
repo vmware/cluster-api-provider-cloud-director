@@ -1,0 +1,220 @@
+#cloud-config
+write_files: {{- if .ControlPlane }}
+- path: /root/vcloud-basic-auth.yaml
+  owner: root
+  content: |
+    ---
+    apiVersion: v1
+    data:
+      username: "{{ .B64OrgUser }}"
+      password: "{{ .B64Password }}"
+      refreshToken: "{{ .B64RefreshToken }}"
+    kind: Secret
+    metadata:
+      name: vcloud-basic-auth
+      namespace: kube-system
+    ---
+- path: /root/default-storage-class.yaml
+  owner: root
+  content: |
+    ---
+    kind: StorageClass
+    apiVersion: storage.k8s.io/v1
+    metadata:
+      annotations:
+        storageclass.kubernetes.io/is-default-class: "true"
+      name: "{{ .K8sStorageClassName }}"
+    provisioner: named-disk.csi.cloud-director.vmware.com
+    reclaimPolicy: "{{ .ReclaimPolicy }}"
+    parameters:
+      storageProfile: "{{ .VcdStorageProfileName }}"
+      filesystem: "{{ .FileSystemFormat }}"
+    --- {{- end }}
+- path: /root/ {{- if .ControlPlane -}} control_plane {{- else -}} node {{- end -}} .sh
+  owner: root
+  content: |
+    #!/usr/bin/env bash
+    catch() {
+      vmtoolsd --cmd "info-set guestinfo.post_customization_script_execution_status $?"
+      ERROR_MESSAGE="$(date) $(caller): $BASH_COMMAND"
+      echo "$ERROR_MESSAGE" &>> /var/log/capvcd/customization/error.log
+      vmtoolsd --cmd "info-set guestinfo.post_customization_script_execution_failure_reason $ERROR_MESSAGE"
+
+      CLOUD_INIT_OUTPUT=""
+      if [[ -f /var/log/cloud-init-output.log ]]
+      then
+        CLOUD_INIT_OUTPUT=$(</var/log/cloud-init-output.log)
+      fi
+      vmtoolsd --cmd "info-set guestinfo.post_customization_cloud_init_output $CLOUD_INIT_OUTPUT"
+    }
+    mkdir -p /var/log/capvcd/customization
+    trap 'catch $? $LINENO' ERR EXIT
+    set -ex
+
+    echo "$(date) Post Customization script execution in progress" &>> /var/log/capvcd/customization/status.log {{- if .ControlPlane }}
+
+    VCLOUD_BASIC_AUTH_PATH=/root/vcloud-basic-auth.yaml
+    VCLOUD_CONFIGMAP_PATH=/root/vcloud-configmap.yaml
+    VCLOUD_CCM_PATH=/root/cloud-director-ccm.yaml
+    VCLOUD_CSI_CONFIGMAP_PATH=/root/vcloud-csi-configmap.yaml
+    CSI_DRIVER_PATH=/root/csi-driver.yaml
+    CSI_CONTROLLER_PATH=/root/csi-controller.yaml
+    CSI_NODE_PATH=/root/csi-node.yaml {{- end }}
+
+    vmtoolsd --cmd "info-set guestinfo.postcustomization.networkconfiguration.status in_progress"
+    echo 'net.ipv6.conf.all.disable_ipv6 = 1' >> /etc/sysctl.conf
+    echo 'net.ipv6.conf.default.disable_ipv6 = 1' >> /etc/sysctl.conf
+    echo 'net.ipv6.conf.lo.disable_ipv6 = 1' >> /etc/sysctl.conf
+    sudo sysctl -p
+    # also remove ipv6 localhost entry from /etc/hosts
+    sed -i 's/::1/127.0.0.1/g' /etc/hosts || true
+    vmtoolsd --cmd "info-set guestinfo.postcustomization.networkconfiguration.status successful"
+
+    vmtoolsd --cmd "info-set guestinfo.postcustomization.proxy.setting.status in_progress"
+    export HTTP_PROXY="{{.HTTPProxy}}"
+    export HTTPS_PROXY="{{.HTTPSProxy}}"
+    export http_proxy="{{.HTTPProxy}}"
+    export https_proxy="{{.HTTPSProxy}}"
+    export NO_PROXY="{{.NoProxy}}"
+    export no_proxy="{{.NoProxy}}"
+    cat <<END > /etc/systemd/system/containerd.service.d/http-proxy.conf
+    [Service]
+    Environment="HTTP_PROXY={{.HTTPProxy}}"
+    Environment="HTTPS_PROXY={{.HTTPSProxy}}"
+    Environment="http_proxy={{.HTTPProxy}}"
+    Environment="https_proxy={{.HTTPSProxy}}"
+    Environment="no_proxy={{.NoProxy}}"
+    Environment="NO_PROXY={{.NoProxy}}"
+    END
+    systemctl daemon-reload
+    systemctl restart containerd
+    vmtoolsd --cmd "info-set guestinfo.postcustomization.proxy.setting.status successful" {{- if .NvidiaGPU }}
+
+    vmtoolsd --cmd "info-set guestinfo.postcustomization.nvidia.runtime.install.status in_progress"
+    DISTRIBUTION=$(. /etc/os-release;echo $ID$VERSION_ID)
+    curl -s -L https://nvidia.github.io/nvidia-docker/gpgkey | sudo apt-key add -
+    curl -s -L https://nvidia.github.io/nvidia-docker/$DISTRIBUTION/nvidia-docker.list | sudo tee /etc/apt/sources.list.d/nvidia-docker.list
+
+    apt-get update
+    apt-get install -y nvidia-container-runtime
+    vmtoolsd --cmd "info-set guestinfo.postcustomization.nvidia.runtime.install.status successful" {{- end }}
+
+    vmtoolsd --cmd "info-set {{ if .ControlPlane -}} guestinfo.postcustomization.kubeinit.status {{- else -}} guestinfo.postcustomization.kubeadm.node.join.status {{- end }} in_progress"
+    for IMAGE in "coredns" "etcd" "kube-proxy" "kube-apiserver" "kube-controller-manager" "kube-scheduler"
+    do
+      IMAGE_REF=$(ctr -n=k8s.io image list | cut -d" " -f1 | grep $IMAGE)
+      REF_PATH=$(echo $IMAGE_REF | sed 's/:.*//')
+      NEW_TAG_VERSION=$(echo $IMAGE_REF | sed 's/.*://' | sed 's/_/-/')
+      ctr -n=k8s.io image tag $IMAGE_REF $REF_PATH:$NEW_TAG_VERSION
+    done
+    {{ .BootstrapRunCmd }}
+    if [[ ! -f /run/cluster-api/bootstrap-success.complete ]]
+    then
+      echo "file /run/cluster-api/bootstrap-success.complete not found" &>> /var/log/capvcd/customization/error.log
+    exit 1
+    fi
+    export KUBECONFIG=/etc/kubernetes/ {{- if .ControlPlane -}} admin {{- else -}} kubelet {{- end -}} .conf
+    kubectl get po -A -owide {{- if .ControlPlane }}
+    vmtoolsd --cmd "info-set guestinfo.kubeconfig $(cat /etc/kubernetes/admin.conf | base64 | tr -d '\n')" {{- end }}
+    vmtoolsd --cmd "info-set {{ if .ControlPlane -}} guestinfo.postcustomization.kubeinit.status {{- else -}} guestinfo.postcustomization.kubeadm.node.join.status {{- end }} successful" {{- if .ControlPlane }}
+
+    vmtoolsd --cmd "info-set guestinfo.postcustomization.kubectl.cpi.install.status in_progress"
+    kubectl apply -f $VCLOUD_BASIC_AUTH_PATH
+    CPI_VERSION={{ .CpiVersion }}
+    wget -O $VCLOUD_CONFIGMAP_PATH https://raw.githubusercontent.com/vmware/cloud-provider-for-cloud-director/$CPI_VERSION/manifests/vcloud-configmap.yaml
+    sed -i 's/VCD_HOST/"{{ .VcdHostFormatted }}"/' $VCLOUD_CONFIGMAP_PATH
+    sed -i 's/ORG/"{{ .ClusterOrgName }}"/' $VCLOUD_CONFIGMAP_PATH
+    sed -i 's/OVDC/"{{ .ClusterOVDCName }}"/' $VCLOUD_CONFIGMAP_PATH
+    sed -i 's/NETWORK/"{{ .NetworkName }}"/' $VCLOUD_CONFIGMAP_PATH
+    sed -i 's/VIP_SUBNET_CIDR/"{{ .VipSubnetCidr }}"/' $VCLOUD_CONFIGMAP_PATH
+    sed -i 's/VAPP/{{ .VAppName }}/' $VCLOUD_CONFIGMAP_PATH
+    sed -i 's/CLUSTER_ID/{{ .ClusterID }}/' $VCLOUD_CONFIGMAP_PATH
+    kubectl apply -f $VCLOUD_CONFIGMAP_PATH
+    wget -O $VCLOUD_CCM_PATH https://raw.githubusercontent.com/vmware/cloud-provider-for-cloud-director/$CPI_VERSION/manifests/cloud-director-ccm.yaml
+    kubectl apply -f $VCLOUD_CCM_PATH
+    vmtoolsd --cmd "info-set guestinfo.postcustomization.kubectl.cpi.install.status successful"
+
+    vmtoolsd --cmd "info-set guestinfo.postcustomization.kubectl.csi.install.status in_progress"
+    CSI_VERSION={{ .CsiVersion }}
+    wget -O $VCLOUD_CSI_CONFIGMAP_PATH https://raw.githubusercontent.com/vmware/cloud-director-named-disk-csi-driver/$CSI_VERSION/manifests/vcloud-csi-config.yaml
+    sed -i 's/VCD_HOST/"{{ .VcdHostFormatted }}"/' $VCLOUD_CSI_CONFIGMAP_PATH
+    sed -i 's/ORG/"{{ .ClusterOrgName }}"/' $VCLOUD_CSI_CONFIGMAP_PATH
+    sed -i 's/OVDC/"{{ .ClusterOVDCName }}"/' $VCLOUD_CSI_CONFIGMAP_PATH
+    sed -i 's/VAPP/{{ .VAppName }}/' $VCLOUD_CSI_CONFIGMAP_PATH
+    sed -i 's/CLUSTER_ID/"{{ .ClusterID }}"/' $VCLOUD_CSI_CONFIGMAP_PATH
+    kubectl apply -f $VCLOUD_CSI_CONFIGMAP_PATH
+    wget -O $CSI_DRIVER_PATH https://raw.githubusercontent.com/vmware/cloud-director-named-disk-csi-driver/$CSI_VERSION/manifests/csi-driver.yaml
+    wget -O $CSI_CONTROLLER_PATH https://raw.githubusercontent.com/vmware/cloud-director-named-disk-csi-driver/$CSI_VERSION/manifests/csi-controller.yaml
+    wget -O $CSI_NODE_PATH https://raw.githubusercontent.com/vmware/cloud-director-named-disk-csi-driver/$CSI_VERSION/manifests/csi-node.yaml
+    kubectl apply -f $CSI_DRIVER_PATH
+    kubectl apply -f $CSI_CONTROLLER_PATH
+    kubectl apply -f $CSI_NODE_PATH
+    vmtoolsd --cmd "info-set guestinfo.postcustomization.kubectl.csi.install.status successful"
+
+    vmtoolsd --cmd "info-set guestinfo.postcustomization.kubeadm.token.generate.status in_progress"
+    KUBEADM_JOIN_INFO=$(kubeadm token create --print-join-command 2> /dev/null)
+    vmtoolsd --cmd "info-set guestinfo.postcustomization.kubeadm.token.info $KUBEADM_JOIN_INFO"
+    vmtoolsd --cmd "info-set guestinfo.postcustomization.kubeadm.token.generate.status successful"
+
+    vmtoolsd --cmd "info-set guestinfo.postcustomization.kubectl.default_storage_class.install.status in_progress"
+    STORAGE_CLASS_ENABLED={{ .EnableDefaultStorageClass }}
+    if [[ "$STORAGE_CLASS_ENABLED" == "true" ]]; then
+      kubectl apply -f /root/default-storage-class.yaml
+    fi
+    vmtoolsd --cmd "info-set guestinfo.postcustomization.kubectl.default_storage_class.install.status successful" {{- end }} {{- if .NvidiaGPU }}
+
+    vmtoolsd --cmd "info-set guestinfo.postcustomization.containerd.nvidia.configuration.status in_progress"
+    cat > /etc/containerd/config.toml << EOF
+    ## template: jinja
+
+    # Use config version 2 to enable new configuration fields.
+    # Config file is parsed as version 1 by default.
+    version = 2
+
+    [plugins]
+      [plugins."io.containerd.grpc.v1.cri"]
+        sandbox_image = "projects.registry.vmware.com/tkg/pause:3.4.1"
+        [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc]
+        runtime_type = "io.containerd.runc.v2"
+        [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc.options]
+          SystemdCgroup = true
+        [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.nvidia]
+        privileged_without_host_devices = false
+        runtime_engine = ""
+        runtime_root = ""
+        runtime_type = "io.containerd.runc.v1"
+        [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.nvidia.options]
+          BinaryName = "/usr/bin/nvidia-container-runtime"
+          SystemdCgroup = true
+        [plugins."io.containerd.grpc.v1.cri".cni]
+        bin_dir = "/opt/cni/bin"
+        conf_dir = "/etc/cni/net.d"
+        [plugins."io.containerd.grpc.v1.cri".registry]
+        [plugins."io.containerd.grpc.v1.cri".registry.mirrors]
+          [plugins."io.containerd.grpc.v1.cri".registry.mirrors."docker.io"]
+          endpoint = ["https://registry-1.docker.io"]
+        [plugins."io.containerd.grpc.v1.cri".registry.configs]
+          [plugins."io.containerd.grpc.v1.cri".registry.configs."registry-1.docker.io".auth]
+          username = "${DOCKER_USERNAME}"
+          password = "${DOCKER_PASSWORD}"
+          auth = ""
+          identitytoken = ""
+    EOF
+
+    systemctl restart containerd
+    vmtoolsd --cmd "info-set guestinfo.postcustomization.containerd.nvidia.configuration.status successful" {{- end }}
+
+    echo "$(date) post customization script execution completed" &>> /var/log/capvcd/customization/status.log
+    exit 0
+runcmd: {{- if .ControlPlane }}
+- '[ ! -f /root/vcloud-basic-auth.yaml ] && cloud-init clean && sudo reboot' {{- end }}
+- '[ ! -f /root/ {{- if .ControlPlane -}} control_plane {{- else -}} node {{- end -}} .sh ] && cloud-init clean && sudo reboot'
+{{/* Only checking if /run/kubeadm/kubeadm(-join-config).yaml as this is the main file for kubeadm (init | join).*/}}
+{{/* Ignoring checks for .cert and .key files*/}}
+- '[ ! -f /run/kubeadm/kubeadm {{- if not .ControlPlane -}} -join-config {{- end -}} .yaml ] && cloud-init clean && sudo reboot'
+- bash /root/ {{- if .ControlPlane -}} control_plane {{- else -}} node {{- end -}} .sh
+timezone: UTC
+disable_root: false
+preserve_hostname: false
+hostname: "{{ .MachineName }}"
+final_message: "The system is ready after $UPTIME seconds"

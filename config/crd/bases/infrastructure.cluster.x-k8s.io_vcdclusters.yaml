@@ -187,6 +187,13 @@ spec:
                 required:
                 - vcdStorageProfileName
                 type: object
+              loadBalancer:
+                description: LoadBalancer defines load-balancer configuration for
+                  the Cluster both for the control plane nodes and for the CPI
+                properties:
+                  useOneArm:
+                    type: boolean
+                type: object
               org:
                 type: string
               ovdc:
@@ -218,6 +225,19 @@ spec:
                     type: string
                   refreshToken:
                     type: string
+                  secretRef:
+                    description: SecretReference represents a Secret Reference. It
+                      has enough information to retrieve secret in any namespace
+                    properties:
+                      name:
+                        description: name is unique within a namespace to reference
+                          a secret resource.
+                        type: string
+                      namespace:
+                        description: namespace defines the space within which the
+                          secret name must be unique.
+                        type: string
+                    type: object
                   username:
                     type: string
                 type: object
