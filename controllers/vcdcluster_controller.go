@@ -441,6 +441,15 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	// TODO validate if the RDE ID format is correct.
 	if infraID == "" && len(vcdCluster.Spec.RDEId) > 0 {
 		infraID = vcdCluster.Spec.RDEId
+		rde, resp, _, err := workloadVCDClient.APIClient.DefinedEntityApi.GetDefinedEntity(ctx, infraID)
+		if err == nil && resp != nil && resp.StatusCode == http.StatusOK {
+			// update the RdeVersionInUse with the entity type version of the rde.
+			result := strings.Split(rde.EntityType, ":")
+			vcdCluster.Status.RdeVersionInUse = result[len(result)-1]
+		} else {
+			return ctrl.Result{}, errors.Wrapf(err,
+				"\"Unexpected error retrieving RDE [%s] for the cluster [%s]", infraID, vcdCluster.Name)
+		}
 	}
 	capvcdRdeManager := capisdk.NewCapvcdRdeManager(workloadVCDClient)
 
