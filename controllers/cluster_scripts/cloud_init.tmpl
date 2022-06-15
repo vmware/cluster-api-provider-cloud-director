@@ -5,9 +5,9 @@ write_files: {{- if .ControlPlane }}
   content: |
     ---
     apiVersion: v1
-    data: {{- if not .B64RefreshToken }}
+    data: {{- if and .B64OrgUser .B64Password }}
       username: "{{ .B64OrgUser }}"
-      password: "{{ .B64Password }}" {{- else }}
+      password: "{{ .B64Password }}" {{- end }}{{- if .B64RefreshToken }}
       refreshToken: "{{ .B64RefreshToken }}" {{- end }}
     kind: Secret
     metadata:
