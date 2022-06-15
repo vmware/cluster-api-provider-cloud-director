@@ -436,22 +436,20 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 
 	// General note on RDE operations, always ensure CAPVCD cluster reconciliation progress
 	//is not affected by any RDE operation failures.
+	capvcdRdeManager := capisdk.NewCapvcdRdeManager(workloadVCDClient)
 
 	// Use the pre-created RDEId specified in the CAPI yaml specification.
 	// TODO validate if the RDE ID format is correct.
 	if infraID == "" && len(vcdCluster.Spec.RDEId) > 0 {
 		infraID = vcdCluster.Spec.RDEId
-		rde, resp, _, err := workloadVCDClient.APIClient.DefinedEntityApi.GetDefinedEntity(ctx, infraID)
-		if err == nil && resp != nil && resp.StatusCode == http.StatusOK {
-			// update the RdeVersionInUse with the entity type version of the rde.
-			result := strings.Split(rde.EntityType, ":")
-			vcdCluster.Status.RdeVersionInUse = result[len(result)-1]
-		} else {
+		_, rdeVersion, err := capvcdRdeManager.GetRDEVersion(ctx, infraID)
+		if err != nil {
 			return ctrl.Result{}, errors.Wrapf(err,
 				"\"Unexpected error retrieving RDE [%s] for the cluster [%s]", infraID, vcdCluster.Name)
 		}
+		// update the RdeVersionInUse with the entity type version of the rde.
+		vcdCluster.Status.RdeVersionInUse = rdeVersion
 	}
-	capvcdRdeManager := capisdk.NewCapvcdRdeManager(workloadVCDClient)
 
 	// Create a new RDE if it was not already created or assigned.
 	if infraID == "" {
@@ -488,7 +486,8 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		}
 	} else {
 		log.V(3).Info("Reusing already available InfraID", "infraID", infraID)
-		if !strings.Contains(infraID, NoRdePrefix) && vcdCluster.Status.RdeVersionInUse != rdeType.CapvcdRDETypeVersion {
+		if !strings.Contains(infraID, NoRdePrefix) && vcdCluster.Status.RdeVersionInUse != "" &&
+			vcdCluster.Status.RdeVersionInUse != rdeType.CapvcdRDETypeVersion {
 			capvcdRdeManager := capisdk.NewCapvcdRdeManager(workloadVCDClient)
 			log.Info("Upgrading RDE", "rdeID", infraID,
 				"targetRDEVersion", rdeType.CapvcdRDETypeVersion)
