@@ -247,7 +247,7 @@ func (r *VCDClusterReconciler) constructAndCreateRDEFromCluster(ctx context.Cont
 func (r *VCDClusterReconciler) reconcileRDE(ctx context.Context, cluster *clusterv1.Cluster, vcdCluster *infrav1.VCDCluster, workloadVCDClient *vcdsdk.Client) error {
 	log := ctrl.LoggerFrom(ctx)
 
-	capvcdRdeManager := capisdk.NewCapvcdRdeManager(workloadVCDClient)
+	capvcdRdeManager := capisdk.NewCapvcdRdeManager(workloadVCDClient, vcdCluster.Status.InfraId)
 	_, capvcdSpec, capvcdMetadata, capvcdStatus, err := capvcdRdeManager.GetCAPVCDEntity(ctx, vcdCluster.Status.InfraId)
 	if err != nil {
 		return fmt.Errorf("failed to get RDE with ID [%s] for cluster [%s]: [%v]", vcdCluster.Status.InfraId, vcdCluster.Name, err)
@@ -439,7 +439,7 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 
 	// General note on RDE operations, always ensure CAPVCD cluster reconciliation progress
 	//is not affected by any RDE operation failures.
-	capvcdRdeManager := capisdk.NewCapvcdRdeManager(workloadVCDClient)
+	capvcdRdeManager := capisdk.NewCapvcdRdeManager(workloadVCDClient, infraID)
 
 	// Use the pre-created RDEId specified in the CAPI yaml specification.
 	// TODO validate if the RDE ID format is correct.
@@ -491,7 +491,7 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		log.V(3).Info("Reusing already available InfraID", "infraID", infraID)
 		if !strings.Contains(infraID, NoRdePrefix) && vcdCluster.Status.RdeVersionInUse != "" &&
 			vcdCluster.Status.RdeVersionInUse != rdeType.CapvcdRDETypeVersion {
-			capvcdRdeManager := capisdk.NewCapvcdRdeManager(workloadVCDClient)
+			capvcdRdeManager := capisdk.NewCapvcdRdeManager(workloadVCDClient, infraID)
 			log.Info("Upgrading RDE", "rdeID", infraID,
 				"targetRDEVersion", rdeType.CapvcdRDETypeVersion)
 			_, err = capvcdRdeManager.ConvertToLatestRDEVersionFormat(ctx, infraID)
@@ -691,8 +691,9 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		return ctrl.Result{}, errors.Wrapf(err,
 			"Error creating vdc manager to to reconcile vcd infrastructure for cluster [%s]", vcdCluster.Name)
 	}
-	//Todo duplicate check
-
+	metadataMap := map[string]string{
+		CapvcdInfraId: vcdCluster.Status.InfraId,
+	}
 	if vdcManager.Vdc == nil {
 		return ctrl.Result{}, errors.Errorf("no Vdc created with vdc manager name [%s]", vdcManager.Client.ClusterOVDCName)
 	}
@@ -711,6 +712,12 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	}
 	if clusterVApp == nil || clusterVApp.VApp == nil {
 		return ctrl.Result{}, errors.Wrapf(err, "found nil value for VApp [%s]", vcdCluster.Name)
+	}
+	if metadataMap != nil && len(metadataMap) > 0 && !vcdCluster.Status.VAppMetadataUpdated {
+		if err := vdcManager.AddMetadataToVApp(vcdCluster.Name, metadataMap); err != nil {
+			return ctrl.Result{}, fmt.Errorf("unable to add metadata [%s] to vApp [%s]: [%v]", metadataMap, vcdCluster.Name, err)
+		}
+		vcdCluster.Status.VAppMetadataUpdated = true
 	}
 	// Add VApp to VCDResourceSet
 	err = rdeManager.AddToVCDResourceSet(ctx, vcdsdk.ComponentCAPVCD, VCDResourceVApp,
@@ -769,7 +776,7 @@ func (r *VCDClusterReconciler) reconcileDelete(ctx context.Context,
 			"Error occurred during cluster deletion; unable to create client for the workload cluster [%s]",
 			vcdCluster.Name)
 	}
-	capvcdRdeManager := capisdk.NewCapvcdRdeManager(workloadVCDClient)
+	capvcdRdeManager := capisdk.NewCapvcdRdeManager(workloadVCDClient, vcdCluster.Status.InfraId)
 
 	gateway, err := vcdsdk.NewGatewayManager(ctx, workloadVCDClient, vcdCluster.Spec.OvdcNetwork, r.Config.VCD.VIPSubnet)
 	if err != nil {
@@ -786,6 +793,7 @@ func (r *VCDClusterReconciler) reconcileDelete(ctx context.Context,
 			EndIP:   r.Config.LB.OneArm.EndIP,
 		}
 	}
+	resourcesAllocated := &vcdsdkutil.AllocatedResourcesMap{}
 	_, err = gateway.DeleteLoadBalancer(ctx, virtualServiceNamePrefix, lbPoolNamePrefix,
 		[]vcdsdk.PortDetails{
 			{
@@ -794,7 +802,7 @@ func (r *VCDClusterReconciler) reconcileDelete(ctx context.Context,
 				ExternalPort: r.Config.LB.Ports.TCP,
 				InternalPort: r.Config.LB.Ports.TCP,
 			},
-		}, oneArm, nil)
+		}, oneArm, resourcesAllocated)
 	if err != nil {
 		err1 := capvcdRdeManager.AddToErrorSet(ctx, capisdk.LoadBalancerDeleteError, "", virtualServiceNamePrefix, fmt.Sprintf("%v", err))
 		if err1 != nil {

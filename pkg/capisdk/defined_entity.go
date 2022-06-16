@@ -81,14 +81,14 @@ type CapvcdRdeManager struct {
 	RdeManager *vcdsdk.RDEManager
 }
 
-func NewCapvcdRdeManager(client *vcdsdk.Client) *CapvcdRdeManager {
+func NewCapvcdRdeManager(client *vcdsdk.Client, clusterID string) *CapvcdRdeManager {
 	return &CapvcdRdeManager{
 		Client: client,
 		RdeManager: &vcdsdk.RDEManager{
 			Client:                 client,
 			StatusComponentName:    StatusComponentNameCAPVCD,
 			StatusComponentVersion: release.CAPVCDVersion,
-			ClusterID:              "",
+			ClusterID:              clusterID,
 		},
 	}
 }

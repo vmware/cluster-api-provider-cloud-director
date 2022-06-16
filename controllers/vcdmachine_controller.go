@@ -354,7 +354,7 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	if err != nil {
 		return ctrl.Result{}, errors.Wrapf(err, "Unable to create VCD client to reconcile infrastructure for the Machine [%s]", machine.Name)
 	}
-	capvcdRdeManager := capisdk.NewCapvcdRdeManager(workloadVCDClient)
+	capvcdRdeManager := capisdk.NewCapvcdRdeManager(workloadVCDClient, vcdCluster.Status.InfraId)
 	if vcdMachine.Spec.ProviderID != nil {
 		vcdMachine.Status.Ready = true
 		conditions.MarkTrue(vcdMachine, ContainerProvisionedCondition)
@@ -601,6 +601,7 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 
 		updatedIPs := append(controlPlaneIPs, machineAddress)
 		updatedUniqueIPs := cpiutil.NewSet(updatedIPs).GetElements()
+		resourcesAllocated := &cpiutil.AllocatedResourcesMap{}
 		var oneArm *vcdsdk.OneArm = nil
 		if vcdCluster.Spec.LoadBalancer.UseOneArm {
 			oneArm = &vcdsdk.OneArm{
@@ -611,7 +612,7 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		// At this point the vcdCluster.Spec.ControlPlaneEndpoint should have been set correctly.
 		_, err = gateway.UpdateLoadBalancer(ctx, lbPoolName, virtualServiceName, updatedUniqueIPs,
 			int32(vcdCluster.Spec.ControlPlaneEndpoint.Port), int32(vcdCluster.Spec.ControlPlaneEndpoint.Port),
-			oneArm, !vcdCluster.Spec.LoadBalancer.UseOneArm, nil)
+			oneArm, !vcdCluster.Spec.LoadBalancer.UseOneArm, resourcesAllocated)
 		if err != nil {
 			return ctrl.Result{}, errors.Wrapf(err,
 				"Error updating the load balancer pool [%s] for the "+
@@ -828,7 +829,7 @@ func (r *VCDMachineReconciler) reconcileDelete(ctx context.Context, cluster *clu
 	}
 	workloadVCDClient, err := vcdsdk.NewVCDClientFromSecrets(vcdCluster.Spec.Site, vcdCluster.Spec.Org,
 		vcdCluster.Spec.Ovdc, vcdCluster.Spec.Org, userCreds.Username, userCreds.Password, userCreds.RefreshToken, true, true)
-	capvcdRdeManager := capisdk.NewCapvcdRdeManager(workloadVCDClient)
+	capvcdRdeManager := capisdk.NewCapvcdRdeManager(workloadVCDClient, vcdCluster.Status.InfraId)
 	if err != nil {
 		return ctrl.Result{}, errors.Wrapf(err, "Unable to create VCD client to reconcile infrastructure for the Machine [%s]", machine.Name)
 	}
@@ -870,7 +871,7 @@ func (r *VCDMachineReconciler) reconcileDelete(ctx context.Context, cluster *clu
 					updatedIPs = append(controlPlaneIPs[:i], controlPlaneIPs[i+1:]...)
 				}
 			}
-
+			resourcesAllocated := &cpiutil.AllocatedResourcesMap{}
 			var oneArm *vcdsdk.OneArm = nil
 			if vcdCluster.Spec.LoadBalancer.UseOneArm {
 				oneArm = &vcdsdk.OneArm{
@@ -881,7 +882,7 @@ func (r *VCDMachineReconciler) reconcileDelete(ctx context.Context, cluster *clu
 			// At this point the vcdCluster.Spec.ControlPlaneEndpoint should have been set correctly.
 			_, err = gateway.UpdateLoadBalancer(ctx, lbPoolName, virtualServiceName, updatedIPs,
 				int32(vcdCluster.Spec.ControlPlaneEndpoint.Port), int32(vcdCluster.Spec.ControlPlaneEndpoint.Port),
-				oneArm, !vcdCluster.Spec.LoadBalancer.UseOneArm, nil)
+				oneArm, !vcdCluster.Spec.LoadBalancer.UseOneArm, resourcesAllocated)
 			if err != nil {
 				return ctrl.Result{}, errors.Wrapf(err,
 					"Error while deleting the infra resources of the machine [%s/%s]; error deleting the control plane from the load balancer pool [%s]",
@@ -1067,7 +1068,6 @@ func (r *VCDMachineReconciler) VCDClusterToVCDMachines(o client.Object) []ctrl.R
 
 	return result
 }
-
 func (r *VCDMachineReconciler) hasCloudInitExecutionFailedBefore(ctx context.Context,
 	workloadVCDClient *vcdsdk.Client, vm *govcd.VM) (bool, error) {
 	vdcManager, err := vcdsdk.NewVDCManager(workloadVCDClient, workloadVCDClient.ClusterOrgName,
