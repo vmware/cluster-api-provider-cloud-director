@@ -405,7 +405,9 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	vAppName := cluster.Name
 	vApp, err := vdcManager.Vdc.GetVAppByName(vAppName, true)
 	if err != nil {
-		return ctrl.Result{}, errors.Wrapf(err, "Error provisioning infrastructure for the machine [%s] of the cluster [%s]", machine.Name, vcdCluster.Name)
+		return ctrl.Result{}, errors.Wrapf(err,
+			"Error provisioning infrastructure for the machine [%s] of the cluster [%s]",
+			machine.Name, vcdCluster.Name)
 	}
 
 	bootstrapJinjaScript, err := r.getBootstrapData(ctx, machine)
@@ -417,11 +419,13 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		return ctrl.Result{}, errors.Wrapf(err, "Error retrieving bootstrap data for machine [%s] of the cluster [%s]",
 			machine.Name, vcdCluster.Name)
 	}
+
 	// In a multimaster cluster, the initial control plane node runs `kubeadm init`; additional control plane nodes
 	// run `kubeadm join`. The joining control planes run `kubeadm join`, so these nodes use the join script.
 	// Although it is sufficient to just check if `kubeadm join` is in the bootstrap script, using the
 	// isControlPlaneMachine function is a simpler operation, so this function is called first.
-	useControlPlaneScript := util.IsControlPlaneMachine(machine) && !strings.Contains(bootstrapJinjaScript, "kubeadm join")
+	useControlPlaneScript := util.IsControlPlaneMachine(machine) &&
+		!strings.Contains(bootstrapJinjaScript, "kubeadm join")
 
 	// Construct a CloudInitScriptInput struct to pass into template.Execute() function to generate the necessary
 	// cloud init script for the relevant node type, i.e. control plane or worker node
@@ -429,7 +433,8 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	if !vcdMachine.Spec.Bootstrapped {
 		if useControlPlaneScript {
 			var (
-				orgUserStr                = fmt.Sprintf("%s/%s", workloadVCDClient.VCDAuthConfig.UserOrg, workloadVCDClient.VCDAuthConfig.User)
+				orgUserStr = fmt.Sprintf("%s/%s", workloadVCDClient.VCDAuthConfig.UserOrg,
+					workloadVCDClient.VCDAuthConfig.User)
 				enableDefaultStorageClass = vcdCluster.Spec.DefaultStorageClassOptions.VCDStorageProfileName != ""
 				k8sStorageClassName       = ""
 				fileSystemFormat          = ""
@@ -612,7 +617,7 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		// At this point the vcdCluster.Spec.ControlPlaneEndpoint should have been set correctly.
 		_, err = gateway.UpdateLoadBalancer(ctx, lbPoolName, virtualServiceName, updatedUniqueIPs,
 			int32(vcdCluster.Spec.ControlPlaneEndpoint.Port), int32(vcdCluster.Spec.ControlPlaneEndpoint.Port),
-			oneArm, !vcdCluster.Spec.LoadBalancer.UseOneArm, resourcesAllocated)
+			oneArm, !vcdCluster.Spec.LoadBalancer.UseOneArm, "TCP", resourcesAllocated)
 		if err != nil {
 			return ctrl.Result{}, errors.Wrapf(err,
 				"Error updating the load balancer pool [%s] for the "+
@@ -790,7 +795,9 @@ func (r *VCDMachineReconciler) getBootstrapData(ctx context.Context, machine *cl
 	s := &corev1.Secret{}
 	key := client.ObjectKey{Namespace: machine.GetNamespace(), Name: *machine.Spec.Bootstrap.DataSecretName}
 	if err := r.Client.Get(ctx, key, s); err != nil {
-		return "", errors.Wrapf(err, "failed to retrieve bootstrap data secret for VCDMachine %s/%s", machine.GetNamespace(), machine.GetName())
+		return "", errors.Wrapf(err,
+			"failed to retrieve bootstrap data secret for VCDMachine %s/%s",
+			machine.GetNamespace(), machine.GetName())
 	}
 
 	value, ok := s.Data["value"]
@@ -882,7 +889,7 @@ func (r *VCDMachineReconciler) reconcileDelete(ctx context.Context, cluster *clu
 			// At this point the vcdCluster.Spec.ControlPlaneEndpoint should have been set correctly.
 			_, err = gateway.UpdateLoadBalancer(ctx, lbPoolName, virtualServiceName, updatedIPs,
 				int32(vcdCluster.Spec.ControlPlaneEndpoint.Port), int32(vcdCluster.Spec.ControlPlaneEndpoint.Port),
-				oneArm, !vcdCluster.Spec.LoadBalancer.UseOneArm, resourcesAllocated)
+				oneArm, !vcdCluster.Spec.LoadBalancer.UseOneArm, "TCP", resourcesAllocated)
 			if err != nil {
 				return ctrl.Result{}, errors.Wrapf(err,
 					"Error while deleting the infra resources of the machine [%s/%s]; error deleting the control plane from the load balancer pool [%s]",

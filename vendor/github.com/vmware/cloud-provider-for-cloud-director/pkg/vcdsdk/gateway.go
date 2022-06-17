@@ -668,8 +668,9 @@ func (gatewayManager *GatewayManager) getLoadBalancerPool(ctx context.Context,
 	}, nil
 }
 
-func (gatewayManager *GatewayManager) formLoadBalancerPool(lbPoolName string, ips []string,
-	internalPort int32) (swaggerClient.EdgeLoadBalancerPool, []swaggerClient.EdgeLoadBalancerPoolMember) {
+func (gatewayManager *GatewayManager) formLoadBalancerPool(lbPoolName string, ips []string, internalPort int32,
+	healthMonitor *swaggerClient.EdgeLoadBalancerHealthMonitor) (swaggerClient.EdgeLoadBalancerPool,
+	[]swaggerClient.EdgeLoadBalancerPoolMember) {
 	lbPoolMembers := make([]swaggerClient.EdgeLoadBalancerPoolMember, len(ips))
 	for i, ip := range ips {
 		lbPoolMembers[i].IpAddress = ip
@@ -678,19 +679,25 @@ func (gatewayManager *GatewayManager) formLoadBalancerPool(lbPoolName string, ip
 		lbPoolMembers[i].Enabled = true
 	}
 
+	// TODO: add health monitors and persistence profile
 	lbPool := swaggerClient.EdgeLoadBalancerPool{
 		Enabled:               true,
 		Name:                  lbPoolName,
 		DefaultPort:           internalPort,
-		GracefulTimeoutPeriod: 0, // when service outage occurs, immediately mark as bad
 		Members:               lbPoolMembers,
 		GatewayRef:            gatewayManager.GatewayRef,
+		GracefulTimeoutPeriod: int32(0), // when service outage occurs, immediately mark as bad
+		Algorithm:             "ROUND_ROBIN",
 	}
+	if healthMonitor != nil {
+		lbPool.HealthMonitors = []swaggerClient.EdgeLoadBalancerHealthMonitor{*healthMonitor}
+	}
+
 	return lbPool, lbPoolMembers
 }
 
-func (gatewayManager *GatewayManager) CreateLoadBalancerPool(ctx context.Context, lbPoolName string,
-	lbPoolIPList []string, internalPort int32) (*swaggerClient.EntityReference, error) {
+func (gatewayManager *GatewayManager) CreateLoadBalancerPool(ctx context.Context, lbPoolName string, lbPoolIPList []string,
+	internalPort int32, protocol string) (*swaggerClient.EntityReference, error) {
 
 	client := gatewayManager.Client
 	if gatewayManager.GatewayRef == nil {
@@ -707,8 +714,12 @@ func (gatewayManager *GatewayManager) CreateLoadBalancerPool(ctx context.Context
 		return lbPoolRef, nil
 	}
 
+	var healthMonitor *swaggerClient.EdgeLoadBalancerHealthMonitor = nil
+	if protocol != "" {
+		healthMonitor = &swaggerClient.EdgeLoadBalancerHealthMonitor{Type_: protocol}
+	}
 	lbPoolUniqueIPList := util.NewSet(lbPoolIPList).GetElements()
-	lbPool, lbPoolMembers := gatewayManager.formLoadBalancerPool(lbPoolName, lbPoolUniqueIPList, internalPort)
+	lbPool, lbPoolMembers := gatewayManager.formLoadBalancerPool(lbPoolName, lbPoolUniqueIPList, internalPort, healthMonitor)
 	resp, err := client.APIClient.EdgeGatewayLoadBalancerPoolsApi.CreateLoadBalancerPool(ctx, lbPool)
 	if err != nil {
 		return nil, fmt.Errorf("unable to create loadbalancer pool with name [%s], members [%+v]: resp [%+v]: [%v]",
@@ -802,8 +813,8 @@ func hasSameLBPoolMembers(array1 []swaggerClient.EdgeLoadBalancerPoolMember, arr
 	return true
 }
 
-func (gatewayManager *GatewayManager) UpdateLoadBalancerPool(ctx context.Context, lbPoolName string,
-	lbPoolIPList []string, internalPort int32) (*swaggerClient.EntityReference, error) {
+func (gatewayManager *GatewayManager) UpdateLoadBalancerPool(ctx context.Context, lbPoolName string, lbPoolIPList []string,
+	internalPort int32, protocol string) (*swaggerClient.EntityReference, error) {
 	client := gatewayManager.Client
 	lbPoolRef, err := gatewayManager.getLoadBalancerPool(ctx, lbPoolName)
 	if err != nil {
@@ -840,7 +851,12 @@ func (gatewayManager *GatewayManager) UpdateLoadBalancerPool(ctx context.Context
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("unable to get loadbalancer pool with id [%s], expected http response [%v], obtained [%v]", lbPoolRef.Id, http.StatusOK, resp.StatusCode)
 	}
-	updatedLBPool, lbPoolMembers := gatewayManager.formLoadBalancerPool(lbPoolName, lbPoolUniqueIPList, internalPort)
+
+	var healthMonitor *swaggerClient.EdgeLoadBalancerHealthMonitor = nil
+	if protocol != "" {
+		healthMonitor = &swaggerClient.EdgeLoadBalancerHealthMonitor{Type_: protocol}
+	}
+	updatedLBPool, lbPoolMembers := gatewayManager.formLoadBalancerPool(lbPoolName, lbPoolUniqueIPList, internalPort, healthMonitor)
 	resp, err = client.APIClient.EdgeGatewayLoadBalancerPoolApi.UpdateLoadBalancerPool(ctx, updatedLBPool, lbPoolRef.Id)
 	if resp != nil && resp.StatusCode != http.StatusAccepted {
 		var responseMessageBytes []byte
@@ -1544,7 +1560,8 @@ func (gm *GatewayManager) CreateLoadBalancer(ctx context.Context, virtualService
 				gm.GatewayRef.Name, err)
 		}
 
-		lbPoolRef, err := gm.CreateLoadBalancerPool(ctx, lbPoolName, ips, portDetails.InternalPort)
+		lbPoolRef, err := gm.CreateLoadBalancerPool(ctx, lbPoolName, ips, portDetails.InternalPort,
+			portDetails.Protocol)
 		if err != nil {
 			return "", fmt.Errorf("unable to create load balancer pool [%s]: [%v]", lbPoolName, err)
 		}
@@ -1677,7 +1694,8 @@ func (gm *GatewayManager) DeleteLoadBalancer(ctx context.Context, virtualService
 }
 
 func (gm *GatewayManager) UpdateLoadBalancer(ctx context.Context, lbPoolName string, virtualServiceName string,
-	ips []string, internalPort int32, externalPort int32, oneArm *OneArm, enableVirtualServiceSharedIP bool, resourcesAllocated *util.AllocatedResourcesMap) (string, error) {
+	ips []string, internalPort int32, externalPort int32, oneArm *OneArm, enableVirtualServiceSharedIP bool, protocol string,
+    resourcesAllocated *util.AllocatedResourcesMap) (string, error) {
 
 	if gm == nil {
 		return "", fmt.Errorf("GatewayManager cannot be nil")
@@ -1687,7 +1705,7 @@ func (gm *GatewayManager) UpdateLoadBalancer(ctx context.Context, lbPoolName str
 	client.RWLock.Lock()
 	defer client.RWLock.Unlock()
 
-	lbPoolRef, err := gm.UpdateLoadBalancerPool(ctx, lbPoolName, ips, internalPort)
+	lbPoolRef, err := gm.UpdateLoadBalancerPool(ctx, lbPoolName, ips, internalPort, protocol)
 	if err != nil {
 		if lbPoolBusyErr, ok := err.(*LoadBalancerPoolBusyError); ok {
 			klog.Errorf("update loadbalancer pool failed; loadbalancer pool [%s] is busy: [%v]", lbPoolName, err)
