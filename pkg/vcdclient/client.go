@@ -144,10 +144,10 @@ func NewVCDClientFromSecrets(host string, orgName string, vdcName string, vAppNa
 
 	resp, err := vcdClient.GetAuthResponse(updatedUserName, password, updatedUserOrg)
 	if err != nil {
-		return nil, fmt.Errorf("error getting auth response from VCD: [%v]", err)
+		return nil, fmt.Errorf("error getting auth response from VCD with username [%s] and org [%s]: [%v]", updatedUserName, updatedUserOrg, err)
 	}
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("failed to authenticate with VCD: [%s]", resp.Status)
+		return nil, fmt.Errorf("failed to authenticate with VCD with username [%s] and org [%s]: [%s]", updatedUserName, updatedUserOrg, resp.Status)
 	}
 
 	client := &Client{
