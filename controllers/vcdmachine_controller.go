@@ -448,8 +448,8 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 			cloudInitInput = CloudInitScriptInput{
 				ControlPlane:              true,
 				B64OrgUser:                b64.StdEncoding.EncodeToString([]byte(orgUserStr)),
-				B64Password:               b64.StdEncoding.EncodeToString([]byte(vcdCluster.Spec.UserCredentialsContext.Password)),
-				B64RefreshToken:           b64.StdEncoding.EncodeToString([]byte(vcdCluster.Spec.UserCredentialsContext.RefreshToken)),
+				B64Password:               b64.StdEncoding.EncodeToString([]byte(workloadVCDClient.VCDAuthConfig.Password)),
+				B64RefreshToken:           b64.StdEncoding.EncodeToString([]byte(workloadVCDClient.VCDAuthConfig.RefreshToken)),
 				K8sStorageClassName:       k8sStorageClassName,
 				ReclaimPolicy:             reclaimPolicy,
 				VcdStorageProfileName:     vcdStorageProfileName,
