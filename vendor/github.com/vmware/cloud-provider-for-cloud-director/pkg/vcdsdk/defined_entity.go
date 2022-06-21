@@ -149,7 +149,7 @@ func AddVCDResourceToStatusMap(component string, componentName string, component
 				vcdResource,
 			},
 		}
-		klog.Infof("created component map [%#v] since the component was not found in the status map", statusMap[component])
+		klog.V(3).Infof("created component map [%#v] since the component was not found in the status map", statusMap[component])
 		return statusMap, nil
 	}
 
@@ -215,7 +215,7 @@ status:
 func (rdeManager *RDEManager) AddToErrorSet(ctx context.Context, componentSectionName string, newError BackendError, rollingWindowSize int) error {
 	if rdeManager.ClusterID == "" || strings.HasPrefix(rdeManager.ClusterID, NoRdePrefix) {
 		// Indicates that the RDE ID is either empty or it was auto-generated.
-		klog.Infof("ClusterID [%s] is empty or generated, hence cannot add errors [%v] to RDE",
+		klog.V(3).Infof("ClusterID [%s] is empty or generated, hence cannot add errors [%v] to RDE",
 			rdeManager.ClusterID, newError)
 		return nil
 	}
@@ -272,7 +272,7 @@ func (rdeManager *RDEManager) AddToErrorSet(ctx context.Context, componentSectio
 					newError, componentSectionName, rdeManager.ClusterID, http.StatusOK, resp.StatusCode, string(responseMessageBytes), err)
 			}
 			// resp.StatusCode is http.StatusOK
-			klog.Infof("successfully added newError [%v] in componentSectionName [%s] of RDE [%s]",
+			klog.V(3).Infof("successfully added newError [%v] in componentSectionName [%s] of RDE [%s]",
 				newError, componentSectionName, rdeManager.ClusterID)
 			return nil
 		} else if err != nil {
@@ -302,7 +302,7 @@ RDE.entity
 func (rdeManager *RDEManager) RemoveErrorByNameOrIdFromErrorSet(ctx context.Context, componentSectionName string, errorName string, vcdResourceId string, vcdResourceName string) error {
 	if rdeManager.ClusterID == "" || strings.HasPrefix(rdeManager.ClusterID, NoRdePrefix) {
 		// Indicates that the RDE ID is either empty or it was auto-generated.
-		klog.Infof("ClusterID [%s] is empty or generated, hence cannot remove any errors of name [%s] from RDE",
+		klog.V(3).Infof("ClusterID [%s] is empty or generated, hence cannot remove any errors of name [%s] from RDE",
 			rdeManager.ClusterID, errorName)
 		return nil
 	}
@@ -366,7 +366,7 @@ func (rdeManager *RDEManager) RemoveErrorByNameOrIdFromErrorSet(ctx context.Cont
 					errorName, componentSectionName, rdeManager.ClusterID, http.StatusOK, resp.StatusCode, string(responseMessageBytes), err)
 			}
 			// resp.StatusCode is http.StatusOK
-			klog.Infof("successfully removed errors of type [%s] in componentSectionName [%s] of RDE [%s]",
+			klog.V(3).Infof("successfully removed errors of type [%s] in componentSectionName [%s] of RDE [%s]",
 				errorName, componentSectionName, rdeManager.ClusterID)
 			return nil
 		} else if err != nil {
@@ -395,7 +395,7 @@ func (rdeManager *RDEManager) updateComponentMapWithNewEvent(componentName strin
 			"version":  rdeManager.StatusComponentVersion,
 			"eventSet": []BackendEvent{newEvent},
 		}
-		klog.Infof("created component map [%#v] since the component was not found in the status map", statusMap[componentName])
+		klog.V(3).Infof("created component map [%#v] since the component was not found in the status map", statusMap[componentName])
 		return statusMap, nil
 	}
 	componentMap, ok := componentIf.(map[string]interface{})
@@ -431,7 +431,7 @@ func (rdeManager *RDEManager) updateComponentMapWithNewError(componentRdeSection
 			"version":  rdeManager.StatusComponentVersion,
 			"errorSet": []BackendError{newError},
 		}
-		klog.Infof("created component map [%#v] since the component was not found in the status map", statusMap[componentRdeSectionName])
+		klog.V(3).Infof("created component map [%#v] since the component was not found in the status map", statusMap[componentRdeSectionName])
 		return statusMap, nil
 	}
 	componentMap, ok := componentIf.(map[string]interface{})
@@ -472,7 +472,7 @@ status:
 func (rdeManager *RDEManager) AddToEventSet(ctx context.Context, componentSectionName string, newEvent BackendEvent, rollingWindowSize int) error {
 	if rdeManager.ClusterID == "" || strings.HasPrefix(rdeManager.ClusterID, NoRdePrefix) {
 		// Indicates that the RDE ID is either empty or it was auto-generated.
-		klog.Infof("ClusterID [%s] is empty or generated, hence cannot add events [%#v] to RDE",
+		klog.V(3).Infof("ClusterID [%s] is empty or generated, hence cannot add events [%#v] to RDE",
 			rdeManager.ClusterID, newEvent)
 		return nil
 	}
@@ -529,7 +529,7 @@ func (rdeManager *RDEManager) AddToEventSet(ctx context.Context, componentSectio
 					newEvent, componentSectionName, rdeManager.ClusterID, http.StatusOK, resp.StatusCode, string(responseMessageBytes), err)
 			}
 			// resp.StatusCode is http.StatusOK
-			klog.Infof("successfully added newEvent [%v] in componentSectionName [%s] of RDE [%s]",
+			klog.V(3).Infof("successfully added newEvent [%v] in componentSectionName [%s] of RDE [%s]",
 				newEvent, componentSectionName, rdeManager.ClusterID)
 			return nil
 		} else if err != nil {
@@ -573,7 +573,7 @@ func (rdeManager *RDEManager) AddToVCDResourceSet(ctx context.Context, component
 	resourceName string, resourceId string, additionalDetails map[string]interface{}) error {
 	if rdeManager.ClusterID == "" || strings.HasPrefix(rdeManager.ClusterID, NoRdePrefix) {
 		// Indicates that the RDE ID is either empty or it was auto-generated.
-		klog.Infof("ClusterID [%s] is empty or generated, hence not adding VCDResource [%s:%s] to RDE",
+		klog.V(3).Infof("ClusterID [%s] is empty or generated, hence not adding VCDResource [%s:%s] to RDE",
 			rdeManager.ClusterID, resourceType, resourceId)
 		return nil
 	}
@@ -632,7 +632,7 @@ func (rdeManager *RDEManager) AddToVCDResourceSet(ctx context.Context, component
 					vcdResource.Name, vcdResource.ID, component, rdeManager.ClusterID, http.StatusOK, resp.StatusCode, string(responseMessageBytes), err)
 			}
 			// resp.StatusCode is http.StatusOK
-			klog.Infof("successfully added resource [%s] of type [%s] having ID [%s] to VCDResourceSet of [%s] in RDE [%s]",
+			klog.V(3).Infof("successfully added resource [%s] of type [%s] having ID [%s] to VCDResourceSet of [%s] in RDE [%s]",
 				vcdResource.Name, vcdResource.Type, vcdResource.ID, component, rdeManager.ClusterID)
 			return nil
 		} else if err != nil {
@@ -657,7 +657,7 @@ func RemoveVCDResourceSetFromStatusMap(component string, componentName string, c
 			"version":        componentVersion,
 			"vcdResourceSet": []VCDResource{},
 		}
-		klog.Infof("created component map [%#v] since the component was not found in the status map", statusMap[component])
+		klog.V(3).Infof("created component map [%#v] since the component was not found in the status map", statusMap[component])
 		return statusMap, nil
 	}
 
@@ -683,7 +683,7 @@ func RemoveVCDResourceSetFromStatusMap(component string, componentName string, c
 	}
 
 	if !resourceFound {
-		klog.Infof("VCDResource having name [%s] and Type [%s] was not found in the component [%s]", vcdResource.Name, vcdResource.Type, component)
+		klog.V(3).Infof("VCDResource having name [%s] and Type [%s] was not found in the component [%s]", vcdResource.Name, vcdResource.Type, component)
 		return statusMap, nil
 	}
 
@@ -696,7 +696,7 @@ func RemoveVCDResourceSetFromStatusMap(component string, componentName string, c
 // has been deleted from VCD
 func (rdeManager *RDEManager) RemoveFromVCDResourceSet(ctx context.Context, component, resourceType, resourceName string) error {
 	if rdeManager.ClusterID == "" || strings.HasPrefix(rdeManager.ClusterID, NoRdePrefix) {
-		klog.Infof("ClusterID [%s] is empty or generated, hence not removing VCDResource [%s:%s] from RDE",
+		klog.V(3).Infof("ClusterID [%s] is empty or generated, hence not removing VCDResource [%s:%s] from RDE",
 			rdeManager.ClusterID, resourceType, resourceName)
 		return nil
 	}
@@ -754,7 +754,7 @@ func (rdeManager *RDEManager) RemoveFromVCDResourceSet(ctx context.Context, comp
 					rdeManager.ClusterID, http.StatusOK, resp.StatusCode, string(responseMessageBytes), err)
 			}
 			// resp.StatusCode is http.StatusOK
-			klog.Infof("successfully removed resource [%s] of type [%s] from VCDResourceSet of [%s] in RDE [%s]",
+			klog.V(3).Infof("successfully removed resource [%s] of type [%s] from VCDResourceSet of [%s] in RDE [%s]",
 				resourceName, resourceType, component, rdeManager.ClusterID)
 			return nil
 		} else if err != nil {
@@ -774,7 +774,7 @@ func (rdeManager *RDEManager) removeErrorsfromComponentMap(componentRdeSectionNa
 	// get the component info from the status
 	componentIf, ok := statusMap[componentRdeSectionName]
 	if !ok {
-		klog.Infof("missing component [%s] from the rde status, hence skipping removing errors", componentRdeSectionName)
+		klog.V(3).Infof("missing component [%s] from the rde status, hence skipping removing errors", componentRdeSectionName)
 		return nil, false, nil
 	}
 	componentMap, ok := componentIf.(map[string]interface{})
