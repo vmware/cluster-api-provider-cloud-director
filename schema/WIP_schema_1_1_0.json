@@ -74,7 +74,7 @@
         },
         "virtualDataCenterName": {
           "type": "string",
-          "description": "The name of the Organization Virtual data center in which the cluster need to be created or managed."
+          "description": "The name of the Organization data center in which the cluster need to be created or managed."
         },
         "name": {
           "type": "string",
