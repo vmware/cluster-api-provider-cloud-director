@@ -339,6 +339,7 @@ func autoConvert_v1beta1_VCDClusterSpec_To_v1alpha4_VCDClusterSpec(in *v1beta1.V
 	// WARNING: in.UseAsManagementCluster requires manual conversion: does not exist in peer-type
 	// WARNING: in.ProxyConfig requires manual conversion: does not exist in peer-type
 	// WARNING: in.LoadBalancer requires manual conversion: does not exist in peer-type
+	// WARNING: in.VipSubnet requires manual conversion: does not exist in peer-type
 	return nil
 }
 
