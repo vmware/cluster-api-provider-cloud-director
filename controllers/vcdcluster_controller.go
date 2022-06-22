@@ -567,8 +567,9 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 			EndIP:   r.Config.LB.OneArm.EndIP,
 		}
 	}
-	controlPlaneNodeIP, err := gateway.GetLoadBalancer(ctx,
-		fmt.Sprintf("%s-tcp", virtualServiceNamePrefix), oneArm)
+	var resourcesAllocated *vcdsdkutil.AllocatedResourcesMap
+	controlPlaneNodeIP, resourcesAllocated, err := gateway.GetLoadBalancer(ctx,
+		fmt.Sprintf("%s-tcp", virtualServiceNamePrefix), fmt.Sprintf("%s-tcp", lbPoolNamePrefix), oneArm)
 	//TODO: Sahithi: Check if error is really because of missing virtual service.
 	// In any other error cases, force create the new load balancer with the original control plane endpoint
 	// (if already present). Do not overwrite the existing control plane endpoint with a new endpoint.
@@ -592,7 +593,7 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 			log.Info("Creating load balancer for the cluster")
 		}
 
-		resourcesAllocated := &vcdsdkutil.AllocatedResourcesMap{}
+		resourcesAllocated = &vcdsdkutil.AllocatedResourcesMap{}
 		// here we set enableVirtualServiceSharedIP to ensure that we don't use a DNAT rule. The variable is possibly
 		// badly named. Though the user-facing name is good, the internal variable name could be better.
 		controlPlaneNodeIP, err = gateway.CreateLoadBalancer(ctx, virtualServiceNamePrefix, lbPoolNamePrefix,
@@ -605,30 +606,6 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 				},
 			}, oneArm, !vcdCluster.Spec.LoadBalancer.UseOneArm,
 			nil, vcdCluster.Spec.ControlPlaneEndpoint.Host, resourcesAllocated)
-
-		// Update VCDResourceSet even if the creation has failed since we may have partially
-		// created set of resources
-		for _, key := range []string{vcdsdk.VcdResourceDNATRule, vcdsdk.VcdResourceVirtualService,
-			vcdsdk.VcdResourceLoadBalancerPool, vcdsdk.VcdResourceAppPortProfile} {
-			if values := resourcesAllocated.Get(key); values != nil {
-				for _, value := range values {
-					additionalDetails := make(map[string]interface{})
-					if key == vcdsdk.VcdResourceVirtualService {
-						additionalDetails = map[string]interface{}{
-							"virtualIP": controlPlaneNodeIP,
-						}
-						virtualServiceHref = value.Id
-					}
-					err = rdeManager.AddToVCDResourceSet(ctx, vcdsdk.ComponentCAPVCD, key,
-						value.Name, value.Id, additionalDetails)
-					if err != nil {
-						return ctrl.Result{}, errors.Wrapf(err,
-							"failed to add resource [%s] of type [%s] to VCDResourceSet of RDE [%s]: [%v]",
-							value.Name, key, infraID, err)
-					}
-				}
-			}
-		}
 
 		if err != nil {
 			if vsError, ok := err.(*vcdsdk.VirtualServicePendingError); ok {
@@ -646,6 +623,30 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		}
 		log.Info("Resources Allocated in creation of load balancer",
 			"resourcesAllocated", resourcesAllocated)
+	}
+
+	// Update VCDResourceSet even if the creation has failed since we may have partially
+	// created set of resources
+	for _, key := range []string{vcdsdk.VcdResourceDNATRule, vcdsdk.VcdResourceVirtualService,
+		vcdsdk.VcdResourceLoadBalancerPool, vcdsdk.VcdResourceAppPortProfile} {
+		if values := resourcesAllocated.Get(key); values != nil {
+			for _, value := range values {
+				additionalDetails := make(map[string]interface{})
+				if key == vcdsdk.VcdResourceVirtualService {
+					additionalDetails = map[string]interface{}{
+						"virtualIP": controlPlaneNodeIP,
+					}
+					virtualServiceHref = value.Id
+				}
+				err = rdeManager.AddToVCDResourceSet(ctx, vcdsdk.ComponentCAPVCD, key,
+					value.Name, value.Id, additionalDetails)
+				if err != nil {
+					return ctrl.Result{}, errors.Wrapf(err,
+						"failed to add resource [%s] of type [%s] to VCDResourceSet of RDE [%s]: [%v]",
+						value.Name, key, infraID, err)
+				}
+			}
+		}
 	}
 
 	vcdCluster.Spec.ControlPlaneEndpoint = infrav1.APIEndpoint{

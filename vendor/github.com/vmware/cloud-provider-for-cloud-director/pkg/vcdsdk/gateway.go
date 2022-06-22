@@ -219,12 +219,13 @@ func getCursor(resp *http.Response) (string, error) {
 }
 
 type NatRuleRef struct {
-	Name         string
-	ID           string
-	ExternalIP   string
-	InternalIP   string
-	ExternalPort int
-	InternalPort int
+	Name              string
+	ID                string
+	ExternalIP        string
+	InternalIP        string
+	ExternalPort      int
+	InternalPort      int
+	AppPortProfileRef *swaggerClient.EntityReference
 }
 
 // GetNATRuleRef: returns nil if the rule is not found;
@@ -270,12 +271,13 @@ func (gatewayManager *GatewayManager) GetNATRuleRef(ctx context.Context, natRule
 				}
 
 				natRuleRef = &NatRuleRef{
-					ID:           rule.Id,
-					Name:         rule.Name,
-					ExternalIP:   rule.ExternalAddresses,
-					InternalIP:   rule.InternalAddresses,
-					ExternalPort: externalPort,
-					InternalPort: internalPort,
+					ID:                rule.Id,
+					Name:              rule.Name,
+					ExternalIP:        rule.ExternalAddresses,
+					InternalIP:        rule.InternalAddresses,
+					ExternalPort:      externalPort,
+					InternalPort:      internalPort,
+					AppPortProfileRef: rule.ApplicationPortProfile,
 				}
 				break
 			}
@@ -1290,37 +1292,60 @@ type PortDetails struct {
 }
 
 // GetLoadBalancer :
-func (gatewayManager *GatewayManager) GetLoadBalancer(ctx context.Context, virtualServiceName string, oneArm *OneArm) (string, error) {
+func (gatewayManager *GatewayManager) GetLoadBalancer(ctx context.Context, virtualServiceName string, lbPoolName string, oneArm *OneArm) (string, *util.AllocatedResourcesMap, error) {
 
+	allocatedResources := util.AllocatedResourcesMap{}
 	vsSummary, err := gatewayManager.GetVirtualService(ctx, virtualServiceName)
 	if err != nil {
-		return "", fmt.Errorf("unable to get summary for LB Virtual Service [%s]: [%v]",
+		return "", nil, fmt.Errorf("unable to get summary for LB Virtual Service [%s]: [%v]",
 			virtualServiceName, err)
 	}
 	if vsSummary == nil {
-		return "", nil // this is not an error
+		return "", &allocatedResources, nil // this is not an error
 	}
+	allocatedResources.Insert(VcdResourceVirtualService, &swaggerClient.EntityReference{
+		Name: vsSummary.Name,
+		Id:   vsSummary.Id,
+	})
+
+	lbPoolRef, err := gatewayManager.GetLoadBalancerPool(ctx, lbPoolName)
+	if err != nil {
+		return "", nil, fmt.Errorf("unable to get load balancer pool information for LB Pool [%s]: [%v]", lbPoolName, err)
+	}
+	// no need to check if lbPoolRef is nil. Since the function GetLoadBalancerPool returns an error if lbPoolRef returned is nil
+	allocatedResources.Insert(VcdResourceLoadBalancerPool, lbPoolRef)
 
 	klog.V(3).Infof("LoadBalancer Virtual Service [%s] exists", virtualServiceName)
 	if err = gatewayManager.CheckIfVirtualServiceIsPending(ctx, virtualServiceName); err != nil {
-		return "", err
+		return "", &allocatedResources, err
 	}
 
 	if oneArm == nil {
-		return vsSummary.VirtualIpAddress, nil
+		return vsSummary.VirtualIpAddress, &allocatedResources, nil
 	}
 
 	dnatRuleName := GetDNATRuleName(virtualServiceName)
 	dnatRuleRef, err := gatewayManager.GetNATRuleRef(ctx, dnatRuleName)
 	if err != nil {
-		return "", fmt.Errorf("unable to find dnat rule [%s] for virtual service [%s]: [%v]",
+		return "", &allocatedResources, fmt.Errorf("unable to find dnat rule [%s] for virtual service [%s]: [%v]",
 			dnatRuleName, virtualServiceName, err)
 	}
 	if dnatRuleRef == nil {
-		return "", nil // so that a retry creates the DNAT rule
+		return "", &allocatedResources, nil // so that a retry creates the DNAT rule
+	}
+	allocatedResources.Insert(VcdResourceDNATRule, &swaggerClient.EntityReference{
+		Name: dnatRuleRef.Name,
+		Id:   dnatRuleRef.ID,
+	})
+
+	if dnatRuleRef.AppPortProfileRef != nil {
+		allocatedResources.Insert(VcdResourceAppPortProfile, &swaggerClient.EntityReference{
+			Name: dnatRuleRef.AppPortProfileRef.Name,
+			Id:   dnatRuleRef.AppPortProfileRef.Id,
+		})
 	}
 
-	return dnatRuleRef.ExternalIP, nil
+	return dnatRuleRef.ExternalIP, &allocatedResources, nil
 }
 
 // IsNSXTBackedGateway : return true if gateway is backed by NSX-T
@@ -1695,7 +1720,7 @@ func (gm *GatewayManager) DeleteLoadBalancer(ctx context.Context, virtualService
 
 func (gm *GatewayManager) UpdateLoadBalancer(ctx context.Context, lbPoolName string, virtualServiceName string,
 	ips []string, internalPort int32, externalPort int32, oneArm *OneArm, enableVirtualServiceSharedIP bool, protocol string,
-    resourcesAllocated *util.AllocatedResourcesMap) (string, error) {
+	resourcesAllocated *util.AllocatedResourcesMap) (string, error) {
 
 	if gm == nil {
 		return "", fmt.Errorf("GatewayManager cannot be nil")
