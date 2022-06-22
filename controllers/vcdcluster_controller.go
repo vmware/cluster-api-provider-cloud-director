@@ -143,6 +143,29 @@ func patchVCDCluster(ctx context.Context, patchHelper *patch.Helper, vcdCluster 
 	)
 }
 
+func addLBResourcesToVCDResourceSet(ctx context.Context, rdeManager *vcdsdk.RDEManager, resourcesAllocated *vcdsdkutil.AllocatedResourcesMap, externalIP string) error {
+	for _, key := range []string{vcdsdk.VcdResourceDNATRule, vcdsdk.VcdResourceVirtualService,
+		vcdsdk.VcdResourceLoadBalancerPool, vcdsdk.VcdResourceAppPortProfile} {
+		if values := resourcesAllocated.Get(key); values != nil {
+			for _, value := range values {
+				additionalDetails := make(map[string]interface{})
+				if key == vcdsdk.VcdResourceVirtualService {
+					additionalDetails = map[string]interface{}{
+						"virtualIP": externalIP,
+					}
+				}
+				err := rdeManager.AddToVCDResourceSet(ctx, vcdsdk.ComponentCAPVCD, key,
+					value.Name, value.Id, additionalDetails)
+				if err != nil {
+					return fmt.Errorf("failed to add resource [%s] of type [%s] to VCDResourceSet of RDE [%s]: [%v]",
+						value.Name, key, rdeManager.ClusterID, err)
+				}
+			}
+		}
+	}
+	return nil
+}
+
 // TODO: Remove uncommented code when decision to only keep capi.yaml as part of RDE spec is finalized
 func (r *VCDClusterReconciler) constructCapvcdRDE(ctx context.Context, cluster *clusterv1.Cluster,
 	vcdCluster *infrav1.VCDCluster) (*swagger.DefinedEntity, error) {
@@ -607,6 +630,15 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 			}, oneArm, !vcdCluster.Spec.LoadBalancer.UseOneArm,
 			nil, vcdCluster.Spec.ControlPlaneEndpoint.Host, resourcesAllocated)
 
+		// Update VCDResourceSet even if the creation has failed since we may have partially
+		// created set of resources
+		if err = addLBResourcesToVCDResourceSet(ctx, rdeManager, resourcesAllocated, controlPlaneNodeIP); err != nil {
+			return ctrl.Result{}, errors.Wrapf(err, "failed to add load balancer resources to RDE [%s]", infraID)
+		}
+		if len(resourcesAllocated.Get(vcdsdk.VcdResourceVirtualService)) > 0 {
+			virtualServiceHref = resourcesAllocated.Get(vcdsdk.VcdResourceVirtualService)[0].Id
+		}
+
 		if err != nil {
 			if vsError, ok := err.(*vcdsdk.VirtualServicePendingError); ok {
 				log.Info("Error creating load balancer for cluster. Virtual Service is still pending",
@@ -625,28 +657,11 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 			"resourcesAllocated", resourcesAllocated)
 	}
 
-	// Update VCDResourceSet even if the creation has failed since we may have partially
-	// created set of resources
-	for _, key := range []string{vcdsdk.VcdResourceDNATRule, vcdsdk.VcdResourceVirtualService,
-		vcdsdk.VcdResourceLoadBalancerPool, vcdsdk.VcdResourceAppPortProfile} {
-		if values := resourcesAllocated.Get(key); values != nil {
-			for _, value := range values {
-				additionalDetails := make(map[string]interface{})
-				if key == vcdsdk.VcdResourceVirtualService {
-					additionalDetails = map[string]interface{}{
-						"virtualIP": controlPlaneNodeIP,
-					}
-					virtualServiceHref = value.Id
-				}
-				err = rdeManager.AddToVCDResourceSet(ctx, vcdsdk.ComponentCAPVCD, key,
-					value.Name, value.Id, additionalDetails)
-				if err != nil {
-					return ctrl.Result{}, errors.Wrapf(err,
-						"failed to add resource [%s] of type [%s] to VCDResourceSet of RDE [%s]: [%v]",
-						value.Name, key, infraID, err)
-				}
-			}
-		}
+	if err = addLBResourcesToVCDResourceSet(ctx, rdeManager, resourcesAllocated, controlPlaneNodeIP); err != nil {
+		return ctrl.Result{}, errors.Wrapf(err, "failed to add load balancer resources to RDE [%s]", infraID)
+	}
+	if len(resourcesAllocated.Get(vcdsdk.VcdResourceVirtualService)) > 0 {
+		virtualServiceHref = resourcesAllocated.Get(vcdsdk.VcdResourceVirtualService)[0].Id
 	}
 
 	vcdCluster.Spec.ControlPlaneEndpoint = infrav1.APIEndpoint{
