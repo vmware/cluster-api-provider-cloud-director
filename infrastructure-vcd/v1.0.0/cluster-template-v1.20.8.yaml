@@ -1,8 +1,10 @@
-apiVersion: cluster.x-k8s.io/v1alpha4
+apiVersion: cluster.x-k8s.io/v1beta1
 kind: Cluster
 metadata:
   name: ${CLUSTER_NAME}
   namespace: ${TARGET_NAMESPACE}
+  labels:
+    cni: antrea
 spec:
   clusterNetwork:
     pods:
@@ -13,17 +15,28 @@ spec:
       cidrBlocks:
         - 100.64.0.0/13 # service CIDR for the cluster
   controlPlaneRef:
-    apiVersion: controlplane.cluster.x-k8s.io/v1alpha4
+    apiVersion: controlplane.cluster.x-k8s.io/v1beta1
     kind: KubeadmControlPlane
     name: ${CLUSTER_NAME}-control-plane # name of the KubeadmControlPlane object associated with the cluster.
     namespace: ${TARGET_NAMESPACE} # kubernetes namespace in which the KubeadmControlPlane object reside. Should be the same namespace as that of the Cluster object
   infrastructureRef:
-    apiVersion: infrastructure.cluster.x-k8s.io/v1alpha4
+    apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
     kind: VCDCluster
     name: ${CLUSTER_NAME} # name of the VCDCluster object associated with the cluster.
     namespace: ${TARGET_NAMESPACE} # kubernetes namespace in which the VCDCluster object resides. Should be the same namespace as that of the Cluster object
 ---
-apiVersion: infrastructure.cluster.x-k8s.io/v1alpha4
+apiVersion: v1
+kind: Secret
+metadata:
+  name: capi-user-credentials
+  namespace: ${TARGET_NAMESPACE}
+type: Opaque
+data:
+  username: ${VCD_USERNAME} # username of the VCD persona creating the cluster. If system administrator is the user, please use 'system/administrator' as the username.
+  password: ${VCD_PASSWORD} # password associated with the user creating the cluster
+  refreshToken: ${VCD_REFRESH_TOKEN} # refresh token of the client registered with VCD for creating clusters. username and password can be left blank if refresh token is provided
+---
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
 kind: VCDCluster
 metadata:
   name: ${CLUSTER_NAME}
@@ -33,19 +46,20 @@ spec:
   org: ${VCD_ORGANIZATION} # VCD organization name where the cluster should be deployed
   ovdc: ${VCD_ORGANIZATION_VDC} # VCD virtual datacenter name where the cluster should be deployed
   ovdcNetwork: ${VCD_ORGANIZATION_VDC_NETWORK} # VCD virtual datacenter network to be used by the cluster
-  rdeId: ${VCD_RDE_ID} # rdeId if it is already created. If empty, CAPVCD will create one for the cluster.
+  parentUid: ${PARENT_RDE_ID} # create the CAPVCD cluster from a specific management cluster associated with this UID.
+  useAsManagementCluster: ${USE_AS_MANAGEMENT_CLUSTER} # intent to use the resultant CAPVCD cluster as a management cluster
   userContext:
-    username: ${VCD_USERNAME} # username of the VCD persona creating the cluster
-    password: ${VCD_PASSWORD} # password associated with the user creating the cluster
-    refreshToken: ${VCD_REFRESH_TOKEN} # refresh token of the client registered with VCD for creating clusters. username and password can be left blank if refresh token is provided
-# uncomment the following section to create a default storage class upon cluster creation
-#  defaultStorageClassOptions:
-#    vcdStorageProfileName: "${VCD_STORAGE_PROFILE}" # name of the VCD storage profile used to create the storage class
-#    k8sStorageClassName: ${K8S_DEFAULT_STORAGE_CLASS_NAME} # name of the storage class in kubernetes
-#    useDeleteReclaimPolicy: ${USE_DELETE_RECLAIM_POLICY} # if set to true, Delete will be used as the Reclaim policy for the storage class. Else, Retain will be used as the reclaim policy
-#    fileSystem: ${FILE_SYSTEM_FORMAT} # file system format for the persistent volumes created from the storage class
+    secretRef:
+      name: capi-user-credentials # name of the secret containing the credentials of the VCD persona creating the cluster
+      namespace: ${TARGET_NAMESPACE} # name of the secret containing the credentials of the VCD persona creating the cluster
+  rdeId: ${VCD_RDE_ID} # rdeId if it is already created. If empty, CAPVCD will create one for the cluster.
+  defaultStorageClassOptions: # default storage class configuration options. include this field only if a default storage class needs to be created
+    vcdStorageProfileName: ${VCD_STORAGE_PROFILE_NAME} # name of the VCD storage profile used to create the storage class
+    k8sStorageClassName: ${K8s_STORAGE_CLASS_NAME} # name of the storage class in kubernetes
+    useDeleteReclaimPolicy: ${USE_DELETE_RECLAIM_POLICY} # if set to true, Delete will be used as the Reclaim policy for the storage class. Else, Retain will be used as the reclaim policy
+    fileSystem: "ext4" # file system format for the persistent volumes created from the storage class
 ---
-apiVersion: infrastructure.cluster.x-k8s.io/v1alpha4
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
 kind: VCDMachineTemplate
 metadata:
   name: ${CLUSTER_NAME}-control-plane
@@ -55,9 +69,11 @@ spec:
     spec:
       catalog: ${VCD_CATALOG} # Catalog hosting the TKGm template, which will be used to deploy the control plane VMs
       template: ${VCD_TEMPLATE_NAME} # Name of the template to be used to create (or) upgrade the control plane nodes
-      computePolicy: ${VCD_CONTROL_PLANE_SIZING_POLICY} # Sizing policy to be used for the control plane VMs (this must be pre-published on the chosen organization virtual datacenter). If no sizing policy should be used, use "".
+      sizingPolicy: ${VCD_CONTROL_PLANE_SIZING_POLICY} # Sizing policy to be used for the control plane VMs (this must be pre-published on the chosen organization virtual datacenter)
+      placementPolicy: ${VCD_CONTROL_PLANE_PLACEMENT_POLICY} # Placement policy to be used for worker VMs (this must be pre-published on the chosen organization virtual datacenter)
+      storageProfile: ${VCD_CONTROL_PLANE_STORAGE_PROFILE} # Storage profile to be used for the control plane VMs (this must be pre-published on the chosen organization virtual datacenter)
 ---
-apiVersion: controlplane.cluster.x-k8s.io/v1alpha4
+apiVersion: controlplane.cluster.x-k8s.io/v1beta1
 kind: KubeadmControlPlane
 metadata:
   name: ${CLUSTER_NAME}-control-plane
@@ -98,14 +114,14 @@ spec:
           cloud-provider: external
   machineTemplate:
     infrastructureRef:
-      apiVersion: infrastructure.cluster.x-k8s.io/v1alpha4
+      apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
       kind: VCDMachineTemplate
       name: ${CLUSTER_NAME}-control-plane # name of the VCDMachineTemplate object used to deploy control plane VMs. Should be the same name as that of KubeadmControlPlane object
       namespace: ${TARGET_NAMESPACE} # kubernetes namespace of the VCDMachineTemplate object. Should be the same namespace as that of the Cluster object
   replicas: ${CONTROL_PLANE_MACHINE_COUNT} # desired number of control plane nodes for the cluster
   version: v1.20.8+vmware.1 # Kubernetes version to be used to create (or) upgrade the control plane nodes. The value needs to be retrieved from the respective TKGm ova BOM. Refer to the documentation.
 ---
-apiVersion: infrastructure.cluster.x-k8s.io/v1alpha4
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
 kind: VCDMachineTemplate
 metadata:
   name: ${CLUSTER_NAME}-md0
@@ -115,9 +131,11 @@ spec:
     spec:
       catalog: ${VCD_CATALOG} # Catalog hosting the TKGm template, which will be used to deploy the worker VMs
       template: ${VCD_TEMPLATE_NAME} # Name of the template to be used to create (or) upgrade the worker nodes
-      computePolicy: ${VCD_WORKER_SIZING_POLICY} # Sizing policy to be used for the worker VMs (this must be pre-published on the chosen organization virtual datacenter). If no sizing policy should be used, use "".
+      sizingPolicy: ${VCD_WORKER_SIZING_POLICY} # Sizing policy to be used for the control plane VMs (this must be pre-published on the chosen organization virtual datacenter)
+      placementPolicy: ${VCD_WORKER_PLACEMENT_POLICY} # Placement policy to be used for worker VMs (this must be pre-published on the chosen organization virtual datacenter)
+      storageProfile: ${VCD_WORKER_STORAGE_PROFILE} # Storage profile to be used for the control plane VMs (this must be pre-published on the chosen organization virtual datacenter)
 ---
-apiVersion: bootstrap.cluster.x-k8s.io/v1alpha4
+apiVersion: bootstrap.cluster.x-k8s.io/v1beta1
 kind: KubeadmConfigTemplate
 metadata:
   name: ${CLUSTER_NAME}-md0
@@ -136,7 +154,7 @@ spec:
             eviction-hard: nodefs.available<0%,nodefs.inodesFree<0%,imagefs.available<0%
             cloud-provider: external
 ---
-apiVersion: cluster.x-k8s.io/v1alpha4
+apiVersion: cluster.x-k8s.io/v1beta1
 kind: MachineDeployment
 metadata:
   name: ${CLUSTER_NAME}-md0
@@ -150,15 +168,14 @@ spec:
     spec:
       bootstrap:
         configRef:
-          apiVersion: bootstrap.cluster.x-k8s.io/v1alpha4
+          apiVersion: bootstrap.cluster.x-k8s.io/v1beta1
           kind: KubeadmConfigTemplate
           name: ${CLUSTER_NAME}-md0 # name of the KubeadmConfigTemplate object
           namespace: ${TARGET_NAMESPACE} # kubernetes namespace of the KubeadmConfigTemplate object. Should be the same namespace as that of the Cluster object
       clusterName: ${CLUSTER_NAME} # name of the Cluster object
       infrastructureRef:
-        apiVersion: infrastructure.cluster.x-k8s.io/v1alpha4
+        apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
         kind: VCDMachineTemplate
         name: ${CLUSTER_NAME}-md0 # name of the VCDMachineTemplate object used to deploy worker nodes
         namespace: ${TARGET_NAMESPACE} # kubernetes namespace of the VCDMachineTemplate object used to deploy worker nodes
       version: v1.20.8+vmware.1 # Kubernetes version to be used to create (or) upgrade the worker nodes. The value needs to be retrieved from the respective TKGm ova BOM. Refer to the documentation.
-
