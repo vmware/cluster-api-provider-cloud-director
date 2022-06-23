@@ -147,13 +147,20 @@ func NewVCDClientFromSecrets(host string, orgName string, vdcName string, userOr
 		return nil, fmt.Errorf("unable to get swagger client from secrets: [%v]", err)
 	}
 
-	resp, err := vcdClient.GetAuthResponse(newUsername, password, newUserOrg)
-	if err != nil {
-		return nil, fmt.Errorf("error getting auth response from VCD with username [%s] and org [%s]: [%v]", newUsername, newUserOrg, err)
+	// We want to verify that user/pass is correct by getting the auth response. Unfortunately, govcd does not provide
+	// the appropriate errors correlating to the http status codes, so we have to do this in this manner. However, if
+	// the refresh token is set then we don't want to do this. There is no analogous method for testing auth response
+	// with the token right now, so we'll have to do without for the time being.
+	if refreshToken == "" {
+		resp, err := vcdClient.GetAuthResponse(newUsername, password, newUserOrg)
+		if err != nil {
+			return nil, fmt.Errorf("error getting auth response from VCD with username [%s] and org [%s]: [%v]", newUsername, newUserOrg, err)
+		}
+		if resp.StatusCode != http.StatusOK {
+			return nil, fmt.Errorf("failed to authenticate with VCD with username [%s] and org [%s]: [%s]", newUsername, newUserOrg, resp.Status)
+		}
 	}
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("failed to authenticate with VCD with username [%s] and org [%s]: [%s]", newUsername, newUserOrg, resp.Status)
-	}
+
 	client := &Client{
 		VCDAuthConfig:   vcdAuthConfig,
 		ClusterOrgName:  orgName,
