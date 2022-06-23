@@ -141,8 +141,7 @@
                     },
                     "port": {
                       "type": "integer"
-                    },
-                    "type": "string"
+                    }
                   }
                 }
               }
