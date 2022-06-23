@@ -191,6 +191,19 @@ spec:
                 description: LoadBalancer defines load-balancer configuration for
                   the Cluster both for the control plane nodes and for the CPI
                 properties:
+                  ports:
+                    description: 'Ports :'
+                    properties:
+                      http:
+                        format: int32
+                        type: integer
+                      https:
+                        format: int32
+                        type: integer
+                      tcp:
+                        format: int32
+                        type: integer
+                    type: object
                   useOneArm:
                     type: boolean
                 type: object
@@ -241,6 +254,8 @@ spec:
                   username:
                     type: string
                 type: object
+              vipSubnet:
+                type: string
             required:
             - org
             - ovdc

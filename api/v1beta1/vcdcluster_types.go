@@ -62,15 +62,15 @@ type ProxyConfig struct {
 
 // Ports :
 type Ports struct {
-	HTTP  int32 `yaml:"http"`
-	HTTPS int32 `yaml:"https"`
-	TCP   int32 `yaml:"tcp"`
+	HTTP  int32 `json:"http,omitempty"`
+	HTTPS int32 `json:"https,omitempty"`
+	TCP   int32 `json:"tcp,omitempty"`
 }
 
 // LoadBalancer defines load-balancer configuration for the Cluster both for the control plane nodes and for the CPI
 type LoadBalancer struct {
 	UseOneArm bool  `json:"useOneArm,omitempty"`
-	Ports     Ports `json:"ports"`
+	Ports     Ports `json:"ports,omitempty"`
 }
 
 // VCDClusterSpec defines the desired state of VCDCluster
@@ -102,8 +102,8 @@ type VCDClusterSpec struct {
 	ProxyConfig ProxyConfig `json:"proxyConfig,omitempty"`
 	// +optional
 	LoadBalancer LoadBalancer `json:"loadBalancer,omitempty"`
-	// +kubebuilder:validation:Required
-	VipSubnet string `json:"vipSubnet"`
+	// +optional
+	VipSubnet string `json:"vipSubnet,omitempty"`
 }
 
 // VCDClusterStatus defines the observed state of VCDCluster
