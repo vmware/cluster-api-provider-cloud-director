@@ -159,6 +159,23 @@ spec:
               catalog:
                 description: Catalog hosting templates
                 type: string
+              diskSize:
+                anyOf:
+                - type: integer
+                - type: string
+                description: DiskSize is the size, in bytes, of the disk for this
+                  machine
+                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                x-kubernetes-int-or-string: true
+              nvidiaGPU:
+                description: NvidiaGPU is true when a VM should be created with the
+                  relevant binaries installed If true, then an appropriate placement
+                  policy should be set
+                type: boolean
+              placementPolicy:
+                description: PlacementPolicy is the placement policy to be used on
+                  this machine.
+                type: string
               providerID:
                 description: ProviderID will be the container name in ProviderID format
                   (vmware-cloud-director://<vm id>)
@@ -239,14 +256,23 @@ spec:
                         important.
                       type: string
                   required:
+                  - lastTransitionTime
                   - status
                   - type
                   type: object
                 type: array
+              providerID:
+                description: ProviderID will be the container name in ProviderID format
+                  (vmware-cloud-director://<vm id>)
+                type: string
               ready:
                 description: Ready denotes that the machine (docker container) is
                   ready
                 type: boolean
+              template:
+                description: TemplatePath is the path of the template OVA that is
+                  to be used
+                type: string
             type: object
         type: object
     served: true

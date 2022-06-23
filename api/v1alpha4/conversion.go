@@ -29,3 +29,10 @@ func Convert_v1beta1_VCDClusterStatus_To_v1alpha4_VCDClusterStatus(in *v1beta1.V
 func Convert_v1alpha4_VCDClusterSpec_To_v1beta1_VCDClusterSpec(in *VCDClusterSpec, out *v1beta1.VCDClusterSpec, s conversion.Scope) error {
 	return autoConvert_v1alpha4_VCDClusterSpec_To_v1beta1_VCDClusterSpec(in, out, s)
 }
+
+func Convert_v1beta1_VCDMachineStatus_To_v1alpha4_VCDMachineStatus(in *v1beta1.VCDMachineStatus, out *VCDMachineStatus, s conversion.Scope) error {
+	return autoConvert_v1beta1_VCDMachineStatus_To_v1alpha4_VCDMachineStatus(in, out, s)
+}
+func Convert_v1beta1_UserCredentialsContext_To_v1alpha4_UserCredentialsContext(in *v1beta1.UserCredentialsContext, out *UserCredentialsContext, s conversion.Scope) error {
+	return autoConvert_v1beta1_UserCredentialsContext_To_v1alpha4_UserCredentialsContext(in, out, s)
+}

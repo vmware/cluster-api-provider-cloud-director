@@ -187,6 +187,13 @@ spec:
                 required:
                 - vcdStorageProfileName
                 type: object
+              loadBalancer:
+                description: LoadBalancer defines load-balancer configuration for
+                  the Cluster both for the control plane nodes and for the CPI
+                properties:
+                  useOneArm:
+                    type: boolean
+                type: object
               org:
                 type: string
               ovdc:
@@ -195,6 +202,17 @@ spec:
                 type: string
               parentUid:
                 type: string
+              proxyConfig:
+                description: ProxyConfig defines HTTP proxy environment variables
+                  for containerd
+                properties:
+                  httpProxy:
+                    type: string
+                  httpsProxy:
+                    type: string
+                  noProxy:
+                    type: string
+                type: object
               rdeId:
                 type: string
               site:
@@ -207,6 +225,19 @@ spec:
                     type: string
                   refreshToken:
                     type: string
+                  secretRef:
+                    description: SecretReference represents a Secret Reference. It
+                      has enough information to retrieve secret in any namespace
+                    properties:
+                      name:
+                        description: Name is unique within a namespace to reference
+                          a secret resource.
+                        type: string
+                      namespace:
+                        description: Namespace defines the space within which the
+                          secret name must be unique.
+                        type: string
+                    type: object
                   username:
                     type: string
                 type: object
@@ -260,6 +291,7 @@ spec:
                         important.
                       type: string
                   required:
+                  - lastTransitionTime
                   - status
                   - type
                   type: object
@@ -268,7 +300,19 @@ spec:
                 type: string
               parentUid:
                 type: string
+              proxyConfig:
+                description: ProxyConfig defines HTTP proxy environment variables
+                  for containerd
+                properties:
+                  httpProxy:
+                    type: string
+                  httpsProxy:
+                    type: string
+                  noProxy:
+                    type: string
+                type: object
               ready:
+                default: false
                 description: Ready denotes that the vcd cluster (infrastructure) is
                   ready.
                 type: boolean

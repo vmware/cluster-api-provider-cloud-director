@@ -17,6 +17,7 @@ limitations under the License.
 package v1beta1
 
 import (
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 )
@@ -50,20 +51,37 @@ type VCDMachineSpec struct {
 	// +optional
 	SizingPolicy string `json:"sizingPolicy,omitempty"`
 
+	// PlacementPolicy is the placement policy to be used on this machine.
+	// +optional
+	PlacementPolicy string `json:"placementPolicy,omitempty"`
+
 	// StorageProfile is the storage profile to be used on this machince
 	// +optional
 	StorageProfile string `json:"storageProfile,omitempty"`
+
+	// DiskSize is the size, in bytes, of the disk for this machine
+	// +optional
+	DiskSize resource.Quantity `json:"diskSize,omitempty"`
 
 	// Bootstrapped is true when the kubeadm bootstrapping has been run
 	// against this machine
 	// +optional
 	Bootstrapped bool `json:"bootstrapped,omitempty"`
+
+	// NvidiaGPU is true when a VM should be created with the relevant binaries installed
+	// If true, then an appropriate placement policy should be set
+	// +optional
+	NvidiaGPU bool `json:"nvidiaGPU,omitempty"`
 }
 
 // VCDMachineStatus defines the observed state of VCDMachine
 type VCDMachineStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
+
+	// ProviderID will be the container name in ProviderID format (vmware-cloud-director://<vm id>)
+	// +optional
+	ProviderID *string `json:"providerID,omitempty"`
 
 	// Ready denotes that the machine (docker container) is ready
 	// +optional
@@ -72,6 +90,10 @@ type VCDMachineStatus struct {
 	// Addresses contains the associated addresses for the docker machine.
 	// +optional
 	Addresses []clusterv1.MachineAddress `json:"addresses,omitempty"`
+
+	// TemplatePath is the path of the template OVA that is to be used
+	// +optional
+	Template string `json:"template,omitempty"`
 
 	// Conditions defines current service state of the DockerMachine.
 	// +optional
