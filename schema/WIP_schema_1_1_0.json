@@ -46,7 +46,7 @@
   "properties": {
     "kind": {
       "enum": [
-        "CAPVCDCluster", "VKPCluster"
+        "CAPVCDCluster"
       ],
       "type": "string",
       "description": "The kind of the Kubernetes cluster."
@@ -56,11 +56,14 @@
       "properties": {
         "capiYaml": {
           "type": "string"
+        },
+        "yamlSet": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
         }
-      },
-      "required": [
-        "capiYaml"
-      ]
+      }
     },
     "metadata": {
       "type": "object",
@@ -71,7 +74,7 @@
         },
         "virtualDataCenterName": {
           "type": "string",
-          "description": "The name of the Organization Virtual data center in which the cluster need to be created or managed."
+          "description": "The name of the Organization data center in which the cluster need to be created or managed."
         },
         "name": {
           "type": "string",
@@ -96,13 +99,19 @@
             "kubernetes": {
               "type": "string"
             },
-            "errors": {
+            "errorSet": {
               "type": "array",
-              "items": [
-                {
-                  "type": "string"
-                }
-              ]
+              "items": {
+                "type": "object",
+                "properties": {}
+              }
+            },
+            "eventSet": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {}
+              }
             },
             "k8sNetwork": {
               "$ref": "#/definitions/k8sNetwork"
@@ -132,7 +141,8 @@
                     },
                     "port": {
                       "type": "integer"
-                    }
+                    },
+                    "type": "string"
                   }
                 }
               }
@@ -186,17 +196,11 @@
               "items": {
                 "type": "object",
                 "properties": {}
-
               }
             }
           }
         }
       }
     }
-  },
-  "required": [
-    "kind",
-    "spec",
-    "metadata"
-  ]
+  }
 }
