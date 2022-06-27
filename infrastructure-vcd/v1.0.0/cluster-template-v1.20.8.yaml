@@ -3,17 +3,15 @@ kind: Cluster
 metadata:
   name: ${CLUSTER_NAME}
   namespace: ${TARGET_NAMESPACE}
-  labels:
-    cni: antrea
 spec:
   clusterNetwork:
     pods:
       cidrBlocks:
-        - 100.96.0.0/11 # pod CIDR for the cluster
+        - ${POD_CIDR} # pod CIDR for the cluster
     serviceDomain: k8s.test
     services:
       cidrBlocks:
-        - 100.64.0.0/13 # service CIDR for the cluster
+        - ${SERVICE_CIDR} # service CIDR for the cluster
   controlPlaneRef:
     apiVersion: controlplane.cluster.x-k8s.io/v1beta1
     kind: KubeadmControlPlane
@@ -57,7 +55,7 @@ spec:
     vcdStorageProfileName: ${VCD_STORAGE_PROFILE_NAME} # name of the VCD storage profile used to create the storage class
     k8sStorageClassName: ${K8s_STORAGE_CLASS_NAME} # name of the storage class in kubernetes
     useDeleteReclaimPolicy: ${USE_DELETE_RECLAIM_POLICY} # if set to true, Delete will be used as the Reclaim policy for the storage class. Else, Retain will be used as the reclaim policy
-    fileSystem: "ext4" # file system format for the persistent volumes created from the storage class
+    fileSystem: ${FILE_SYSTEM} # file system format for the persistent volumes created from the storage class
 ---
 apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
 kind: VCDMachineTemplate
@@ -72,6 +70,8 @@ spec:
       sizingPolicy: ${VCD_CONTROL_PLANE_SIZING_POLICY} # Sizing policy to be used for the control plane VMs (this must be pre-published on the chosen organization virtual datacenter)
       placementPolicy: ${VCD_CONTROL_PLANE_PLACEMENT_POLICY} # Placement policy to be used for worker VMs (this must be pre-published on the chosen organization virtual datacenter)
       storageProfile: ${VCD_CONTROL_PLANE_STORAGE_PROFILE} # Storage profile to be used for the control plane VMs (this must be pre-published on the chosen organization virtual datacenter)
+      nvidiaGpu: ${ENABLE_NVIDIA_GPU}
+      diskSize: ${DISK_SIZE}
 ---
 apiVersion: controlplane.cluster.x-k8s.io/v1beta1
 kind: KubeadmControlPlane
@@ -134,6 +134,8 @@ spec:
       sizingPolicy: ${VCD_WORKER_SIZING_POLICY} # Sizing policy to be used for the control plane VMs (this must be pre-published on the chosen organization virtual datacenter)
       placementPolicy: ${VCD_WORKER_PLACEMENT_POLICY} # Placement policy to be used for worker VMs (this must be pre-published on the chosen organization virtual datacenter)
       storageProfile: ${VCD_WORKER_STORAGE_PROFILE} # Storage profile to be used for the control plane VMs (this must be pre-published on the chosen organization virtual datacenter)
+      nvidiaGpu: ${ENABLE_NVIDIA_GPU}
+      diskSize: ${DISK_SIZE}
 ---
 apiVersion: bootstrap.cluster.x-k8s.io/v1beta1
 kind: KubeadmConfigTemplate
