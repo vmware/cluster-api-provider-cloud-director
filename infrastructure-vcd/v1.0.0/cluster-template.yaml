@@ -124,7 +124,7 @@ spec:
 apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
 kind: VCDMachineTemplate
 metadata:
-  name: ${CLUSTER_NAME}-md0
+  name: ${CLUSTER_NAME}-${WORKER_POOL_NAME}
   namespace: ${TARGET_NAMESPACE}
 spec:
   template:
@@ -140,7 +140,7 @@ spec:
 apiVersion: bootstrap.cluster.x-k8s.io/v1beta1
 kind: KubeadmConfigTemplate
 metadata:
-  name: ${CLUSTER_NAME}-md0
+  name: ${CLUSTER_NAME}-${WORKER_POOL_NAME}
   namespace: ${TARGET_NAMESPACE}
 spec:
   template:
@@ -159,7 +159,7 @@ spec:
 apiVersion: cluster.x-k8s.io/v1beta1
 kind: MachineDeployment
 metadata:
-  name: ${CLUSTER_NAME}-md0
+  name: ${CLUSTER_NAME}-${WORKER_POOL_NAME}
   namespace: ${TARGET_NAMESPACE}
 spec:
   clusterName: ${CLUSTER_NAME} # name of the Cluster object
@@ -172,12 +172,12 @@ spec:
         configRef:
           apiVersion: bootstrap.cluster.x-k8s.io/v1beta1
           kind: KubeadmConfigTemplate
-          name: ${CLUSTER_NAME}-md0 # name of the KubeadmConfigTemplate object
+          name: ${CLUSTER_NAME}-${WORKER_POOL_NAME} # name of the KubeadmConfigTemplate object
           namespace: ${TARGET_NAMESPACE} # kubernetes namespace of the KubeadmConfigTemplate object. Should be the same namespace as that of the Cluster object
       clusterName: ${CLUSTER_NAME} # name of the Cluster object
       infrastructureRef:
         apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
         kind: VCDMachineTemplate
-        name: ${CLUSTER_NAME}-md0 # name of the VCDMachineTemplate object used to deploy worker nodes
+        name: ${CLUSTER_NAME}-${WORKER_POOL_NAME} # name of the VCDMachineTemplate object used to deploy worker nodes
         namespace: ${TARGET_NAMESPACE} # kubernetes namespace of the VCDMachineTemplate object used to deploy worker nodes
       version: ${KUBERNETES_VERSION} # Kubernetes version to be used to create (or) upgrade the worker nodes. The value needs to be retrieved from the respective TKGm ova BOM. Refer to the documentation.
