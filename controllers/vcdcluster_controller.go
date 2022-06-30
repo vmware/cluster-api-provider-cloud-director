@@ -55,6 +55,13 @@ const (
 	CapvcdInfraId                 = "CapvcdInfraId"
 
 	NoRdePrefix = `NO_RDE_`
+
+	TcpPort = 6443
+
+	CpiDefaultVersion = "1.1.1"
+	CsiDefaultVersion = "1.2.0"
+	CniDefaultVersion = "0.13.1"
+	CapvcdVersion     = "1.0.0"
 )
 
 var (
@@ -239,19 +246,19 @@ func (r *VCDClusterReconciler) constructCapvcdRDE(ctx context.Context, cluster *
 			},
 			NodeStatus:          make(map[string]string),
 			IsManagementCluster: vcdCluster.Spec.UseAsManagementCluster,
-			CapvcdVersion:       "1.0.0", // TODO: read from CRS
+			CapvcdVersion:       CapvcdVersion, // TODO: read from CRS
 			ParentUID:           vcdCluster.Spec.ParentUID,
 			Csi: vcdtypes.VersionedAddon{
 				Name:    VcdCsiName,
-				Version: "1.2.0", // TODO: get CPI, CNI, CSI versions from the CLusterResourceSet objects
+				Version: CsiDefaultVersion, // TODO: get CPI, CNI, CSI versions from the CLusterResourceSet objects
 			},
 			Cpi: vcdtypes.VersionedAddon{
 				Name:    VcdCpiName,
-				Version: "1.1.1",
+				Version: CpiDefaultVersion,
 			},
 			Cni: vcdtypes.VersionedAddon{
 				Name:    CAPVCDClusterCniName,
-				Version: "0.13.1",
+				Version: CniDefaultVersion,
 			},
 		},
 	}
@@ -414,7 +421,7 @@ func (r *VCDClusterReconciler) reconcileRDE(ctx context.Context, cluster *cluste
 		ApiEndpoints: []vcdtypes.ApiEndpoints{
 			{
 				Host: vcdCluster.Spec.ControlPlaneEndpoint.Host,
-				Port: vcdCluster.Spec.LoadBalancer.Ports.TCP,
+				Port: TcpPort,
 			},
 		},
 	}
@@ -485,7 +492,7 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		return ctrl.Result{}, errors.Wrapf(err, "Error creating VCD client to reconcile Cluster [%s] infrastructure", vcdCluster.Name)
 	}
 
-	gateway, err := vcdsdk.NewGatewayManager(ctx, workloadVCDClient, vcdCluster.Spec.OvdcNetwork, vcdCluster.Spec.VipSubnet)
+	gateway, err := vcdsdk.NewGatewayManager(ctx, workloadVCDClient, vcdCluster.Spec.OvdcNetwork, vcdCluster.Spec.LoadBalancer.VipSubnet)
 	if err != nil {
 		return ctrl.Result{}, errors.Wrapf(err, "failed to create gateway manager using the workload client to reconcile cluster [%s]", vcdCluster.Name)
 	}
@@ -580,7 +587,7 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 
 		controlPlanePort := vcdCluster.Spec.ControlPlaneEndpoint.Port
 		if controlPlanePort == 0 {
-			controlPlanePort = int(vcdCluster.Spec.LoadBalancer.Ports.TCP)
+			controlPlanePort = TcpPort
 		}
 
 		if vcdCluster.Spec.ControlPlaneEndpoint.Host != "" {
@@ -600,8 +607,7 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 					ExternalPort: int32(controlPlanePort),
 					InternalPort: int32(controlPlanePort),
 				},
-			}, nil, !vcdCluster.Spec.LoadBalancer.UseOneArm,
-			nil, vcdCluster.Spec.ControlPlaneEndpoint.Host)
+			}, nil, true, nil, vcdCluster.Spec.ControlPlaneEndpoint.Host)
 		if err != nil {
 			if vsError, ok := err.(*vcdsdk.VirtualServicePendingError); ok {
 				log.Info("Error creating load balancer for cluster. Virtual Service is still pending",
@@ -615,7 +621,7 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	}
 	vcdCluster.Spec.ControlPlaneEndpoint = infrav1.APIEndpoint{
 		Host: controlPlaneNodeIP,
-		Port: int(vcdCluster.Spec.LoadBalancer.Ports.TCP),
+		Port: TcpPort,
 	}
 	log.Info(fmt.Sprintf("Control plane endpoint for the cluster is [%s]", controlPlaneNodeIP))
 
@@ -710,7 +716,7 @@ func (r *VCDClusterReconciler) reconcileDelete(ctx context.Context,
 			vcdCluster.Name)
 	}
 
-	gateway, err := vcdsdk.NewGatewayManager(ctx, workloadVCDClient, vcdCluster.Spec.OvdcNetwork, vcdCluster.Spec.VipSubnet)
+	gateway, err := vcdsdk.NewGatewayManager(ctx, workloadVCDClient, vcdCluster.Spec.OvdcNetwork, vcdCluster.Spec.LoadBalancer.VipSubnet)
 	if err != nil {
 		return ctrl.Result{}, errors.Wrapf(err, "failed to create gateway manager using the workload client to reconcile cluster [%s]", vcdCluster.Name)
 	}
@@ -724,8 +730,8 @@ func (r *VCDClusterReconciler) reconcileDelete(ctx context.Context,
 			{
 				Protocol:     "TCP",
 				PortSuffix:   "tcp",
-				ExternalPort: vcdCluster.Spec.LoadBalancer.Ports.TCP,
-				InternalPort: vcdCluster.Spec.LoadBalancer.Ports.TCP,
+				ExternalPort: TcpPort,
+				InternalPort: TcpPort,
 			},
 		}, nil)
 	if err != nil {
