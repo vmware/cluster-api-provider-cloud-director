@@ -38,7 +38,7 @@ then
     echo ""
     echo "Required arguments:"
     echo ""
-    echo "  PROJECT_NAME           Either 'terraform-provider-vcd' or 'go-vcloud-director'"
+    echo "  PROJECT_NAME           Either 'cluster-api-provider-cloud-director'"
     echo "  GIT REF                Git reference to checkout (ie: HEAD, a commit hash, a branch, a tag...)"
     echo "  JENKINS_BUILD_NUMBER   Jenkins build number, ie: '248'"
     echo ""
