@@ -964,8 +964,8 @@ data:
     # Retrieve that RDEId using the API - https://VCD_IP/cloudapi/1.0.0/entities/types/vmware/capvcdCluster/1.0.0
     managementClusterRDEId: ""
     clusterResourceSet:
-      csi: 1.1.0 # CSI version to be used in the workload cluster
-      cpi: 1.1.0 # CPI version to be used in the workload cluster
+      csi: vkp # CSI version to be used in the workload cluster
+      cpi: vkp # CPI version to be used in the workload cluster
       cni: 0.11.3 # Antrea version to be used in the workload cluster
 kind: ConfigMap
 metadata:
