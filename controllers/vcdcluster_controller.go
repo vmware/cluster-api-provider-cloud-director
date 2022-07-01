@@ -416,12 +416,16 @@ func (r *VCDClusterReconciler) reconcileRDE(ctx context.Context, cluster *cluste
 	if cluster.Status.ControlPlaneReady {
 		clusterApiStatusPhase = ClusterApiStatusPhaseReady
 	}
+	controlPlanePort := vcdCluster.Spec.ControlPlaneEndpoint.Port
+	if controlPlanePort == 0 {
+		controlPlanePort = TcpPort
+	}
 	clusterApiStatus := vcdtypes.ClusterApiStatus{
 		Phase: clusterApiStatusPhase,
 		ApiEndpoints: []vcdtypes.ApiEndpoints{
 			{
 				Host: vcdCluster.Spec.ControlPlaneEndpoint.Host,
-				Port: TcpPort,
+				Port: int32(controlPlanePort),
 			},
 		},
 	}
@@ -725,13 +729,17 @@ func (r *VCDClusterReconciler) reconcileDelete(ctx context.Context,
 	virtualServiceNamePrefix := capisdk.GetVirtualServiceNamePrefix(vcdCluster.Name, vcdCluster.Status.InfraId)
 	lbPoolNamePrefix := capisdk.GetVirtualServiceNamePrefix(vcdCluster.Name, vcdCluster.Status.InfraId)
 
+	controlPlanePort := vcdCluster.Spec.ControlPlaneEndpoint.Port
+	if controlPlanePort == 0 {
+		controlPlanePort = TcpPort
+	}
 	_, err = gateway.DeleteLoadBalancer(ctx, virtualServiceNamePrefix, lbPoolNamePrefix,
 		[]vcdsdk.PortDetails{
 			{
 				Protocol:     "TCP",
 				PortSuffix:   "tcp",
-				ExternalPort: TcpPort,
-				InternalPort: TcpPort,
+				ExternalPort: int32(controlPlanePort),
+				InternalPort: int32(controlPlanePort),
 			},
 		}, nil)
 	if err != nil {
