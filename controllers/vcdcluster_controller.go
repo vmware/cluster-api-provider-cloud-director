@@ -225,7 +225,8 @@ func (r *VCDClusterReconciler) constructCapvcdRDE(ctx context.Context, cluster *
 					Vdc:         vdc,
 					OvdcNetwork: vcdCluster.Spec.OvdcNetwork,
 				},
-				CapiStatusYaml: "",
+				CapiStatusYaml:                 "",
+				ClusterResourceSetBindingSpecs: nil,
 			},
 		},
 	}
@@ -267,7 +268,8 @@ func (r *VCDClusterReconciler) constructAndCreateRDEFromCluster(ctx context.Cont
 	return rdeID, nil
 }
 
-func (r *VCDClusterReconciler) reconcileRDE(ctx context.Context, cluster *clusterv1.Cluster, vcdCluster *infrav1.VCDCluster, workloadVCDClient *vcdsdk.Client) error {
+func (r *VCDClusterReconciler) reconcileRDE(ctx context.Context, cluster *clusterv1.Cluster,
+	vcdCluster *infrav1.VCDCluster, workloadVCDClient *vcdsdk.Client) error {
 	log := ctrl.LoggerFrom(ctx)
 
 	capvcdRdeManager := capisdk.NewCapvcdRdeManager(workloadVCDClient, vcdCluster.Status.InfraId)
@@ -299,7 +301,21 @@ func (r *VCDClusterReconciler) reconcileRDE(ctx context.Context, cluster *cluste
 
 	kubernetesVersion := ""
 	for _, kcp := range kcpList.Items {
-		kubernetesVersion = kcp.Spec.Version
+		if kcp.Spec.Version != "" {
+			kubernetesVersion = kcp.Spec.Version
+			break
+		}
+	}
+
+	crsBindingList, err := getAllCRSBindingForCluster(ctx, r.Client, *cluster)
+	if err != nil {
+		// this is fundamentally not a mandatory field
+		log.Error(err, "error getting ClusterResourceBindings for cluster")
+	}
+	if crsBindingList != nil {
+		for _, crsBinding := range crsBindingList.Items {
+			fmt.Printf("ClusterResourceBinding is [%v]\n", crsBinding.Spec.Bindings)
+		}
 	}
 
 	// UI can create CAPVCD clusters in future which can populate capiYaml in RDE.Spec, so we only want to populate if capiYaml is empty
@@ -345,19 +361,34 @@ func (r *VCDClusterReconciler) reconcileRDE(ctx context.Context, cluster *cluste
 		capvcdStatusPatch["CapiStatusYaml"] = capiStatusYaml
 	}
 
-	// TODO: CNI should go as part of rde.entity.status.capvcd.ClusterResourceSet
-	cni := rdeType.Cni{
-		Name: CAPVCDClusterCniName,
-	}
-	if !reflect.DeepEqual(capvcdStatus.K8sNetwork.Cni, cni) {
-		capvcdStatusPatch["K8sNetwork.Cni"] = cni
-	}
-
 	pods := rdeType.Pods{
 		CidrBlocks: cluster.Spec.ClusterNetwork.Pods.CIDRBlocks,
 	}
 	if !reflect.DeepEqual(capvcdStatus.K8sNetwork.Pods, pods) {
 		capvcdStatusPatch["K8sNetwork.Pods"] = pods
+	}
+
+	if crsBindingList != nil {
+		clusterResourceSetBindingSpecs := make([]rdeType.ClusterResourceSetBindingSpec, 0)
+		for _, crsBinding := range crsBindingList.Items {
+			for _, crsSpecBindings := range crsBinding.Spec.Bindings {
+				for _, resource := range crsSpecBindings.Resources {
+					clusterResourceSetBindingSpecs = append(clusterResourceSetBindingSpecs,
+						rdeType.ClusterResourceSetBindingSpec{
+							ClusterResourceSetName: crsSpecBindings.ClusterResourceSetName,
+							Kind:                   resource.Kind,
+							Name:                   resource.Name,
+							Applied:                resource.Applied,
+							LastAppliedTime:        resource.LastAppliedTime.Time.String(),
+						})
+				}
+			}
+		}
+		if clusterResourceSetBindingSpecs != nil {
+			if !reflect.DeepEqual(capvcdStatus.ClusterResourceSetBindingSpecs, clusterResourceSetBindingSpecs) {
+				capvcdStatusPatch["ClusterResourceSetBindingSpecs"] = clusterResourceSetBindingSpecs
+			}
+		}
 	}
 
 	services := rdeType.Services{
@@ -761,6 +792,7 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 			log.Error(err, "failed to add ControlPlaneReady event into RDE", "rdeID", infraID)
 		}
 	}
+
 	return ctrl.Result{}, nil
 }
 

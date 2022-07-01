@@ -692,6 +692,7 @@ sigs.k8s.io/cluster-api/api/v1beta1
 sigs.k8s.io/cluster-api/bootstrap/kubeadm/api/v1beta1
 sigs.k8s.io/cluster-api/controlplane/kubeadm/api/v1beta1
 sigs.k8s.io/cluster-api/errors
+sigs.k8s.io/cluster-api/exp/addons/api/v1beta1
 sigs.k8s.io/cluster-api/feature
 sigs.k8s.io/cluster-api/util
 sigs.k8s.io/cluster-api/util/annotations
