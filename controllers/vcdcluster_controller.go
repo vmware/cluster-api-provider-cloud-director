@@ -312,11 +312,6 @@ func (r *VCDClusterReconciler) reconcileRDE(ctx context.Context, cluster *cluste
 		// this is fundamentally not a mandatory field
 		log.Error(err, "error getting ClusterResourceBindings for cluster")
 	}
-	if crsBindingList != nil {
-		for _, crsBinding := range crsBindingList.Items {
-			fmt.Printf("ClusterResourceBinding is [%v]\n", crsBinding.Spec.Bindings)
-		}
-	}
 
 	// UI can create CAPVCD clusters in future which can populate capiYaml in RDE.Spec, so we only want to populate if capiYaml is empty
 	if capvcdSpec.CapiYaml == "" {
