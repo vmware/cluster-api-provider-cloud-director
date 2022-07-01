@@ -225,8 +225,8 @@ func (r *VCDClusterReconciler) constructCapvcdRDE(ctx context.Context, cluster *
 					Vdc:         vdc,
 					OvdcNetwork: vcdCluster.Spec.OvdcNetwork,
 				},
-				CapiStatusYaml:                 "",
-				ClusterResourceSetBindingSpecs: nil,
+				CapiStatusYaml:             "",
+				ClusterResourceSetBindings: nil,
 			},
 		},
 	}
@@ -364,12 +364,12 @@ func (r *VCDClusterReconciler) reconcileRDE(ctx context.Context, cluster *cluste
 	}
 
 	if crsBindingList != nil {
-		clusterResourceSetBindingSpecs := make([]rdeType.ClusterResourceSetBindingSpec, 0)
+		clusterResourceSetBindings := make([]rdeType.ClusterResourceSetBinding, 0)
 		for _, crsBinding := range crsBindingList.Items {
 			for _, crsSpecBindings := range crsBinding.Spec.Bindings {
 				for _, resource := range crsSpecBindings.Resources {
-					clusterResourceSetBindingSpecs = append(clusterResourceSetBindingSpecs,
-						rdeType.ClusterResourceSetBindingSpec{
+					clusterResourceSetBindings = append(clusterResourceSetBindings,
+						rdeType.ClusterResourceSetBinding{
 							ClusterResourceSetName: crsSpecBindings.ClusterResourceSetName,
 							Kind:                   resource.Kind,
 							Name:                   resource.Name,
@@ -379,9 +379,9 @@ func (r *VCDClusterReconciler) reconcileRDE(ctx context.Context, cluster *cluste
 				}
 			}
 		}
-		if clusterResourceSetBindingSpecs != nil {
-			if !reflect.DeepEqual(capvcdStatus.ClusterResourceSetBindingSpecs, clusterResourceSetBindingSpecs) {
-				capvcdStatusPatch["ClusterResourceSetBindingSpecs"] = clusterResourceSetBindingSpecs
+		if clusterResourceSetBindings != nil {
+			if !reflect.DeepEqual(capvcdStatus.ClusterResourceSetBindings, clusterResourceSetBindings) {
+				capvcdStatusPatch["ClusterResourceSetBindings"] = clusterResourceSetBindings
 			}
 		}
 	}
