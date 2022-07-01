@@ -194,9 +194,6 @@ github.com/peterhellberg/link
 # github.com/pkg/errors v0.9.1
 ## explicit
 github.com/pkg/errors
-# github.com/pmezard/go-difflib v1.0.0
-## explicit
-github.com/pmezard/go-difflib/difflib
 # github.com/prometheus/client_golang v1.11.0
 ## explicit; go 1.13
 github.com/prometheus/client_golang/prometheus
@@ -227,8 +224,7 @@ github.com/replicatedhq/troubleshoot/pkg/redact
 github.com/spf13/pflag
 # github.com/stretchr/testify v1.7.1
 ## explicit; go 1.13
-github.com/stretchr/testify/assert
-# github.com/vmware/cloud-provider-for-cloud-director v0.0.0-20220621220000-c5f9c4208abf
+# github.com/vmware/cloud-provider-for-cloud-director v0.0.0-20220617190911-f8fa42120dbb
 ## explicit; go 1.17
 github.com/vmware/cloud-provider-for-cloud-director/pkg/util
 github.com/vmware/cloud-provider-for-cloud-director/pkg/vcdsdk

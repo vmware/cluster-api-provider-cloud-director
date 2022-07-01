@@ -43,9 +43,6 @@ spec:
           requests:
             cpu: 100m
             memory: 512Mi
-        volumeMounts:
-          - name: controller-manager-config-volume
-            mountPath: /etc/kubernetes/vcloud
       volumes:
         - name: controller-manager-config-volume
           configMap:

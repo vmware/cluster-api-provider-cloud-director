@@ -6,6 +6,7 @@
 package controllers
 
 import (
+	"bufio"
 	"context"
 	_ "embed"
 	"fmt"
@@ -16,13 +17,14 @@ import (
 	swagger "github.com/vmware/cloud-provider-for-cloud-director/pkg/vcdswaggerclient"
 	infrav1 "github.com/vmware/cluster-api-provider-cloud-director/api/v1beta1"
 	"github.com/vmware/cluster-api-provider-cloud-director/pkg/capisdk"
-	"github.com/vmware/cluster-api-provider-cloud-director/pkg/config"
 	vcdutil "github.com/vmware/cluster-api-provider-cloud-director/pkg/util"
 	"github.com/vmware/cluster-api-provider-cloud-director/pkg/vcdtypes"
 	"github.com/vmware/go-vcloud-director/v2/govcd"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/klog"
 	"net/http"
+	"os"
 	"reflect"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	"sigs.k8s.io/cluster-api/util"
@@ -56,6 +58,12 @@ const (
 	CapvcdInfraId                 = "CapvcdInfraId"
 
 	NoRdePrefix = `NO_RDE_`
+
+	TcpPort = 6443
+
+	CpiDefaultVersion = "1.1.1"
+	CsiDefaultVersion = "1.2.0"
+	CniDefaultVersion = "0.13.1"
 )
 
 var (
@@ -66,7 +74,6 @@ var (
 type VCDClusterReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
-	Config *config.CAPVCDConfig
 }
 
 //+kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=vcdclusters,verbs=get;list;watch;create;update;patch;delete
@@ -147,6 +154,26 @@ func patchVCDCluster(ctx context.Context, patchHelper *patch.Helper, vcdCluster 
 	)
 }
 
+func getReleaseVersion() (string, error) {
+	relaseFile, err := os.Open("release/version")
+	if err != nil {
+		return "", fmt.Errorf("error opening release/version file: [%v]", err)
+	}
+	defer relaseFile.Close()
+
+	scanner := bufio.NewScanner(relaseFile)
+	releaseVersion := ""
+	if scanner.Scan() {
+		releaseVersion = scanner.Text()
+		releaseVersion = strings.TrimSuffix(releaseVersion, "\n")
+	}
+
+	if err := scanner.Err(); err != nil {
+		klog.Infof("error for scanner when reading release/version file: [%v]", err)
+	}
+	return releaseVersion, nil
+}
+
 func (r *VCDClusterReconciler) constructCapvcdRDE(ctx context.Context, cluster *clusterv1.Cluster,
 	vcdCluster *infrav1.VCDCluster) (*swagger.DefinedEntity, error) {
 	org := vcdCluster.Spec.Org
@@ -189,6 +216,11 @@ func (r *VCDClusterReconciler) constructCapvcdRDE(ctx context.Context, cluster *
 			TemplateName: vcdMachineTemplate.Spec.Template.Spec.Template,
 		}
 		topologyWorkers = append(topologyWorkers, topologyWorker)
+	}
+	capvcdVersion, err := getReleaseVersion()
+	if err != nil {
+		klog.Infof("error getting capvcd version: [%v]", err)
+		capvcdVersion = ""
 	}
 	rde := &swagger.DefinedEntity{
 		EntityType: CAPVCDEntityTypeID,
@@ -241,19 +273,19 @@ func (r *VCDClusterReconciler) constructCapvcdRDE(ctx context.Context, cluster *
 			},
 			NodeStatus:          make(map[string]string),
 			IsManagementCluster: vcdCluster.Spec.UseAsManagementCluster,
-			CapvcdVersion:       r.Config.ClusterResources.CapvcdVersion,
+			CapvcdVersion:       capvcdVersion,
 			ParentUID:           vcdCluster.Spec.ParentUID,
 			Csi: vcdtypes.VersionedAddon{
 				Name:    VcdCsiName,
-				Version: r.Config.ClusterResources.CsiVersion, // TODO: get CPI, CNI, CSI versions from the CLusterResourceSet objects
+				Version: CsiDefaultVersion, // TODO: get CPI, CNI, CSI versions from the CLusterResourceSet objects
 			},
 			Cpi: vcdtypes.VersionedAddon{
 				Name:    VcdCpiName,
-				Version: r.Config.ClusterResources.CpiVersion,
+				Version: CpiDefaultVersion,
 			},
 			Cni: vcdtypes.VersionedAddon{
 				Name:    CAPVCDClusterCniName,
-				Version: r.Config.ClusterResources.CniVersion,
+				Version: CniDefaultVersion,
 			},
 		},
 	}
@@ -411,12 +443,16 @@ func (r *VCDClusterReconciler) reconcileRDE(ctx context.Context, cluster *cluste
 	if cluster.Status.ControlPlaneReady {
 		clusterApiStatusPhase = ClusterApiStatusPhaseReady
 	}
+	controlPlanePort := vcdCluster.Spec.ControlPlaneEndpoint.Port
+	if controlPlanePort == 0 {
+		controlPlanePort = TcpPort
+	}
 	clusterApiStatus := vcdtypes.ClusterApiStatus{
 		Phase: clusterApiStatusPhase,
 		ApiEndpoints: []vcdtypes.ApiEndpoints{
 			{
 				Host: vcdCluster.Spec.ControlPlaneEndpoint.Host,
-				Port: r.Config.LB.Ports.TCP,
+				Port: int32(controlPlanePort),
 			},
 		},
 	}
@@ -487,7 +523,7 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		return ctrl.Result{}, errors.Wrapf(err, "Error creating VCD client to reconcile Cluster [%s] infrastructure", vcdCluster.Name)
 	}
 
-	gateway, err := vcdsdk.NewGatewayManager(ctx, workloadVCDClient, vcdCluster.Spec.OvdcNetwork, r.Config.VCD.VIPSubnet)
+	gateway, err := vcdsdk.NewGatewayManager(ctx, workloadVCDClient, vcdCluster.Spec.OvdcNetwork, vcdCluster.Spec.LoadBalancer.VipSubnet)
 	if err != nil {
 		return ctrl.Result{}, errors.Wrapf(err, "failed to create gateway manager using the workload client to reconcile cluster [%s]", vcdCluster.Name)
 	}
@@ -568,15 +604,12 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	virtualServiceNamePrefix := capisdk.GetVirtualServiceNamePrefix(vcdCluster.Name, vcdCluster.Status.InfraId)
 	lbPoolNamePrefix := capisdk.GetLoadBalancerPoolNamePrefix(vcdCluster.Name, vcdCluster.Status.InfraId)
 
-	var oneArm *vcdsdk.OneArm = nil
-	if vcdCluster.Spec.LoadBalancer.UseOneArm {
-		oneArm = &vcdsdk.OneArm{
-			StartIP: r.Config.LB.OneArm.StartIP,
-			EndIP:   r.Config.LB.OneArm.EndIP,
-		}
-	}
 	controlPlaneNodeIP, err := gateway.GetLoadBalancer(ctx,
-		fmt.Sprintf("%s-tcp", virtualServiceNamePrefix), oneArm)
+		fmt.Sprintf("%s-tcp", virtualServiceNamePrefix), nil)
+	controlPlanePort := vcdCluster.Spec.ControlPlaneEndpoint.Port
+	if controlPlanePort == 0 {
+		controlPlanePort = TcpPort
+	}
 	//TODO: Sahithi: Check if error is really because of missing virtual service.
 	// In any other error cases, force create the new load balancer with the original control plane endpoint
 	// (if already present). Do not overwrite the existing control plane endpoint with a new endpoint.
@@ -585,11 +618,6 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 			log.Info("Error getting load balancer. Virtual Service is still pending",
 				"virtualServiceName", vsError.VirtualServiceName, "error", err)
 			return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
-		}
-
-		controlPlanePort := vcdCluster.Spec.ControlPlaneEndpoint.Port
-		if controlPlanePort == 0 {
-			controlPlanePort = int(r.Config.LB.Ports.TCP)
 		}
 
 		if vcdCluster.Spec.ControlPlaneEndpoint.Host != "" {
@@ -609,8 +637,7 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 					ExternalPort: int32(controlPlanePort),
 					InternalPort: int32(controlPlanePort),
 				},
-			}, oneArm, !vcdCluster.Spec.LoadBalancer.UseOneArm,
-			nil, vcdCluster.Spec.ControlPlaneEndpoint.Host)
+			}, nil, true, nil, vcdCluster.Spec.ControlPlaneEndpoint.Host)
 		if err != nil {
 			if vsError, ok := err.(*vcdsdk.VirtualServicePendingError); ok {
 				log.Info("Error creating load balancer for cluster. Virtual Service is still pending",
@@ -624,7 +651,7 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	}
 	vcdCluster.Spec.ControlPlaneEndpoint = infrav1.APIEndpoint{
 		Host: controlPlaneNodeIP,
-		Port: int(r.Config.LB.Ports.TCP),
+		Port: controlPlanePort,
 	}
 	log.Info(fmt.Sprintf("Control plane endpoint for the cluster is [%s]", controlPlaneNodeIP))
 
@@ -719,7 +746,7 @@ func (r *VCDClusterReconciler) reconcileDelete(ctx context.Context,
 			vcdCluster.Name)
 	}
 
-	gateway, err := vcdsdk.NewGatewayManager(ctx, workloadVCDClient, vcdCluster.Spec.OvdcNetwork, r.Config.VCD.VIPSubnet)
+	gateway, err := vcdsdk.NewGatewayManager(ctx, workloadVCDClient, vcdCluster.Spec.OvdcNetwork, vcdCluster.Spec.LoadBalancer.VipSubnet)
 	if err != nil {
 		return ctrl.Result{}, errors.Wrapf(err, "failed to create gateway manager using the workload client to reconcile cluster [%s]", vcdCluster.Name)
 	}
@@ -727,22 +754,20 @@ func (r *VCDClusterReconciler) reconcileDelete(ctx context.Context,
 	// Delete the load balancer components
 	virtualServiceNamePrefix := capisdk.GetVirtualServiceNamePrefix(vcdCluster.Name, vcdCluster.Status.InfraId)
 	lbPoolNamePrefix := capisdk.GetVirtualServiceNamePrefix(vcdCluster.Name, vcdCluster.Status.InfraId)
-	var oneArm *vcdsdk.OneArm = nil
-	if vcdCluster.Spec.LoadBalancer.UseOneArm {
-		oneArm = &vcdsdk.OneArm{
-			StartIP: r.Config.LB.OneArm.StartIP,
-			EndIP:   r.Config.LB.OneArm.EndIP,
-		}
+
+	controlPlanePort := vcdCluster.Spec.ControlPlaneEndpoint.Port
+	if controlPlanePort == 0 {
+		controlPlanePort = TcpPort
 	}
 	_, err = gateway.DeleteLoadBalancer(ctx, virtualServiceNamePrefix, lbPoolNamePrefix,
 		[]vcdsdk.PortDetails{
 			{
 				Protocol:     "TCP",
 				PortSuffix:   "tcp",
-				ExternalPort: r.Config.LB.Ports.TCP,
-				InternalPort: r.Config.LB.Ports.TCP,
+				ExternalPort: int32(controlPlanePort),
+				InternalPort: int32(controlPlanePort),
 			},
-		}, oneArm)
+		}, nil)
 	if err != nil {
 		return ctrl.Result{}, errors.Wrapf(err,
 			"Error occurred during cluster [%s] deletion; unable to delete the load balancer [%s]: [%v]",
