@@ -21,6 +21,7 @@ import (
 	"os"
 	clusterv1beta1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	bootstrapv1beta1 "sigs.k8s.io/cluster-api/bootstrap/kubeadm/api/v1beta1"
+	addonsv1 "sigs.k8s.io/cluster-api/exp/addons/api/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"strings"
 	"time"
@@ -57,6 +58,9 @@ func init() {
 	utilruntime.Must(clusterv1beta1.AddToScheme(myscheme))
 	utilruntime.Must(kcpv1beta1.AddToScheme(myscheme))
 	utilruntime.Must(bootstrapv1beta1.AddToScheme(myscheme))
+
+	// We need the addonsv1 scheme in order to list the ClusterResourceSetBindings addon.
+	utilruntime.Must(addonsv1.AddToScheme(myscheme))
 
 	//+kubebuilder:scaffold:scheme
 }

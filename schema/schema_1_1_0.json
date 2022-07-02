@@ -153,10 +153,29 @@
               }
             },
             "clusterResourceSet": {
+              "properties": {}
+            },
+            "clusterResourceSetBindings": {
               "type": "array",
               "items": {
                 "type": "object",
-                "properties": {}
+                "properties": {
+                  "clusterResourceSetName": {
+                    "type": "string"
+                  },
+                  "kind": {
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "applied": {
+                    "type": "boolean"
+                  },
+                  "lastAppliedTime": {
+                    "type": "string"
+                  }
+                }
               }
             },
             "capvcdVersion": {

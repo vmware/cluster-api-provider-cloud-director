@@ -12,6 +12,7 @@ import (
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	"sigs.k8s.io/cluster-api/bootstrap/kubeadm/api/v1beta1"
 	kcpv1 "sigs.k8s.io/cluster-api/controlplane/kubeadm/api/v1beta1"
+	addonsv1 "sigs.k8s.io/cluster-api/exp/addons/api/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"strings"
 )
@@ -129,6 +130,18 @@ func getAllKubeadmControlPlaneForCluster(ctx context.Context, cli client.Client,
 		return nil, errors.Wrapf(err, "error getting all kubeadm control planes for the cluster [%s]", c.Name)
 	}
 	return kcpList, nil
+}
+
+func getAllCRSBindingForCluster(ctx context.Context, cli client.Client,
+	c clusterv1.Cluster) (*addonsv1.ClusterResourceSetBindingList, error) {
+	crsBindingList := &addonsv1.ClusterResourceSetBindingList{}
+
+	if err := cli.List(ctx, crsBindingList, client.InNamespace(c.Namespace)); err != nil {
+		return nil, fmt.Errorf("unable to get ClusterResourceSetBindingList for cluster [%s/%s]: [%v]",
+			c.Namespace, c.Name, err)
+	}
+
+	return crsBindingList, nil
 }
 
 func getVCDMachineTemplateFromKCP(ctx context.Context, cli client.Client, kcp kcpv1.KubeadmControlPlane) (*infrav1.VCDMachineTemplate, error) {
