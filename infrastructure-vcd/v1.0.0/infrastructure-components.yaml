@@ -233,6 +233,8 @@ spec:
                   username:
                     type: string
                 type: object
+              vipSubnet:
+                type: string
             required:
             - org
             - ovdc

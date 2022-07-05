@@ -225,9 +225,6 @@ github.com/peterhellberg/link
 # github.com/pkg/errors v0.9.1
 ## explicit
 github.com/pkg/errors
-# github.com/pmezard/go-difflib v1.0.0
-## explicit
-github.com/pmezard/go-difflib/difflib
 # github.com/prometheus/client_golang v1.12.1
 ## explicit; go 1.13
 github.com/prometheus/client_golang/prometheus
@@ -258,7 +255,6 @@ github.com/replicatedhq/troubleshoot/pkg/redact
 github.com/spf13/pflag
 # github.com/stretchr/testify v1.7.2
 ## explicit; go 1.13
-github.com/stretchr/testify/assert
 # github.com/vmware/cloud-provider-for-cloud-director v0.0.0-20220627163332-050c2a42d11b
 ## explicit; go 1.17
 github.com/vmware/cloud-provider-for-cloud-director/pkg/util
@@ -298,7 +294,7 @@ golang.org/x/net/http/httpguts
 golang.org/x/net/http2
 golang.org/x/net/http2/hpack
 golang.org/x/net/idna
-# golang.org/x/oauth2 v0.0.0-20211104180415-d3ed0bb246c8
+# golang.org/x/oauth2 v0.0.0-20220411215720-9780585627b5
 ## explicit; go 1.11
 golang.org/x/oauth2
 golang.org/x/oauth2/authhandler

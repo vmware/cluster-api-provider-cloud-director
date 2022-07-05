@@ -9,11 +9,9 @@ import (
 	"context"
 	_ "embed"
 	"flag"
-	"fmt"
 	infrav1alpha4 "github.com/vmware/cluster-api-provider-cloud-director/api/v1alpha4"
 	infrav1beta1 "github.com/vmware/cluster-api-provider-cloud-director/api/v1beta1"
 	"github.com/vmware/cluster-api-provider-cloud-director/controllers"
-	"github.com/vmware/cluster-api-provider-cloud-director/pkg/config"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -23,7 +21,6 @@ import (
 	bootstrapv1beta1 "sigs.k8s.io/cluster-api/bootstrap/kubeadm/api/v1beta1"
 	addonsv1 "sigs.k8s.io/cluster-api/exp/addons/api/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
-	"strings"
 	"time"
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
@@ -65,21 +62,6 @@ func init() {
 	//+kubebuilder:scaffold:scheme
 }
 
-func getCapvcdConfig() (*config.CAPVCDConfig, error) {
-	configFilePath := "/etc/kubernetes/vcloud/controller_manager_config.yaml"
-	configReader, err := os.Open(configFilePath)
-	if err != nil {
-		return nil, fmt.Errorf("unable to open file [%s]: [%v]", configFilePath, err)
-	}
-	defer configReader.Close()
-	cloudConfig, err := config.ParseCAPVCDConfig(configReader)
-	if err != nil {
-		return nil, fmt.Errorf("unable to parse CAPVCD config file [%s]: [%v]", configFilePath, err)
-	}
-	cloudConfig.ClusterResources.CapvcdVersion = strings.Trim(capVCDVersion, "\n")
-	return cloudConfig, err
-}
-
 func main() {
 	var metricsAddr string
 	var enableLeaderElection bool
@@ -119,17 +101,10 @@ func main() {
 		os.Exit(1)
 	}
 
-	capvcdConfig, err := getCapvcdConfig()
-	if err != nil {
-		setupLog.Error(err, "failed to read CAPVCD config file")
-		os.Exit(1)
-	}
-
 	ctx := context.Background()
 
 	if err = (&controllers.VCDMachineReconciler{
 		Client: mgr.GetClient(),
-		Config: capvcdConfig,
 	}).SetupWithManager(ctx, mgr, controller.Options{
 		MaxConcurrentReconciles: concurrency,
 	}); err != nil {
@@ -140,7 +115,6 @@ func main() {
 	if err = (&controllers.VCDClusterReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
-		Config: capvcdConfig,
 	}).SetupWithManager(mgr, controller.Options{
 		MaxConcurrentReconciles: concurrency,
 	}); err != nil {

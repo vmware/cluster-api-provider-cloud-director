@@ -17,7 +17,6 @@ import (
 	"github.com/vmware/cloud-provider-for-cloud-director/pkg/vcdsdk"
 	infrav1 "github.com/vmware/cluster-api-provider-cloud-director/api/v1beta1"
 	"github.com/vmware/cluster-api-provider-cloud-director/pkg/capisdk"
-	"github.com/vmware/cluster-api-provider-cloud-director/pkg/config"
 	"github.com/vmware/cluster-api-provider-cloud-director/release"
 	"github.com/vmware/go-vcloud-director/v2/govcd"
 	"gopkg.in/yaml.v2"
@@ -88,7 +87,6 @@ var cloudInitScriptTemplate string
 // VCDMachineReconciler reconciles a VCDMachine object
 type VCDMachineReconciler struct {
 	client.Client
-	Config *config.CAPVCDConfig
 }
 
 //+kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=vcdmachines,verbs=get;list;watch;create;update;patch;delete
@@ -459,8 +457,8 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 				ReclaimPolicy:             reclaimPolicy,
 				VcdStorageProfileName:     vcdStorageProfileName,
 				FileSystemFormat:          fileSystemFormat,
-				CpiVersion:                r.Config.ClusterResources.CpiVersion,
-				CsiVersion:                r.Config.ClusterResources.CsiVersion,
+				CpiVersion:                "1.1.1", // TODO: get from crs
+				CsiVersion:                "1.2.0", // TODO: get from crs
 				VcdHostFormatted:          strings.Replace(vcdCluster.Spec.Site, "/", "\\/", -1),
 				ClusterOrgName:            workloadVCDClient.ClusterOrgName,
 				ClusterOVDCName:           workloadVCDClient.ClusterOVDCName,
@@ -580,7 +578,7 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		},
 	}
 
-	gateway, err := vcdsdk.NewGatewayManager(ctx, workloadVCDClient, vcdCluster.Spec.OvdcNetwork, r.Config.VCD.VIPSubnet)
+	gateway, err := vcdsdk.NewGatewayManager(ctx, workloadVCDClient, vcdCluster.Spec.OvdcNetwork, vcdCluster.Spec.LoadBalancer.VipSubnet)
 	if err != nil {
 		return ctrl.Result{}, errors.Wrapf(err, "failed to create gateway manager object while reconciling machine [%s]", vcdMachine.Name)
 	}
@@ -609,11 +607,9 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		resourcesAllocated := &cpiutil.AllocatedResourcesMap{}
 		var oneArm *vcdsdk.OneArm = nil
 		if vcdCluster.Spec.LoadBalancer.UseOneArm {
-			oneArm = &vcdsdk.OneArm{
-				StartIP: r.Config.LB.OneArm.StartIP,
-				EndIP:   r.Config.LB.OneArm.EndIP,
-			}
+			oneArm = &OneArmDefault
 		}
+
 		// At this point the vcdCluster.Spec.ControlPlaneEndpoint should have been set correctly.
 		_, err = gateway.UpdateLoadBalancer(ctx, lbPoolName, virtualServiceName, updatedUniqueIPs,
 			int32(vcdCluster.Spec.ControlPlaneEndpoint.Port), int32(vcdCluster.Spec.ControlPlaneEndpoint.Port),
@@ -841,7 +837,7 @@ func (r *VCDMachineReconciler) reconcileDelete(ctx context.Context, cluster *clu
 		return ctrl.Result{}, errors.Wrapf(err, "Unable to create VCD client to reconcile infrastructure for the Machine [%s]", machine.Name)
 	}
 
-	gateway, err := vcdsdk.NewGatewayManager(ctx, workloadVCDClient, vcdCluster.Spec.OvdcNetwork, r.Config.VCD.VIPSubnet)
+	gateway, err := vcdsdk.NewGatewayManager(ctx, workloadVCDClient, vcdCluster.Spec.OvdcNetwork, vcdCluster.Spec.LoadBalancer.VipSubnet)
 	if err != nil {
 		return ctrl.Result{}, errors.Wrapf(err, "failed to create gateway manager object while reconciling machine [%s]", vcdMachine.Name)
 	}
@@ -881,11 +877,9 @@ func (r *VCDMachineReconciler) reconcileDelete(ctx context.Context, cluster *clu
 			resourcesAllocated := &cpiutil.AllocatedResourcesMap{}
 			var oneArm *vcdsdk.OneArm = nil
 			if vcdCluster.Spec.LoadBalancer.UseOneArm {
-				oneArm = &vcdsdk.OneArm{
-					StartIP: r.Config.LB.OneArm.StartIP,
-					EndIP:   r.Config.LB.OneArm.EndIP,
-				}
+				oneArm = &OneArmDefault
 			}
+
 			// At this point the vcdCluster.Spec.ControlPlaneEndpoint should have been set correctly.
 			_, err = gateway.UpdateLoadBalancer(ctx, lbPoolName, virtualServiceName, updatedIPs,
 				int32(vcdCluster.Spec.ControlPlaneEndpoint.Port), int32(vcdCluster.Spec.ControlPlaneEndpoint.Port),
