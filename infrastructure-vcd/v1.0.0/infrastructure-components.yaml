@@ -817,6 +817,14 @@ rules:
   - list
   - watch
 - apiGroups:
+  - addons.cluster.x-k8s.io
+  resources:
+  - clusterresourcesetbindings
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
   - infrastructure.cluster.x-k8s.io
   resources:
   - vcdclusters
