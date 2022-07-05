@@ -189,6 +189,8 @@ spec:
                 properties:
                   useOneArm:
                     type: boolean
+                  vipSubnet:
+                    type: string
                 type: object
               org:
                 type: string
@@ -233,8 +235,6 @@ spec:
                   username:
                     type: string
                 type: object
-              vipSubnet:
-                type: string
             required:
             - org
             - ovdc
@@ -785,24 +785,6 @@ rules:
   - update
   - watch
 - apiGroups:
-  - cluster.x-k8s.io
-  resources:
-  - clusters
-  - clusters/status
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
-  - cluster.x-k8s.io
-  resources:
-  - machines
-  - machines/status
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
   - ""
   resources:
   - namespaces
@@ -852,80 +834,6 @@ rules:
   - get
   - patch
   - update
-- apiGroups:
-  - infrastructure.cluster.x-k8s.io
-  resources:
-  - vcdmachines
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - infrastructure.cluster.x-k8s.io
-  resources:
-  - vcdmachines/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - infrastructure.cluster.x-k8s.io
-  resources:
-  - vcdmachines/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - controlplane.cluster.x-k8s.io
-  resources:
-  - kubeadmcontrolplanes
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - infrastructure.cluster.x-k8s.io
-  resources:
-  - vcdmachinetemplates
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - cluster.x-k8s.io
-  resources:
-  - machinedeployments
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - bootstrap.cluster.x-k8s.io
-  resources:
-  - kubeadmconfigtemplates
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
@@ -956,32 +864,6 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: capvcd-controller-manager
-  namespace: capvcd-system
----
-apiVersion: v1
-data:
-  controller_manager_config.yaml: |
-    vcd:
-      vipSubnet: "" # Virtual IP CIDR for the external network
-    loadbalancer:
-      oneArm:
-        startIP: "192.168.8.2" # First IP in the IP range used for load balancer virtual service
-        endIP: "192.168.8.100" # Last IP in the IP range used for load balancer virtual service
-      ports:
-        tcp: 6443
-    # managementClusterRDEId is the RDE ID of this management cluster if it exists; if this cluster is a child of another CAPVCD based cluster,
-    # an associated RDE will be created in VCD of Entity Type "urn:vcloud:type:vmware:capvcdCluster:1.0.0".
-    # Retrieve that RDEId using the API - https://VCD_IP/cloudapi/1.0.0/entities/types/vmware/capvcdCluster/1.0.0
-    managementClusterRDEId: ""
-    clusterResourceSet:
-      csi: vkp # CSI version to be used in the workload cluster
-      cpi: vkp # CPI version to be used in the workload cluster
-      cni: 0.11.3 # Antrea version to be used in the workload cluster
-kind: ConfigMap
-metadata:
-  labels:
-    cluster.x-k8s.io/provider: infrastructure-vcd
-  name: capvcd-manager-config
   namespace: capvcd-system
 ---
 apiVersion: v1
@@ -1054,8 +936,6 @@ spec:
         - mountPath: /tmp/k8s-webhook-server/serving-certs
           name: cert
           readOnly: true
-        - mountPath: /etc/kubernetes/vcloud
-          name: controller-manager-config-volume
       securityContext:
         runAsNonRoot: false
       serviceAccountName: capvcd-controller-manager
@@ -1066,7 +946,7 @@ spec:
           defaultMode: 420
           secretName: webhook-server-cert
       - configMap:
-          name: capvcd-manager-config
+          name: manager-config
         name: controller-manager-config-volume
 ---
 apiVersion: cert-manager.io/v1
