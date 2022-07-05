@@ -96,7 +96,7 @@ mkdir tmp
 git clone "https://github.com/vmware/${project}.git" tmp
 cd tmp
 git checkout "$git_ref"
-version="$(cat release/version | tr -d '\n')"
+version="$(git describe --tags --abbrev=0)"
 cd ..
 
 # Generate source code provenance file
