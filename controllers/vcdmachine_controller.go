@@ -457,8 +457,8 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 				ReclaimPolicy:             reclaimPolicy,
 				VcdStorageProfileName:     vcdStorageProfileName,
 				FileSystemFormat:          fileSystemFormat,
-				CpiVersion:                "1.1.1", // TODO: get from crs
-				CsiVersion:                "1.2.0", // TODO: get from crs
+				CpiVersion:                CpiDefaultVersion, // TODO: get from crs
+				CsiVersion:                CsiDefaultVersion, // TODO: get from crs
 				VcdHostFormatted:          strings.Replace(vcdCluster.Spec.Site, "/", "\\/", -1),
 				ClusterOrgName:            workloadVCDClient.ClusterOrgName,
 				ClusterOVDCName:           workloadVCDClient.ClusterOVDCName,

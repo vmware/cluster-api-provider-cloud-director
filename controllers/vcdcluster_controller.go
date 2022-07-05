@@ -53,6 +53,9 @@ const (
 	VCDResourceVApp = "VApp"
 
 	TcpPort = 6443
+
+	CpiDefaultVersion = "vkp"
+	CsiDefaultVersion = "vkp"
 )
 
 var (
