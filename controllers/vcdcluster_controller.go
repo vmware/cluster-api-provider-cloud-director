@@ -75,6 +75,8 @@ type VCDClusterReconciler struct {
 //+kubebuilder:rbac:groups="",resources=secrets;,verbs=get;list;watch
 //+kubebuilder:rbac:groups="",resources=namespaces,verbs=get;list;watch
 //+kubebuilder:rbac:groups="",resources=events,verbs=get;list;watch;create;update;patch
+//+kubebuilder:rbac:groups=addons.cluster.x-k8s.io,resources=clusterresourcesetbindings,verbs=get;list;watch
+
 func (r *VCDClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctrl.Result, rerr error) {
 	log := ctrl.LoggerFrom(ctx)
 	// Fetch the VCDCluster instance
