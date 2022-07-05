@@ -48,6 +48,7 @@ fi
 project="$1"
 git_ref="$2"
 jenkins_build_number="$3"
+jenkins_job_name="capvcd-provenance-pipeline"
 
 # Right now only our two main projects are supported, otherwise the script will fail
 if [[ "${project}" != 'cluster-api-provider-cloud-director' ]]
@@ -75,7 +76,6 @@ chmod +x srp-tools/observer/bin/observer_agent.bash
 echo "[INFO] SRP cli version: $(./srp-tools/srp --version)"
 
 # Generate SRP UIDs. The convention is described at https://confluence.eng.vmware.com/display/SRPIPELINE/How+to+create+a+SRP+UID
-jenkins_job_name="${project}-provenance-pipeline"
 jenkins_instance='sp-taas-vcd-butler.svc.eng.vmware.com'
 timestamp="$(date +%Y%m%d%H%M%S)"
 
@@ -96,7 +96,7 @@ mkdir tmp
 git clone "https://github.com/vmware/${project}.git" tmp
 cd tmp
 git checkout "$git_ref"
-version="$(git describe --tags --abbrev=0)"
+version="$(cat release/version | tr -d '\n')"
 cd ..
 
 # Generate source code provenance file
