@@ -58,6 +58,8 @@ spec:
     useDeleteReclaimPolicy: true # if set to true, Delete will be used as the Reclaim policy for the storage class. Else, Retain will be used as the reclaim policy
     fileSystem: "ext4" # file system format for the persistent volumes created from the storage class
   rdeId: "urn:vcloud:entity:vmware:capvcdCluster:UUID" # rdeId if it is already created. If empty, CAPVCD will create one for the cluster.
+  loadBalancer:
+    vipSubnet: "" # Virtual IP CIDR for the external network
 ---
 apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
 kind: VCDMachineTemplate

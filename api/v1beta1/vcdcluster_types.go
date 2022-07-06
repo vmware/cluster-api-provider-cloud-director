@@ -60,9 +60,16 @@ type ProxyConfig struct {
 	NoProxy    string `json:"noProxy,omitempty"`
 }
 
+// Ports :
+type Ports struct {
+	HTTP  int32 `json:"http,omitempty"`
+	HTTPS int32 `json:"https,omitempty"`
+	TCP   int32 `json:"tcp,omitempty"`
+}
+
 // LoadBalancer defines load-balancer configuration for the Cluster both for the control plane nodes and for the CPI
 type LoadBalancer struct {
-	UseOneArm bool `json:"useOneArm,omitempty"`
+	VipSubnet string `json:"vipSubnet,omitempty"`
 }
 
 // VCDClusterSpec defines the desired state of VCDCluster
