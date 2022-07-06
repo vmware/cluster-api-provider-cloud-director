@@ -191,7 +191,7 @@ spec:
                 description: LoadBalancer defines load-balancer configuration for
                   the Cluster both for the control plane nodes and for the CPI
                 properties:
-                  UseOneArm:
+                  useOneArm:
                     type: boolean
                   vipSubnet:
                     type: string

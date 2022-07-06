@@ -69,7 +69,7 @@ type Ports struct {
 
 // LoadBalancer defines load-balancer configuration for the Cluster both for the control plane nodes and for the CPI
 type LoadBalancer struct {
-	UseOneArm bool   `json:"UseOneArm,omitempty"`
+	UseOneArm bool   `json:"useOneArm,omitempty"`
 	VipSubnet string `json:"vipSubnet,omitempty"`
 }
 
