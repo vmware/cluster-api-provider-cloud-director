@@ -44,6 +44,11 @@ spec:
   org: ${VCD_ORGANIZATION} # VCD organization name where the cluster should be deployed
   ovdc: ${VCD_ORGANIZATION_VDC} # VCD virtual datacenter name where the cluster should be deployed
   ovdcNetwork: ${VCD_ORGANIZATION_VDC_NETWORK} # VCD virtual datacenter network to be used by the cluster
+  controlPlaneEndpoint:
+    host: ${CONTROL_PLANE_HOST} # Control plane IP to be used for the cluster
+    port: ${CONTROL_PLANE_PORT} # Control plane port to be used for the cluster
+  loadBalancer:
+    vipSubnet: ${VIP_SUBNET_CIDR} # Virtual IP subnet CIDR from which control plane endpoint needs to be chosen from.
   parentUid: ${PARENT_RDE_ID} # create the CAPVCD cluster from a specific management cluster associated with this UID.
   useAsManagementCluster: ${USE_AS_MANAGEMENT_CLUSTER} # intent to use the resultant CAPVCD cluster as a management cluster
   userContext:
