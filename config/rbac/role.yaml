@@ -18,24 +18,6 @@ rules:
   - update
   - watch
 - apiGroups:
-    - cluster.x-k8s.io
-  resources:
-    - clusters
-    - clusters/status
-  verbs:
-    - get
-    - list
-    - watch
-- apiGroups:
-    - cluster.x-k8s.io
-  resources:
-    - machines
-    - machines/status
-  verbs:
-    - get
-    - list
-    - watch
-- apiGroups:
   - ""
   resources:
   - namespaces
@@ -58,6 +40,60 @@ rules:
   verbs:
   - get
   - list
+  - watch
+- apiGroups:
+  - bootstrap.cluster.x-k8s.io
+  resources:
+  - kubeadmconfigtemplates
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - cluster.x-k8s.io
+  resources:
+  - clusters
+  - clusters/status
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - cluster.x-k8s.io
+  resources:
+  - machinedeployments
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - cluster.x-k8s.io
+  resources:
+  - machines
+  - machines/status
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - controlplane.cluster.x-k8s.io
+  resources:
+  - kubeadmcontrolplanes
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
   - watch
 - apiGroups:
   - infrastructure.cluster.x-k8s.io
@@ -112,50 +148,14 @@ rules:
   - patch
   - update
 - apiGroups:
-    - controlplane.cluster.x-k8s.io
+  - infrastructure.cluster.x-k8s.io
   resources:
-    - kubeadmcontrolplanes
+  - vcdmachinetemplates
   verbs:
-    - create
-    - delete
-    - get
-    - list
-    - patch
-    - update
-    - watch
-- apiGroups:
-    - infrastructure.cluster.x-k8s.io
-  resources:
-    - vcdmachinetemplates
-  verbs:
-    - create
-    - delete
-    - get
-    - list
-    - patch
-    - update
-    - watch
-- apiGroups:
-    - cluster.x-k8s.io
-  resources:
-    - machinedeployments
-  verbs:
-    - create
-    - delete
-    - get
-    - list
-    - patch
-    - update
-    - watch
-- apiGroups:
-    - bootstrap.cluster.x-k8s.io
-  resources:
-    - kubeadmconfigtemplates
-  verbs:
-    - create
-    - delete
-    - get
-    - list
-    - patch
-    - update
-    - watch
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
