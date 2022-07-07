@@ -110,6 +110,7 @@ mkdir provenance
 echo "[INFO] Generating dependencies provenance file..."
 cd tmp
 export PATH=$PATH:/usr/local/go/bin # Workaround if the shell doesn't have PATH updated with Go binary
+go mod download -x
 ../srp-tools/observer/bin/observer_agent.bash -t -o ./ -- go mod download -x
 mv provenance.json ../provenance/dependencies.json
 cd ..
