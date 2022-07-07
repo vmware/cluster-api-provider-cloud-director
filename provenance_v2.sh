@@ -38,7 +38,7 @@ then
     echo ""
     echo "Required arguments:"
     echo ""
-    echo "  PROJECT_NAME           Either 'cluster-api-provider-cloud-director'"
+    echo "  PROJECT_NAME           Should be 'cluster-api-provider-for-cloud-director'"
     echo "  GIT REF                Git reference to checkout (ie: HEAD, a commit hash, a branch, a tag...)"
     echo "  JENKINS_BUILD_NUMBER   Jenkins build number, ie: '248'"
     echo ""
@@ -110,7 +110,7 @@ mkdir provenance
 echo "[INFO] Generating dependencies provenance file..."
 cd tmp
 export PATH=$PATH:/usr/local/go/bin # Workaround if the shell doesn't have PATH updated with Go binary
-go mod download -x
+go clean -modcache
 ../srp-tools/observer/bin/observer_agent.bash -t -o ./ -- go mod download -x
 mv provenance.json ../provenance/dependencies.json
 cd ..
