@@ -246,14 +246,16 @@ func (r *VCDClusterReconciler) constructCapvcdRDE(ctx context.Context, cluster *
 				},
 				CapiStatusYaml:             "",
 				ClusterResourceSetBindings: nil,
-				DefaultStorageClass: rdeType.DefaultStorageClass{
-					VCDStorageProfileName:  vcdCluster.Spec.DefaultStorageClassOptions.VCDStorageProfileName,
-					K8sStorageClassName:    vcdCluster.Spec.DefaultStorageClassOptions.K8sStorageClassName,
-					UseDeleteReclaimPolicy: vcdCluster.Spec.DefaultStorageClassOptions.UseDeleteReclaimPolicy,
-					FileSystem:             vcdCluster.Spec.DefaultStorageClassOptions.FileSystem,
-				},
 			},
 		},
+	}
+	if vcdCluster.Status.DefaultStorageClassOptions.VCDStorageProfileName != "" {
+		capvcdEntity.Status.CAPVCDStatus.DefaultStorageClass = rdeType.DefaultStorageClass{
+			VCDStorageProfileName:  vcdCluster.Status.DefaultStorageClassOptions.VCDStorageProfileName,
+			K8sStorageClassName:    vcdCluster.Status.DefaultStorageClassOptions.K8sStorageClassName,
+			UseDeleteReclaimPolicy: vcdCluster.Status.DefaultStorageClassOptions.UseDeleteReclaimPolicy,
+			FileSystem:             vcdCluster.Status.DefaultStorageClassOptions.FileSystem,
+		}
 	}
 
 	// convert CAPVCDEntity to map[string]interface{} type
@@ -633,7 +635,9 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	vcdCluster.Status.UseAsManagementCluster = vcdCluster.Spec.UseAsManagementCluster
 	vcdCluster.Status.ParentUID = vcdCluster.Spec.ParentUID
 	vcdCluster.Status.ProxyConfig = vcdCluster.Spec.ProxyConfig
-	vcdCluster.Status.DefaultStorageClassOptions = vcdCluster.Spec.DefaultStorageClassOptions
+	if vcdCluster.Spec.DefaultStorageClassOptions.VCDStorageProfileName != "" {
+		vcdCluster.Status.DefaultStorageClassOptions = vcdCluster.Spec.DefaultStorageClassOptions
+	}
 
 	// create load balancer for the cluster. Only one-arm load balancer is fully tested.
 	virtualServiceNamePrefix := capisdk.GetVirtualServiceNamePrefix(vcdCluster.Name, vcdCluster.Status.InfraId)
