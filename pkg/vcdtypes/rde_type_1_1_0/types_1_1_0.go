@@ -106,6 +106,13 @@ type ClusterResourceSetBinding struct {
 	LastAppliedTime        string `json:"lastAppliedTime,omitempty"`
 }
 
+type DefaultStorageClass struct {
+	VCDStorageProfileName  string `json:"vcdStorageProfileName"`
+	K8sStorageClassName    string `json:"k8sStorageClassName,omitempty"`
+	UseDeleteReclaimPolicy bool   `json:"useDeleteReclaimPolicy,omitempty"`
+	FileSystem             string `json:"fileSystem,omitempty"`
+}
+
 type CAPVCDStatus struct {
 	Phase                      string                      `json:"phase,omitempty"`
 	Kubernetes                 string                      `json:"kubernetes,omitempty"`
@@ -123,6 +130,7 @@ type CAPVCDStatus struct {
 	VCDResourceSet             []VCDResource               `json:"vcdResourceSet,omitempty"`
 	CapiStatusYaml             string                      `json:"capiStatusYaml,omitempty"`
 	ClusterResourceSetBindings []ClusterResourceSetBinding `json:"clusterResourceSetBindings,omitempty"`
+	DefaultStorageClass        DefaultStorageClass         `json:"defaultStorageClass"`
 }
 
 type Status struct {

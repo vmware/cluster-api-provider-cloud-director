@@ -363,6 +363,7 @@ func autoConvert_v1beta1_VCDClusterStatus_To_v1alpha4_VCDClusterStatus(in *v1bet
 	// WARNING: in.ParentUID requires manual conversion: does not exist in peer-type
 	// WARNING: in.UseAsManagementCluster requires manual conversion: does not exist in peer-type
 	// WARNING: in.ProxyConfig requires manual conversion: does not exist in peer-type
+	// WARNING: in.DefaultStorageClassOptions requires manual conversion: does not exist in peer-type
 	return nil
 }
 

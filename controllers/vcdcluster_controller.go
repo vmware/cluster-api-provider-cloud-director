@@ -246,6 +246,12 @@ func (r *VCDClusterReconciler) constructCapvcdRDE(ctx context.Context, cluster *
 				},
 				CapiStatusYaml:             "",
 				ClusterResourceSetBindings: nil,
+				DefaultStorageClass: rdeType.DefaultStorageClass{
+					VCDStorageProfileName:  vcdCluster.Spec.DefaultStorageClassOptions.VCDStorageProfileName,
+					K8sStorageClassName:    vcdCluster.Spec.DefaultStorageClassOptions.K8sStorageClassName,
+					UseDeleteReclaimPolicy: vcdCluster.Spec.DefaultStorageClassOptions.UseDeleteReclaimPolicy,
+					FileSystem:             vcdCluster.Spec.DefaultStorageClassOptions.FileSystem,
+				},
 			},
 		},
 	}
@@ -627,6 +633,7 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	vcdCluster.Status.UseAsManagementCluster = vcdCluster.Spec.UseAsManagementCluster
 	vcdCluster.Status.ParentUID = vcdCluster.Spec.ParentUID
 	vcdCluster.Status.ProxyConfig = vcdCluster.Spec.ProxyConfig
+	vcdCluster.Status.DefaultStorageClassOptions = vcdCluster.Spec.DefaultStorageClassOptions
 
 	// create load balancer for the cluster. Only one-arm load balancer is fully tested.
 	virtualServiceNamePrefix := capisdk.GetVirtualServiceNamePrefix(vcdCluster.Name, vcdCluster.Status.InfraId)
