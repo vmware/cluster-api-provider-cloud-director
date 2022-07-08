@@ -138,7 +138,7 @@ type VCDClusterStatus struct {
 	ProxyConfig ProxyConfig `json:"proxyConfig,omitempty"`
 
 	// +optional
-	DefaultStorageClassOptions DefaultStorageClassOptions `json:"defaultStorageClassOptions"`
+	DefaultStorageClassOptions DefaultStorageClassOptions `json:"defaultStorageClassOptions,omitempty"`
 }
 
 //+kubebuilder:object:root=true
