@@ -691,7 +691,7 @@ func (gatewayManager *GatewayManager) formLoadBalancerPool(lbPoolName string, ip
 		GracefulTimeoutPeriod: int32(0), // when service outage occurs, immediately mark as bad
 		Algorithm:             "ROUND_ROBIN",
 	}
-	if healthMonitor != nil {
+	if healthMonitor != nil && healthMonitor.Type_ == "TCP" {
 		lbPool.HealthMonitors = []swaggerClient.EdgeLoadBalancerHealthMonitor{*healthMonitor}
 	}
 
