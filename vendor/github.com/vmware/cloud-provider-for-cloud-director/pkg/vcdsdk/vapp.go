@@ -257,6 +257,9 @@ func (vdc *VdcManager) GetOrCreateVApp(VAppName string, ovdcNetworkName string) 
 		return nil, fmt.Errorf("unable to compose raw vApp with name [%s]: [%v]", VAppName, err)
 	}
 
+	//add extra waiting time for network completion
+	//Todo: Further behavior: VCDA-4054 root cause the original issue and identify the correct fix at correct place
+	time.Sleep(15 * time.Second)
 	vApp, err = vdc.Vdc.GetVAppByName(VAppName, true)
 	if err != nil {
 		return nil, fmt.Errorf("unable to get vApp [%s] from Vdc [%s]: [%v]",
