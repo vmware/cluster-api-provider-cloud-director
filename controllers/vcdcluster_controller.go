@@ -54,8 +54,8 @@ const (
 
 	TcpPort = 6443
 
-	CpiDefaultVersion = "1.2.0-beta"
-	CsiDefaultVersion = "1.3.0-beta"
+	CpiDefaultVersion = "main"
+	CsiDefaultVersion = "main"
 )
 
 var (
