@@ -206,13 +206,18 @@ write_files: {{- if .ControlPlane }}
 
     echo "$(date) post customization script execution completed" &>> /var/log/capvcd/customization/status.log
     exit 0
-runcmd: {{- if .ControlPlane }}
-- '[ ! -f /root/vcloud-basic-auth.yaml ] && cloud-init clean && sudo reboot' {{- end }}
-- '[ ! -f /root/ {{- if .ControlPlane -}} control_plane {{- else -}} node {{- end -}} .sh ] && cloud-init clean && sudo reboot'
-{{/* Only checking if /run/kubeadm/kubeadm(-join-config).yaml as this is the main file for kubeadm (init | join).*/}}
-{{/* Ignoring checks for .cert and .key files*/}}
-- '[ ! -f /run/kubeadm/kubeadm {{- if not .ControlPlane -}} -join-config {{- end -}} .yaml ] && cloud-init clean && sudo reboot'
-- bash /root/ {{- if .ControlPlane -}} control_plane {{- else -}} node {{- end -}} .sh
+runcmd:
+- 'cloud-init clean'
+{{ if .ControlPlane }}
+- '[ ! -f /root/vcloud-basic-auth.yaml ] && sudo reboot'
+- '[ ! -f /root/control_plane.sh ] && sudo reboot'
+- '[ ! -f /run/kubeadm/kubeadm.yaml ] && sudo reboot'
+- bash /root/control_plane.sh
+{{ else }}
+- '[ ! -f /root/node.sh ] && sudo reboot'
+- '[ ! -f /run/kubeadm/kubeadm-join-config.yaml ] && sudo reboot'
+- bash /root/node.sh
+{{ end }}
 timezone: UTC
 disable_root: false
 preserve_hostname: false

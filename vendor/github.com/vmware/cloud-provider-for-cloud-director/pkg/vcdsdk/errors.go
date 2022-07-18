@@ -21,6 +21,14 @@ type GatewayBusyError struct {
 	GatewayName string
 }
 
+type NonCAPVCDEntityError struct {
+	EntityTypeID string
+}
+
+func (e NonCAPVCDEntityError) Error() string {
+	return fmt.Sprintf("Non CAPVCD entity type found: [%s]", e.EntityTypeID)
+}
+
 func (vsError *VirtualServicePendingError) Error() string {
 	return fmt.Sprintf("virtual service [%s] is in Pending state", vsError.VirtualServiceName)
 }

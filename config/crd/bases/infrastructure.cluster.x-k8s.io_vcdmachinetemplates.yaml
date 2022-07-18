@@ -139,7 +139,7 @@ spec:
                         type: string
                       storageProfile:
                         description: StorageProfile is the storage profile to be used
-                          on this machince
+                          on this machine
                         type: string
                       template:
                         description: TemplatePath is the path of the template OVA
