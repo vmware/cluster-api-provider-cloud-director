@@ -551,17 +551,22 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		// 	VCDResourceSet can get bloated with VMs if the cluster contains a large number of worker nodes
 	}
 
-	// set address in machine status
-	if vm.VM == nil ||
-		vm.VM.NetworkConnectionSection == nil ||
-		len(vm.VM.NetworkConnectionSection.NetworkConnection) == 0 ||
-		vm.VM.NetworkConnectionSection.NetworkConnection[0] == nil ||
-		vm.VM.NetworkConnectionSection.NetworkConnection[0].IPAddress == "" {
-
+	// checks before setting address in machine status
+	if vm.VM == nil {
 		log.Error(nil, fmt.Sprintf("Requeuing...; failed to get the machine address of vm [%#v]", vm))
 		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
 	}
+	if vm.VM.NetworkConnectionSection == nil || len(vm.VM.NetworkConnectionSection.NetworkConnection) == 0 {
+		log.Error(nil, fmt.Sprintf("Requeuing...; failed to get the network connection section for vm [%s(%s)]: [%#v]", vm.VM.Name, vm.VM.ID, vm.VM))
+		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
+	}
 
+	if vm.VM.NetworkConnectionSection.NetworkConnection[0] == nil || vm.VM.NetworkConnectionSection.NetworkConnection[0].IPAddress == "" {
+		log.Error(nil, fmt.Sprintf("Requeuing...; failed to get the network connection for vm [%s(%s)]: [%#v]", vm.VM.Name, vm.VM.ID, vm.VM.NetworkConnectionSection))
+		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
+	}
+
+	// set address in machine status
 	machineAddress := vm.VM.NetworkConnectionSection.NetworkConnection[0].IPAddress
 	vcdMachine.Status.Addresses = []clusterv1.MachineAddress{
 		{
