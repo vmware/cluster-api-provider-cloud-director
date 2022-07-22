@@ -69,6 +69,7 @@ type Ports struct {
 
 // LoadBalancer defines load-balancer configuration for the Cluster both for the control plane nodes and for the CPI
 type LoadBalancer struct {
+	UseOneArm bool   `json:"useOneArm,omitempty"`
 	VipSubnet string `json:"vipSubnet,omitempty"`
 }
 
@@ -112,6 +113,10 @@ type VCDClusterStatus struct {
 	// +kubebuilder:default=false
 	Ready bool `json:"ready"`
 
+	// RdeVersionInUse indicates the version of capvcdCluster entity type used by CAPVCD.
+	// +kubebuilder:default="1.1.0"
+	RdeVersionInUse string `json:"rdeVersionInUse"`
+
 	// MetadataUpdated denotes that the metadata of Vapp is updated.
 	// +optional
 	VAppMetadataUpdated bool `json:"vappmetadataUpdated,omitempty"`
@@ -119,14 +124,21 @@ type VCDClusterStatus struct {
 	// Conditions defines current service state of the VCDCluster.
 	// +optional
 	Conditions clusterv1.Conditions `json:"conditions,omitempty"`
+
 	// +optional
 	InfraId string `json:"infraId,omitempty"`
+
 	// +optional
 	ParentUID string `json:"parentUid,omitempty"`
+
 	// +optional
 	UseAsManagementCluster bool `json:"useAsManagementCluster,omitempty"`
+
 	// +optional
 	ProxyConfig ProxyConfig `json:"proxyConfig,omitempty"`
+
+	// +optional
+	DefaultStorageClassOptions DefaultStorageClassOptions `json:"defaultStorageClassOptions,omitempty"`
 }
 
 //+kubebuilder:object:root=true

@@ -55,7 +55,7 @@ type VCDMachineSpec struct {
 	// +optional
 	PlacementPolicy string `json:"placementPolicy,omitempty"`
 
-	// StorageProfile is the storage profile to be used on this machince
+	// StorageProfile is the storage profile to be used on this machine
 	// +optional
 	StorageProfile string `json:"storageProfile,omitempty"`
 
@@ -91,7 +91,7 @@ type VCDMachineStatus struct {
 	// +optional
 	Addresses []clusterv1.MachineAddress `json:"addresses,omitempty"`
 
-	// TemplatePath is the path of the template OVA that is to be used
+	// Template is the path of the template OVA that is to be used
 	// +optional
 	Template string `json:"template,omitempty"`
 

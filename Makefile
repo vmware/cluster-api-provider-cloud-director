@@ -22,10 +22,10 @@ IMG ?= ${REGISTRY}/cluster-api-provider-cloud-director:${version}
 # Options are set to exit when a recipe line exits non-zero or a piped command fails.
 SHELL = /usr/bin/env bash -o pipefail
 .SHELLFLAGS = -ec
+MANIFEST_DIR = infrastructure-vcd/v1.0.0
 
 .PHONY: vendor
 
-MANIFEST_DIR = infrastructure-vcd/v1.0.0
 all: build
 
 ##@ General
@@ -113,7 +113,14 @@ conversion: tools-dir ## Download controller-gen locally if necessary.
 
 KUSTOMIZE = $(GITROOT)/tools/kustomize
 kustomize: tools-dir ## Download kustomize locally if necessary.
-	$(call go-install-tool,$(KUSTOMIZE),sigs.k8s.io/kustomize/kustomize/v3@v3.8.7)
+	CURR_DIR=$(pwd)
+	cd $(GITROOT)/bin
+	wget "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh"
+	chmod +x ./install_kustomize.sh
+	./install_kustomize.sh 3.8.7 $(GITROOT)/tools/
+	\rm -f ./install_kustomize.sh
+	cd $(CURR_DIR)
+
 
 # go-get-tool will 'go get' any package $2 and install it to $1.
 PROJECT_DIR := $(shell dirname $(abspath $(lastword $(MAKEFILE_LIST))))
@@ -159,6 +166,8 @@ vendor: generate fmt vet
 release-manifests: $(KUSTOMIZE)
 	mkdir -p $(MANIFEST_DIR)
 	$(KUSTOMIZE) build config/default > $(MANIFEST_DIR)/infrastructure-components.yaml
+
+autogen-files: manifests generate conversion release-manifests
 
 # Add a target to download and build conversion-gen; and then run it with the below params
 generate_conversions:  ## Runs Go related generate targets.

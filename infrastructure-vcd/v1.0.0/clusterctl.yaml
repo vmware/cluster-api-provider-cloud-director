@@ -13,7 +13,7 @@ cert-manager:
   url: "https://github.com/cert-manager/cert-manager/releases/latest/cert-manager.yaml"
 providers:
   - name: "vcd"
-    url: "~/go/cluster-api-provider-cloud-director/infrastructure-vcd/v0.8.0/infrastructure-components.yaml"
+    url: "~/go/cluster-api-provider-cloud-director/infrastructure-vcd/v1.0.0/infrastructure-components.yaml"
     type: "InfrastructureProvider"
 
 # Variables specific to both "cluster init" and "clusterctl generate"

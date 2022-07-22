@@ -1,0 +1,3674 @@
+---
+apiVersion: addons.cluster.x-k8s.io/v1beta1
+kind: ClusterResourceSet
+metadata:
+  annotations:
+    tkg.tanzu.vmware.com/addon-type: addons-management/kapp-controller
+  labels:
+    cluster.x-k8s.io/cluster-name: __CLUSTER_NAME__
+  name: __CLUSTER_NAME__-kapp-controller
+  namespace: __NAMESPACE_NAME__
+spec:
+  clusterSelector:
+    matchLabels:
+      tkg.tanzu.vmware.com/cluster-name: __CLUSTER_NAME__
+  resources:
+  - kind: Secret
+    name: __CLUSTER_NAME__-kapp-controller-crs
+  strategy: ApplyOnce
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  annotations:
+    tkg.tanzu.vmware.com/addon-type: addons-management/kapp-controller
+  name: __CLUSTER_NAME__-kapp-controller-crs
+  namespace: __NAMESPACE_NAME__
+stringData:
+  value: |
+    apiVersion: v1
+    kind: Namespace
+    metadata:
+      name: tkg-system
+      annotations:
+        tkg.tanzu.vmware.com/addon-type: addons-management/kapp-controller
+    ---
+    apiVersion: v1
+    kind: Namespace
+    metadata:
+      name: tanzu-package-repo-global
+      annotations:
+        tkg.tanzu.vmware.com/addon-type: addons-management/kapp-controller
+    ---
+    apiVersion: apiregistration.k8s.io/v1
+    kind: APIService
+    metadata:
+      name: v1alpha1.data.packaging.carvel.dev
+      annotations:
+        tkg.tanzu.vmware.com/addon-type: addons-management/kapp-controller
+    spec:
+      group: data.packaging.carvel.dev
+      groupPriorityMinimum: 100
+      service:
+        name: packaging-api
+        namespace: tkg-system
+      version: v1alpha1
+      versionPriority: 100
+    ---
+    apiVersion: v1
+    kind: Service
+    metadata:
+      name: packaging-api
+      namespace: tkg-system
+      annotations:
+        tkg.tanzu.vmware.com/addon-type: addons-management/kapp-controller
+    spec:
+      ports:
+      - port: 443
+        protocol: TCP
+        targetPort: api
+      selector:
+        app: kapp-controller
+    ---
+    apiVersion: apiextensions.k8s.io/v1
+    kind: CustomResourceDefinition
+    metadata:
+      name: internalpackagemetadatas.internal.packaging.carvel.dev
+      annotations:
+        tkg.tanzu.vmware.com/addon-type: addons-management/kapp-controller
+    spec:
+      group: internal.packaging.carvel.dev
+      names:
+        kind: InternalPackageMetadata
+        listKind: InternalPackageMetadataList
+        plural: internalpackagemetadatas
+        singular: internalpackagemetadata
+      scope: Namespaced
+      versions:
+      - name: v1alpha1
+        schema:
+          openAPIV3Schema:
+            properties:
+              apiVersion:
+                description: 'APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+                type: string
+              kind:
+                description: 'Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+                type: string
+              metadata:
+                type: object
+              spec:
+                properties:
+                  categories:
+                    items:
+                      type: string
+                    type: array
+                  displayName:
+                    type: string
+                  iconSVGBase64:
+                    type: string
+                  longDescription:
+                    type: string
+                  maintainers:
+                    items:
+                      properties:
+                        name:
+                          type: string
+                      type: object
+                    type: array
+                  providerName:
+                    type: string
+                  shortDescription:
+                    type: string
+                  supportDescription:
+                    type: string
+                type: object
+            required:
+            - spec
+            type: object
+        served: true
+        storage: true
+        subresources:
+          status: {}
+    ---
+    apiVersion: apiextensions.k8s.io/v1
+    kind: CustomResourceDefinition
+    metadata:
+      name: internalpackages.internal.packaging.carvel.dev
+      annotations:
+        tkg.tanzu.vmware.com/addon-type: addons-management/kapp-controller
+    spec:
+      group: internal.packaging.carvel.dev
+      names:
+        kind: InternalPackage
+        listKind: InternalPackageList
+        plural: internalpackages
+        singular: internalpackage
+      scope: Namespaced
+      versions:
+      - name: v1alpha1
+        schema:
+          openAPIV3Schema:
+            properties:
+              apiVersion:
+                description: 'APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+                type: string
+              kind:
+                description: 'Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+                type: string
+              metadata:
+                type: object
+              spec:
+                properties:
+                  capacityRequirementsDescription:
+                    type: string
+                  licenses:
+                    items:
+                      type: string
+                    type: array
+                  refName:
+                    type: string
+                  releaseNotes:
+                    type: string
+                  releasedAt:
+                    format: date-time
+                    nullable: true
+                    type: string
+                  template:
+                    properties:
+                      spec:
+                        properties:
+                          canceled:
+                            description: Canceled when set to true will stop all active changes
+                            type: boolean
+                          cluster:
+                            properties:
+                              kubeconfigSecretRef:
+                                properties:
+                                  key:
+                                    type: string
+                                  name:
+                                    type: string
+                                type: object
+                              namespace:
+                                type: string
+                            type: object
+                          deploy:
+                            items:
+                              properties:
+                                kapp:
+                                  properties:
+                                    delete:
+                                      properties:
+                                        rawOptions:
+                                          items:
+                                            type: string
+                                          type: array
+                                      type: object
+                                    inspect:
+                                      properties:
+                                        rawOptions:
+                                          items:
+                                            type: string
+                                          type: array
+                                      type: object
+                                    intoNs:
+                                      type: string
+                                    mapNs:
+                                      items:
+                                        type: string
+                                      type: array
+                                    rawOptions:
+                                      items:
+                                        type: string
+                                      type: array
+                                  type: object
+                              type: object
+                            type: array
+                          fetch:
+                            items:
+                              properties:
+                                git:
+                                  description: TODO implement git
+                                  properties:
+                                    lfsSkipSmudge:
+                                      type: boolean
+                                    ref:
+                                      type: string
+                                    refSelection:
+                                      properties:
+                                        semver:
+                                          properties:
+                                            constraints:
+                                              type: string
+                                            prereleases:
+                                              properties:
+                                                identifiers:
+                                                  items:
+                                                    type: string
+                                                  type: array
+                                              type: object
+                                          type: object
+                                      type: object
+                                    secretRef:
+                                      description: 'Secret may include one or more keys: ssh-privatekey, ssh-knownhosts'
+                                      properties:
+                                        name:
+                                          description: Object is expected to be within same namespace
+                                          type: string
+                                      type: object
+                                    subPath:
+                                      type: string
+                                    url:
+                                      type: string
+                                  type: object
+                                helmChart:
+                                  properties:
+                                    name:
+                                      description: 'Example: stable/redis'
+                                      type: string
+                                    repository:
+                                      properties:
+                                        secretRef:
+                                          properties:
+                                            name:
+                                              description: Object is expected to be within same namespace
+                                              type: string
+                                          type: object
+                                        url:
+                                          type: string
+                                      type: object
+                                    version:
+                                      type: string
+                                  type: object
+                                http:
+                                  properties:
+                                    secretRef:
+                                      description: 'Secret may include one or more keys: username, password'
+                                      properties:
+                                        name:
+                                          description: Object is expected to be within same namespace
+                                          type: string
+                                      type: object
+                                    sha256:
+                                      type: string
+                                    subPath:
+                                      type: string
+                                    url:
+                                      description: 'URL can point to one of following formats: text, tgz, zip'
+                                      type: string
+                                  type: object
+                                image:
+                                  properties:
+                                    secretRef:
+                                      description: 'Secret may include one or more keys: username, password, token. By default anonymous access is used for authentication. TODO support docker config formated secret'
+                                      properties:
+                                        name:
+                                          description: Object is expected to be within same namespace
+                                          type: string
+                                      type: object
+                                    subPath:
+                                      type: string
+                                    tagSelection:
+                                      properties:
+                                        semver:
+                                          properties:
+                                            constraints:
+                                              type: string
+                                            prereleases:
+                                              properties:
+                                                identifiers:
+                                                  items:
+                                                    type: string
+                                                  type: array
+                                              type: object
+                                          type: object
+                                      type: object
+                                    url:
+                                      description: 'Example: username/app1-config:v0.1.0'
+                                      type: string
+                                  type: object
+                                imgpkgBundle:
+                                  properties:
+                                    image:
+                                      type: string
+                                    secretRef:
+                                      description: 'Secret may include one or more keys: username, password, token. By default anonymous access is used for authentication. TODO support docker config formated secret'
+                                      properties:
+                                        name:
+                                          description: Object is expected to be within same namespace
+                                          type: string
+                                      type: object
+                                    tagSelection:
+                                      properties:
+                                        semver:
+                                          properties:
+                                            constraints:
+                                              type: string
+                                            prereleases:
+                                              properties:
+                                                identifiers:
+                                                  items:
+                                                    type: string
+                                                  type: array
+                                              type: object
+                                          type: object
+                                      type: object
+                                  type: object
+                                inline:
+                                  properties:
+                                    paths:
+                                      additionalProperties:
+                                        type: string
+                                      type: object
+                                    pathsFrom:
+                                      items:
+                                        properties:
+                                          configMapRef:
+                                            properties:
+                                              directoryPath:
+                                                type: string
+                                              name:
+                                                type: string
+                                            type: object
+                                          secretRef:
+                                            properties:
+                                              directoryPath:
+                                                type: string
+                                              name:
+                                                type: string
+                                            type: object
+                                        type: object
+                                      type: array
+                                  type: object
+                              type: object
+                            type: array
+                          noopDelete:
+                            description: When NoopDeletion set to true, App deletion should delete App CR but preserve App's associated resources
+                            type: boolean
+                          paused:
+                            description: Paused when set to true will ignore all pending changes, once it set back to false, pending changes will be applied
+                            type: boolean
+                          serviceAccountName:
+                            type: string
+                          syncPeriod:
+                            description: Controls frequency of app reconciliation
+                            type: string
+                          template:
+                            items:
+                              properties:
+                                helmTemplate:
+                                  properties:
+                                    name:
+                                      type: string
+                                    namespace:
+                                      type: string
+                                    path:
+                                      type: string
+                                    valuesFrom:
+                                      items:
+                                        properties:
+                                          configMapRef:
+                                            properties:
+                                              name:
+                                                type: string
+                                            type: object
+                                          path:
+                                            type: string
+                                          secretRef:
+                                            properties:
+                                              name:
+                                                type: string
+                                            type: object
+                                        type: object
+                                      type: array
+                                  type: object
+                                jsonnet:
+                                  description: TODO implement jsonnet
+                                  type: object
+                                kbld:
+                                  properties:
+                                    paths:
+                                      items:
+                                        type: string
+                                      type: array
+                                  type: object
+                                kustomize:
+                                  description: TODO implement kustomize
+                                  type: object
+                                sops:
+                                  properties:
+                                    age:
+                                      properties:
+                                        privateKeysSecretRef:
+                                          properties:
+                                            name:
+                                              type: string
+                                          type: object
+                                      type: object
+                                    paths:
+                                      items:
+                                        type: string
+                                      type: array
+                                    pgp:
+                                      properties:
+                                        privateKeysSecretRef:
+                                          properties:
+                                            name:
+                                              type: string
+                                          type: object
+                                      type: object
+                                  type: object
+                                ytt:
+                                  properties:
+                                    fileMarks:
+                                      items:
+                                        type: string
+                                      type: array
+                                    ignoreUnknownComments:
+                                      type: boolean
+                                    inline:
+                                      properties:
+                                        paths:
+                                          additionalProperties:
+                                            type: string
+                                          type: object
+                                        pathsFrom:
+                                          items:
+                                            properties:
+                                              configMapRef:
+                                                properties:
+                                                  directoryPath:
+                                                    type: string
+                                                  name:
+                                                    type: string
+                                                type: object
+                                              secretRef:
+                                                properties:
+                                                  directoryPath:
+                                                    type: string
+                                                  name:
+                                                    type: string
+                                                type: object
+                                            type: object
+                                          type: array
+                                      type: object
+                                    paths:
+                                      items:
+                                        type: string
+                                      type: array
+                                    strict:
+                                      type: boolean
+                                    valuesFrom:
+                                      items:
+                                        properties:
+                                          configMapRef:
+                                            properties:
+                                              name:
+                                                type: string
+                                            type: object
+                                          path:
+                                            type: string
+                                          secretRef:
+                                            properties:
+                                              name:
+                                                type: string
+                                            type: object
+                                        type: object
+                                      type: array
+                                  type: object
+                              type: object
+                            type: array
+                        type: object
+                    required:
+                    - spec
+                    type: object
+                  valuesSchema:
+                    description: valuesSchema can be used to show template values that can be configured by users when a Package is installed in an OpenAPI schema format.
+                    properties:
+                      openAPIv3:
+                        nullable: true
+                        type: object
+                        x-kubernetes-preserve-unknown-fields: true
+                    type: object
+                  version:
+                    type: string
+                type: object
+            required:
+            - spec
+            type: object
+        served: true
+        storage: true
+        subresources:
+          status: {}
+    ---
+    apiVersion: apiextensions.k8s.io/v1
+    kind: CustomResourceDefinition
+    metadata:
+      name: apps.kappctrl.k14s.io
+      annotations:
+        tkg.tanzu.vmware.com/addon-type: addons-management/kapp-controller
+    spec:
+      group: kappctrl.k14s.io
+      names:
+        kind: App
+        listKind: AppList
+        plural: apps
+        singular: app
+      scope: Namespaced
+      versions:
+      - additionalPrinterColumns:
+        - description: Friendly description
+          jsonPath: .status.friendlyDescription
+          name: Description
+          type: string
+        - description: Last time app started being deployed. Does not mean anything was changed.
+          jsonPath: .status.deploy.startedAt
+          name: Since-Deploy
+          type: date
+        - description: Time since creation
+          jsonPath: .metadata.creationTimestamp
+          name: Age
+          type: date
+        name: v1alpha1
+        schema:
+          openAPIV3Schema:
+            properties:
+              apiVersion:
+                description: 'APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+                type: string
+              kind:
+                description: 'Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+                type: string
+              metadata:
+                type: object
+              spec:
+                properties:
+                  canceled:
+                    description: Canceled when set to true will stop all active changes
+                    type: boolean
+                  cluster:
+                    properties:
+                      kubeconfigSecretRef:
+                        properties:
+                          key:
+                            type: string
+                          name:
+                            type: string
+                        type: object
+                      namespace:
+                        type: string
+                    type: object
+                  deploy:
+                    items:
+                      properties:
+                        kapp:
+                          properties:
+                            delete:
+                              properties:
+                                rawOptions:
+                                  items:
+                                    type: string
+                                  type: array
+                              type: object
+                            inspect:
+                              properties:
+                                rawOptions:
+                                  items:
+                                    type: string
+                                  type: array
+                              type: object
+                            intoNs:
+                              type: string
+                            mapNs:
+                              items:
+                                type: string
+                              type: array
+                            rawOptions:
+                              items:
+                                type: string
+                              type: array
+                          type: object
+                      type: object
+                    type: array
+                  fetch:
+                    items:
+                      properties:
+                        git:
+                          description: TODO implement git
+                          properties:
+                            lfsSkipSmudge:
+                              type: boolean
+                            ref:
+                              type: string
+                            refSelection:
+                              properties:
+                                semver:
+                                  properties:
+                                    constraints:
+                                      type: string
+                                    prereleases:
+                                      properties:
+                                        identifiers:
+                                          items:
+                                            type: string
+                                          type: array
+                                      type: object
+                                  type: object
+                              type: object
+                            secretRef:
+                              description: 'Secret may include one or more keys: ssh-privatekey, ssh-knownhosts'
+                              properties:
+                                name:
+                                  description: Object is expected to be within same namespace
+                                  type: string
+                              type: object
+                            subPath:
+                              type: string
+                            url:
+                              type: string
+                          type: object
+                        helmChart:
+                          properties:
+                            name:
+                              description: 'Example: stable/redis'
+                              type: string
+                            repository:
+                              properties:
+                                secretRef:
+                                  properties:
+                                    name:
+                                      description: Object is expected to be within same namespace
+                                      type: string
+                                  type: object
+                                url:
+                                  type: string
+                              type: object
+                            version:
+                              type: string
+                          type: object
+                        http:
+                          properties:
+                            secretRef:
+                              description: 'Secret may include one or more keys: username, password'
+                              properties:
+                                name:
+                                  description: Object is expected to be within same namespace
+                                  type: string
+                              type: object
+                            sha256:
+                              type: string
+                            subPath:
+                              type: string
+                            url:
+                              description: 'URL can point to one of following formats: text, tgz, zip'
+                              type: string
+                          type: object
+                        image:
+                          properties:
+                            secretRef:
+                              description: 'Secret may include one or more keys: username, password, token. By default anonymous access is used for authentication. TODO support docker config formated secret'
+                              properties:
+                                name:
+                                  description: Object is expected to be within same namespace
+                                  type: string
+                              type: object
+                            subPath:
+                              type: string
+                            tagSelection:
+                              properties:
+                                semver:
+                                  properties:
+                                    constraints:
+                                      type: string
+                                    prereleases:
+                                      properties:
+                                        identifiers:
+                                          items:
+                                            type: string
+                                          type: array
+                                      type: object
+                                  type: object
+                              type: object
+                            url:
+                              description: 'Example: username/app1-config:v0.1.0'
+                              type: string
+                          type: object
+                        imgpkgBundle:
+                          properties:
+                            image:
+                              type: string
+                            secretRef:
+                              description: 'Secret may include one or more keys: username, password, token. By default anonymous access is used for authentication. TODO support docker config formated secret'
+                              properties:
+                                name:
+                                  description: Object is expected to be within same namespace
+                                  type: string
+                              type: object
+                            tagSelection:
+                              properties:
+                                semver:
+                                  properties:
+                                    constraints:
+                                      type: string
+                                    prereleases:
+                                      properties:
+                                        identifiers:
+                                          items:
+                                            type: string
+                                          type: array
+                                      type: object
+                                  type: object
+                              type: object
+                          type: object
+                        inline:
+                          properties:
+                            paths:
+                              additionalProperties:
+                                type: string
+                              type: object
+                            pathsFrom:
+                              items:
+                                properties:
+                                  configMapRef:
+                                    properties:
+                                      directoryPath:
+                                        type: string
+                                      name:
+                                        type: string
+                                    type: object
+                                  secretRef:
+                                    properties:
+                                      directoryPath:
+                                        type: string
+                                      name:
+                                        type: string
+                                    type: object
+                                type: object
+                              type: array
+                          type: object
+                      type: object
+                    type: array
+                  noopDelete:
+                    description: When NoopDeletion set to true, App deletion should delete App CR but preserve App's associated resources
+                    type: boolean
+                  paused:
+                    description: Paused when set to true will ignore all pending changes, once it set back to false, pending changes will be applied
+                    type: boolean
+                  serviceAccountName:
+                    type: string
+                  syncPeriod:
+                    description: Controls frequency of app reconciliation
+                    type: string
+                  template:
+                    items:
+                      properties:
+                        helmTemplate:
+                          properties:
+                            name:
+                              type: string
+                            namespace:
+                              type: string
+                            path:
+                              type: string
+                            valuesFrom:
+                              items:
+                                properties:
+                                  configMapRef:
+                                    properties:
+                                      name:
+                                        type: string
+                                    type: object
+                                  path:
+                                    type: string
+                                  secretRef:
+                                    properties:
+                                      name:
+                                        type: string
+                                    type: object
+                                type: object
+                              type: array
+                          type: object
+                        jsonnet:
+                          description: TODO implement jsonnet
+                          type: object
+                        kbld:
+                          properties:
+                            paths:
+                              items:
+                                type: string
+                              type: array
+                          type: object
+                        kustomize:
+                          description: TODO implement kustomize
+                          type: object
+                        sops:
+                          properties:
+                            age:
+                              properties:
+                                privateKeysSecretRef:
+                                  properties:
+                                    name:
+                                      type: string
+                                  type: object
+                              type: object
+                            paths:
+                              items:
+                                type: string
+                              type: array
+                            pgp:
+                              properties:
+                                privateKeysSecretRef:
+                                  properties:
+                                    name:
+                                      type: string
+                                  type: object
+                              type: object
+                          type: object
+                        ytt:
+                          properties:
+                            fileMarks:
+                              items:
+                                type: string
+                              type: array
+                            ignoreUnknownComments:
+                              type: boolean
+                            inline:
+                              properties:
+                                paths:
+                                  additionalProperties:
+                                    type: string
+                                  type: object
+                                pathsFrom:
+                                  items:
+                                    properties:
+                                      configMapRef:
+                                        properties:
+                                          directoryPath:
+                                            type: string
+                                          name:
+                                            type: string
+                                        type: object
+                                      secretRef:
+                                        properties:
+                                          directoryPath:
+                                            type: string
+                                          name:
+                                            type: string
+                                        type: object
+                                    type: object
+                                  type: array
+                              type: object
+                            paths:
+                              items:
+                                type: string
+                              type: array
+                            strict:
+                              type: boolean
+                            valuesFrom:
+                              items:
+                                properties:
+                                  configMapRef:
+                                    properties:
+                                      name:
+                                        type: string
+                                    type: object
+                                  path:
+                                    type: string
+                                  secretRef:
+                                    properties:
+                                      name:
+                                        type: string
+                                    type: object
+                                type: object
+                              type: array
+                          type: object
+                      type: object
+                    type: array
+                type: object
+              status:
+                properties:
+                  conditions:
+                    items:
+                      description: TODO rename to Condition
+                      properties:
+                        message:
+                          description: Human-readable message indicating details about last transition.
+                          type: string
+                        reason:
+                          description: Unique, this should be a short, machine understandable string that gives the reason for condition's last transition. If it reports "ResizeStarted" that means the underlying persistent volume is being resized.
+                          type: string
+                        status:
+                          type: string
+                        type:
+                          type: string
+                      required:
+                      - status
+                      - type
+                      type: object
+                    type: array
+                  consecutiveReconcileFailures:
+                    type: integer
+                  consecutiveReconcileSuccesses:
+                    type: integer
+                  deploy:
+                    properties:
+                      error:
+                        type: string
+                      exitCode:
+                        type: integer
+                      finished:
+                        type: boolean
+                      startedAt:
+                        format: date-time
+                        type: string
+                      stderr:
+                        type: string
+                      stdout:
+                        type: string
+                      updatedAt:
+                        format: date-time
+                        type: string
+                    type: object
+                  fetch:
+                    properties:
+                      error:
+                        type: string
+                      exitCode:
+                        type: integer
+                      startedAt:
+                        format: date-time
+                        type: string
+                      stderr:
+                        type: string
+                      stdout:
+                        type: string
+                      updatedAt:
+                        format: date-time
+                        type: string
+                    type: object
+                  friendlyDescription:
+                    type: string
+                  inspect:
+                    properties:
+                      error:
+                        type: string
+                      exitCode:
+                        type: integer
+                      stderr:
+                        type: string
+                      stdout:
+                        type: string
+                      updatedAt:
+                        format: date-time
+                        type: string
+                    type: object
+                  managedAppName:
+                    type: string
+                  observedGeneration:
+                    format: int64
+                    type: integer
+                  template:
+                    properties:
+                      error:
+                        type: string
+                      exitCode:
+                        type: integer
+                      stderr:
+                        type: string
+                      updatedAt:
+                        format: date-time
+                        type: string
+                    type: object
+                  usefulErrorMessage:
+                    type: string
+                type: object
+            required:
+            - spec
+            type: object
+        served: true
+        storage: true
+        subresources:
+          status: {}
+    ---
+    apiVersion: apiextensions.k8s.io/v1
+    kind: CustomResourceDefinition
+    metadata:
+      name: packageinstalls.packaging.carvel.dev
+      annotations:
+        tkg.tanzu.vmware.com/addon-type: addons-management/kapp-controller
+    spec:
+      group: packaging.carvel.dev
+      names:
+        kind: PackageInstall
+        listKind: PackageInstallList
+        plural: packageinstalls
+        shortNames:
+        - pkgi
+        singular: packageinstall
+      scope: Namespaced
+      versions:
+      - additionalPrinterColumns:
+        - description: PackageMetadata name
+          jsonPath: .spec.packageRef.refName
+          name: Package name
+          type: string
+        - description: PackageMetadata version
+          jsonPath: .status.version
+          name: Package version
+          type: string
+        - description: Friendly description
+          jsonPath: .status.friendlyDescription
+          name: Description
+          type: string
+        - description: Time since creation
+          jsonPath: .metadata.creationTimestamp
+          name: Age
+          type: date
+        name: v1alpha1
+        schema:
+          openAPIV3Schema:
+            properties:
+              apiVersion:
+                description: 'APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+                type: string
+              kind:
+                description: 'Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+                type: string
+              metadata:
+                type: object
+              spec:
+                properties:
+                  canceled:
+                    description: Canceled when set to true will stop all active changes
+                    type: boolean
+                  cluster:
+                    properties:
+                      kubeconfigSecretRef:
+                        properties:
+                          key:
+                            type: string
+                          name:
+                            type: string
+                        type: object
+                      namespace:
+                        type: string
+                    type: object
+                  noopDelete:
+                    description: When NoopDelete set to true, PackageInstall deletion should delete PackageInstall/App CR but preserve App's associated resources.
+                    type: boolean
+                  packageRef:
+                    properties:
+                      refName:
+                        type: string
+                      versionSelection:
+                        properties:
+                          constraints:
+                            type: string
+                          prereleases:
+                            properties:
+                              identifiers:
+                                items:
+                                  type: string
+                                type: array
+                            type: object
+                        type: object
+                    type: object
+                  paused:
+                    description: Paused when set to true will ignore all pending changes, once it set back to false, pending changes will be applied
+                    type: boolean
+                  serviceAccountName:
+                    type: string
+                  syncPeriod:
+                    description: Controls frequency of App reconciliation in time + unit format. Always >= 30s. If value below 30s is specified, 30s will be used.
+                    type: string
+                  values:
+                    items:
+                      properties:
+                        secretRef:
+                          properties:
+                            key:
+                              type: string
+                            name:
+                              type: string
+                          type: object
+                      type: object
+                    type: array
+                type: object
+              status:
+                properties:
+                  conditions:
+                    items:
+                      description: TODO rename to Condition
+                      properties:
+                        message:
+                          description: Human-readable message indicating details about last transition.
+                          type: string
+                        reason:
+                          description: Unique, this should be a short, machine understandable string that gives the reason for condition's last transition. If it reports "ResizeStarted" that means the underlying persistent volume is being resized.
+                          type: string
+                        status:
+                          type: string
+                        type:
+                          type: string
+                      required:
+                      - status
+                      - type
+                      type: object
+                    type: array
+                  friendlyDescription:
+                    type: string
+                  lastAttemptedVersion:
+                    description: LastAttemptedVersion specifies what version was last attempted to be installed. It does _not_ indicate it was successfully installed.
+                    type: string
+                  observedGeneration:
+                    format: int64
+                    type: integer
+                  usefulErrorMessage:
+                    type: string
+                  version:
+                    description: TODO this is desired resolved version (not actually deployed)
+                    type: string
+                type: object
+            required:
+            - spec
+            type: object
+        served: true
+        storage: true
+        subresources:
+          status: {}
+    ---
+    apiVersion: apiextensions.k8s.io/v1
+    kind: CustomResourceDefinition
+    metadata:
+      annotations:
+        packaging.carvel.dev/global-namespace: tanzu-package-repo-global
+        tkg.tanzu.vmware.com/addon-type: addons-management/kapp-controller
+      name: packagerepositories.packaging.carvel.dev
+    spec:
+      group: packaging.carvel.dev
+      names:
+        kind: PackageRepository
+        listKind: PackageRepositoryList
+        plural: packagerepositories
+        shortNames:
+        - pkgr
+        singular: packagerepository
+      scope: Namespaced
+      versions:
+      - additionalPrinterColumns:
+        - description: Time since creation
+          jsonPath: .metadata.creationTimestamp
+          name: Age
+          type: date
+        - description: Friendly description
+          jsonPath: .status.friendlyDescription
+          name: Description
+          type: string
+        name: v1alpha1
+        schema:
+          openAPIV3Schema:
+            properties:
+              apiVersion:
+                description: 'APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+                type: string
+              kind:
+                description: 'Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+                type: string
+              metadata:
+                type: object
+              spec:
+                properties:
+                  fetch:
+                    properties:
+                      git:
+                        description: TODO implement git
+                        properties:
+                          lfsSkipSmudge:
+                            type: boolean
+                          ref:
+                            type: string
+                          refSelection:
+                            properties:
+                              semver:
+                                properties:
+                                  constraints:
+                                    type: string
+                                  prereleases:
+                                    properties:
+                                      identifiers:
+                                        items:
+                                          type: string
+                                        type: array
+                                    type: object
+                                type: object
+                            type: object
+                          secretRef:
+                            description: 'Secret may include one or more keys: ssh-privatekey, ssh-knownhosts'
+                            properties:
+                              name:
+                                description: Object is expected to be within same namespace
+                                type: string
+                            type: object
+                          subPath:
+                            type: string
+                          url:
+                            type: string
+                        type: object
+                      http:
+                        properties:
+                          secretRef:
+                            description: 'Secret may include one or more keys: username, password'
+                            properties:
+                              name:
+                                description: Object is expected to be within same namespace
+                                type: string
+                            type: object
+                          sha256:
+                            type: string
+                          subPath:
+                            type: string
+                          url:
+                            description: 'URL can point to one of following formats: text, tgz, zip'
+                            type: string
+                        type: object
+                      image:
+                        properties:
+                          secretRef:
+                            description: 'Secret may include one or more keys: username, password, token. By default anonymous access is used for authentication. TODO support docker config formated secret'
+                            properties:
+                              name:
+                                description: Object is expected to be within same namespace
+                                type: string
+                            type: object
+                          subPath:
+                            type: string
+                          tagSelection:
+                            properties:
+                              semver:
+                                properties:
+                                  constraints:
+                                    type: string
+                                  prereleases:
+                                    properties:
+                                      identifiers:
+                                        items:
+                                          type: string
+                                        type: array
+                                    type: object
+                                type: object
+                            type: object
+                          url:
+                            description: 'Example: username/app1-config:v0.1.0'
+                            type: string
+                        type: object
+                      imgpkgBundle:
+                        properties:
+                          image:
+                            type: string
+                          secretRef:
+                            description: 'Secret may include one or more keys: username, password, token. By default anonymous access is used for authentication. TODO support docker config formated secret'
+                            properties:
+                              name:
+                                description: Object is expected to be within same namespace
+                                type: string
+                            type: object
+                          tagSelection:
+                            properties:
+                              semver:
+                                properties:
+                                  constraints:
+                                    type: string
+                                  prereleases:
+                                    properties:
+                                      identifiers:
+                                        items:
+                                          type: string
+                                        type: array
+                                    type: object
+                                type: object
+                            type: object
+                        type: object
+                    type: object
+                  paused:
+                    description: Paused when set to true will ignore all pending changes, once it set back to false, pending changes will be applied
+                    type: boolean
+                  syncPeriod:
+                    description: Controls frequency of PackageRepository reconciliation
+                    type: string
+                required:
+                - fetch
+                type: object
+              status:
+                properties:
+                  conditions:
+                    items:
+                      description: TODO rename to Condition
+                      properties:
+                        message:
+                          description: Human-readable message indicating details about last transition.
+                          type: string
+                        reason:
+                          description: Unique, this should be a short, machine understandable string that gives the reason for condition's last transition. If it reports "ResizeStarted" that means the underlying persistent volume is being resized.
+                          type: string
+                        status:
+                          type: string
+                        type:
+                          type: string
+                      required:
+                      - status
+                      - type
+                      type: object
+                    type: array
+                  consecutiveReconcileFailures:
+                    type: integer
+                  consecutiveReconcileSuccesses:
+                    type: integer
+                  deploy:
+                    properties:
+                      error:
+                        type: string
+                      exitCode:
+                        type: integer
+                      finished:
+                        type: boolean
+                      startedAt:
+                        format: date-time
+                        type: string
+                      stderr:
+                        type: string
+                      stdout:
+                        type: string
+                      updatedAt:
+                        format: date-time
+                        type: string
+                    type: object
+                  fetch:
+                    properties:
+                      error:
+                        type: string
+                      exitCode:
+                        type: integer
+                      startedAt:
+                        format: date-time
+                        type: string
+                      stderr:
+                        type: string
+                      stdout:
+                        type: string
+                      updatedAt:
+                        format: date-time
+                        type: string
+                    type: object
+                  friendlyDescription:
+                    type: string
+                  observedGeneration:
+                    format: int64
+                    type: integer
+                  template:
+                    properties:
+                      error:
+                        type: string
+                      exitCode:
+                        type: integer
+                      stderr:
+                        type: string
+                      updatedAt:
+                        format: date-time
+                        type: string
+                    type: object
+                  usefulErrorMessage:
+                    type: string
+                type: object
+            required:
+            - spec
+            type: object
+        served: true
+        storage: true
+        subresources:
+          status: {}
+    ---
+    apiVersion: v1
+    kind: ConfigMap
+    metadata:
+      name: kapp-controller-config
+      namespace: tkg-system
+      annotations:
+        kapp.k14s.io/change-group: apps.kappctrl.k14s.io/kapp-controller-config
+        tkg.tanzu.vmware.com/addon-type: addons-management/kapp-controller
+    data:
+      caCerts: ""
+      httpProxy: ""
+      httpsProxy: ""
+      noProxy: ""
+      dangerousSkipTLSVerify: ""
+    ---
+    apiVersion: apps/v1
+    kind: Deployment
+    metadata:
+      annotations:
+        kapp-controller.carvel.dev/version: v0.30.1
+        kapp.k14s.io/change-rule: upsert after upserting apps.kappctrl.k14s.io/kapp-controller-config
+        tkg.tanzu.vmware.com/addon-type: addons-management/kapp-controller
+      name: kapp-controller
+      namespace: tkg-system
+    spec:
+      replicas: 1
+      revisionHistoryLimit: 0
+      selector:
+        matchLabels:
+          app: kapp-controller
+      template:
+        metadata:
+          labels:
+            app: kapp-controller
+        spec:
+          containers:
+          - args:
+            - -packaging-global-namespace=tanzu-package-repo-global
+            - -concurrency=4
+            - -metrics-bind-address=0
+            env:
+            - name: KAPPCTRL_MEM_TMP_DIR
+              value: /etc/kappctrl-mem-tmp
+            - name: KAPPCTRL_SYSTEM_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: KAPPCTRL_API_PORT
+              value: "10100"
+            image: projects.registry.vmware.com/tkg/kapp-controller:v0.30.1_vmware.1
+            name: kapp-controller
+            ports:
+            - containerPort: 10100
+              name: api
+              protocol: TCP
+            resources:
+              requests:
+                cpu: 120m
+                memory: 100Mi
+            securityContext:
+              runAsGroup: 2000
+              runAsUser: 1000
+            volumeMounts:
+            - mountPath: /etc/kappctrl-mem-tmp
+              name: template-fs
+            - mountPath: /etc
+              name: etc
+          securityContext:
+            fsGroup: 3000
+          serviceAccount: kapp-controller-sa
+          volumes:
+          - emptyDir:
+              medium: Memory
+            name: template-fs
+          - emptyDir:
+              medium: Memory
+            name: etc
+          initContainers:
+          - args:
+            - -c
+            - cp /etc/resolv.conf /etc/resolv.conf.bak; sed '1 i nameserver 100.64.0.10' /etc/resolv.conf.bak > /etc/resolv.conf; rm /etc/resolv.conf.bak; cp -R /etc/* /kapp-etc; chmod g+w /kapp-etc/pki/tls/certs/ca-bundle.crt && chgrp 2000 /kapp-etc/pki/tls/certs/ca-bundle.crt
+            command:
+            - /bin/sh
+            image: projects.registry.vmware.com/tkg/kapp-controller:v0.30.1_vmware.1
+            name: init-kapp-controller
+            securityContext:
+              allowPrivilegeEscalation: false
+              runAsUser: 0
+            volumeMounts:
+            - mountPath: /kapp-etc
+              name: etc
+          hostNetwork: true
+          priorityClassName: system-cluster-critical
+          tolerations:
+          - key: CriticalAddonsOnly
+            operator: Exists
+          - effect: NoSchedule
+            key: node-role.kubernetes.io/master
+          - effect: NoSchedule
+            key: node.kubernetes.io/not-ready
+          - effect: NoSchedule
+            key: node.cloudprovider.kubernetes.io/uninitialized
+            value: "true"
+    ---
+    apiVersion: v1
+    kind: ServiceAccount
+    metadata:
+      name: kapp-controller-sa
+      namespace: tkg-system
+      annotations:
+        tkg.tanzu.vmware.com/addon-type: addons-management/kapp-controller
+    ---
+    apiVersion: rbac.authorization.k8s.io/v1
+    kind: ClusterRole
+    metadata:
+      name: kapp-controller-cluster-role
+      annotations:
+        tkg.tanzu.vmware.com/addon-type: addons-management/kapp-controller
+    rules:
+    - apiGroups:
+      - ""
+      resources:
+      - secrets
+      verbs:
+      - create
+      - get
+      - list
+      - watch
+    - apiGroups:
+      - ""
+      resources:
+      - serviceaccounts
+      verbs:
+      - get
+    - apiGroups:
+      - kappctrl.k14s.io
+      resources:
+      - apps
+      - apps/status
+      verbs:
+      - '*'
+    - apiGroups:
+      - packaging.carvel.dev
+      resources:
+      - packageinstalls
+      - packageinstalls/status
+      verbs:
+      - '*'
+    - apiGroups:
+      - packaging.carvel.dev
+      resources:
+      - packagerepositories
+      - packagerepositories/status
+      verbs:
+      - '*'
+    - apiGroups:
+      - internal.packaging.carvel.dev
+      resources:
+      - internalpackagemetadatas
+      verbs:
+      - '*'
+    - apiGroups:
+      - data.packaging.carvel.dev
+      resources:
+      - packagemetadatas
+      - packagemetadatas/status
+      verbs:
+      - '*'
+    - apiGroups:
+      - internal.packaging.carvel.dev
+      resources:
+      - internalpackages
+      verbs:
+      - '*'
+    - apiGroups:
+      - data.packaging.carvel.dev
+      resources:
+      - packages
+      - packages/status
+      verbs:
+      - '*'
+    - apiGroups:
+      - ""
+      resources:
+      - configmaps
+      verbs:
+      - '*'
+    - apiGroups:
+      - apiregistration.k8s.io
+      resources:
+      - apiservices
+      verbs:
+      - update
+      - get
+    - apiGroups:
+      - ""
+      resources:
+      - namespaces
+      verbs:
+      - list
+      - watch
+      - get
+      - update
+    - apiGroups:
+      - admissionregistration.k8s.io
+      resources:
+      - mutatingwebhookconfigurations
+      verbs:
+      - list
+      - watch
+    - apiGroups:
+      - admissionregistration.k8s.io
+      resources:
+      - validatingwebhookconfigurations
+      verbs:
+      - list
+      - watch
+    - apiGroups:
+      - authorization.k8s.io
+      resources:
+      - subjectaccessreviews
+      verbs:
+      - create
+    ---
+    apiVersion: rbac.authorization.k8s.io/v1
+    kind: ClusterRoleBinding
+    metadata:
+      name: kapp-controller-cluster-role-binding
+      annotations:
+        tkg.tanzu.vmware.com/addon-type: addons-management/kapp-controller
+    roleRef:
+      apiGroup: rbac.authorization.k8s.io
+      kind: ClusterRole
+      name: kapp-controller-cluster-role
+    subjects:
+    - kind: ServiceAccount
+      name: kapp-controller-sa
+      namespace: tkg-system
+    ---
+    apiVersion: rbac.authorization.k8s.io/v1
+    kind: ClusterRoleBinding
+    metadata:
+      name: pkg-apiserver:system:auth-delegator
+      annotations:
+        tkg.tanzu.vmware.com/addon-type: addons-management/kapp-controller
+    roleRef:
+      apiGroup: rbac.authorization.k8s.io
+      kind: ClusterRole
+      name: system:auth-delegator
+    subjects:
+    - kind: ServiceAccount
+      name: kapp-controller-sa
+      namespace: tkg-system
+    ---
+    apiVersion: rbac.authorization.k8s.io/v1
+    kind: RoleBinding
+    metadata:
+      name: pkgserver-auth-reader
+      namespace: kube-system
+      annotations:
+        tkg.tanzu.vmware.com/addon-type: addons-management/kapp-controller
+    roleRef:
+      apiGroup: rbac.authorization.k8s.io
+      kind: Role
+      name: extension-apiserver-authentication-reader
+    subjects:
+    - kind: ServiceAccount
+      name: kapp-controller-sa
+      namespace: tkg-system
+type: addons.cluster.x-k8s.io/resource-set
+---
+apiVersion: addons.cluster.x-k8s.io/v1alpha3
+kind: ClusterResourceSet
+metadata:
+  annotations:
+    tkg.tanzu.vmware.com/addon-type: packages/management-package-repo
+  labels:
+    cluster.x-k8s.io/cluster-name: __CLUSTER_NAME__
+  name: __CLUSTER_NAME__-management-package-repository
+  namespace: __NAMESPACE_NAME__
+spec:
+  clusterSelector:
+    matchLabels:
+      tkg.tanzu.vmware.com/cluster-name: __CLUSTER_NAME__
+  resources:
+  - kind: Secret
+    name: __CLUSTER_NAME__-management-package-repository-crs
+  strategy: ApplyOnce
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  annotations:
+    tkg.tanzu.vmware.com/addon-type: packages/management-package-repo
+  name: __CLUSTER_NAME__-management-package-repository-crs
+  namespace: __NAMESPACE_NAME__
+stringData:
+  value: |
+    apiVersion: packaging.carvel.dev/v1alpha1
+    kind: PackageRepository
+    metadata:
+      name: tanzu-management
+      namespace: tkg-system
+      annotations:
+        tkg.tanzu.vmware.com/addon-type: packages/management-package-repo
+    spec:
+      fetch:
+        imgpkgBundle:
+          image: projects.registry.vmware.com/tkg/packages/management/repo:v0.11.6-1-g90440e2b
+type: addons.cluster.x-k8s.io/resource-set
+---
+apiVersion: addons.cluster.x-k8s.io/v1alpha3
+kind: ClusterResourceSet
+metadata:
+  annotations:
+    tkg.tanzu.vmware.com/addon-type: packages/management-package
+  labels:
+    cluster.x-k8s.io/cluster-name: __CLUSTER_NAME__
+  name: __CLUSTER_NAME__-core-management-plugins-package
+  namespace: __NAMESPACE_NAME__
+spec:
+  clusterSelector:
+    matchLabels:
+      tkg.tanzu.vmware.com/cluster-name: __CLUSTER_NAME__
+  resources:
+  - kind: Secret
+    name: __CLUSTER_NAME__-core-management-plugins-package-crs
+  strategy: ApplyOnce
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  annotations:
+    tkg.tanzu.vmware.com/addon-type: packages/management-package
+  name: __CLUSTER_NAME__-core-management-plugins-package-crs
+  namespace: __NAMESPACE_NAME__
+stringData:
+  value: |
+    apiVersion: v1
+    kind: ServiceAccount
+    metadata:
+      name: tanzu-core-management-plugins-package-sa
+      namespace: tkg-system
+      annotations:
+        tkg.tanzu.vmware.com/addon-type: packages/management-package
+    ---
+    apiVersion: rbac.authorization.k8s.io/v1
+    kind: ClusterRole
+    metadata:
+      name: tanzu-core-management-plugins-package-cluster-role
+      annotations:
+        tkg.tanzu.vmware.com/addon-type: packages/management-package
+    rules:
+    - apiGroups:
+      - ""
+      resources:
+      - configmaps
+      verbs:
+      - create
+      - update
+      - get
+    - apiGroups:
+      - apiextensions.k8s.io
+      resources:
+      - customresourcedefinitions
+      verbs:
+      - create
+      - update
+      - get
+    - apiGroups:
+      - cli.tanzu.vmware.com
+      resources:
+      - cliplugins
+      verbs:
+      - create
+      - get
+      - patch
+      - update
+    ---
+    apiVersion: rbac.authorization.k8s.io/v1
+    kind: ClusterRoleBinding
+    metadata:
+      name: tanzu-core-management-plugins-package-cluster-rolebinding
+      annotations:
+        tkg.tanzu.vmware.com/addon-type: packages/management-package
+    roleRef:
+      apiGroup: rbac.authorization.k8s.io
+      kind: ClusterRole
+      name: tanzu-core-management-plugins-package-cluster-role
+    subjects:
+    - kind: ServiceAccount
+      name: tanzu-core-management-plugins-package-sa
+      namespace: tkg-system
+    ---
+    apiVersion: packaging.carvel.dev/v1alpha1
+    kind: PackageInstall
+    metadata:
+      name: tanzu-core-management-plugins
+      namespace: tkg-system
+      annotations:
+        tkg.tanzu.vmware.com/addon-type: packages/management-package
+    spec:
+      serviceAccountName: tanzu-core-management-plugins-package-sa
+      packageRef:
+        refName: core-management-plugins.tanzu.vmware.com
+        versionSelection:
+          prereleases: {}
+type: addons.cluster.x-k8s.io/resource-set
+---
+apiVersion: addons.cluster.x-k8s.io/v1alpha3
+kind: ClusterResourceSet
+metadata:
+  annotations:
+    tkg.tanzu.vmware.com/addon-type: packages/management-package
+  labels:
+    cluster.x-k8s.io/cluster-name: __CLUSTER_NAME__
+  name: __CLUSTER_NAME__-featuregates-default-resource
+  namespace: __NAMESPACE_NAME__
+spec:
+  clusterSelector:
+    matchLabels:
+      tkg.tanzu.vmware.com/cluster-name: __CLUSTER_NAME__
+  resources:
+  - kind: Secret
+    name: __CLUSTER_NAME__-featuregates-default-resource-crs
+  strategy: ApplyOnce
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  annotations:
+    tkg.tanzu.vmware.com/addon-type: packages/management-package
+  name: __CLUSTER_NAME__-featuregates-default-resource-crs
+  namespace: __NAMESPACE_NAME__
+stringData:
+  value: |
+    apiVersion: config.tanzu.vmware.com/v1alpha1
+    kind: FeatureGate
+    metadata:
+      name: tkg-system
+      annotations:
+        tkg.tanzu.vmware.com/addon-type: packages/management-package
+    spec:
+      namespaceSelector: {}
+type: addons.cluster.x-k8s.io/resource-set
+---
+apiVersion: addons.cluster.x-k8s.io/v1alpha3
+kind: ClusterResourceSet
+metadata:
+  annotations:
+    tkg.tanzu.vmware.com/addon-type: packages/management-package
+  labels:
+    cluster.x-k8s.io/cluster-name: __CLUSTER_NAME__
+  name: __CLUSTER_NAME__-featuregates-package
+  namespace: __NAMESPACE_NAME__
+spec:
+  clusterSelector:
+    matchLabels:
+      tkg.tanzu.vmware.com/cluster-name: __CLUSTER_NAME__
+  resources:
+  - kind: Secret
+    name: __CLUSTER_NAME__-featuregates-package-crs
+  strategy: ApplyOnce
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  annotations:
+    tkg.tanzu.vmware.com/addon-type: packages/management-package
+  name: __CLUSTER_NAME__-featuregates-package-crs
+  namespace: __NAMESPACE_NAME__
+stringData:
+  value: |
+    apiVersion: v1
+    kind: ServiceAccount
+    metadata:
+      name: tanzu-featuregates-package-sa
+      namespace: tkg-system
+      annotations:
+        tkg.tanzu.vmware.com/addon-type: packages/management-package
+    ---
+    apiVersion: rbac.authorization.k8s.io/v1
+    kind: ClusterRole
+    metadata:
+      name: tanzu-featuregates-package-cluster-role
+      annotations:
+        tkg.tanzu.vmware.com/addon-type: packages/management-package
+    rules:
+    - apiGroups:
+      - ""
+      resources:
+      - configmaps
+      - serviceaccounts
+      - services
+      verbs:
+      - create
+      - update
+      - get
+    - apiGroups:
+      - apps
+      resources:
+      - deployments
+      verbs:
+      - create
+      - update
+      - get
+    - apiGroups:
+      - apiextensions.k8s.io
+      resources:
+      - customresourcedefinitions
+      verbs:
+      - create
+      - update
+      - get
+    - apiGroups:
+      - cert-manager.io
+      resources:
+      - issuers
+      - certificates
+      verbs:
+      - create
+      - update
+      - get
+    - apiGroups:
+      - admissionregistration.k8s.io
+      resources:
+      - validatingwebhookconfigurations
+      verbs:
+      - create
+      - update
+      - get
+    - apiGroups:
+      - rbac.authorization.k8s.io
+      resources:
+      - clusterroles
+      - clusterrolebindings
+      verbs:
+      - create
+      - update
+      - get
+    - apiGroups:
+      - config.tanzu.vmware.com
+      resources:
+      - featuregates
+      verbs:
+      - create
+      - delete
+      - get
+      - list
+      - patch
+      - update
+      - watch
+    - apiGroups:
+      - config.tanzu.vmware.com
+      resources:
+      - featuregates/status
+      verbs:
+      - get
+      - patch
+      - update
+    - apiGroups:
+      - config.tanzu.vmware.com
+      resources:
+      - features
+      verbs:
+      - get
+      - list
+      - watch
+    - apiGroups:
+      - config.tanzu.vmware.com
+      resources:
+      - features/status
+      verbs:
+      - get
+      - patch
+      - update
+    - apiGroups:
+      - ""
+      resources:
+      - namespaces
+      verbs:
+      - get
+      - list
+      - watch
+    ---
+    apiVersion: rbac.authorization.k8s.io/v1
+    kind: ClusterRoleBinding
+    metadata:
+      name: tanzu-featuregates-package-cluster-rolebinding
+      annotations:
+        tkg.tanzu.vmware.com/addon-type: packages/management-package
+    roleRef:
+      apiGroup: rbac.authorization.k8s.io
+      kind: ClusterRole
+      name: tanzu-featuregates-package-cluster-role
+    subjects:
+    - kind: ServiceAccount
+      name: tanzu-featuregates-package-sa
+      namespace: tkg-system
+    ---
+    apiVersion: packaging.carvel.dev/v1alpha1
+    kind: PackageInstall
+    metadata:
+      name: tanzu-featuregates
+      namespace: tkg-system
+      annotations:
+        tkg.tanzu.vmware.com/addon-type: packages/management-package
+    spec:
+      serviceAccountName: tanzu-featuregates-package-sa
+      packageRef:
+        refName: featuregates.tanzu.vmware.com
+        versionSelection:
+          prereleases: {}
+type: addons.cluster.x-k8s.io/resource-set
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  annotations:
+    tkg.tanzu.vmware.com/addon-type: metadata/tkg
+  name: __CLUSTER_NAME__-tkg-metadata-namespace-role
+  namespace: __NAMESPACE_NAME__
+stringData:
+  value: |
+    apiVersion: v1
+    kind: Namespace
+    metadata:
+      name: tkg-system-public
+      annotations:
+        tkg.tanzu.vmware.com/addon-type: metadata/tkg
+    ---
+    apiVersion: rbac.authorization.k8s.io/v1
+    kind: Role
+    metadata:
+      name: tkg-metadata-reader
+      namespace: tkg-system-public
+      annotations:
+        tkg.tanzu.vmware.com/addon-type: metadata/tkg
+    rules:
+    - apiGroups:
+      - ""
+      resourceNames:
+      - tkg-metadata
+      - tkg-bom
+      resources:
+      - configmaps
+      verbs:
+      - get
+      - list
+      - watch
+    ---
+    apiVersion: rbac.authorization.k8s.io/v1
+    kind: RoleBinding
+    metadata:
+      name: tkg-metadata-reader
+      namespace: tkg-system-public
+      annotations:
+        tkg.tanzu.vmware.com/addon-type: metadata/tkg
+    roleRef:
+      apiGroup: rbac.authorization.k8s.io
+      kind: Role
+      name: tkg-metadata-reader
+    subjects:
+    - apiGroup: rbac.authorization.k8s.io
+      kind: Group
+      name: system:authenticated
+type: addons.cluster.x-k8s.io/resource-set
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  annotations:
+    tkg.tanzu.vmware.com/addon-type: metadata/tkg
+  name: __CLUSTER_NAME__-tkg-metadata-configmap
+  namespace: __NAMESPACE_NAME__
+stringData:
+  value: |
+    apiVersion: v1
+    kind: ConfigMap
+    metadata:
+      name: tkg-metadata
+      namespace: tkg-system-public
+      annotations:
+        tkg.tanzu.vmware.com/addon-type: metadata/tkg
+    data:
+      metadata.yaml: |
+        cluster:
+          name: __CLUSTER_NAME__
+          type: management
+          plan: dev
+          kubernetesProvider: VMware Tanzu Kubernetes Grid
+          tkgVersion: v1.5.4
+          edition: tkg
+          infrastructure:
+            provider: vsphere
+        bom:
+          configmapRef:
+            name: tkg-bom
+type: addons.cluster.x-k8s.io/resource-set
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  annotations:
+    tkg.tanzu.vmware.com/addon-type: metadata/tkg
+  name: __CLUSTER_NAME__-tkg-metadata-bom-configmap
+  namespace: __NAMESPACE_NAME__
+stringData:
+  value: |
+    apiVersion: v1
+    kind: ConfigMap
+    metadata:
+      name: tkg-bom
+      namespace: tkg-system-public
+      annotations:
+        tkg.tanzu.vmware.com/addon-type: metadata/tkg
+    data:
+      bom.yaml: |
+        apiVersion: run.tanzu.vmware.com/v1alpha2
+        default:
+          k8sVersion: v1.22.9+vmware.1-tkg.1
+        release:
+          version: v1.5.4
+        components:
+          aad-pod-identity:
+          - version: v1.8.0+vmware.1
+            images:
+              micImage:
+                imagePath: cluster-api/mic
+                tag: v1.8.0_vmware.1
+              nmiImage:
+                imagePath: cluster-api/nmi
+                tag: v1.8.0_vmware.1
+          alertmanager:
+          - version: v0.22.2+vmware.1
+            images:
+              alertmanagerImage:
+                imagePath: prometheus/alertmanager
+                tag: v0.22.2_vmware.1
+          cadvisor:
+          - version: v0.39.1+vmware.1
+            images:
+              cadvisorImage:
+                imagePath: prometheus/cadvisor
+                tag: v0.39.1_vmware.1
+          cloud-provider-azure:
+          - version: v0.7.4+vmware.1
+            images:
+              ccmAzureControllerImage:
+                imagePath: azure-cloud-controller-manager
+                tag: v0.7.4_vmware.1
+              ccmAzureNodeImage:
+                imagePath: azure-cloud-node-manager
+                tag: v0.7.4_vmware.1
+          cluster-api-provider-azure:
+          - version: v1.0.2+vmware.1
+            images:
+              capzControllerImage:
+                imagePath: cluster-api/cluster-api-azure-controller
+                tag: v1.0.2_vmware.1
+          cluster-api-provider-bringyourownhost:
+          - version: v0.1.0+vmware.7
+            images:
+              byohControllerImage:
+                imagePath: cluster-api/cluster-api-byoh-controller
+                tag: v0.1.0_vmware.7
+              byohImgpkgBundle:
+                imagePath: cluster-api/byoh-bundle-ubuntu_20.04.1_x86-64_k8s_v1.22.3
+                tag: v0.1.0_vmware.7
+          cluster_api:
+          - version: v1.0.1+vmware.1
+            images:
+              cabpkControllerImage:
+                imagePath: cluster-api/kubeadm-bootstrap-controller
+                tag: v1.0.1_vmware.1
+              capdManagerImage:
+                imagePath: cluster-api/capd-manager
+                tag: v1.0.1_vmware.1
+              capiControllerImage:
+                imagePath: cluster-api/cluster-api-controller
+                tag: v1.0.1_vmware.1
+              kcpControllerImage:
+                imagePath: cluster-api/kubeadm-control-plane-controller
+                tag: v1.0.1_vmware.1
+          cluster_api_aws:
+          - version: v1.2.0+vmware.1
+            images:
+              capaControllerImage:
+                imagePath: cluster-api/cluster-api-aws-controller
+                tag: v1.2.0_vmware.1
+          cluster_api_vsphere:
+          - version: v1.0.3+vmware.1
+            images:
+              capvControllerImage:
+                imagePath: cluster-api/cluster-api-vsphere-controller
+                tag: v1.0.3_vmware.1
+          configmap-reload:
+          - version: v0.5.0+vmware.2
+            images:
+              configmapReloadImage:
+                imagePath: prometheus/configmap-reload
+                tag: v0.5.0_vmware.2
+          contour:
+          - version: v1.17.2+vmware.1
+            images:
+              contourImage:
+                imagePath: contour
+                tag: v1.17.2_vmware.1
+          - version: v1.18.2+vmware.1
+            images:
+              contourImage:
+                imagePath: contour
+                tag: v1.18.2_vmware.1
+          crash-diagnostics:
+          - version: v0.3.7+vmware.5
+          envoy:
+          - version: v1.18.4+vmware.1
+            images:
+              envoyImage:
+                imagePath: envoy
+                tag: v1.18.4_vmware.1
+          - version: v1.19.1+vmware.1
+            images:
+              envoyImage:
+                imagePath: envoy
+                tag: v1.19.1_vmware.1
+          external-dns:
+          - version: v0.10.0+vmware.1
+            images:
+              externalDNSImage:
+                imagePath: external-dns
+                tag: v0.10.0_vmware.1
+          fluent-bit:
+          - version: v1.7.5+vmware.2
+            images:
+              fluentBitImage:
+                imagePath: fluent-bit
+                tag: v1.7.5_vmware.2
+          gangway:
+          - version: v3.2.0+vmware.2
+            images:
+              gangwayImage:
+                imagePath: gangway
+                tag: v3.2.0_vmware.2
+          grafana:
+          - version: v7.5.7+vmware.2
+            images:
+              grafanaImage:
+                imagePath: grafana/grafana
+                tag: v7.5.7_vmware.2
+          harbor:
+          - version: v2.3.3+vmware.1
+            images:
+              harborChartMuseumImage:
+                imagePath: harbor/chartmuseum-photon
+                tag: v2.3.3_vmware.1
+              harborCoreImage:
+                imagePath: harbor/harbor-core
+                tag: v2.3.3_vmware.1
+              harborDatabaseImage:
+                imagePath: harbor/harbor-db
+                tag: v2.3.3_vmware.1
+              harborExporterImage:
+                imagePath: harbor/harbor-exporter
+                tag: v2.3.3_vmware.1
+              harborJobServiceImage:
+                imagePath: harbor/harbor-jobservice
+                tag: v2.3.3_vmware.1
+              harborLogImage:
+                imagePath: harbor/harbor-log
+                tag: v2.3.3_vmware.1
+              harborNginxImage:
+                imagePath: harbor/nginx-photon
+                tag: v2.3.3_vmware.1
+              harborNotaryServerImage:
+                imagePath: harbor/notary-server-photon
+                tag: v2.3.3_vmware.1
+              harborNotarySignerImage:
+                imagePath: harbor/notary-signer-photon
+                tag: v2.3.3_vmware.1
+              harborPortalImage:
+                imagePath: harbor/harbor-portal
+                tag: v2.3.3_vmware.1
+              harborPrepareImage:
+                imagePath: harbor/prepare
+                tag: v2.3.3_vmware.1
+              harborRedisImage:
+                imagePath: harbor/redis-photon
+                tag: v2.3.3_vmware.1
+              harborRegistryCtlImage:
+                imagePath: harbor/harbor-registryctl
+                tag: v2.3.3_vmware.1
+              harborRegistryImage:
+                imagePath: harbor/registry-photon
+                tag: v2.3.3_vmware.1
+              harborTrivyAdapterImage:
+                imagePath: harbor/trivy-adapter-photon
+                tag: v2.3.3_vmware.1
+          image-builder:
+          - version: v0.1.11+vmware.3
+            images:
+              imagebuilder-tar:
+                imagePath: image-builder
+                tag: v0.1.11_vmware.3
+          imgpkg:
+          - version: v0.22.0+vmware.1
+          jetstack_cert-manager:
+          - version: v1.5.3+vmware.2
+            images:
+              certMgrControllerImage:
+                imagePath: cert-manager-controller
+                tag: v1.5.3_vmware.2
+              certMgrInjectorImage:
+                imagePath: cert-manager-cainjector
+                tag: v1.5.3_vmware.2
+              certMgrWebhookImage:
+                imagePath: cert-manager-webhook
+                tag: v1.5.3_vmware.2
+          k8s-sidecar:
+          - version: v1.12.1+vmware.2
+            images:
+              k8sSidecarImage:
+                imagePath: grafana/k8s-sidecar
+                tag: v1.12.1_vmware.2
+          k14s_kapp:
+          - version: v0.42.0+vmware.2
+          k14s_ytt:
+          - version: v0.37.0+vmware.1
+          kbld:
+          - version: v0.31.0+vmware.1
+          kube-state-metrics:
+          - version: v1.9.8+vmware.1
+            images:
+              kubeStateMetricsImage:
+                imagePath: prometheus/kube-state-metrics
+                tag: v1.9.8_vmware.1
+          kube-vip:
+          - version: v0.3.3+vmware.1
+            images:
+              kubeVipImage:
+                imagePath: kube-vip
+                tag: v0.3.3_vmware.1
+          kube_rbac_proxy:
+          - version: v0.8.0+vmware.1
+            images:
+              kubeRbacProxyControllerImage:
+                imagePath: kube-rbac-proxy
+                tag: v0.8.0_vmware.1
+              kubeRbacProxyControllerImageCapi:
+                imagePath: cluster-api/kube-rbac-proxy
+                tag: v0.8.0_vmware.1
+          kubernetes-sigs_kind:
+          - version: v1.22.9+vmware.1_v0.11.1
+            images:
+              kindNodeImage:
+                imagePath: kind/node
+                tag: v1.22.9_vmware.1_v0.11.1
+          kubernetes_autoscaler:
+          - version: v1.22.0+vmware.1
+            images:
+              kubernetesAutoscalerImage:
+                imagePath: cluster-autoscaler
+                tag: v1.22.0_vmware.1
+            metadata:
+              k8sversion: v1.22.3+vmware.1
+          - version: v1.21.0+vmware.1
+            images:
+              kubernetesAutoscalerImage:
+                imagePath: cluster-autoscaler
+                tag: v1.21.0_vmware.1
+            metadata:
+              k8sversion: v1.21.1+vmware.1
+          - version: v1.20.0+vmware.1
+            images:
+              kubernetesAutoscalerImage:
+                imagePath: cluster-autoscaler
+                tag: v1.20.0_vmware.1
+            metadata:
+              k8sversion: v1.20.4+vmware.1
+          multus-cni:
+          - version: v3.7.1+vmware.2
+            images:
+              multusCniImage:
+                imagePath: multus-cni
+                tag: v3.7.1_vmware.2
+          prometheus:
+          - version: v2.27.0+vmware.1
+            images:
+              prometheusImage:
+                imagePath: prometheus/prometheus
+                tag: v2.27.0_vmware.1
+          prometheus_node_exporter:
+          - version: v1.1.2+vmware.1
+            images:
+              prometheusNodeExporterImage:
+                imagePath: prometheus/prometheus_node_exporter
+                tag: v1.1.2_vmware.1
+          pushgateway:
+          - version: v1.4.0+vmware.1
+            images:
+              pushgatewayImage:
+                imagePath: prometheus/pushgateway
+                tag: v1.4.0_vmware.1
+          sonobuoy:
+          - version: v0.54.0+vmware.1
+            images:
+              sonobuoyImage:
+                imagePath: sonobuoy
+                tag: v0.54.0_vmware.1
+          standalone-plugins-package:
+          - version: v0.11.6-1-g90440e2b-standalone-plugins
+            images:
+              standalone-plugins.tanzu.vmware.com:
+                imagePath: packages/standalone/standalone-plugins
+                tag: v0.11.6-1-g90440e2b_vmware.1
+          tanzu-framework:
+          - version: v0.11.6-1-g90440e2b
+            images:
+              capabilitiesImage:
+                imagePath: tanzu_core/capabilities/capabilities-controller-manager
+                tag: v0.11.6-1-g90440e2b
+              clipluginsClusterDarwinAmd64Image:
+                imagePath: tanzu_core/tanzu-cli-plugins/cluster-darwin-amd64
+                tag: v0.11.6-1-g90440e2b
+              clipluginsClusterLinuxAmd64Image:
+                imagePath: tanzu_core/tanzu-cli-plugins/cluster-linux-amd64
+                tag: v0.11.6-1-g90440e2b
+              clipluginsClusterWindowsAmd64Image:
+                imagePath: tanzu_core/tanzu-cli-plugins/cluster-windows-amd64
+                tag: v0.11.6-1-g90440e2b
+              clipluginsKubernetesReleaseDarwinAmd64Image:
+                imagePath: tanzu_core/tanzu-cli-plugins/kubernetes-release-darwin-amd64
+                tag: v0.11.6-1-g90440e2b
+              clipluginsKubernetesReleaseLinuxAmd64Image:
+                imagePath: tanzu_core/tanzu-cli-plugins/kubernetes-release-linux-amd64
+                tag: v0.11.6-1-g90440e2b
+              clipluginsKubernetesReleaseWindowsAmd64Image:
+                imagePath: tanzu_core/tanzu-cli-plugins/kubernetes-release-windows-amd64
+                tag: v0.11.6-1-g90440e2b
+              clipluginsLoginDarwinAmd64Image:
+                imagePath: tanzu_core/tanzu-cli-plugins/login-darwin-amd64
+                tag: v0.11.6-1-g90440e2b
+              clipluginsLoginLinuxAmd64Image:
+                imagePath: tanzu_core/tanzu-cli-plugins/login-linux-amd64
+                tag: v0.11.6-1-g90440e2b
+              clipluginsLoginWindowsAmd64Image:
+                imagePath: tanzu_core/tanzu-cli-plugins/login-windows-amd64
+                tag: v0.11.6-1-g90440e2b
+              clipluginsManagementClusterDarwinAmd64Image:
+                imagePath: tanzu_core/tanzu-cli-plugins/management-cluster-darwin-amd64
+                tag: v0.11.6-1-g90440e2b
+              clipluginsManagementClusterLinuxAmd64Image:
+                imagePath: tanzu_core/tanzu-cli-plugins/management-cluster-linux-amd64
+                tag: v0.11.6-1-g90440e2b
+              clipluginsManagementClusterWindowsAmd64Image:
+                imagePath: tanzu_core/tanzu-cli-plugins/management-cluster-windows-amd64
+                tag: v0.11.6-1-g90440e2b
+              clipluginsPackageDarwinAmd64Image:
+                imagePath: tanzu_core/tanzu-cli-plugins/package-darwin-amd64
+                tag: v0.11.6-1-g90440e2b
+              clipluginsPackageLinuxAmd64Image:
+                imagePath: tanzu_core/tanzu-cli-plugins/package-linux-amd64
+                tag: v0.11.6-1-g90440e2b
+              clipluginsPackageWindowsAmd64Image:
+                imagePath: tanzu_core/tanzu-cli-plugins/package-windows-amd64
+                tag: v0.11.6-1-g90440e2b
+              clipluginsPinnipedAuthDarwinAmd64Image:
+                imagePath: tanzu_core/tanzu-cli-plugins/pinniped-auth-darwin-amd64
+                tag: v0.11.6-1-g90440e2b
+              clipluginsPinnipedAuthLinuxAmd64Image:
+                imagePath: tanzu_core/tanzu-cli-plugins/pinniped-auth-linux-amd64
+                tag: v0.11.6-1-g90440e2b
+              clipluginsPinnipedAuthWindowsAmd64Image:
+                imagePath: tanzu_core/tanzu-cli-plugins/pinniped-auth-windows-amd64
+                tag: v0.11.6-1-g90440e2b
+              clipluginsSecretDarwinAmd64Image:
+                imagePath: tanzu_core/tanzu-cli-plugins/secret-darwin-amd64
+                tag: v0.11.6-1-g90440e2b
+              clipluginsSecretLinuxAmd64Image:
+                imagePath: tanzu_core/tanzu-cli-plugins/secret-linux-amd64
+                tag: v0.11.6-1-g90440e2b
+              clipluginsSecretWindowsAmd64Image:
+                imagePath: tanzu_core/tanzu-cli-plugins/secret-windows-amd64
+                tag: v0.11.6-1-g90440e2b
+              featuregatesImage:
+                imagePath: tanzu_core/featuregates/featuregates-controller-manager
+                tag: v0.11.6-1-g90440e2b
+              providerTemplateImage:
+                imagePath: tanzu_core/provider/provider-templates
+                tag: v0.11.6-1-g90440e2b
+              tkrImage:
+                imagePath: tanzu_core/tkr/tkr-controller-manager
+                tag: v0.11.6-1-g90440e2b
+          tanzu-framework-management-packages:
+          - version: v0.11.6-1-g90440e2b
+            images:
+              tanzuFrameworkManagementPackageRepositoryImage:
+                imagePath: packages/management/repo
+                tag: v0.11.6-1-g90440e2b
+          tkg-bom:
+          - version: v1.5.4
+            images:
+              tkgBomImage:
+                imagePath: tkg-bom
+                tag: v1.5.4
+          tkg-standard-packages:
+          - version: v1.5.4
+            images:
+              tanzuStandardPackageRepositoryImage:
+                imagePath: packages/standard/repo
+                tag: v1.5.4
+          tkg_telemetry:
+          - version: v1.5.0+vmware.1
+            images:
+              tkgTelemetryImage:
+                imagePath: tkg-telemetry
+                tag: v1.5.0_vmware.1
+          velero:
+          - version: v1.8.1+vmware.1
+            images:
+              veleroImage:
+                imagePath: velero/velero
+                tag: v1.8.1_vmware.1
+              veleroResticRestoreHelperImage:
+                imagePath: velero/velero-restic-restore-helper
+                tag: v1.8.1_vmware.1
+          velero-plugin-for-aws:
+          - version: v1.4.1+vmware.1
+            images:
+              veleroPluginForAwsImage:
+                imagePath: velero/velero-plugin-for-aws
+                tag: v1.4.1_vmware.1
+          velero-plugin-for-microsoft-azure:
+          - version: v1.4.1+vmware.1
+            images:
+              veleroPluginForMicrosoftAzureImage:
+                imagePath: velero/velero-plugin-for-microsoft-azure
+                tag: v1.4.1_vmware.1
+          velero-plugin-for-vsphere:
+          - version: v1.3.1+vmware.1
+            images:
+              veleroBackupDriverImage:
+                imagePath: velero/backup-driver
+                tag: v1.3.1_vmware.1
+              veleroDataManagerForPluginImage:
+                imagePath: velero/data-manager-for-plugin
+                tag: v1.3.1_vmware.1
+              veleroPluginForVsphereImage:
+                imagePath: velero/velero-plugin-for-vsphere
+                tag: v1.3.1_vmware.1
+          vendir:
+          - version: v0.23.1+vmware.1
+        kindKubeadmConfigSpec:
+        - 'kind: Cluster'
+        - 'apiVersion: kind.x-k8s.io/v1alpha4'
+        - 'kubeadmConfigPatches:'
+        - '- |'
+        - '  apiVersion: kubeadm.k8s.io/v1beta2'
+        - '  kind: ClusterConfiguration'
+        - '  imageRepository: projects.registry.vmware.com/tkg'
+        - '  etcd:'
+        - '    local:'
+        - '      imageRepository: projects.registry.vmware.com/tkg'
+        - '      imageTag: v3.5.4_vmware.2'
+        - '  dns:'
+        - '    type: CoreDNS'
+        - '    imageRepository: projects.registry.vmware.com/tkg'
+        - '    imageTag: v1.8.4_vmware.9'
+        imageConfig:
+          imageRepository: projects.registry.vmware.com/tkg
+        tkr-bom:
+          imagePath: tkr-bom
+        tkr-compatibility:
+          imagePath: tkr-compatibility
+type: addons.cluster.x-k8s.io/resource-set
+---
+apiVersion: addons.cluster.x-k8s.io/v1beta1
+kind: ClusterResourceSet
+metadata:
+  annotations:
+    tkg.tanzu.vmware.com/addon-type: metadata/tkg
+  labels:
+    cluster.x-k8s.io/cluster-name: __CLUSTER_NAME__
+  name: __CLUSTER_NAME__-tkg-metadata
+  namespace: __NAMESPACE_NAME__
+spec:
+  clusterSelector:
+    matchLabels:
+      tkg.tanzu.vmware.com/cluster-name: __CLUSTER_NAME__
+  resources:
+  - kind: Secret
+    name: __CLUSTER_NAME__-tkg-metadata-namespace-role
+  - kind: Secret
+    name: __CLUSTER_NAME__-tkg-metadata-configmap
+  - kind: Secret
+    name: __CLUSTER_NAME__-tkg-metadata-bom-configmap
+  strategy: ApplyOnce
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  annotations:
+    tkg.tanzu.vmware.com/addon-type: metrics/metrics-server
+  labels:
+    clusterctl.cluster.x-k8s.io/move: ""
+    tkg.tanzu.vmware.com/addon-name: metrics-server
+    tkg.tanzu.vmware.com/cluster-name: __CLUSTER_NAME__
+  name: __CLUSTER_NAME__-metrics-server-addon
+  namespace: __NAMESPACE_NAME__
+stringData:
+  values.yaml: |
+    #@data/values
+    #@overlay/match-child-defaults missing_ok=True
+    ---
+    metricsServer:
+      namespace: kube-system
+      config:
+        args: []
+        probe:
+          failureThreshold: 3
+          periodSeconds: 10
+        apiServiceInsecureTLS: true
+type: tkg.tanzu.vmware.com/addon
+---
+apiVersion: addons.cluster.x-k8s.io/v1beta1
+kind: ClusterResourceSet
+metadata:
+  annotations:
+    tkg.tanzu.vmware.com/addon-type: addons-management/core-package-repo
+  labels:
+    cluster.x-k8s.io/cluster-name: __CLUSTER_NAME__
+  name: __CLUSTER_NAME__-core-package-repository
+  namespace: __NAMESPACE_NAME__
+spec:
+  clusterSelector:
+    matchLabels:
+      tkg.tanzu.vmware.com/cluster-name: __CLUSTER_NAME__
+  resources:
+  - kind: Secret
+    name: __CLUSTER_NAME__-core-package-repository-crs
+  strategy: ApplyOnce
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  annotations:
+    tkg.tanzu.vmware.com/addon-type: addons-management/core-package-repo
+  name: __CLUSTER_NAME__-core-package-repository-crs
+  namespace: __NAMESPACE_NAME__
+stringData:
+  value: |
+    apiVersion: packaging.carvel.dev/v1alpha1
+    kind: PackageRepository
+    metadata:
+      name: tanzu-core
+      namespace: tkg-system
+      annotations:
+        tkg.tanzu.vmware.com/addon-type: addons-management/core-package-repo
+    spec:
+      fetch:
+        imgpkgBundle:
+          image: projects.registry.vmware.com/tkg/packages/core/repo:v1.22.9_vmware.1-tkg.1
+type: addons.cluster.x-k8s.io/resource-set
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  annotations:
+    tkg.tanzu.vmware.com/addon-type: addons-management/secretgen-controller
+  labels:
+    clusterctl.cluster.x-k8s.io/move: ""
+    tkg.tanzu.vmware.com/addon-name: secretgen-controller
+    tkg.tanzu.vmware.com/cluster-name: __CLUSTER_NAME__
+  name: __CLUSTER_NAME__-secretgen-controller-addon
+  namespace: __NAMESPACE_NAME__
+stringData:
+  values.yaml: |
+    #@data/values
+    #@overlay/match-child-defaults missing_ok=True
+    ---
+    secretgenController:
+      namespace: tanzu-system
+      createNamespace: true
+type: tkg.tanzu.vmware.com/addon
+---
+apiVersion: addons.cluster.x-k8s.io/v1beta1
+kind: ClusterResourceSet
+metadata:
+  annotations:
+    tkg.tanzu.vmware.com/addon-type: addons-management/standard-package-repo
+  labels:
+    cluster.x-k8s.io/cluster-name: __CLUSTER_NAME__
+  name: __CLUSTER_NAME__-standard-package-repository
+  namespace: __NAMESPACE_NAME__
+spec:
+  clusterSelector:
+    matchLabels:
+      tkg.tanzu.vmware.com/cluster-name: __CLUSTER_NAME__
+  resources:
+  - kind: Secret
+    name: __CLUSTER_NAME__-standard-package-repository-crs
+  strategy: ApplyOnce
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  annotations:
+    tkg.tanzu.vmware.com/addon-type: addons-management/standard-package-repo
+  name: __CLUSTER_NAME__-standard-package-repository-crs
+  namespace: __NAMESPACE_NAME__
+stringData:
+  value: |
+    apiVersion: packaging.carvel.dev/v1alpha1
+    kind: PackageRepository
+    metadata:
+      name: tanzu-standard
+      namespace: tanzu-package-repo-global
+      annotations:
+        tkg.tanzu.vmware.com/addon-type: addons-management/standard-package-repo
+        tanzu.vmware.com/owner: tkg
+    spec:
+      fetch:
+        imgpkgBundle:
+          image: projects.registry.vmware.com/tkg/packages/standard/repo:v1.5.4
+type: addons.cluster.x-k8s.io/resource-set
+---
+apiVersion: addons.cluster.x-k8s.io/v1beta1
+kind: ClusterResourceSet
+metadata:
+  annotations:
+    tkg.tanzu.vmware.com/addon-type: addons-management/tanzu-addons-manager
+  labels:
+    cluster.x-k8s.io/cluster-name: __CLUSTER_NAME__
+  name: __CLUSTER_NAME__-tanzu-addons-manager-package
+  namespace: __NAMESPACE_NAME__
+spec:
+  clusterSelector:
+    matchLabels:
+      tkg.tanzu.vmware.com/cluster-name: __CLUSTER_NAME__
+  resources:
+  - kind: Secret
+    name: __CLUSTER_NAME__-tanzu-addons-manager-package-crs
+  strategy: ApplyOnce
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  annotations:
+    tkg.tanzu.vmware.com/addon-type: addons-management/tanzu-addons-manager
+  name: __CLUSTER_NAME__-tanzu-addons-manager-package-crs
+  namespace: __NAMESPACE_NAME__
+stringData:
+  value: |
+    apiVersion: v1
+    kind: ServiceAccount
+    metadata:
+      name: tanzu-addons-package-sa
+      namespace: tkg-system
+      annotations:
+        ext.packaging.carvel.dev/ytt-data-values-overlays: tanzu-addons-manager-data-values
+        tkg.tanzu.vmware.com/addon-type: addons-management/tanzu-addons-manager
+    ---
+    apiVersion: rbac.authorization.k8s.io/v1
+    kind: ClusterRole
+    metadata:
+      name: tanzu-addons-package-cluster-role
+      annotations:
+        ext.packaging.carvel.dev/ytt-data-values-overlays: tanzu-addons-manager-data-values
+        tkg.tanzu.vmware.com/addon-type: addons-management/tanzu-addons-manager
+    rules:
+    - apiGroups:
+      - '*'
+      resources:
+      - '*'
+      verbs:
+      - '*'
+    ---
+    apiVersion: rbac.authorization.k8s.io/v1
+    kind: ClusterRoleBinding
+    metadata:
+      name: tanzu-addons-package-cluster-rolebinding
+      annotations:
+        ext.packaging.carvel.dev/ytt-data-values-overlays: tanzu-addons-manager-data-values
+        tkg.tanzu.vmware.com/addon-type: addons-management/tanzu-addons-manager
+    roleRef:
+      apiGroup: rbac.authorization.k8s.io
+      kind: ClusterRole
+      name: tanzu-addons-package-cluster-role
+    subjects:
+    - kind: ServiceAccount
+      name: tanzu-addons-package-sa
+      namespace: tkg-system
+    ---
+    apiVersion: packaging.carvel.dev/v1alpha1
+    kind: PackageInstall
+    metadata:
+      name: tanzu-addons-manager
+      namespace: tkg-system
+      annotations:
+        ext.packaging.carvel.dev/ytt-data-values-overlays: tanzu-addons-manager-data-values
+        tkg.tanzu.vmware.com/addon-type: addons-management/tanzu-addons-manager
+    spec:
+      serviceAccountName: tanzu-addons-package-sa
+      packageRef:
+        refName: addons-manager.tanzu.vmware.com
+        versionSelection:
+          prereleases: {}
+      values:
+      - secretRef:
+          name: tanzu-addons-manager-data-values
+    ---
+    apiVersion: v1
+    kind: Secret
+    metadata:
+      name: tanzu-addons-manager-data-values
+      namespace: tkg-system
+      annotations:
+        ext.packaging.carvel.dev/ytt-data-values-overlays: tanzu-addons-manager-data-values
+        tkg.tanzu.vmware.com/addon-type: addons-management/tanzu-addons-manager
+    type: Opaque
+    stringData:
+      values.yaml: |
+        #@data/values
+        #@overlay/match-child-defaults missing_ok=True
+        ---
+        tanzuAddonsManager:
+          namespace: tkg-system
+          createNamespace: false
+          deployment:
+            hostNetwork: true
+            priorityClassName: system-cluster-critical
+            tolerations:
+            - key: CriticalAddonsOnly
+              operator: Exists
+            - effect: NoSchedule
+              key: node-role.kubernetes.io/master
+type: addons.cluster.x-k8s.io/resource-set
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  annotations:
+    tkg.tanzu.vmware.com/addon-type: addons-management/tanzu-addons-manager
+  labels:
+    clusterctl.cluster.x-k8s.io/move: ""
+    tkg.tanzu.vmware.com/addon-name: tanzu-addons-manager
+    tkg.tanzu.vmware.com/cluster-name: __CLUSTER_NAME__
+  name: __CLUSTER_NAME__-tanzu-addons-manager-addon
+  namespace: __NAMESPACE_NAME__
+stringData:
+  values.yaml: |
+    #@data/values
+    #@overlay/match-child-defaults missing_ok=True
+    ---
+    tanzuAddonsManager:
+      namespace: tkg-system
+      createNamespace: false
+      deployment:
+        hostNetwork: true
+        priorityClassName: system-cluster-critical
+        tolerations:
+        - key: CriticalAddonsOnly
+          operator: Exists
+        - effect: NoSchedule
+          key: node-role.kubernetes.io/master
+type: tkg.tanzu.vmware.com/addon
+---
+apiVersion: addons.cluster.x-k8s.io/v1beta1
+kind: ClusterResourceSet
+metadata:
+  annotations:
+    tkg.tanzu.vmware.com/addon-type: tkr/tkr-controller
+  labels:
+    cluster.x-k8s.io/cluster-name: __CLUSTER_NAME__
+  name: __CLUSTER_NAME__-tkr
+  namespace: __NAMESPACE_NAME__
+spec:
+  clusterSelector:
+    matchLabels:
+      tkg.tanzu.vmware.com/cluster-name: __CLUSTER_NAME__
+  resources:
+  - kind: Secret
+    name: __CLUSTER_NAME__-tkr
+  strategy: ApplyOnce
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  annotations:
+    tkg.tanzu.vmware.com/addon-type: tkr/tkr-controller
+  name: __CLUSTER_NAME__-tkr
+  namespace: __NAMESPACE_NAME__
+stringData:
+  value: |
+    apiVersion: v1
+    kind: Namespace
+    metadata:
+      labels:
+        control-plane: controller-manager
+      name: tkr-system
+      annotations:
+        tkg.tanzu.vmware.com/addon-type: tkr/tkr-controller
+    ---
+    apiVersion: v1
+    kind: ConfigMap
+    metadata:
+      name: tkr-controller-config
+      namespace: tkr-system
+      annotations:
+        tkg.tanzu.vmware.com/addon-type: tkr/tkr-controller
+    data:
+      caCerts: ""
+      imageRepository: ""
+    ---
+    apiVersion: apiextensions.k8s.io/v1
+    kind: CustomResourceDefinition
+    metadata:
+      annotations:
+        controller-gen.kubebuilder.io/version: v0.7.0
+        tkg.tanzu.vmware.com/addon-type: tkr/tkr-controller
+      creationTimestamp: null
+      name: tanzukubernetesreleases.run.tanzu.vmware.com
+    spec:
+      group: run.tanzu.vmware.com
+      names:
+        kind: TanzuKubernetesRelease
+        listKind: TanzuKubernetesReleaseList
+        plural: tanzukubernetesreleases
+        shortNames:
+        - tkr
+        singular: tanzukubernetesrelease
+      scope: Cluster
+      versions:
+      - additionalPrinterColumns:
+        - jsonPath: .spec.version
+          name: Version
+          type: string
+        - jsonPath: .status.conditions[?(@.type=='Compatible')].status
+          name: Compatible
+          type: string
+        - jsonPath: .metadata.creationTimestamp
+          name: Created
+          type: date
+        name: v1alpha1
+        schema:
+          openAPIV3Schema:
+            description: TanzuKubernetesRelease is the schema for the tanzukubernetesreleases API. TanzuKubernetesRelease objects represent Kubernetes releases available via TKG, which can be used to create TanzuKubernetesCluster instances. TKRs are immutable to end-users. They are created and managed by TKG to provide discovery of Kubernetes releases to TKG users.
+            properties:
+              apiVersion:
+                description: 'APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+                type: string
+              kind:
+                description: 'Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+                type: string
+              metadata:
+                type: object
+              spec:
+                description: TanzuKubernetesReleaseSpec defines the desired state of TanzuKubernetesRelease
+                properties:
+                  images:
+                    description: Images is the list of (other than Kubernetes core) essential container images shipped by this TKR (e.g. coredns, etcd).
+                    items:
+                      description: ContainerImage is a struct representing a single fully qualified container image name, constructed as `{Repository}/{Name}:{Tag}`.
+                      properties:
+                        name:
+                          description: Name is the container image name without the repository prefix. It MUST be a valid URI path, MAY contain zero or more '/', and SHOULD NOT start or end with '/'.
+                          type: string
+                        repository:
+                          description: Repository is the container image repository used by this image. It MUST be a DNS-compatible name.
+                          type: string
+                        tag:
+                          description: Tag is the container image version tag. It is the suffix coming after ':' in a fully qualified image name.
+                          type: string
+                      required:
+                      - name
+                      type: object
+                    type: array
+                  kubernetesVersion:
+                    description: KubernetesVersion is the fully qualified Semantic Versioning conformant version of Kubernetes shipped by this TKR. The same KubernetesVersion MAY be shipped by different TKRs.
+                    type: string
+                  nodeImageRef:
+                    description: NodeImageRef refers to an object representing the image used to create TKC nodes (e.g. VirtualMachineImage).
+                    properties:
+                      apiVersion:
+                        description: API version of the referent.
+                        type: string
+                      fieldPath:
+                        description: 'If referring to a piece of an object instead of an entire object, this string should contain a valid JSON/Go field access statement, such as desiredState.manifest.containers[2]. For example, if the object reference is to a container within a pod, this would take on a value like: "spec.containers{name}" (where "name" refers to the name of the container that triggered the event) or if no container name is specified "spec.containers[2]" (container with index 2 in this pod). This syntax is chosen only to have some well-defined way of referencing a part of an object. TODO: this design is not final and this field is subject to change in the future.'
+                        type: string
+                      kind:
+                        description: 'Kind of the referent. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+                        type: string
+                      name:
+                        description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                        type: string
+                      namespace:
+                        description: 'Namespace of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/'
+                        type: string
+                      resourceVersion:
+                        description: 'Specific resourceVersion to which this reference is made, if any. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#concurrency-control-and-consistency'
+                        type: string
+                      uid:
+                        description: 'UID of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#uids'
+                        type: string
+                    type: object
+                  repository:
+                    description: Repository is the container image repository for Kubernetes core images, such as kube-apiserver, kube-proxy, etc. It MUST be a DNS-compatible name.
+                    type: string
+                  version:
+                    description: Version is the fully qualified Semantic Versioning conformant version of the TanzuKubernetesRelease. Version MUST be unique across all TanzuKubernetesRelease objects.
+                    type: string
+                required:
+                - version
+                type: object
+              status:
+                description: TanzuKubernetesReleaseStatus defines the observed state of TanzuKubernetesRelease
+                properties:
+                  conditions:
+                    items:
+                      description: Condition defines an observation of a Cluster API resource operational state.
+                      properties:
+                        lastTransitionTime:
+                          description: Last time the condition transitioned from one status to another. This should be when the underlying condition changed. If that is not known, then using the time when the API field changed is acceptable.
+                          format: date-time
+                          type: string
+                        message:
+                          description: A human readable message indicating details about the transition. This field may be empty.
+                          type: string
+                        reason:
+                          description: The reason for the condition's last transition in CamelCase. The specific API may choose whether or not this field is considered a guaranteed API. This field may not be empty.
+                          type: string
+                        severity:
+                          description: Severity provides an explicit classification of Reason code, so the users or machines can immediately understand the current situation and act accordingly. The Severity field MUST be set only when Status=False.
+                          type: string
+                        status:
+                          description: Status of the condition, one of True, False, Unknown.
+                          type: string
+                        type:
+                          description: Type of condition in CamelCase or in foo.example.com/CamelCase. Many .condition.type values are consistent across resources like Available, but because arbitrary conditions can be useful (see .node.status.conditions), the ability to deconflict is important.
+                          type: string
+                      required:
+                      - lastTransitionTime
+                      - status
+                      - type
+                      type: object
+                    type: array
+                type: object
+            type: object
+        served: true
+        storage: true
+        subresources:
+          status: {}
+    status:
+      acceptedNames:
+        kind: ""
+        plural: ""
+      conditions: []
+      storedVersions: []
+    ---
+    apiVersion: rbac.authorization.k8s.io/v1
+    kind: Role
+    metadata:
+      name: tkr-leader-election-role
+      namespace: tkr-system
+      annotations:
+        tkg.tanzu.vmware.com/addon-type: tkr/tkr-controller
+    rules:
+    - apiGroups:
+      - ""
+      resources:
+      - configmaps
+      verbs:
+      - get
+      - list
+      - watch
+      - create
+      - update
+      - patch
+      - delete
+    - apiGroups:
+      - ""
+      resources:
+      - configmaps/status
+      verbs:
+      - get
+      - update
+      - patch
+    - apiGroups:
+      - ""
+      resources:
+      - events
+      verbs:
+      - create
+    ---
+    apiVersion: rbac.authorization.k8s.io/v1
+    kind: ClusterRole
+    metadata:
+      creationTimestamp: null
+      name: tkr-manager-role
+      annotations:
+        tkg.tanzu.vmware.com/addon-type: tkr/tkr-controller
+    rules:
+    - apiGroups:
+      - run.tanzu.vmware.com
+      resources:
+      - tanzukubernetesreleases
+      verbs:
+      - create
+      - delete
+      - get
+      - list
+      - patch
+      - update
+      - watch
+    - apiGroups:
+      - run.tanzu.vmware.com
+      resources:
+      - tanzukubernetesreleases/status
+      verbs:
+      - get
+      - patch
+      - update
+    - apiGroups:
+      - cluster.x-k8s.io
+      resources:
+      - clusters
+      - clusters/status
+      verbs:
+      - get
+      - list
+      - watch
+    - apiGroups:
+      - ""
+      resources:
+      - configmaps
+      verbs:
+      - get
+      - list
+      - watch
+      - create
+      - update
+      - patch
+      - delete
+    - apiGroups:
+      - coordination.k8s.io
+      resources:
+      - leases
+      verbs:
+      - create
+      - get
+      - update
+    ---
+    apiVersion: rbac.authorization.k8s.io/v1
+    kind: RoleBinding
+    metadata:
+      name: tkr-leader-election-rolebinding
+      namespace: tkr-system
+      annotations:
+        tkg.tanzu.vmware.com/addon-type: tkr/tkr-controller
+    roleRef:
+      apiGroup: rbac.authorization.k8s.io
+      kind: Role
+      name: tkr-leader-election-role
+    subjects:
+    - kind: ServiceAccount
+      name: default
+      namespace: tkr-system
+    ---
+    apiVersion: rbac.authorization.k8s.io/v1
+    kind: ClusterRoleBinding
+    metadata:
+      name: tkr-manager-rolebinding
+      annotations:
+        tkg.tanzu.vmware.com/addon-type: tkr/tkr-controller
+    roleRef:
+      apiGroup: rbac.authorization.k8s.io
+      kind: ClusterRole
+      name: tkr-manager-role
+    subjects:
+    - kind: ServiceAccount
+      name: default
+      namespace: tkr-system
+    ---
+    apiVersion: apps/v1
+    kind: Deployment
+    metadata:
+      labels:
+        control-plane: controller-manager
+      name: tkr-controller-manager
+      namespace: tkr-system
+      annotations:
+        tkg.tanzu.vmware.com/addon-type: tkr/tkr-controller
+    spec:
+      replicas: 1
+      selector:
+        matchLabels:
+          control-plane: controller-manager
+      template:
+        metadata:
+          labels:
+            control-plane: controller-manager
+        spec:
+          containers:
+          - args:
+            - --enable-leader-election
+            - --bom-image-path=projects.registry.vmware.com/tkg/tkr-bom
+            - --bom-metadata-image-path=projects.registry.vmware.com/tkg/tkr-compatibility
+            - --skip-verify-registry-cert=False
+            - --continuous-discover-frequency=600
+            command:
+            - /manager
+            image: projects.registry.vmware.com/tkg/tanzu_core/tkr/tkr-controller-manager:v0.11.6-1-g90440e2b
+            imagePullPolicy: Always
+            name: manager
+            resources:
+              limits:
+                cpu: 100m
+                memory: 100Mi
+              requests:
+                cpu: 100m
+                memory: 20Mi
+          terminationGracePeriodSeconds: 10
+type: addons.cluster.x-k8s.io/resource-set
+---
+apiVersion: addons.cluster.x-k8s.io/v1beta1
+kind: ClusterResourceSet
+metadata:
+  annotations:
+    tkg.tanzu.vmware.com/addon-type: capabilities/capabilities-controller
+  labels:
+    cluster.x-k8s.io/cluster-name: __CLUSTER_NAME__
+  name: __CLUSTER_NAME__-capabilities
+  namespace: __NAMESPACE_NAME__
+spec:
+  clusterSelector:
+    matchLabels:
+      tkg.tanzu.vmware.com/cluster-name: __CLUSTER_NAME__
+  resources:
+  - kind: Secret
+    name: __CLUSTER_NAME__-capabilities
+  strategy: ApplyOnce
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  annotations:
+    tkg.tanzu.vmware.com/addon-type: capabilities/capabilities-controller
+  name: __CLUSTER_NAME__-capabilities
+  namespace: __NAMESPACE_NAME__
+stringData:
+  value: |
+    apiVersion: apiextensions.k8s.io/v1
+    kind: CustomResourceDefinition
+    metadata:
+      annotations:
+        controller-gen.kubebuilder.io/version: v0.7.0
+        tkg.tanzu.vmware.com/addon-type: capabilities/capabilities-controller
+      creationTimestamp: null
+      name: capabilities.run.tanzu.vmware.com
+    spec:
+      group: run.tanzu.vmware.com
+      names:
+        kind: Capability
+        listKind: CapabilityList
+        plural: capabilities
+        singular: capability
+      scope: Namespaced
+      versions:
+      - name: v1alpha1
+        schema:
+          openAPIV3Schema:
+            description: Capability is the Schema for the capabilities API
+            properties:
+              apiVersion:
+                description: 'APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+                type: string
+              kind:
+                description: 'Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+                type: string
+              metadata:
+                type: object
+              spec:
+                description: Spec is the capability spec that has cluster queries.
+                properties:
+                  queries:
+                    description: Queries specifies set of queries that are evaluated.
+                    items:
+                      description: Query is a logical grouping of GVR, Object and PartialSchema queries.
+                      properties:
+                        groupVersionResources:
+                          description: GroupVersionResources evaluates a slice of GVR queries.
+                          items:
+                            description: QueryGVR queries for an API group with the optional ability to check for API versions and resource.
+                            properties:
+                              group:
+                                description: Group is the API group to check for in the cluster.
+                                minLength: 1
+                                type: string
+                              name:
+                                description: Name is the unique name of the query.
+                                minLength: 1
+                                type: string
+                              resource:
+                                description: Resource is the API resource to check for given an API group and a slice of versions. Specifying a Resource requires at least one version to be specified in Versions.
+                                type: string
+                              versions:
+                                description: Versions is the slice of versions to check for in the specified API group.
+                                items:
+                                  type: string
+                                type: array
+                            required:
+                            - group
+                            - name
+                            type: object
+                          type: array
+                          x-kubernetes-list-map-keys:
+                          - name
+                          x-kubernetes-list-type: map
+                        name:
+                          description: Name is the unique name of the query.
+                          minLength: 1
+                          type: string
+                        objects:
+                          description: Objects evaluates a slice of Object queries.
+                          items:
+                            description: QueryObject represents any runtime.Object that could exist in a cluster with the ability to check for annotations.
+                            properties:
+                              name:
+                                description: Name is the unique name of the query.
+                                minLength: 1
+                                type: string
+                              objectReference:
+                                description: ObjectReference is the ObjectReference to check for in the cluster.
+                                properties:
+                                  apiVersion:
+                                    description: API version of the referent.
+                                    type: string
+                                  fieldPath:
+                                    description: 'If referring to a piece of an object instead of an entire object, this string should contain a valid JSON/Go field access statement, such as desiredState.manifest.containers[2]. For example, if the object reference is to a container within a pod, this would take on a value like: "spec.containers{name}" (where "name" refers to the name of the container that triggered the event) or if no container name is specified "spec.containers[2]" (container with index 2 in this pod). This syntax is chosen only to have some well-defined way of referencing a part of an object. TODO: this design is not final and this field is subject to change in the future.'
+                                    type: string
+                                  kind:
+                                    description: 'Kind of the referent. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+                                    type: string
+                                  name:
+                                    description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                                    type: string
+                                  namespace:
+                                    description: 'Namespace of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/'
+                                    type: string
+                                  resourceVersion:
+                                    description: 'Specific resourceVersion to which this reference is made, if any. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#concurrency-control-and-consistency'
+                                    type: string
+                                  uid:
+                                    description: 'UID of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#uids'
+                                    type: string
+                                type: object
+                              withAnnotations:
+                                additionalProperties:
+                                  type: string
+                                description: WithAnnotations are the annotations whose presence is checked in the object. The query succeeds only if all the annotations specified exists.
+                                type: object
+                              withoutAnnotations:
+                                additionalProperties:
+                                  type: string
+                                description: WithAnnotations are the annotations whose absence is checked in the object. The query succeeds only if all the annotations specified do not exist.
+                                type: object
+                            required:
+                            - name
+                            - objectReference
+                            type: object
+                          type: array
+                          x-kubernetes-list-map-keys:
+                          - name
+                          x-kubernetes-list-type: map
+                        partialSchemas:
+                          description: PartialSchemas evaluates a slice of PartialSchema queries.
+                          items:
+                            description: QueryPartialSchema queries for any OpenAPI schema that may exist on a cluster.
+                            properties:
+                              name:
+                                description: Name is the unique name of the query.
+                                minLength: 1
+                                type: string
+                              partialSchema:
+                                description: PartialSchema is the partial OpenAPI schema that will be matched in a cluster.
+                                minLength: 1
+                                type: string
+                            required:
+                            - name
+                            - partialSchema
+                            type: object
+                          type: array
+                          x-kubernetes-list-map-keys:
+                          - name
+                          x-kubernetes-list-type: map
+                      required:
+                      - name
+                      type: object
+                    type: array
+                    x-kubernetes-list-map-keys:
+                    - name
+                    x-kubernetes-list-type: map
+                required:
+                - queries
+                type: object
+              status:
+                description: Status is the capability status that has results of cluster queries.
+                properties:
+                  results:
+                    description: Results represents the results of all the queries specified in the spec.
+                    items:
+                      description: Result represents the results of queries in Query.
+                      properties:
+                        groupVersionResources:
+                          description: GroupVersionResources represents results of GVR queries in spec.
+                          items:
+                            description: QueryResult represents the result of a single query.
+                            properties:
+                              error:
+                                description: Error indicates if an error occurred while processing the query.
+                                type: boolean
+                              errorDetail:
+                                description: ErrorDetail represents the error detail, if an error occurred.
+                                type: string
+                              found:
+                                description: Found is a boolean which indicates if the query condition succeeded.
+                                type: boolean
+                              name:
+                                description: Name is the name of the query in spec whose result this struct represents.
+                                minLength: 1
+                                type: string
+                              notFoundReason:
+                                description: NotFoundReason provides the reason if the query condition fails. This is non-empty when Found is false.
+                                type: string
+                            required:
+                            - name
+                            type: object
+                          type: array
+                          x-kubernetes-list-map-keys:
+                          - name
+                          x-kubernetes-list-type: map
+                        name:
+                          description: Name is the unique name of the query.
+                          minLength: 1
+                          type: string
+                        objects:
+                          description: Objects represents results of Object queries in spec.
+                          items:
+                            description: QueryResult represents the result of a single query.
+                            properties:
+                              error:
+                                description: Error indicates if an error occurred while processing the query.
+                                type: boolean
+                              errorDetail:
+                                description: ErrorDetail represents the error detail, if an error occurred.
+                                type: string
+                              found:
+                                description: Found is a boolean which indicates if the query condition succeeded.
+                                type: boolean
+                              name:
+                                description: Name is the name of the query in spec whose result this struct represents.
+                                minLength: 1
+                                type: string
+                              notFoundReason:
+                                description: NotFoundReason provides the reason if the query condition fails. This is non-empty when Found is false.
+                                type: string
+                            required:
+                            - name
+                            type: object
+                          type: array
+                          x-kubernetes-list-map-keys:
+                          - name
+                          x-kubernetes-list-type: map
+                        partialSchemas:
+                          description: PartialSchemas represents results of PartialSchema queries in spec.
+                          items:
+                            description: QueryResult represents the result of a single query.
+                            properties:
+                              error:
+                                description: Error indicates if an error occurred while processing the query.
+                                type: boolean
+                              errorDetail:
+                                description: ErrorDetail represents the error detail, if an error occurred.
+                                type: string
+                              found:
+                                description: Found is a boolean which indicates if the query condition succeeded.
+                                type: boolean
+                              name:
+                                description: Name is the name of the query in spec whose result this struct represents.
+                                minLength: 1
+                                type: string
+                              notFoundReason:
+                                description: NotFoundReason provides the reason if the query condition fails. This is non-empty when Found is false.
+                                type: string
+                            required:
+                            - name
+                            type: object
+                          type: array
+                          x-kubernetes-list-map-keys:
+                          - name
+                          x-kubernetes-list-type: map
+                      required:
+                      - name
+                      type: object
+                    type: array
+                    x-kubernetes-list-map-keys:
+                    - name
+                    x-kubernetes-list-type: map
+                required:
+                - results
+                type: object
+            type: object
+        served: true
+        storage: true
+        subresources:
+          status: {}
+    ---
+    apiVersion: v1
+    kind: ServiceAccount
+    metadata:
+      labels:
+        app: tanzu-capabilities-manager
+      name: tanzu-capabilities-manager-sa
+      namespace: tkg-system
+      annotations:
+        tkg.tanzu.vmware.com/addon-type: capabilities/capabilities-controller
+    ---
+    apiVersion: rbac.authorization.k8s.io/v1
+    kind: ClusterRole
+    metadata:
+      name: tanzu-capabilities-manager-clusterrole
+      annotations:
+        tkg.tanzu.vmware.com/addon-type: capabilities/capabilities-controller
+    rules:
+    - apiGroups:
+      - run.tanzu.vmware.com
+      resources:
+      - capabilities
+      verbs:
+      - create
+      - delete
+      - get
+      - list
+      - patch
+      - update
+      - watch
+    - apiGroups:
+      - run.tanzu.vmware.com
+      resources:
+      - capabilities/status
+      verbs:
+      - get
+      - patch
+      - update
+    - apiGroups:
+      - run.tanzu.vmware.com
+      resources:
+      - tanzukubernetesreleases
+      - tanzukubernetesreleases/status
+      verbs:
+      - get
+      - list
+      - watch
+    - apiGroups:
+      - run.tanzu.vmware.com
+      resources:
+      - tanzukubernetesclusters
+      - tanzukubernetesclusters/status
+      verbs:
+      - get
+      - list
+      - watch
+    - apiGroups:
+      - clusterctl.cluster.x-k8s.io
+      resources:
+      - providers
+      - providers/status
+      verbs:
+      - get
+      - list
+      - watch
+    - apiGroups:
+      - ""
+      resources:
+      - configmaps
+      - namespaces
+      - nodes
+      verbs:
+      - get
+      - list
+      - watch
+    ---
+    apiVersion: rbac.authorization.k8s.io/v1
+    kind: ClusterRoleBinding
+    metadata:
+      name: tanzu-capabilities-manager-clusterrolebinding
+      annotations:
+        tkg.tanzu.vmware.com/addon-type: capabilities/capabilities-controller
+    roleRef:
+      apiGroup: rbac.authorization.k8s.io
+      kind: ClusterRole
+      name: tanzu-capabilities-manager-clusterrole
+    subjects:
+    - kind: ServiceAccount
+      name: tanzu-capabilities-manager-sa
+      namespace: tkg-system
+    ---
+    apiVersion: apps/v1
+    kind: Deployment
+    metadata:
+      labels:
+        app: tanzu-capabilities-manager
+      name: tanzu-capabilities-controller-manager
+      namespace: tkg-system
+      annotations:
+        tkg.tanzu.vmware.com/addon-type: capabilities/capabilities-controller
+    spec:
+      replicas: 1
+      selector:
+        matchLabels:
+          app: tanzu-capabilities-manager
+      template:
+        metadata:
+          labels:
+            app: tanzu-capabilities-manager
+        spec:
+          containers:
+          - image: projects.registry.vmware.com/tkg/tanzu_core/capabilities/capabilities-controller-manager:v0.11.6-1-g90440e2b
+            imagePullPolicy: IfNotPresent
+            name: manager
+            resources:
+              limits:
+                cpu: 100m
+                memory: 30Mi
+              requests:
+                cpu: 100m
+                memory: 20Mi
+          serviceAccount: tanzu-capabilities-manager-sa
+          terminationGracePeriodSeconds: 10
+          tolerations:
+          - effect: NoSchedule
+            key: node-role.kubernetes.io/master
+type: addons.cluster.x-k8s.io/resource-set
+---

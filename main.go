@@ -19,6 +19,7 @@ import (
 	"os"
 	clusterv1beta1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	bootstrapv1beta1 "sigs.k8s.io/cluster-api/bootstrap/kubeadm/api/v1beta1"
+	addonsv1 "sigs.k8s.io/cluster-api/exp/addons/api/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"time"
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
@@ -54,6 +55,9 @@ func init() {
 	utilruntime.Must(clusterv1beta1.AddToScheme(myscheme))
 	utilruntime.Must(kcpv1beta1.AddToScheme(myscheme))
 	utilruntime.Must(bootstrapv1beta1.AddToScheme(myscheme))
+
+	// We need the addonsv1 scheme in order to list the ClusterResourceSetBindings addon.
+	utilruntime.Must(addonsv1.AddToScheme(myscheme))
 
 	//+kubebuilder:scaffold:scheme
 }
@@ -101,7 +105,6 @@ func main() {
 
 	if err = (&controllers.VCDMachineReconciler{
 		Client: mgr.GetClient(),
-		// Scheme:    mgr.GetScheme(),
 	}).SetupWithManager(ctx, mgr, controller.Options{
 		MaxConcurrentReconciles: concurrency,
 	}); err != nil {
@@ -143,6 +146,8 @@ func main() {
 		setupLog.Error(err, "unable to set up ready check")
 		os.Exit(1)
 	}
+
+	// TODO: check if entity type [capvcdCluster:1.1.0] is already registered
 
 	setupLog.Info("starting manager")
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {

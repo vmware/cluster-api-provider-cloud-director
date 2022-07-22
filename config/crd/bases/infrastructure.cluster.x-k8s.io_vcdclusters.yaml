@@ -191,6 +191,8 @@ spec:
                 description: LoadBalancer defines load-balancer configuration for
                   the Cluster both for the control plane nodes and for the CPI
                 properties:
+                  useOneArm:
+                    type: boolean
                   vipSubnet:
                     type: string
                 type: object
@@ -230,11 +232,11 @@ spec:
                       has enough information to retrieve secret in any namespace
                     properties:
                       name:
-                        description: Name is unique within a namespace to reference
+                        description: name is unique within a namespace to reference
                           a secret resource.
                         type: string
                       namespace:
-                        description: Namespace defines the space within which the
+                        description: namespace defines the space within which the
                           secret name must be unique.
                         type: string
                     type: object
@@ -296,6 +298,22 @@ spec:
                   - type
                   type: object
                 type: array
+              defaultStorageClassOptions:
+                properties:
+                  fileSystem:
+                    default: ext4
+                    type: string
+                  k8sStorageClassName:
+                    default: cloud-director-default
+                    type: string
+                  useDeleteReclaimPolicy:
+                    default: false
+                    type: boolean
+                  vcdStorageProfileName:
+                    type: string
+                required:
+                - vcdStorageProfileName
+                type: object
               infraId:
                 type: string
               parentUid:
@@ -311,6 +329,11 @@ spec:
                   noProxy:
                     type: string
                 type: object
+              rdeVersionInUse:
+                default: 1.1.0
+                description: RdeVersionInUse indicates the version of capvcdCluster
+                  entity type used by CAPVCD.
+                type: string
               ready:
                 default: false
                 description: Ready denotes that the vcd cluster (infrastructure) is
@@ -323,6 +346,7 @@ spec:
                   updated.
                 type: boolean
             required:
+            - rdeVersionInUse
             - ready
             type: object
         required:
