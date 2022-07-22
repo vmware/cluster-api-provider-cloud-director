@@ -93,7 +93,8 @@ type NodePool struct {
 	SizingPolicy    string            `json:"sizingPolicy,omitempty"`
 	PlacementPolicy string            `json:"placementPolicy,omitempty"`
 	DiskSizeMb      int32             `json:"diskSizeMb,omitempty"`
-	NvidiaGpu       string            `json:"nvidiaGpu,omitempty"`
+	NvidiaGpu       bool              `json:"nvidiaGpu,omitempty"`
+	StorageProfile  string            `json:"storageProfile,omitempty"`
 	Replicas        int32             `json:"replicas,omitempty"`
 	NodeStatus      map[string]string `json:"nodeStatus,omitempty"`
 }
