@@ -553,16 +553,23 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 
 	// checks before setting address in machine status
 	if vm.VM == nil {
-		log.Error(nil, fmt.Sprintf("Requeuing...; failed to get the machine address of vm [%#v]", vm))
+		log.Error(nil, fmt.Sprintf("Requeuing...; vm.VM should not be nil: [%#v]", vm))
 		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
 	}
 	if vm.VM.NetworkConnectionSection == nil || len(vm.VM.NetworkConnectionSection.NetworkConnection) == 0 {
-		log.Error(nil, fmt.Sprintf("Requeuing...; failed to get the network connection section for vm [%s(%s)]: [%#v]", vm.VM.Name, vm.VM.ID, vm.VM))
+		log.Error(nil, fmt.Sprintf("Requeuing...; network connection section was not found for vm [%s(%s)]: [%#v]", vm.VM.Name, vm.VM.ID, vm.VM))
 		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
 	}
 
-	if vm.VM.NetworkConnectionSection.NetworkConnection[0] == nil || vm.VM.NetworkConnectionSection.NetworkConnection[0].IPAddress == "" {
-		log.Error(nil, fmt.Sprintf("Requeuing...; failed to get the network connection for vm [%s(%s)]: [%#v]", vm.VM.Name, vm.VM.ID, vm.VM.NetworkConnectionSection))
+	if vm.VM.NetworkConnectionSection.NetworkConnection[0] == nil {
+		log.Error(nil, fmt.Sprintf("Requeuing...; failed to get existing network connection information for vm [%s(%s)]: [%#v]. NetworkConnection[0] should not be nil",
+			vm.VM.Name, vm.VM.ID, vm.VM.NetworkConnectionSection))
+		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
+	}
+
+	if vm.VM.NetworkConnectionSection.NetworkConnection[0].IPAddress == "" {
+		log.Error(nil, fmt.Sprintf("Requeuing...; NetworkConnection[0] IP Address should not be empty for vm [%s(%s)]: [%#v]",
+			vm.VM.Name, vm.VM.ID, *vm.VM.NetworkConnectionSection.NetworkConnection[0]))
 		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
 	}
 
