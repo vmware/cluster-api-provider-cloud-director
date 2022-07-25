@@ -460,6 +460,18 @@ func (r *VCDClusterReconciler) reconcileRDE(ctx context.Context, cluster *cluste
 		capvcdStatusPatch["VcdProperties"] = vcdResources
 	}
 
+	if vcdCluster.Status.DefaultStorageClassOptions.VCDStorageProfileName != "" {
+		defaultStorageClass := rdeType.DefaultStorageClass{
+			VCDStorageProfileName:  vcdCluster.Status.DefaultStorageClassOptions.VCDStorageProfileName,
+			K8sStorageClassName:    vcdCluster.Status.DefaultStorageClassOptions.K8sStorageClassName,
+			UseDeleteReclaimPolicy: vcdCluster.Status.DefaultStorageClassOptions.UseDeleteReclaimPolicy,
+			FileSystem:             vcdCluster.Status.DefaultStorageClassOptions.FileSystem,
+		}
+		if !reflect.DeepEqual(capvcdStatus.DefaultStorageClass, defaultStorageClass) {
+			capvcdStatusPatch["DefaultStorageClass"] = defaultStorageClass
+		}
+	}
+
 	obj := client.ObjectKey{
 		Namespace: cluster.Namespace,
 		Name:      cluster.Name,
