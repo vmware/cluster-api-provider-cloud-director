@@ -1,5 +1,7 @@
 package rde_type_1_1_0
 
+import "github.com/vmware/cloud-provider-for-cloud-director/pkg/vcdsdk"
+
 const (
 	CapvcdRDETypeVersion = "1.1.0"
 )
@@ -122,7 +124,8 @@ type CAPVCDStatus struct {
 	NodePool                   []NodePool                  `json:"nodePool,omitempty"`
 	CapvcdVersion              string                      `json:"capvcdVersion,omitempty"`
 	UseAsManagementCluster     bool                        `json:"useAsManagementCluster,omitempty"`
-	Errors                     []string                    `json:"errors,omitempty"`
+	ErrorSet                   []vcdsdk.BackendError       `json:"errorSet,omitempty"`
+	EventSet                   []vcdsdk.BackendEvent       `json:"eventSet,omitempty"`
 	K8sNetwork                 K8sNetwork                  `json:"k8sNetwork,omitempty"`
 	ParentUID                  string                      `json:"parentUid,omitempty"`
 	ClusterResourceSet         []ClusterResource           `json:"clusterResourceSet,omitempty"`
