@@ -291,6 +291,8 @@ func getNodePoolList(ctx context.Context, cli client.Client, cluster clusterv1.C
 			Name:            kcp.Name,
 			SizingPolicy:    vcdMachineTemplate.Spec.Template.Spec.SizingPolicy,
 			PlacementPolicy: vcdMachineTemplate.Spec.Template.Spec.PlacementPolicy,
+			NvidiaGpu:       vcdMachineTemplate.Spec.Template.Spec.NvidiaGPU,
+			StorageProfile:  vcdMachineTemplate.Spec.Template.Spec.StorageProfile,
 			Replicas:        kcp.Status.Replicas,
 			NodeStatus:      nodeStatusMap,
 		}
