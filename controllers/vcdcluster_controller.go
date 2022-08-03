@@ -635,7 +635,11 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		oldVCDCluster := vcdCluster.DeepCopy()
 
 		vcdCluster.Status.InfraId = infraID
-		vcdCluster.Status.RdeVersionInUse = rdeType.CapvcdRDETypeVersion
+		if strings.HasPrefix(infraID, NoRdePrefix) {
+			vcdCluster.Status.RdeVersionInUse = NoRdePrefix
+		} else {
+			vcdCluster.Status.RdeVersionInUse = rdeType.CapvcdRDETypeVersion
+		}
 		if err := r.Status().Patch(ctx, vcdCluster, client.MergeFrom(oldVCDCluster)); err != nil {
 			return ctrl.Result{}, errors.Wrapf(err,
 				"unable to patch status of vcdCluster [%s] with InfraID [%s], RDEVersion [%s]",
