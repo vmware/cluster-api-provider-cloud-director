@@ -43,9 +43,5 @@ spec:
           requests:
             cpu: 100m
             memory: 512Mi
-      volumes:
-        - name: controller-manager-config-volume
-          configMap:
-            name: manager-config
       serviceAccountName: controller-manager
       terminationGracePeriodSeconds: 10
