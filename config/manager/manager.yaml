@@ -15,6 +15,10 @@ spec:
       labels:
         control-plane: controller-manager
     spec:
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 3000
+        fsGroup: 2000
       containers:
       - command:
         - /opt/vcloud/bin/cluster-api-provider-cloud-director

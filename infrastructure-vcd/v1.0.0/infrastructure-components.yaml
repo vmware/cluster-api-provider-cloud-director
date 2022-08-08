@@ -1180,6 +1180,10 @@ spec:
         - mountPath: /tmp/k8s-webhook-server/serving-certs
           name: cert
           readOnly: true
+      securityContext:
+        fsGroup: 2000
+        runAsGroup: 3000
+        runAsUser: 1000
       serviceAccountName: capvcd-controller-manager
       terminationGracePeriodSeconds: 10
       volumes:
