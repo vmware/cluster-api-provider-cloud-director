@@ -229,7 +229,7 @@
                   "description": "Name of the kubernetes storage class."
                 },
                 "useDeleteReclaimPolicy": {
-                  "type": "string",
+                  "type": "boolean",
                   "description": "Delete will be used as the Reclaim policy for the storage class if set to true. Otherwise, Retain will be used as the reclaim policy."
                 },
                 "fileSystem": {
