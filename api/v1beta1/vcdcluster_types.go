@@ -102,6 +102,8 @@ type VCDClusterSpec struct {
 	ProxyConfig ProxyConfig `json:"proxyConfig,omitempty"`
 	// +optional
 	LoadBalancer LoadBalancer `json:"loadBalancer,omitempty"`
+	// +kubebuilder:default=false
+	ExecuteWithoutRDE bool `json:"executeWithoutRDE,omitempty"`
 }
 
 // VCDClusterStatus defines the observed state of VCDCluster
