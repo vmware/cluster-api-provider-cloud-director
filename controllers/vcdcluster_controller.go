@@ -536,7 +536,8 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 
 	// fail cluster creation if RDE should be created but capvcdCluster entity type is not registered
 	if shouldCreateRDE && !capvcdRdeManager.IsCapvcdEntityTypeRegistered(rdeType.CapvcdRDETypeVersion) {
-		return ctrl.Result{}, errors.Wrapf(errors.New("CAPVCD entity type not registered"), "cluster create issued with executeWithoutRDE=[%v] but unable to find capvcdCluster entity type at version [%s]",
+		return ctrl.Result{}, errors.Wrapf(errors.New("capvcdCluster entity type not registered or capvcdCluster rights missing from the user's role"),
+			"cluster create issued with executeWithoutRDE=[%v] but unable to create capvcdCluster entity at version [%s]",
 			vcdCluster.Spec.ExecuteWithoutRDE, rdeType.CapvcdRDETypeVersion)
 	}
 
