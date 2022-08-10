@@ -189,6 +189,8 @@ spec:
                 type: object
               executeWithoutRDE:
                 default: false
+                description: ExecuteWithoutRDE tells CAPVCD if an RDE should be created
+                  for the cluster
                 type: boolean
               loadBalancer:
                 description: LoadBalancer defines load-balancer configuration for

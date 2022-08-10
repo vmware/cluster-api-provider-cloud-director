@@ -186,6 +186,7 @@ spec:
                 type: object
               executeWithoutRDE:
                 default: false
+                description: ExecuteWithoutRDE tells CAPVCD if an RDE should be created for the cluster
                 type: boolean
               loadBalancer:
                 description: LoadBalancer defines load-balancer configuration for the Cluster both for the control plane nodes and for the CPI
