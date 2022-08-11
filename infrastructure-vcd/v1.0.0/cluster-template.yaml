@@ -56,6 +56,8 @@ spec:
     k8sStorageClassName: ${K8s_STORAGE_CLASS_NAME} # name of the storage class in kubernetes
     useDeleteReclaimPolicy: ${USE_DELETE_RECLAIM_POLICY} # if set to true, Delete will be used as the Reclaim policy for the storage class. Else, Retain will be used as the reclaim policy
     fileSystem: ${FILE_SYSTEM} # file system format for the persistent volumes created from the storage class
+  loadBalancer:
+    vipSubnet: ${IP_SUBNET} # Virtual IP CIDR for the external network
 ---
 apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
 kind: VCDMachineTemplate
