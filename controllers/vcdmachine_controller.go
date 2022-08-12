@@ -61,6 +61,7 @@ type CloudInitScriptInput struct {
 	VcdHostFormatted          string // vcd host
 	ClusterOrgName            string // org
 	ClusterOVDCName           string // ovdc
+	TKGVersion                string // tkgVersion
 	NetworkName               string // network
 	VipSubnetCidr             string // vip subnet cidr - empty for now for CPI to select subnet
 	VAppName                  string // vApp name
@@ -459,13 +460,11 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 				FileSystemFormat:          fileSystemFormat,
 				CpiVersion:                CpiDefaultVersion, // TODO: get from crs
 				CsiVersion:                CsiDefaultVersion, // TODO: get from crs
-				VcdHostFormatted:          strings.Replace(vcdCluster.Spec.Site, "/", "\\/", -1),
 				ClusterOrgName:            workloadVCDClient.ClusterOrgName,
 				ClusterOVDCName:           workloadVCDClient.ClusterOVDCName,
 				NetworkName:               vcdCluster.Spec.OvdcNetwork,
 				VipSubnetCidr:             "", // vip subnet cidr - empty for now for CPI to select subnet
 				VAppName:                  vAppName,
-				ClusterID:                 vcdCluster.Status.InfraId,
 				EnableDefaultStorageClass: strconv.FormatBool(enableDefaultStorageClass),
 			}
 		}
@@ -473,8 +472,10 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		cloudInitInput.HTTPSProxy = vcdCluster.Spec.ProxyConfig.HTTPSProxy
 		cloudInitInput.NoProxy = vcdCluster.Spec.ProxyConfig.NoProxy
 		cloudInitInput.MachineName = machine.Name
+		cloudInitInput.VcdHostFormatted = strings.Replace(vcdCluster.Spec.Site, "/", "\\/", -1)
 		cloudInitInput.NvidiaGPU = vcdMachine.Spec.NvidiaGPU
-
+		cloudInitInput.ClusterID = vcdCluster.Status.InfraId // needed for both worker & control plane machines for metering
+		cloudInitInput.TKGVersion = getTKGVersion(cluster)   // needed for both worker & control plane machines for metering
 	}
 
 	mergedCloudInitBytes, err := MergeJinjaToCloudInitScript(cloudInitInput, bootstrapJinjaScript)

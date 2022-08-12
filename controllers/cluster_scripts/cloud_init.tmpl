@@ -1,4 +1,7 @@
 #cloud-config
+users:
+  - name: root
+    lock_passwd: false
 write_files: {{- if .ControlPlane }}
 - path: /root/vcloud-basic-auth.yaml
   owner: root
@@ -30,6 +33,33 @@ write_files: {{- if .ControlPlane }}
       storageProfile: "{{ .VcdStorageProfileName }}"
       filesystem: "{{ .FileSystemFormat }}"
     --- {{- end }}
+- path: /root/metering.sh
+  owner: root
+  content: |
+     #!/usr/bin/env bash
+     vmtoolsd --cmd "info-set guestinfo.metering.vcd_site_id $VCD_SITE_ID"
+     vmtoolsd --cmd "info-set guestinfo.metering.cluster_id $CLUSTER_ID"
+     vmtoolsd --cmd "info-set guestinfo.metering.tkg_version $TKG_VERSION"
+     vmtoolsd --cmd "info-set guestinfo.metering.machine_type $MACHINE_TYPE"
+     vmtoolsd --cmd "info-set guestinfo.metering.mgmt $MGMT"
+- path: /etc/vcloud/metering
+  owner: root
+  content: |
+    VCD_SITE_ID={{ .VcdHostFormatted }}
+    CLUSTER_ID={{ .ClusterID }}
+    TKG_VERSION={{ .TKGVersion }}
+    MACHINE_TYPE={{- if .ControlPlane -}} control_plane {{- else -}} worker {{- end }}
+    MGMT=true
+- path: /etc/systemd/system/metering.service
+  owner: root
+  content: |
+    [Service]
+    Type=simple
+    EnvironmentFile=/etc/vcloud/metering
+    ExecStart=/bin/bash /root/metering.sh
+
+    [Install]
+    WantedBy=multi-user.target
 - path: /root/ {{- if .ControlPlane -}} control_plane {{- else -}} node {{- end -}} .sh
   owner: root
   content: |
@@ -204,10 +234,15 @@ write_files: {{- if .ControlPlane }}
     systemctl restart containerd
     vmtoolsd --cmd "info-set guestinfo.postcustomization.containerd.nvidia.configuration.status successful" {{- end }}
 
+    systemctl enable metering.service
+    systemctl restart metering
+
     echo "$(date) post customization script execution completed" &>> /var/log/capvcd/customization/status.log
     exit 0
 runcmd:
 - 'cloud-init clean'
+- '[ ! -f /root/metering.sh ] && sudo reboot'
+- '[ ! -f /etc/vcloud/metering ] && sudo reboot'
 {{ if .ControlPlane }}
 - '[ ! -f /root/vcloud-basic-auth.yaml ] && sudo reboot'
 - '[ ! -f /root/control_plane.sh ] && sudo reboot'
