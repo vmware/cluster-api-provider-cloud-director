@@ -450,6 +450,7 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		cloudInitInput.HTTPSProxy = vcdCluster.Spec.ProxyConfig.HTTPSProxy
 		cloudInitInput.NoProxy = vcdCluster.Spec.ProxyConfig.NoProxy
 		cloudInitInput.MachineName = machine.Name
+		// TODO: After tenants has access to siteId, populate siteId to cloudInitInput as opposed to the site
 		cloudInitInput.VcdHostFormatted = strings.Replace(vcdCluster.Spec.Site, "/", "\\/", -1)
 		cloudInitInput.NvidiaGPU = vcdMachine.Spec.NvidiaGPU
 		cloudInitInput.TKGVersion = getTKGVersion(cluster) // needed for both worker & control plane machines for metering
