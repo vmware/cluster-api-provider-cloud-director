@@ -58,6 +58,8 @@ type CloudInitScriptInput struct {
 	HTTPSProxy            string // httpsProxy endpoint
 	NoProxy               string // no proxy values
 	MachineName           string // vm host name
+	VcdHostFormatted      string // vcd host
+	TKGVersion            string // tkgVersion
 }
 
 const (
@@ -448,8 +450,9 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		cloudInitInput.HTTPSProxy = vcdCluster.Spec.ProxyConfig.HTTPSProxy
 		cloudInitInput.NoProxy = vcdCluster.Spec.ProxyConfig.NoProxy
 		cloudInitInput.MachineName = machine.Name
+		cloudInitInput.VcdHostFormatted = strings.Replace(vcdCluster.Spec.Site, "/", "\\/", -1)
 		cloudInitInput.NvidiaGPU = vcdMachine.Spec.NvidiaGPU
-
+		cloudInitInput.TKGVersion = getTKGVersion(cluster) // needed for both worker & control plane machines for metering
 	}
 
 	mergedCloudInitBytes, err := MergeJinjaToCloudInitScript(cloudInitInput, bootstrapJinjaScript)
