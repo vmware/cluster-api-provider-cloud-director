@@ -102,9 +102,9 @@ type VCDClusterSpec struct {
 	ProxyConfig ProxyConfig `json:"proxyConfig,omitempty"`
 	// +optional
 	LoadBalancer LoadBalancer `json:"loadBalancer,omitempty"`
-	// ExecuteWithoutRDE tells CAPVCD if an RDE should be created for the cluster
+	// SkipRDE tells CAPVCD if an RDE should be created for the cluster or not
 	// +kubebuilder:default=false
-	ExecuteWithoutRDE bool `json:"executeWithoutRDE,omitempty"`
+	SkipRDE bool `json:"skipRDE,omitempty"`
 }
 
 // VCDClusterStatus defines the observed state of VCDCluster

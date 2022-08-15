@@ -528,7 +528,7 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	}
 
 	infraID := vcdCluster.Status.InfraId
-	shouldCreateRDE := !vcdCluster.Spec.ExecuteWithoutRDE
+	shouldCreateRDE := !vcdCluster.Spec.SkipRDE
 
 	// General note on RDE operations, always ensure CAPVCD cluster reconciliation progress
 	//is not affected by any RDE operation failures.
@@ -538,7 +538,7 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	if shouldCreateRDE && !capvcdRdeManager.IsCapvcdEntityTypeRegistered(rdeType.CapvcdRDETypeVersion) {
 		return ctrl.Result{}, errors.Wrapf(errors.New("capvcdCluster entity type not registered or capvcdCluster rights missing from the user's role"),
 			"cluster create issued with executeWithoutRDE=[%v] but unable to create capvcdCluster entity at version [%s]",
-			vcdCluster.Spec.ExecuteWithoutRDE, rdeType.CapvcdRDETypeVersion)
+			vcdCluster.Spec.SkipRDE, rdeType.CapvcdRDETypeVersion)
 	}
 
 	// Use the pre-created RDEId specified in the CAPI yaml specification.
@@ -646,7 +646,7 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		oldVCDCluster := vcdCluster.DeepCopy()
 
 		vcdCluster.Status.InfraId = infraID
-		if vcdCluster.Spec.ExecuteWithoutRDE {
+		if vcdCluster.Spec.SkipRDE {
 			vcdCluster.Status.RdeVersionInUse = NoRdePrefix
 		} else {
 			vcdCluster.Status.RdeVersionInUse = rdeType.CapvcdRDETypeVersion

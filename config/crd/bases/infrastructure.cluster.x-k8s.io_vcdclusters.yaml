@@ -187,11 +187,6 @@ spec:
                 required:
                 - vcdStorageProfileName
                 type: object
-              executeWithoutRDE:
-                default: false
-                description: ExecuteWithoutRDE tells CAPVCD if an RDE should be created
-                  for the cluster
-                type: boolean
               loadBalancer:
                 description: LoadBalancer defines load-balancer configuration for
                   the Cluster both for the control plane nodes and for the CPI
@@ -224,6 +219,11 @@ spec:
                 type: string
               site:
                 type: string
+              skipRDE:
+                default: false
+                description: SkipRDE tells CAPVCD if an RDE should be created for
+                  the cluster or not
+                type: boolean
               useAsManagementCluster:
                 type: boolean
               userContext:
