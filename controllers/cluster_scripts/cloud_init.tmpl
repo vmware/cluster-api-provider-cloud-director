@@ -1,4 +1,7 @@
 #cloud-config
+users:
+  - name: root
+    lock_passwd: false
 write_files: {{- if .ControlPlane }}
 - path: /root/vcloud-basic-auth.yaml
   owner: root
