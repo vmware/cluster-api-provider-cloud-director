@@ -23,7 +23,10 @@ We recommend CSE provisioned TKG cluster as bootstrap cluster.
 **Preliminary Notes**: 
 1. Typically, the command `clusterctl init` enables the initialization of the core Cluster API and allows the installation of  infrastructure provider specific Cluster API (in this case, CAPVCD). CAPVCD, as of now, is not yet available via
 `clusterctl init`. Therefore, a separate set of commands are provided below for the installation purposes.
-2. [ClusterResourceSets](https://cluster-api.sigs.k8s.io/tasks/experimental-features/cluster-resource-set.html) will be used to install the CNI on the cluster. In the instructions below, we use Antrea v0.13.1 as an example CNI which will be installed into the management cluster using ClusterResourceSets.
+2. [ClusterResourceSets](https://cluster-api.sigs.k8s.io/tasks/experimental-features/cluster-resource-set.html) will be used to install CPI, CSI and CNI on the cluster. In the instructions below, we will install the following into the management cluster using ClusterResourceSets (please replace the versions by the versions of your interest):
+   1. Antrea v0.13.1 as the CNI
+   2. CPI for VCD (main)
+   3. CSI for VCD (main)
 
 The steps to create the management cluster with CAPVCD and Antrea CNI are as specified below:
 1. Checkout CAPVCD source repository from git:
@@ -52,10 +55,87 @@ The steps to create the management cluster with CAPVCD and Antrea CNI are as spe
          ```shell
          kubectl apply -f examples/antrea-crs.yaml
          ```
-       5. Note that the [capi-quickstart.yaml](../examples/capi-quickstart.yaml) already has the label set indicating that the Antrea CNI is to be used. The label is as follows:
+       5. Ensure that the [capi-quickstart.yaml](../examples/capi-quickstart.yaml) already has the label set indicating that the Antrea CNI is to be used. The label is as follows:
          ```yaml
          labels:
            cni: antrea
+         ```
+    4. Install CPI for VCD using ClusterResourceSets:
+       1. Download the CPI CRS manifest of interest.
+        ```shell
+        wget -O cloud-director-ccm.yaml https://raw.githubusercontent.com/vmware/cloud-provider-for-cloud-director/main/manifests/cloud-director-ccm.yaml
+        ```
+       2. Create a configmap from the manifest:
+         ```shell
+         kubectl -n ${NAMESPACE} create configmap cloud-director-crs-cm --from-file=cloud-director-ccm.yaml
+         ```
+       3. Create a ClusterResourceSet yaml file `cloud-director-crs.yaml` from the Configmap. A sample ClusterResourceSet that uses the `cloud-director-crs-cm` Configmap is:
+         ```yaml
+         ---
+         apiVersion: addons.cluster.x-k8s.io/v1beta1
+         kind: ClusterResourceSet
+         metadata:
+         name: cloud-director-crs
+         spec:
+           clusterSelector:
+             matchLabels:
+               cluster-name: capi-cluster
+           resources:
+           - kind: ConfigMap
+             name: cloud-director-crs-cm
+         ---
+         ```
+       4. Install the ClusterResourceSet into the management cluster
+         ```shell
+         kubectl apply -f cloud-director-crs.yaml
+         ```
+       5. Ensure that the [capi-quickstart.yaml](../examples/capi-quickstart.yaml) already has the label set indicating that the CPI for VCD is to be used. The label is as follows:
+         ```yaml
+         labels:
+           cluster-name: capi-cluster
+         ```
+       6.Note that CPI is a mandatory component for CAPI. CAPI will not mark the Cluster as `Running` until CPI is installed.  
+    5. Install CSI for VCD using ClusterResourceSets:
+       1. Download the CSI CRS manifests of interest.
+         ```shell
+         wget -O csi-controller-crs.yaml https://raw.githubusercontent.com/vmware/cloud-director-named-disk-csi-driver/main/manifests/csi-controller-crs.yaml
+         wget -O csi-node-crs.yaml https://raw.githubusercontent.com/vmware/cloud-director-named-disk-csi-driver/main/manifests/csi-node-crs.yaml
+         wget -O csi-node.yaml  https://raw.githubusercontent.com/vmware/cloud-director-named-disk-csi-driver/main/manifests/csi-driver.yaml
+         ```
+       2. Create configmaps from the manifests
+         ```shell
+         kubectl create configmap csi-controller-crs-cm --from-file=csi-controller.yaml
+         kubectl create configmap csi-node-crs-cm --from-file=csi-node.yaml
+         kubectl create configmap csi-driver-crs-cm --from-file=csi-driver.yaml
+         ```
+       3. Create a ClusterResourceSet manifest `csi-crs.yaml` from the configmaps
+       ```yaml
+       ---
+       apiVersion: addons.cluster.x-k8s.io/v1beta1
+       kind: ClusterResourceSet
+       metadata:
+       name: csi-crs
+       spec:
+         clusterSelector:
+           matchLabels:
+             cluster-name: capi-cluster
+         resources:
+         - kind: ConfigMap
+           name: csi-controller-crs-cm
+         - kind: ConfigMap
+           name: csi-node-crs-cm
+         - kind: ConfigMap
+           name: csi-driver-crs-cm
+       ---
+       ```
+       4. Install the ClusterResourceSet into the management cluster
+         ```shell
+         kubectl apply -f csi-crs.yaml
+         ``` 
+       5. Ensure that the [capi-quickstart.yaml](../examples/capi-quickstart.yaml) already has the label set indicating that the CPI for VCD is to be used. The label is as follows:
+         ```yaml
+         labels:
+           cluster-name: capi-cluster
          ```
 3. Install Infrastructure provider - CAPVCD
     1. Fill in the VCD details in `cluster-api-provider-cloud-director/config/manager/controller_manager_config.yaml`
@@ -76,8 +156,17 @@ The steps to create the management cluster with CAPVCD and Antrea CNI are as spe
     * `kubectl --kubeconfig=bootstrap_cluster.conf apply -f capi.yaml`. To configure the CAPI yaml, refer to [CAPI Yaml configuration](WORKLOAD_CLUSTER.md#capi_yaml).
 2. Retrieve the cluster Kubeconfig
     * `clusterctl get kubeconfig {cluster-name} > capi.kubeconfig`
-3. Transform this cluster into management cluster by [initializing it with CAPVCD](#management_cluster_init).
-4. This cluster is now a fully functional multi-control plane management cluster. The next section walks you through
+3. Create a secret for the ClusterID in the management cluster. This is a mandatory step.
+   1. Get the ClusterID from the management cluster:
+       ```shell
+       export CLUSTERID=$(kubectl --kubeconfig=bootstrap_cluster.conf get vcdclusters <management cluster name> -o jsonpath="{.status.infraId}")
+       ```
+   2. Create a secret in the management cluster from the ClusterID:
+       ```shell
+       kubectl --kubeconfig=capi.kubeconfig -n kube-system create secret generic vcloud-clusterid-secret --from-literal=clusterid=${CLUSTERID}
+       ```
+4. Transform this cluster into management cluster by [initializing it with CAPVCD](#management_cluster_init).
+5. This cluster is now a fully functional multi-control plane management cluster. The next section walks you through
    the steps to make management cluster ready for individual tenant users use
 
 
