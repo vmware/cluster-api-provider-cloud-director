@@ -246,6 +246,7 @@ func (r *VCDClusterReconciler) constructCapvcdRDE(ctx context.Context, cluster *
 				},
 				CapiStatusYaml:             "",
 				ClusterResourceSetBindings: nil,
+				CreatedByVersion:           release.CAPVCDVersion,
 			},
 		},
 	}
