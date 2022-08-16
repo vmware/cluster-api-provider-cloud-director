@@ -216,6 +216,10 @@
                 "properties": {}
               }
             },
+            "createdByVersion": {
+              "type": "string",
+              "description": "CAPVCD version used to create the cluster"
+            },
             "defaultStorageClass": {
               "type": "object",
               "description": "Default storage class configuration options.",

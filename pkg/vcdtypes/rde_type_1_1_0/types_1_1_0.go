@@ -135,6 +135,7 @@ type CAPVCDStatus struct {
 	CapiStatusYaml             string                      `json:"capiStatusYaml,omitempty"`
 	ClusterResourceSetBindings []ClusterResourceSetBinding `json:"clusterResourceSetBindings,omitempty"`
 	DefaultStorageClass        DefaultStorageClass         `json:"defaultStorageClass"`
+	CreatedByVersion           string                      `json:"createdByVersion"`
 }
 
 type Status struct {
