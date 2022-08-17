@@ -50,7 +50,7 @@ func (config *VCDAuthConfig) GetBearerToken() (*govcd.VCDClient, *http.Response,
 		err = vcdClient.SetToken("system",
 			govcd.ApiTokenHeader, config.RefreshToken)
 		if err != nil {
-			klog.Infof("failed to authenticate using refresh token and as system org user. Retrying as [%s] org user", config.UserOrg)
+			klog.Errorf("failed to authenticate using refresh token and as system org user. Retrying as [%s] org user: [%v]", config.UserOrg, err)
 			// failed to authenticate as system user. Retry as a tenant user
 			err = vcdClient.SetToken(config.UserOrg,
 				govcd.ApiTokenHeader, config.RefreshToken)
@@ -58,6 +58,10 @@ func (config *VCDAuthConfig) GetBearerToken() (*govcd.VCDClient, *http.Response,
 				klog.Errorf("failed to authenticate using refresh token")
 				return nil, nil, fmt.Errorf("failed to set authorization header: [%v]", err)
 			}
+		} else {
+			// No error while authenticating with "system" org.
+			// The persisted userorg should be changed to "system"
+			config.UserOrg = "system"
 		}
 		config.IsSysAdmin = vcdClient.Client.IsSysAdmin
 
