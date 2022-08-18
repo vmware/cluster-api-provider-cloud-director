@@ -44,30 +44,20 @@ import (
 )
 
 type CloudInitScriptInput struct {
-	ControlPlane              bool   // control plane node
-	NvidiaGPU                 bool   // configure containerd for NVIDIA libraries
-	BootstrapRunCmd           string // bootstrap run command
-	B64OrgUser                string // base 64 org/username
-	B64Password               string // base64 password
-	B64RefreshToken           string // refresh token
-	K8sStorageClassName       string // default storage class name
-	ReclaimPolicy             string // reclaim policy
-	VcdStorageProfileName     string // vcd storage profile
-	FileSystemFormat          string // filesystem
-	HTTPProxy                 string // httpProxy endpoint
-	HTTPSProxy                string // httpsProxy endpoint
-	NoProxy                   string // no proxy values
-	CpiVersion                string // cpi version
-	VcdHostFormatted          string // vcd host
-	ClusterOrgName            string // org
-	ClusterOVDCName           string // ovdc
-	NetworkName               string // network
-	VipSubnetCidr             string // vip subnet cidr - empty for now for CPI to select subnet
-	VAppName                  string // vApp name
-	ClusterID                 string // cluster id
-	CsiVersion                string // csi version
-	EnableDefaultStorageClass string // is_storage_class_enabled
-	MachineName               string // vm host name
+	ControlPlane          bool   // control plane node
+	NvidiaGPU             bool   // configure containerd for NVIDIA libraries
+	BootstrapRunCmd       string // bootstrap run command
+	B64OrgUser            string // base 64 org/username
+	B64Password           string // base64 password
+	B64RefreshToken       string // refresh token
+	K8sStorageClassName   string // default storage class name
+	ReclaimPolicy         string // reclaim policy
+	VcdStorageProfileName string // vcd storage profile
+	FileSystemFormat      string // filesystem
+	HTTPProxy             string // httpProxy endpoint
+	HTTPSProxy            string // httpsProxy endpoint
+	NoProxy               string // no proxy values
+	MachineName           string // vm host name
 }
 
 const (
@@ -214,10 +204,7 @@ const (
 	NetworkConfiguration                   = "guestinfo.postcustomization.networkconfiguration.status"
 	ProxyConfiguration                     = "guestinfo.postcustomization.proxy.setting.status"
 	KubeadmInit                            = "guestinfo.postcustomization.kubeinit.status"
-	KubectlApplyCpi                        = "guestinfo.postcustomization.kubectl.cpi.install.status"
-	KubectlApplyCsi                        = "guestinfo.postcustomization.kubectl.csi.install.status"
 	KubeadmTokenGenerate                   = "guestinfo.postcustomization.kubeadm.token.generate.status"
-	KubectlApplyDefaultStorageClass        = "guestinfo.postcustomization.kubectl.default_storage_class.install.status"
 	KubeadmNodeJoin                        = "guestinfo.postcustomization.kubeadm.node.join.status"
 	NvidiaRuntimeInstall                   = "guestinfo.postcustomization.nvidia.runtime.install.status"
 	NvidiaContainerdConfiguration          = "guestinfo.postcustomization.containerd.nvidia.configuration.status"
@@ -229,10 +216,7 @@ var controlPlanePostCustPhases = []string{
 	NetworkConfiguration,
 	ProxyConfiguration,
 	KubeadmInit,
-	KubectlApplyCpi,
-	KubectlApplyCsi,
 	KubeadmTokenGenerate,
-	KubectlApplyDefaultStorageClass,
 }
 
 var joinPostCustPhases = []string{
@@ -449,26 +433,17 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 			}
 
 			cloudInitInput = CloudInitScriptInput{
-				ControlPlane:              true,
-				B64OrgUser:                b64.StdEncoding.EncodeToString([]byte(orgUserStr)),
-				B64Password:               b64.StdEncoding.EncodeToString([]byte(workloadVCDClient.VCDAuthConfig.Password)),
-				B64RefreshToken:           b64.StdEncoding.EncodeToString([]byte(workloadVCDClient.VCDAuthConfig.RefreshToken)),
-				K8sStorageClassName:       k8sStorageClassName,
-				ReclaimPolicy:             reclaimPolicy,
-				VcdStorageProfileName:     vcdStorageProfileName,
-				FileSystemFormat:          fileSystemFormat,
-				CpiVersion:                CpiDefaultVersion, // TODO: get from crs
-				CsiVersion:                CsiDefaultVersion, // TODO: get from crs
-				VcdHostFormatted:          strings.Replace(vcdCluster.Spec.Site, "/", "\\/", -1),
-				ClusterOrgName:            workloadVCDClient.ClusterOrgName,
-				ClusterOVDCName:           workloadVCDClient.ClusterOVDCName,
-				NetworkName:               vcdCluster.Spec.OvdcNetwork,
-				VipSubnetCidr:             "", // vip subnet cidr - empty for now for CPI to select subnet
-				VAppName:                  vAppName,
-				ClusterID:                 vcdCluster.Status.InfraId,
-				EnableDefaultStorageClass: strconv.FormatBool(enableDefaultStorageClass),
+				ControlPlane:          true,
+				B64OrgUser:            b64.StdEncoding.EncodeToString([]byte(orgUserStr)),
+				B64Password:           b64.StdEncoding.EncodeToString([]byte(workloadVCDClient.VCDAuthConfig.Password)),
+				B64RefreshToken:       b64.StdEncoding.EncodeToString([]byte(workloadVCDClient.VCDAuthConfig.RefreshToken)),
+				K8sStorageClassName:   k8sStorageClassName,
+				ReclaimPolicy:         reclaimPolicy,
+				VcdStorageProfileName: vcdStorageProfileName,
+				FileSystemFormat:      fileSystemFormat,
 			}
 		}
+
 		cloudInitInput.HTTPSProxy = vcdCluster.Spec.ProxyConfig.HTTPProxy
 		cloudInitInput.HTTPSProxy = vcdCluster.Spec.ProxyConfig.HTTPSProxy
 		cloudInitInput.NoProxy = vcdCluster.Spec.ProxyConfig.NoProxy
