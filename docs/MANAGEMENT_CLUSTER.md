@@ -75,7 +75,7 @@ The steps to create the management cluster with CAPVCD and Antrea CNI are as spe
          apiVersion: addons.cluster.x-k8s.io/v1beta1
          kind: ClusterResourceSet
          metadata:
-         name: cloud-director-crs
+           name: cloud-director-crs
          spec:
            clusterSelector:
              matchLabels:
@@ -114,7 +114,7 @@ The steps to create the management cluster with CAPVCD and Antrea CNI are as spe
        apiVersion: addons.cluster.x-k8s.io/v1beta1
        kind: ClusterResourceSet
        metadata:
-       name: csi-crs
+         name: csi-crs
        spec:
          clusterSelector:
            matchLabels:
