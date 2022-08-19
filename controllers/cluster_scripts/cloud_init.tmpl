@@ -103,7 +103,7 @@ write_files: {{- if .ControlPlane }}
     export KUBECONFIG=/etc/kubernetes/ {{- if .ControlPlane -}} admin {{- else -}} kubelet {{- end -}} .conf
     kubectl get po -A -owide {{- if .ControlPlane }}
     vmtoolsd --cmd "info-set guestinfo.kubeconfig $(cat /etc/kubernetes/admin.conf | base64 | tr -d '\n')" {{- end }}
-    vmtoolsd --cmd "info-set {{ if .ControlPlane -}} guestinfo.postcustomization.kubeinit.status {{- else -}} guestinfo.postcustomization.kubeadm.node.join.status {{- end }} successful" {{- if .ControlPlane }}
+    vmtoolsd --cmd "info-set {{ if .ControlPlane -}} guestinfo.postcustomization.kubeinit.status {{- else -}} guestinfo.postcustomization.kubeadm.node.join.status {{- end }} successful"
 
     vmtoolsd --cmd "info-set guestinfo.postcustomization.kubeadm.token.generate.status in_progress"
     KUBEADM_JOIN_INFO=$(kubeadm token create --print-join-command 2> /dev/null)
