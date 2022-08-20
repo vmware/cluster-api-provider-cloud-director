@@ -17,6 +17,16 @@ import (
 	"strings"
 )
 
+const tkgVersionLabel = "TKGVERSION"
+
+func getTKGVersion(cluster *clusterv1.Cluster) string {
+	annotationsMap := cluster.GetAnnotations()
+	if tkgVersion, exists := annotationsMap[tkgVersionLabel]; exists {
+		return tkgVersion
+	}
+	return ""
+}
+
 // filterTypeMetaAndObjectMetaFromK8sObjectMap is a helper function to remove extraneous contents in "objectmeta" and "typemeta"
 //  keys. The function moves name and namespace from "objectmeta" key to "metadata" key and moves all the keys from "typemeta"
 //  key to objMap
