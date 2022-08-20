@@ -60,6 +60,7 @@ type CloudInitScriptInput struct {
 	MachineName           string // vm host name
 	VcdHostFormatted      string // vcd host
 	TKGVersion            string // tkgVersion
+	ClusterID             string //cluster id
 }
 
 const (
@@ -205,6 +206,7 @@ func patchVCDMachine(ctx context.Context, patchHelper *patch.Helper, vcdMachine 
 const (
 	NetworkConfiguration                   = "guestinfo.postcustomization.networkconfiguration.status"
 	ProxyConfiguration                     = "guestinfo.postcustomization.proxy.setting.status"
+	MeteringConfiguration                  = "guestinfo.metering.status"
 	KubeadmInit                            = "guestinfo.postcustomization.kubeinit.status"
 	KubeadmTokenGenerate                   = "guestinfo.postcustomization.kubeadm.token.generate.status"
 	KubeadmNodeJoin                        = "guestinfo.postcustomization.kubeadm.node.join.status"
@@ -216,6 +218,7 @@ const (
 
 var controlPlanePostCustPhases = []string{
 	NetworkConfiguration,
+	MeteringConfiguration,
 	ProxyConfiguration,
 	KubeadmInit,
 	KubeadmTokenGenerate,
@@ -223,6 +226,7 @@ var controlPlanePostCustPhases = []string{
 
 var joinPostCustPhases = []string{
 	NetworkConfiguration,
+	MeteringConfiguration,
 	KubeadmNodeJoin,
 }
 
@@ -451,9 +455,10 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		cloudInitInput.NoProxy = vcdCluster.Spec.ProxyConfig.NoProxy
 		cloudInitInput.MachineName = machine.Name
 		// TODO: After tenants has access to siteId, populate siteId to cloudInitInput as opposed to the site
-		cloudInitInput.VcdHostFormatted = strings.Replace(vcdCluster.Spec.Site, "/", "\\/", -1)
+		cloudInitInput.VcdHostFormatted = strings.ReplaceAll(vcdCluster.Spec.Site, "/", "\\/")
 		cloudInitInput.NvidiaGPU = vcdMachine.Spec.NvidiaGPU
-		cloudInitInput.TKGVersion = getTKGVersion(cluster) // needed for both worker & control plane machines for metering
+		cloudInitInput.TKGVersion = getTKGVersion(cluster)   // needed for both worker & control plane machines for metering
+		cloudInitInput.ClusterID = vcdCluster.Status.InfraId // needed for both worker & control plane machines for metering
 	}
 
 	mergedCloudInitBytes, err := MergeJinjaToCloudInitScript(cloudInitInput, bootstrapJinjaScript)
@@ -722,7 +727,7 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	phases := controlPlanePostCustPhases
 	if !useControlPlaneScript {
 		if vcdMachine.Spec.NvidiaGPU {
-			phases = []string{joinPostCustPhases[0], NvidiaRuntimeInstall, joinPostCustPhases[1], NvidiaContainerdConfiguration}
+			phases = []string{joinPostCustPhases[0], joinPostCustPhases[1], NvidiaRuntimeInstall, joinPostCustPhases[2], NvidiaContainerdConfiguration}
 		} else {
 			phases = joinPostCustPhases
 		}

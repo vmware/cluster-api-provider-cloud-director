@@ -17,9 +17,11 @@ import (
 	"strings"
 )
 
+const tkgVersionLabel = "TKGVERSION"
+
 func getTKGVersion(cluster *clusterv1.Cluster) string {
 	annotationsMap := cluster.GetAnnotations()
-	if tkgVersion, exists := annotationsMap["TKGVERSION"]; exists {
+	if tkgVersion, exists := annotationsMap[tkgVersionLabel]; exists {
 		return tkgVersion
 	}
 	return ""

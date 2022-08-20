@@ -1,4 +1,7 @@
 #cloud-config
+users:
+  - name: root
+    lock_passwd: false
 write_files: {{- if .ControlPlane }}
 - path: /root/vcloud-basic-auth.yaml
   owner: root
@@ -14,7 +17,7 @@ write_files: {{- if .ControlPlane }}
       name: vcloud-basic-auth
       namespace: kube-system
     --- {{- end }}
-- path: /root/metering.sh
+- path: /opt/vmware/cloud-director/metering.sh
   owner: root
   content: |
      #!/usr/bin/env bash
@@ -37,7 +40,7 @@ write_files: {{- if .ControlPlane }}
     [Service]
     Type=simple
     EnvironmentFile=/etc/vcloud/metering
-    ExecStart=/bin/bash /root/metering.sh
+    ExecStart=/bin/bash /opt/vmware/cloud-director/metering.sh
 
     [Install]
     WantedBy=multi-user.target
@@ -80,6 +83,12 @@ write_files: {{- if .ControlPlane }}
     # also remove ipv6 localhost entry from /etc/hosts
     sed -i 's/::1/127.0.0.1/g' /etc/hosts || true
     vmtoolsd --cmd "info-set guestinfo.postcustomization.networkconfiguration.status successful"
+
+    vmtoolsd --cmd "info-set guestinfo.metering.status in_progress"
+    systemctl enable metering
+    systemctl daemon-reload
+    systemctl restart metering
+    vmtoolsd --cmd "info-set guestinfo.metering.status successful"
 
     vmtoolsd --cmd "info-set guestinfo.postcustomization.proxy.setting.status in_progress"
     export HTTP_PROXY="{{.HTTPProxy}}"
@@ -175,14 +184,11 @@ write_files: {{- if .ControlPlane }}
     systemctl restart containerd
     vmtoolsd --cmd "info-set guestinfo.postcustomization.containerd.nvidia.configuration.status successful" {{- end }}
 
-    systemctl enable metering.service
-    systemctl restart metering
-
     echo "$(date) post customization script execution completed" &>> /var/log/capvcd/customization/status.log
     exit 0
 runcmd:
 - 'cloud-init clean'
-- '[ ! -f /root/metering.sh ] && sudo reboot'
+- '[ ! -f /opt/vmware/cloud-director/metering.sh ] && sudo reboot'
 - '[ ! -f /etc/vcloud/metering ] && sudo reboot'
 {{ if .ControlPlane }}
 - '[ ! -f /root/vcloud-basic-auth.yaml ] && sudo reboot'
