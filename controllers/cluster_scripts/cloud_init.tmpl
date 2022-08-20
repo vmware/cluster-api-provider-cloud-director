@@ -17,6 +17,10 @@ write_files: {{- if .ControlPlane }}
       name: vcloud-basic-auth
       namespace: kube-system
     --- {{- end }}
+- path: /etc/cloud/cloud.cfg.d/cse.cfg
+  owner: root
+  content: |
+     ssh_deletekeys: false
 - path: /opt/vmware/cloud-director/metering.sh
   owner: root
   content: |
@@ -189,6 +193,7 @@ write_files: {{- if .ControlPlane }}
 runcmd:
 - 'cloud-init clean'
 - '[ ! -f /opt/vmware/cloud-director/metering.sh ] && sudo reboot'
+- '[ ! -f /etc/cloud/cloud.cfg.d/cse.cfg ] && sudo reboot'
 - '[ ! -f /etc/vcloud/metering ] && sudo reboot'
 {{ if .ControlPlane }}
 - '[ ! -f /root/vcloud-basic-auth.yaml ] && sudo reboot'
