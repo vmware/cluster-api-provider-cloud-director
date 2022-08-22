@@ -22,6 +22,9 @@ WORKDIR /opt/vcloud/bin
 COPY --from=builder /build/vcloud/cluster-api-provider-cloud-director .
 
 RUN chmod +x /opt/vcloud/bin/cluster-api-provider-cloud-director
+RUN mkdir /opt/vcloud/logs
+RUN touch /opt/vcloud/logs/capvcd-wire-log.txt
+RUN chmod 666 /opt/vcloud/logs/capvcd-wire-log.txt
 
 USER nobody
 ENTRYPOINT ["/bin/bash", "-l", "-c"]

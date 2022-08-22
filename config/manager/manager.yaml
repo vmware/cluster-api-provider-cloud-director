@@ -26,6 +26,11 @@ spec:
         name: manager
         securityContext:
           allowPrivilegeEscalation: false
+        env:
+        - name: GOVCD_LOG
+          value: "true"
+        - name: GOVCD_LOG_FILE
+          value: "/opt/vcloud/logs/capvcd-wire-log.txt"
         livenessProbe:
           httpGet:
             path: /healthz
