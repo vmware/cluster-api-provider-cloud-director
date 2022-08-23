@@ -75,7 +75,7 @@ The steps to create the management cluster with CAPVCD and Antrea CNI are as spe
          apiVersion: addons.cluster.x-k8s.io/v1beta1
          kind: ClusterResourceSet
          metadata:
-         name: cloud-director-crs
+           name: cloud-director-crs
          spec:
            clusterSelector:
              matchLabels:
@@ -100,7 +100,7 @@ The steps to create the management cluster with CAPVCD and Antrea CNI are as spe
          ```shell
          wget -O csi-controller-crs.yaml https://raw.githubusercontent.com/vmware/cloud-director-named-disk-csi-driver/main/manifests/csi-controller-crs.yaml
          wget -O csi-node-crs.yaml https://raw.githubusercontent.com/vmware/cloud-director-named-disk-csi-driver/main/manifests/csi-node-crs.yaml
-         wget -O csi-node.yaml  https://raw.githubusercontent.com/vmware/cloud-director-named-disk-csi-driver/main/manifests/csi-driver.yaml
+         wget -O csi-driver.yaml  https://raw.githubusercontent.com/vmware/cloud-director-named-disk-csi-driver/main/manifests/csi-driver.yaml
          ```
        2. Create configmaps from the manifests
          ```shell
@@ -114,7 +114,7 @@ The steps to create the management cluster with CAPVCD and Antrea CNI are as spe
        apiVersion: addons.cluster.x-k8s.io/v1beta1
        kind: ClusterResourceSet
        metadata:
-       name: csi-crs
+         name: csi-crs
        spec:
          clusterSelector:
            matchLabels:
