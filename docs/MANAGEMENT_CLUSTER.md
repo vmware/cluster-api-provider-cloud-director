@@ -104,8 +104,8 @@ The steps to create the management cluster with CAPVCD and Antrea CNI are as spe
          ```
        2. Create configmaps from the manifests
          ```shell
-         kubectl create configmap csi-controller-crs-cm --from-file=csi-controller.yaml
-         kubectl create configmap csi-node-crs-cm --from-file=csi-node.yaml
+         kubectl create configmap csi-controller-crs-cm --from-file=csi-controller-crs.yaml
+         kubectl create configmap csi-node-crs-cm --from-file=csi-node-crs.yaml
          kubectl create configmap csi-driver-crs-cm --from-file=csi-driver.yaml
          ```
        3. Create a ClusterResourceSet manifest `csi-crs.yaml` from the configmaps
