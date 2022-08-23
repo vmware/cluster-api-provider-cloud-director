@@ -2,21 +2,7 @@
 users:
   - name: root
     lock_passwd: false
-write_files: {{- if .ControlPlane }}
-- path: /root/vcloud-basic-auth.yaml
-  owner: root
-  content: |
-    ---
-    apiVersion: v1
-    data: {{- if and .B64OrgUser .B64Password }}
-      username: "{{ .B64OrgUser }}"
-      password: "{{ .B64Password }}" {{- end }}{{- if .B64RefreshToken }}
-      refreshToken: "{{ .B64RefreshToken }}" {{- end }}
-    kind: Secret
-    metadata:
-      name: vcloud-basic-auth
-      namespace: kube-system
-    --- {{- end }}
+write_files:
 - path: /etc/cloud/cloud.cfg.d/cse.cfg
   owner: root
   content: |
