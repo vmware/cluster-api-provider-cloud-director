@@ -44,23 +44,16 @@ import (
 )
 
 type CloudInitScriptInput struct {
-	ControlPlane          bool   // control plane node
-	NvidiaGPU             bool   // configure containerd for NVIDIA libraries
-	BootstrapRunCmd       string // bootstrap run command
-	B64OrgUser            string // base 64 org/username
-	B64Password           string // base64 password
-	B64RefreshToken       string // refresh token
-	K8sStorageClassName   string // default storage class name
-	ReclaimPolicy         string // reclaim policy
-	VcdStorageProfileName string // vcd storage profile
-	FileSystemFormat      string // filesystem
-	HTTPProxy             string // httpProxy endpoint
-	HTTPSProxy            string // httpsProxy endpoint
-	NoProxy               string // no proxy values
-	MachineName           string // vm host name
-	VcdHostFormatted      string // vcd host
-	TKGVersion            string // tkgVersion
-	ClusterID             string //cluster id
+	ControlPlane     bool   // control plane node
+	NvidiaGPU        bool   // configure containerd for NVIDIA libraries
+	BootstrapRunCmd  string // bootstrap run command
+	HTTPProxy        string // httpProxy endpoint
+	HTTPSProxy       string // httpsProxy endpoint
+	NoProxy          string // no proxy values
+	MachineName      string // vm host name
+	VcdHostFormatted string // vcd host
+	TKGVersion       string // tkgVersion
+	ClusterID        string //cluster id
 }
 
 const (
@@ -420,33 +413,8 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	cloudInitInput := CloudInitScriptInput{}
 	if !vcdMachine.Spec.Bootstrapped {
 		if useControlPlaneScript {
-			var (
-				orgUserStr = fmt.Sprintf("%s/%s", workloadVCDClient.VCDAuthConfig.UserOrg,
-					workloadVCDClient.VCDAuthConfig.User)
-				enableDefaultStorageClass = vcdCluster.Spec.DefaultStorageClassOptions.VCDStorageProfileName != ""
-				k8sStorageClassName       = ""
-				fileSystemFormat          = ""
-				vcdStorageProfileName     = ""
-				reclaimPolicy             = ReclaimPolicyRetain
-			)
-			if enableDefaultStorageClass {
-				k8sStorageClassName = vcdCluster.Spec.DefaultStorageClassOptions.K8sStorageClassName
-				if vcdCluster.Spec.DefaultStorageClassOptions.UseDeleteReclaimPolicy {
-					reclaimPolicy = ReclaimPolicyDelete
-				}
-				fileSystemFormat = vcdCluster.Spec.DefaultStorageClassOptions.FileSystem
-				vcdStorageProfileName = vcdCluster.Spec.DefaultStorageClassOptions.VCDStorageProfileName
-			}
-
 			cloudInitInput = CloudInitScriptInput{
-				ControlPlane:          true,
-				B64OrgUser:            b64.StdEncoding.EncodeToString([]byte(orgUserStr)),
-				B64Password:           b64.StdEncoding.EncodeToString([]byte(workloadVCDClient.VCDAuthConfig.Password)),
-				B64RefreshToken:       b64.StdEncoding.EncodeToString([]byte(workloadVCDClient.VCDAuthConfig.RefreshToken)),
-				K8sStorageClassName:   k8sStorageClassName,
-				ReclaimPolicy:         reclaimPolicy,
-				VcdStorageProfileName: vcdStorageProfileName,
-				FileSystemFormat:      fileSystemFormat,
+				ControlPlane: true,
 			}
 		}
 

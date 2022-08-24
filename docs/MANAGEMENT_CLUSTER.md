@@ -75,7 +75,7 @@ The steps to create the management cluster with CAPVCD and Antrea CNI are as spe
          apiVersion: addons.cluster.x-k8s.io/v1beta1
          kind: ClusterResourceSet
          metadata:
-         name: cloud-director-crs
+           name: cloud-director-crs
          spec:
            clusterSelector:
              matchLabels:
@@ -100,12 +100,12 @@ The steps to create the management cluster with CAPVCD and Antrea CNI are as spe
          ```shell
          wget -O csi-controller-crs.yaml https://raw.githubusercontent.com/vmware/cloud-director-named-disk-csi-driver/main/manifests/csi-controller-crs.yaml
          wget -O csi-node-crs.yaml https://raw.githubusercontent.com/vmware/cloud-director-named-disk-csi-driver/main/manifests/csi-node-crs.yaml
-         wget -O csi-node.yaml  https://raw.githubusercontent.com/vmware/cloud-director-named-disk-csi-driver/main/manifests/csi-driver.yaml
+         wget -O csi-driver.yaml  https://raw.githubusercontent.com/vmware/cloud-director-named-disk-csi-driver/main/manifests/csi-driver.yaml
          ```
        2. Create configmaps from the manifests
          ```shell
-         kubectl create configmap csi-controller-crs-cm --from-file=csi-controller.yaml
-         kubectl create configmap csi-node-crs-cm --from-file=csi-node.yaml
+         kubectl create configmap csi-controller-crs-cm --from-file=csi-controller-crs.yaml
+         kubectl create configmap csi-node-crs-cm --from-file=csi-node-crs.yaml
          kubectl create configmap csi-driver-crs-cm --from-file=csi-driver.yaml
          ```
        3. Create a ClusterResourceSet manifest `csi-crs.yaml` from the configmaps
@@ -114,7 +114,7 @@ The steps to create the management cluster with CAPVCD and Antrea CNI are as spe
        apiVersion: addons.cluster.x-k8s.io/v1beta1
        kind: ClusterResourceSet
        metadata:
-       name: csi-crs
+         name: csi-crs
        spec:
          clusterSelector:
            matchLabels:
@@ -165,8 +165,76 @@ The steps to create the management cluster with CAPVCD and Antrea CNI are as spe
        ```shell
        kubectl --kubeconfig=capi.kubeconfig -n kube-system create secret generic vcloud-clusterid-secret --from-literal=clusterid=${CLUSTERID}
        ```
-4. Transform this cluster into management cluster by [initializing it with CAPVCD](#management_cluster_init).
-5. This cluster is now a fully functional multi-control plane management cluster. The next section walks you through
+4. Create a secret for the Refresh Token in the management cluster. This is a mandatory step.
+    1. Get the refreshToken from secret used in the creation of the management cluster:
+       ```shell
+       export REFRESH_TOKEN=$(kubectl --kubeconfig=bootstrap_cluster.conf get secret <secret name> -o jsonpath="{.data.refreshToken}" | base64 -D)
+       ```
+    2. Create a secret in the management cluster from the Refresh Token:
+       ```shell
+       kubectl --kubeconfig=capi.kubeconfig -n kube-system create secret generic vcloud-basic-auth --from-literal=refreshToken=${REFRESH_TOKEN}
+       ```
+5. Create a config map for the CCM pod in the management cluster. This is a mandatory step.
+    1. Create a file with the following content, e.g `vcloud-csi-config.yaml`:
+       ```yaml
+       ---
+       apiVersion: v1
+       kind: ConfigMap
+       metadata:
+         name: vcloud-csi-configmap
+         namespace: kube-system
+       data:
+         vcloud-csi-config.yaml: |+
+           vcd:
+             host: VCD_HOST
+             org: ORG
+             vdc: OVDC
+             vAppName: VAPP
+           clusterid: CLUSTER_ID
+       immutable: true
+       ---
+       ```
+    2. Replace `VCD_HOST`, `ORG`, `OVDC`, `VAPP`, and `CLUSTER_ID` with the relevant values.
+    3. Create the config map in the management cluster:
+       ```shell
+       kubectl --kubeconfig=capi.kubeconfig create configmap --from-file=vcloud-csi-config.yaml
+       ```
+6. Create a config map for the CSI pod in the management cluster. This is a mandatory step.
+    1. Create a file with the following content, e.g `vcloud-ccm-config.yaml`:
+       ```yaml
+       apiVersion: v1
+       kind: ConfigMap
+       metadata:
+         name: vcloud-ccm-configmap
+         namespace: kube-system
+       data:
+         vcloud-ccm-config.yaml: |+
+           vcd:
+             host: VCD_HOST
+             org: ORG
+             vdc: OVDC
+           loadbalancer:
+             oneArm:
+               startIP: "192.168.8.2"
+               endIP: "192.168.8.100"
+             ports:
+               http: 80
+               https: 443
+             network: NETWORK
+             vipSubnet: ""
+             certAlias: CLUSTER_ID-cert
+             enableVirtualServiceSharedIP: false # supported for VCD >= 10.4
+           clusterid: CLUSTER_ID
+           vAppName: VAPP
+       immutable: true
+       ```
+    2. Replace `VCD_HOST`, `ORG`, `OVDC`, `NETWORK`, `VAPP`, and `CLUSTER_ID` with the relevant values.
+    3. 3. Create the config map in the management cluster:
+       ```shell
+       kubectl --kubeconfig=capi.kubeconfig create configmap --from-file=vcloud-ccm-config.yaml
+       ```
+7. Transform this cluster into management cluster by [initializing it with CAPVCD](#management_cluster_init).
+8. This cluster is now a fully functional multi-control plane management cluster. The next section walks you through
    the steps to make management cluster ready for individual tenant users use
 
 
