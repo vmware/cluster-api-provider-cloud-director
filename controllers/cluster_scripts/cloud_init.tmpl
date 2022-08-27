@@ -182,7 +182,6 @@ runcmd:
 - '[ ! -f /etc/cloud/cloud.cfg.d/cse.cfg ] && sudo reboot'
 - '[ ! -f /etc/vcloud/metering ] && sudo reboot'
 {{ if .ControlPlane }}
-- '[ ! -f /root/vcloud-basic-auth.yaml ] && sudo reboot'
 - '[ ! -f /root/control_plane.sh ] && sudo reboot'
 - '[ ! -f /run/kubeadm/kubeadm.yaml ] && sudo reboot'
 - bash /root/control_plane.sh
