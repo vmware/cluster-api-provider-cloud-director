@@ -20,7 +20,11 @@ func (src *VCDCluster) ConvertTo(dstRaw conversion.Hub) error {
 	dst.Spec.SkipRDE = strings.HasPrefix(src.Status.InfraId, vcdsdk.NoRdePrefix)
 	dst.Spec.ParentUID = ""
 	dst.Spec.UseAsManagementCluster = false // defaults to false
-	dst.Status.RdeVersionInUse = "1.0.0"
+	if strings.HasPrefix(src.Status.InfraId, vcdsdk.NoRdePrefix) {
+		dst.Status.RdeVersionInUse = vcdsdk.NoRdePrefix
+	} else {
+		dst.Status.RdeVersionInUse = "1.0.0" // value will be checked by vcdcluster controller if RDE upgrade is necessary
+	}
 
 	// In v1alpha4 DNAT rules (and one-arm) are used by default. Therefore, use that in v1beta1
 	dst.Spec.LoadBalancer.UseOneArm = true
