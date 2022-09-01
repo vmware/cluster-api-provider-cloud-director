@@ -17,3 +17,5 @@ To stop logging the HTTP requests and HTTP responses to the container logs, plea
 ```shell
 kubectl set env -n capvcd-system deployment/capvcd-controller-manager GOVCD_LOG_ON_SCREEN-
 ```
+
+NOTE: Please make sure to collect the logs before and after enabling the wire log. The above commands update the CAPVCD deployment, which creates a new CAPVCD pod. The logs present in the old pod will be lost.
