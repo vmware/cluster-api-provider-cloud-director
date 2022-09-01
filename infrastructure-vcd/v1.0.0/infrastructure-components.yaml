@@ -240,6 +240,11 @@ spec:
                 type: string
               site:
                 type: string
+              skipRDE:
+                default: false
+                description: SkipRDE tells CAPVCD if an RDE should be created for
+                  the cluster or not
+                type: boolean
               useAsManagementCluster:
                 type: boolean
               userContext:
@@ -1181,7 +1186,9 @@ spec:
           name: cert
           readOnly: true
       securityContext:
-        runAsNonRoot: false
+        fsGroup: 2000
+        runAsGroup: 3000
+        runAsUser: 1000
       serviceAccountName: capvcd-controller-manager
       terminationGracePeriodSeconds: 10
       volumes:
@@ -1189,9 +1196,6 @@ spec:
         secret:
           defaultMode: 420
           secretName: webhook-server-cert
-      - configMap:
-          name: manager-config
-        name: controller-manager-config-volume
 ---
 apiVersion: cert-manager.io/v1
 kind: Certificate

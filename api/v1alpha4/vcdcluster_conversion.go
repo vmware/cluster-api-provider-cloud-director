@@ -1,8 +1,10 @@
 package v1alpha4
 
 import (
+	"github.com/vmware/cloud-provider-for-cloud-director/pkg/vcdsdk"
 	"github.com/vmware/cluster-api-provider-cloud-director/api/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/conversion"
+	"strings"
 )
 
 // ConvertTo converts this (v1alpha4)VCDCluster to the Hub version (v1beta1).
@@ -15,6 +17,7 @@ func (src *VCDCluster) ConvertTo(dstRaw conversion.Hub) error {
 	dst.Spec.ProxyConfig = v1beta1.ProxyConfig{}
 	// TODO: Update the new params to match previous release's Status; ex) dst.Spec.* = src.Status.*, maybe RDE.Status
 	dst.Spec.RDEId = src.Status.InfraId
+	dst.Spec.SkipRDE = strings.HasPrefix(src.Status.InfraId, vcdsdk.NoRdePrefix)
 	dst.Spec.ParentUID = ""
 	dst.Spec.UseAsManagementCluster = false // defaults to false
 	dst.Status.RdeVersionInUse = "1.0.0"

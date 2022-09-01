@@ -60,6 +60,7 @@ spec:
   rdeId: "urn:vcloud:entity:vmware:capvcdCluster:UUID" # rdeId if it is already created. If empty, CAPVCD will create one for the cluster.
   loadBalancer:
     vipSubnet: "" # Virtual IP CIDR for the external network
+  executeWithoutRDE: false
 ---
 apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
 kind: VCDMachineTemplate
@@ -74,6 +75,8 @@ spec:
       sizingPolicy: tkgm-sizing-policy # Sizing policy to be used for the control plane VMs (this must be pre-published on the chosen organization virtual datacenter)
       placementPolicy: tkgm-placement-policy # Placement policy to be used for worker VMs (this must be pre-published on the chosen organization virtual datacenter)
       storageProfile: "*" # Storage profile to be used for the control plane VMs (this must be pre-published on the chosen organization virtual datacenter)
+      diskSize: 20Gi  # DiskSize is the size of VM storage
+      nvidiaGPU: false   # NvidiaGPU is true when a VM should be created with the relevant binaries installed. If true, then an appropriate placement policy should be set
 ---
 apiVersion: controlplane.cluster.x-k8s.io/v1beta1
 kind: KubeadmControlPlane
@@ -136,6 +139,8 @@ spec:
       sizingPolicy: tkgm-sizing-policy # Sizing policy to be used for the worker VMs (this must be pre-published on the chosen organization virtual datacenter)
       placementPolicy: tkgm-placement-policy # Placement policy to be used for worker VMs (this must be pre-published on the chosen organization virtual datacenter)
       storageProfile: "*" # Storage profile to be used for the worker VMs (this must be pre-published on the chosen organization virtual datacenter)
+      diskSize: 20Gi   # DiskSize is the size of VM storage
+      nvidiaGPU: false   # NvidiaGPU is true when a VM should be created with the relevant binaries installed. If true, then an appropriate placement policy should be set
 ---
 apiVersion: bootstrap.cluster.x-k8s.io/v1beta1
 kind: KubeadmConfigTemplate

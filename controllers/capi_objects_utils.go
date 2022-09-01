@@ -17,6 +17,16 @@ import (
 	"strings"
 )
 
+const tkgVersionLabel = "TKGVERSION"
+
+func getTKGVersion(cluster *clusterv1.Cluster) string {
+	annotationsMap := cluster.GetAnnotations()
+	if tkgVersion, exists := annotationsMap[tkgVersionLabel]; exists {
+		return tkgVersion
+	}
+	return ""
+}
+
 // filterTypeMetaAndObjectMetaFromK8sObjectMap is a helper function to remove extraneous contents in "objectmeta" and "typemeta"
 //  keys. The function moves name and namespace from "objectmeta" key to "metadata" key and moves all the keys from "typemeta"
 //  key to objMap
@@ -260,6 +270,8 @@ func getNodePoolList(ctx context.Context, cli client.Client, cluster clusterv1.C
 			Name:            md.Name,
 			SizingPolicy:    vcdMachineTemplate.Spec.Template.Spec.SizingPolicy,
 			PlacementPolicy: vcdMachineTemplate.Spec.Template.Spec.PlacementPolicy,
+			NvidiaGpu:       vcdMachineTemplate.Spec.Template.Spec.NvidiaGPU,
+			StorageProfile:  vcdMachineTemplate.Spec.Template.Spec.StorageProfile,
 			Replicas:        md.Status.Replicas,
 			NodeStatus:      nodeStatusMap,
 		}
@@ -289,6 +301,8 @@ func getNodePoolList(ctx context.Context, cli client.Client, cluster clusterv1.C
 			Name:            kcp.Name,
 			SizingPolicy:    vcdMachineTemplate.Spec.Template.Spec.SizingPolicy,
 			PlacementPolicy: vcdMachineTemplate.Spec.Template.Spec.PlacementPolicy,
+			NvidiaGpu:       vcdMachineTemplate.Spec.Template.Spec.NvidiaGPU,
+			StorageProfile:  vcdMachineTemplate.Spec.Template.Spec.StorageProfile,
 			Replicas:        kcp.Status.Replicas,
 			NodeStatus:      nodeStatusMap,
 		}

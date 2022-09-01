@@ -215,6 +215,32 @@
                 "type": "object",
                 "properties": {}
               }
+            },
+            "createdByVersion": {
+              "type": "string",
+              "description": "CAPVCD version used to create the cluster"
+            },
+            "defaultStorageClass": {
+              "type": "object",
+              "description": "Default storage class configuration options.",
+              "properties": {
+                "vcdStorageProfileName": {
+                  "type": "string",
+                  "description": "Name of the VCD storage profile used to create the storage class."
+                },
+                "k8sStorageClassName": {
+                  "type": "string",
+                  "description": "Name of the kubernetes storage class."
+                },
+                "useDeleteReclaimPolicy": {
+                  "type": "boolean",
+                  "description": "Delete will be used as the Reclaim policy for the storage class if set to true. Otherwise, Retain will be used as the reclaim policy."
+                },
+                "fileSystem": {
+                  "type": "string",
+                  "description": "File system format for the persistent volumes created from the storage class."
+                }
+              }
             }
           }
         }

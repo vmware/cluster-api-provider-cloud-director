@@ -16,7 +16,9 @@ spec:
         control-plane: controller-manager
     spec:
       securityContext:
-        runAsNonRoot: false
+        runAsUser: 1000
+        runAsGroup: 3000
+        fsGroup: 2000
       containers:
       - command:
         - /opt/vcloud/bin/cluster-api-provider-cloud-director
@@ -43,9 +45,5 @@ spec:
           requests:
             cpu: 100m
             memory: 512Mi
-      volumes:
-        - name: controller-manager-config-volume
-          configMap:
-            name: manager-config
       serviceAccountName: controller-manager
       terminationGracePeriodSeconds: 10

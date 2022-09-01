@@ -44,30 +44,16 @@ import (
 )
 
 type CloudInitScriptInput struct {
-	ControlPlane              bool   // control plane node
-	NvidiaGPU                 bool   // configure containerd for NVIDIA libraries
-	BootstrapRunCmd           string // bootstrap run command
-	B64OrgUser                string // base 64 org/username
-	B64Password               string // base64 password
-	B64RefreshToken           string // refresh token
-	K8sStorageClassName       string // default storage class name
-	ReclaimPolicy             string // reclaim policy
-	VcdStorageProfileName     string // vcd storage profile
-	FileSystemFormat          string // filesystem
-	HTTPProxy                 string // httpProxy endpoint
-	HTTPSProxy                string // httpsProxy endpoint
-	NoProxy                   string // no proxy values
-	CpiVersion                string // cpi version
-	VcdHostFormatted          string // vcd host
-	ClusterOrgName            string // org
-	ClusterOVDCName           string // ovdc
-	NetworkName               string // network
-	VipSubnetCidr             string // vip subnet cidr - empty for now for CPI to select subnet
-	VAppName                  string // vApp name
-	ClusterID                 string // cluster id
-	CsiVersion                string // csi version
-	EnableDefaultStorageClass string // is_storage_class_enabled
-	MachineName               string // vm host name
+	ControlPlane     bool   // control plane node
+	NvidiaGPU        bool   // configure containerd for NVIDIA libraries
+	BootstrapRunCmd  string // bootstrap run command
+	HTTPProxy        string // httpProxy endpoint
+	HTTPSProxy       string // httpsProxy endpoint
+	NoProxy          string // no proxy values
+	MachineName      string // vm host name
+	VcdHostFormatted string // vcd host
+	TKGVersion       string // tkgVersion
+	ClusterID        string //cluster id
 }
 
 const (
@@ -213,11 +199,9 @@ func patchVCDMachine(ctx context.Context, patchHelper *patch.Helper, vcdMachine 
 const (
 	NetworkConfiguration                   = "guestinfo.postcustomization.networkconfiguration.status"
 	ProxyConfiguration                     = "guestinfo.postcustomization.proxy.setting.status"
+	MeteringConfiguration                  = "guestinfo.metering.status"
 	KubeadmInit                            = "guestinfo.postcustomization.kubeinit.status"
-	KubectlApplyCpi                        = "guestinfo.postcustomization.kubectl.cpi.install.status"
-	KubectlApplyCsi                        = "guestinfo.postcustomization.kubectl.csi.install.status"
 	KubeadmTokenGenerate                   = "guestinfo.postcustomization.kubeadm.token.generate.status"
-	KubectlApplyDefaultStorageClass        = "guestinfo.postcustomization.kubectl.default_storage_class.install.status"
 	KubeadmNodeJoin                        = "guestinfo.postcustomization.kubeadm.node.join.status"
 	NvidiaRuntimeInstall                   = "guestinfo.postcustomization.nvidia.runtime.install.status"
 	NvidiaContainerdConfiguration          = "guestinfo.postcustomization.containerd.nvidia.configuration.status"
@@ -227,16 +211,15 @@ const (
 
 var controlPlanePostCustPhases = []string{
 	NetworkConfiguration,
+	MeteringConfiguration,
 	ProxyConfiguration,
 	KubeadmInit,
-	KubectlApplyCpi,
-	KubectlApplyCsi,
 	KubeadmTokenGenerate,
-	KubectlApplyDefaultStorageClass,
 }
 
 var joinPostCustPhases = []string{
 	NetworkConfiguration,
+	MeteringConfiguration,
 	KubeadmNodeJoin,
 }
 
@@ -430,51 +413,20 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	cloudInitInput := CloudInitScriptInput{}
 	if !vcdMachine.Spec.Bootstrapped {
 		if useControlPlaneScript {
-			var (
-				orgUserStr = fmt.Sprintf("%s/%s", workloadVCDClient.VCDAuthConfig.UserOrg,
-					workloadVCDClient.VCDAuthConfig.User)
-				enableDefaultStorageClass = vcdCluster.Spec.DefaultStorageClassOptions.VCDStorageProfileName != ""
-				k8sStorageClassName       = ""
-				fileSystemFormat          = ""
-				vcdStorageProfileName     = ""
-				reclaimPolicy             = ReclaimPolicyRetain
-			)
-			if enableDefaultStorageClass {
-				k8sStorageClassName = vcdCluster.Spec.DefaultStorageClassOptions.K8sStorageClassName
-				if vcdCluster.Spec.DefaultStorageClassOptions.UseDeleteReclaimPolicy {
-					reclaimPolicy = ReclaimPolicyDelete
-				}
-				fileSystemFormat = vcdCluster.Spec.DefaultStorageClassOptions.FileSystem
-				vcdStorageProfileName = vcdCluster.Spec.DefaultStorageClassOptions.VCDStorageProfileName
-			}
-
 			cloudInitInput = CloudInitScriptInput{
-				ControlPlane:              true,
-				B64OrgUser:                b64.StdEncoding.EncodeToString([]byte(orgUserStr)),
-				B64Password:               b64.StdEncoding.EncodeToString([]byte(workloadVCDClient.VCDAuthConfig.Password)),
-				B64RefreshToken:           b64.StdEncoding.EncodeToString([]byte(workloadVCDClient.VCDAuthConfig.RefreshToken)),
-				K8sStorageClassName:       k8sStorageClassName,
-				ReclaimPolicy:             reclaimPolicy,
-				VcdStorageProfileName:     vcdStorageProfileName,
-				FileSystemFormat:          fileSystemFormat,
-				CpiVersion:                CpiDefaultVersion, // TODO: get from crs
-				CsiVersion:                CsiDefaultVersion, // TODO: get from crs
-				VcdHostFormatted:          strings.Replace(vcdCluster.Spec.Site, "/", "\\/", -1),
-				ClusterOrgName:            workloadVCDClient.ClusterOrgName,
-				ClusterOVDCName:           workloadVCDClient.ClusterOVDCName,
-				NetworkName:               vcdCluster.Spec.OvdcNetwork,
-				VipSubnetCidr:             "", // vip subnet cidr - empty for now for CPI to select subnet
-				VAppName:                  vAppName,
-				ClusterID:                 vcdCluster.Status.InfraId,
-				EnableDefaultStorageClass: strconv.FormatBool(enableDefaultStorageClass),
+				ControlPlane: true,
 			}
 		}
+
 		cloudInitInput.HTTPSProxy = vcdCluster.Spec.ProxyConfig.HTTPProxy
 		cloudInitInput.HTTPSProxy = vcdCluster.Spec.ProxyConfig.HTTPSProxy
 		cloudInitInput.NoProxy = vcdCluster.Spec.ProxyConfig.NoProxy
 		cloudInitInput.MachineName = machine.Name
+		// TODO: After tenants has access to siteId, populate siteId to cloudInitInput as opposed to the site
+		cloudInitInput.VcdHostFormatted = strings.ReplaceAll(vcdCluster.Spec.Site, "/", "\\/")
 		cloudInitInput.NvidiaGPU = vcdMachine.Spec.NvidiaGPU
-
+		cloudInitInput.TKGVersion = getTKGVersion(cluster)   // needed for both worker & control plane machines for metering
+		cloudInitInput.ClusterID = vcdCluster.Status.InfraId // needed for both worker & control plane machines for metering
 	}
 
 	mergedCloudInitBytes, err := MergeJinjaToCloudInitScript(cloudInitInput, bootstrapJinjaScript)
@@ -551,17 +503,29 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		// 	VCDResourceSet can get bloated with VMs if the cluster contains a large number of worker nodes
 	}
 
-	// set address in machine status
-	if vm.VM == nil ||
-		vm.VM.NetworkConnectionSection == nil ||
-		len(vm.VM.NetworkConnectionSection.NetworkConnection) == 0 ||
-		vm.VM.NetworkConnectionSection.NetworkConnection[0] == nil ||
-		vm.VM.NetworkConnectionSection.NetworkConnection[0].IPAddress == "" {
-
-		log.Error(nil, fmt.Sprintf("Requeuing...; failed to get the machine address of vm [%#v]", vm))
+	// checks before setting address in machine status
+	if vm.VM == nil {
+		log.Error(nil, fmt.Sprintf("Requeuing...; vm.VM should not be nil: [%#v]", vm))
+		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
+	}
+	if vm.VM.NetworkConnectionSection == nil || len(vm.VM.NetworkConnectionSection.NetworkConnection) == 0 {
+		log.Error(nil, fmt.Sprintf("Requeuing...; network connection section was not found for vm [%s(%s)]: [%#v]", vm.VM.Name, vm.VM.ID, vm.VM))
 		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
 	}
 
+	if vm.VM.NetworkConnectionSection.NetworkConnection[0] == nil {
+		log.Error(nil, fmt.Sprintf("Requeuing...; failed to get existing network connection information for vm [%s(%s)]: [%#v]. NetworkConnection[0] should not be nil",
+			vm.VM.Name, vm.VM.ID, vm.VM.NetworkConnectionSection))
+		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
+	}
+
+	if vm.VM.NetworkConnectionSection.NetworkConnection[0].IPAddress == "" {
+		log.Error(nil, fmt.Sprintf("Requeuing...; NetworkConnection[0] IP Address should not be empty for vm [%s(%s)]: [%#v]",
+			vm.VM.Name, vm.VM.ID, *vm.VM.NetworkConnectionSection.NetworkConnection[0]))
+		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
+	}
+
+	// set address in machine status
 	machineAddress := vm.VM.NetworkConnectionSection.NetworkConnection[0].IPAddress
 	vcdMachine.Status.Addresses = []clusterv1.MachineAddress{
 		{
@@ -731,7 +695,7 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	phases := controlPlanePostCustPhases
 	if !useControlPlaneScript {
 		if vcdMachine.Spec.NvidiaGPU {
-			phases = []string{joinPostCustPhases[0], NvidiaRuntimeInstall, joinPostCustPhases[1], NvidiaContainerdConfiguration}
+			phases = []string{joinPostCustPhases[0], joinPostCustPhases[1], NvidiaRuntimeInstall, joinPostCustPhases[2], NvidiaContainerdConfiguration}
 		} else {
 			phases = joinPostCustPhases
 		}
