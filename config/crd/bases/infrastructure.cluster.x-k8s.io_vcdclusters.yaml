@@ -171,22 +171,6 @@ spec:
                 - host
                 - port
                 type: object
-              defaultStorageClassOptions:
-                properties:
-                  fileSystem:
-                    default: ext4
-                    type: string
-                  k8sStorageClassName:
-                    default: cloud-director-default
-                    type: string
-                  useDeleteReclaimPolicy:
-                    default: false
-                    type: boolean
-                  vcdStorageProfileName:
-                    type: string
-                required:
-                - vcdStorageProfileName
-                type: object
               loadBalancer:
                 description: LoadBalancer defines load-balancer configuration for
                   the Cluster both for the control plane nodes and for the CPI
@@ -303,22 +287,6 @@ spec:
                   - type
                   type: object
                 type: array
-              defaultStorageClassOptions:
-                properties:
-                  fileSystem:
-                    default: ext4
-                    type: string
-                  k8sStorageClassName:
-                    default: cloud-director-default
-                    type: string
-                  useDeleteReclaimPolicy:
-                    default: false
-                    type: boolean
-                  vcdStorageProfileName:
-                    type: string
-                required:
-                - vcdStorageProfileName
-                type: object
               infraId:
                 type: string
               parentUid:
