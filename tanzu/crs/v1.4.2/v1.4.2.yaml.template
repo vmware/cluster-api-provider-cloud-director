@@ -2625,44 +2625,6 @@ stringData:
           terminationGracePeriodSeconds: 10
 type: addons.cluster.x-k8s.io/resource-set
 ---
-apiVersion: cluster.x-k8s.io/v1alpha3
-kind: MachineHealthCheck
-metadata:
-  name: __CLUSTER_NAME__
-  namespace: __NAMESPACE_NAME__
-spec:
-  clusterName: __CLUSTER_NAME__
-  nodeStartupTimeout: 20m
-  selector:
-    matchLabels:
-      node-pool: __CLUSTER_NAME__-worker-pool
-  unhealthyConditions:
-  - status: Unknown
-    timeout: 5m
-    type: Ready
-  - status: "False"
-    timeout: 12m
-    type: Ready
----
-apiVersion: cluster.x-k8s.io/v1alpha3
-kind: MachineHealthCheck
-metadata:
-  name: __CLUSTER_NAME__-control-plane
-  namespace: __NAMESPACE_NAME__
-spec:
-  clusterName: __CLUSTER_NAME__
-  nodeStartupTimeout: 20m
-  selector:
-    matchLabels:
-      cluster.x-k8s.io/control-plane: ""
-  unhealthyConditions:
-  - status: Unknown
-    timeout: 5m
-    type: Ready
-  - status: "False"
-    timeout: 12m
-    type: Ready
----
 apiVersion: addons.cluster.x-k8s.io/v1alpha3
 kind: ClusterResourceSet
 metadata:
