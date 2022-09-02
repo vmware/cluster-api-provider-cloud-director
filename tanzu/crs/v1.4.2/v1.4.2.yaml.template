@@ -29,7 +29,7 @@ stringData:
     apiVersion: v1
     kind: Namespace
     metadata:
-      name: __NAMESPACE_NAME__
+      name: tkg-system
       annotations:
         tkg.tanzu.vmware.com/addon-type: addons-management/kapp-controller
     ---
@@ -51,7 +51,7 @@ stringData:
       groupPriorityMinimum: 100
       service:
         name: packaging-api
-        namespace: __NAMESPACE_NAME__
+        namespace: tkg-system
       version: v1alpha1
       versionPriority: 100
     ---
@@ -59,7 +59,7 @@ stringData:
     kind: Service
     metadata:
       name: packaging-api
-      namespace: __NAMESPACE_NAME__
+      namespace: tkg-system
       annotations:
         tkg.tanzu.vmware.com/addon-type: addons-management/kapp-controller
     spec:
@@ -1278,7 +1278,7 @@ stringData:
     kind: ConfigMap
     metadata:
       name: kapp-controller-config
-      namespace: __NAMESPACE_NAME__
+      namespace: tkg-system
       annotations:
         kapp.k14s.io/change-group: apps.kappctrl.k14s.io/kapp-controller-config
         tkg.tanzu.vmware.com/addon-type: addons-management/kapp-controller
@@ -1297,7 +1297,7 @@ stringData:
         kapp.k14s.io/change-rule: upsert after upserting apps.kappctrl.k14s.io/kapp-controller-config
         tkg.tanzu.vmware.com/addon-type: addons-management/kapp-controller
       name: kapp-controller
-      namespace: __NAMESPACE_NAME__
+      namespace: tkg-system
     spec:
       replicas: 1
       revisionHistoryLimit: 0
@@ -1362,7 +1362,7 @@ stringData:
     kind: ServiceAccount
     metadata:
       name: kapp-controller-sa
-      namespace: __NAMESPACE_NAME__
+      namespace: tkg-system
       annotations:
         tkg.tanzu.vmware.com/addon-type: addons-management/kapp-controller
     ---
@@ -1485,7 +1485,7 @@ stringData:
     subjects:
     - kind: ServiceAccount
       name: kapp-controller-sa
-      namespace: __NAMESPACE_NAME__
+      namespace: tkg-system
     ---
     apiVersion: rbac.authorization.k8s.io/v1
     kind: ClusterRoleBinding
@@ -1500,7 +1500,7 @@ stringData:
     subjects:
     - kind: ServiceAccount
       name: kapp-controller-sa
-      namespace: __NAMESPACE_NAME__
+      namespace: tkg-system
     ---
     apiVersion: rbac.authorization.k8s.io/v1
     kind: RoleBinding
@@ -1531,7 +1531,7 @@ stringData:
     apiVersion: v1
     kind: Namespace
     metadata:
-      name: __NAMESPACE_NAME__-public
+      name: tkg-system-public
       annotations:
         tkg.tanzu.vmware.com/addon-type: metadata/tkg
     ---
@@ -1539,7 +1539,7 @@ stringData:
     kind: Role
     metadata:
       name: tkg-metadata-reader
-      namespace: __NAMESPACE_NAME__-public
+      namespace: tkg-system-public
       annotations:
         tkg.tanzu.vmware.com/addon-type: metadata/tkg
     rules:
@@ -1559,7 +1559,7 @@ stringData:
     kind: RoleBinding
     metadata:
       name: tkg-metadata-reader
-      namespace: __NAMESPACE_NAME__-public
+      namespace: tkg-system-public
       annotations:
         tkg.tanzu.vmware.com/addon-type: metadata/tkg
     roleRef:
@@ -1585,7 +1585,7 @@ stringData:
     kind: ConfigMap
     metadata:
       name: tkg-metadata
-      namespace: __NAMESPACE_NAME__-public
+      namespace: tkg-system-public
       annotations:
         tkg.tanzu.vmware.com/addon-type: metadata/tkg
     data:
@@ -1616,7 +1616,7 @@ stringData:
     kind: ConfigMap
     metadata:
       name: tkg-bom
-      namespace: __NAMESPACE_NAME__-public
+      namespace: tkg-system-public
       annotations:
         tkg.tanzu.vmware.com/addon-type: metadata/tkg
     data:
@@ -2085,7 +2085,7 @@ stringData:
     kind: PackageRepository
     metadata:
       name: tanzu-core
-      namespace: __NAMESPACE_NAME__
+      namespace: tkg-system
       annotations:
         tkg.tanzu.vmware.com/addon-type: addons-management/core-package-repo
     spec:
@@ -2166,7 +2166,7 @@ stringData:
     kind: ServiceAccount
     metadata:
       name: tanzu-addons-package-sa
-      namespace: __NAMESPACE_NAME__
+      namespace: tkg-system
       annotations:
         ext.packaging.carvel.dev/ytt-data-values-overlays: tanzu-addons-manager-data-values
         tkg.tanzu.vmware.com/addon-type: addons-management/tanzu-addons-manager
@@ -2200,13 +2200,13 @@ stringData:
     subjects:
     - kind: ServiceAccount
       name: tanzu-addons-package-sa
-      namespace: __NAMESPACE_NAME__
+      namespace: tkg-system
     ---
     apiVersion: packaging.carvel.dev/v1alpha1
     kind: PackageInstall
     metadata:
       name: tanzu-addons-manager
-      namespace: __NAMESPACE_NAME__
+      namespace: tkg-system
       annotations:
         ext.packaging.carvel.dev/ytt-data-values-overlays: tanzu-addons-manager-data-values
         tkg.tanzu.vmware.com/addon-type: addons-management/tanzu-addons-manager
@@ -2224,7 +2224,7 @@ stringData:
     kind: Secret
     metadata:
       name: tanzu-addons-manager-data-values
-      namespace: __NAMESPACE_NAME__
+      namespace: tkg-system
       annotations:
         ext.packaging.carvel.dev/ytt-data-values-overlays: tanzu-addons-manager-data-values
         tkg.tanzu.vmware.com/addon-type: addons-management/tanzu-addons-manager
@@ -2235,7 +2235,7 @@ stringData:
         #@overlay/match-child-defaults missing_ok=True
         ---
         tanzuAddonsManager:
-          namespace: __NAMESPACE_NAME__
+          namespace: tkg-system
           createNamespace: false
           deployment:
             hostNetwork: true
@@ -2264,7 +2264,7 @@ stringData:
     #@overlay/match-child-defaults missing_ok=True
     ---
     tanzuAddonsManager:
-      namespace: __NAMESPACE_NAME__
+      namespace: tkg-system
       createNamespace: false
       deployment:
         hostNetwork: true
@@ -2922,7 +2922,7 @@ stringData:
       labels:
         app: tanzu-capabilities-manager
       name: tanzu-capabilities-manager-sa
-      namespace: __NAMESPACE_NAME__
+      namespace: tkg-system
     ---
     apiVersion: rbac.authorization.k8s.io/v1
     kind: ClusterRole
@@ -2998,7 +2998,7 @@ stringData:
     subjects:
     - kind: ServiceAccount
       name: tanzu-capabilities-manager-sa
-      namespace: __NAMESPACE_NAME__
+      namespace: tkg-system
     ---
     apiVersion: apps/v1
     kind: Deployment
@@ -3006,7 +3006,7 @@ stringData:
       labels:
         app: tanzu-capabilities-manager
       name: tanzu-capabilities-controller-manager
-      namespace: __NAMESPACE_NAME__
+      namespace: tkg-system
     spec:
       replicas: 1
       selector:
