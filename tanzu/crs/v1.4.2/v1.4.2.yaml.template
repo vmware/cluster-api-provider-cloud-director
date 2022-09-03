@@ -1516,7 +1516,7 @@ stringData:
     subjects:
     - kind: ServiceAccount
       name: kapp-controller-sa
-      namespace: __NAMESPACE_NAME__
+      namespace: tkg-system
 type: addons.cluster.x-k8s.io/resource-set
 ---
 apiVersion: v1
