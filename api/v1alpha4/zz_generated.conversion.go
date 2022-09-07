@@ -333,13 +333,11 @@ func autoConvert_v1beta1_VCDClusterSpec_To_v1alpha4_VCDClusterSpec(in *v1beta1.V
 	if err := Convert_v1beta1_UserCredentialsContext_To_v1alpha4_UserCredentialsContext(&in.UserCredentialsContext, &out.UserCredentialsContext, s); err != nil {
 		return err
 	}
-	// WARNING: in.DefaultStorageClassOptions requires manual conversion: does not exist in peer-type
 	// WARNING: in.RDEId requires manual conversion: does not exist in peer-type
 	// WARNING: in.ParentUID requires manual conversion: does not exist in peer-type
 	// WARNING: in.UseAsManagementCluster requires manual conversion: does not exist in peer-type
 	// WARNING: in.ProxyConfig requires manual conversion: does not exist in peer-type
 	// WARNING: in.LoadBalancer requires manual conversion: does not exist in peer-type
-	// WARNING: in.SkipRDE requires manual conversion: does not exist in peer-type
 	return nil
 }
 
@@ -364,7 +362,6 @@ func autoConvert_v1beta1_VCDClusterStatus_To_v1alpha4_VCDClusterStatus(in *v1bet
 	// WARNING: in.ParentUID requires manual conversion: does not exist in peer-type
 	// WARNING: in.UseAsManagementCluster requires manual conversion: does not exist in peer-type
 	// WARNING: in.ProxyConfig requires manual conversion: does not exist in peer-type
-	// WARNING: in.DefaultStorageClassOptions requires manual conversion: does not exist in peer-type
 	return nil
 }
 

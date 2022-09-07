@@ -25,6 +25,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/klog"
 	"net/http"
+	"os"
 	"reflect"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	"sigs.k8s.io/cluster-api/util"
@@ -40,6 +41,8 @@ import (
 )
 
 const (
+	EnvSkipRDE = "CAPVCD_SKIP_RDE"
+
 	CAPVCDClusterCniName = "antrea" // TODO: Get the correct value for CNI name
 
 	RDEStatusResolved = "RESOLVED"
@@ -61,6 +64,7 @@ var (
 		StartIP: "192.168.8.2",
 		EndIP:   "192.168.8.100",
 	}
+	SkipRDE = vcdutil.Str2Bool(os.Getenv(EnvSkipRDE))
 )
 
 // VCDClusterReconciler reconciles a VCDCluster object
@@ -506,77 +510,95 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	}
 
 	infraID := vcdCluster.Status.InfraId
-	shouldCreateRDE := !vcdCluster.Spec.SkipRDE
+	specInfraID := vcdCluster.Spec.RDEId
 
-	// General note on RDE operations, always ensure CAPVCD cluster reconciliation progress
-	//is not affected by any RDE operation failures.
-	capvcdRdeManager := capisdk.NewCapvcdRdeManager(workloadVCDClient, infraID)
-
-	// fail cluster creation if RDE should be created but capvcdCluster entity type is not registered
-	if shouldCreateRDE && !capvcdRdeManager.IsCapvcdEntityTypeRegistered(rdeType.CapvcdRDETypeVersion) {
-		return ctrl.Result{}, errors.Wrapf(errors.New("capvcdCluster entity type not registered or capvcdCluster rights missing from the user's role"),
-			"cluster create issued with executeWithoutRDE=[%v] but unable to create capvcdCluster entity at version [%s]",
-			vcdCluster.Spec.SkipRDE, rdeType.CapvcdRDETypeVersion)
-	}
-
-	// Use the pre-created RDEId specified in the CAPI yaml specification.
-	// TODO validate if the RDE ID format is correct.
-	if infraID == "" && len(vcdCluster.Spec.RDEId) > 0 {
-		infraID = vcdCluster.Spec.RDEId
-		if shouldCreateRDE {
-			_, rdeVersion, err := capvcdRdeManager.GetRDEVersion(ctx, infraID)
-			if err != nil {
-				return ctrl.Result{}, errors.Wrapf(err,
-					"\"Unexpected error retrieving RDE [%s] for the cluster [%s]", infraID, vcdCluster.Name)
-			}
-			// update the RdeVersionInUse with the entity type version of the rde.
-			vcdCluster.Status.RdeVersionInUse = rdeVersion
-		}
-	}
-
-	// Create a new RDE if it was not already created or assigned.
 	if infraID == "" {
-		if shouldCreateRDE {
+		infraID = specInfraID
+	}
+
+	// creating RDEs for the clusters -
+	// 1. clusters already created will have NO_RDE_ prefix in the infra ID. We should make sure that the cluster can co-exist
+	// 2. Clusters which are newly created should check for CAPVCD_SKIP_RDE environment variable to determine if an RDE should be created for the cluster
+
+	// NOTE: If CAPVCD_SKIP_RDE is not set, CAPVCD will error out if there is any error in RDE creation
+	capvcdRdeManager := capisdk.NewCapvcdRdeManager(workloadVCDClient, infraID)
+	rdeVersionInUse := vcdCluster.Status.RdeVersionInUse
+	if infraID == "" {
+		// Create RDE for the cluster or generate a NO_RDE infra ID for the cluster.
+		if !SkipRDE {
+			// Create an RDE for the cluster. If RDE creation results in a failure, error out cluster creation.
+			// check rights for RDE creation and create an RDE
+			if !capvcdRdeManager.IsCapvcdEntityTypeRegistered(rdeType.CapvcdRDETypeVersion) {
+				return ctrl.Result{}, errors.Wrapf(errors.New("capvcdCluster entity type not registered or capvcdCluster rights missing from the user's role"),
+					"cluster create issued with executeWithoutRDE=[%v] but unable to create capvcdCluster entity at version [%s]",
+					vcdCluster.Spec.SkipRDE, rdeType.CapvcdRDETypeVersion)
+			}
+			// create RDE
 			nameFilter := &swagger.DefinedEntityApiGetDefinedEntitiesByEntityTypeOpts{
 				Filter: optional.NewString(fmt.Sprintf("name==%s", vcdCluster.Name)),
 			}
+			// the following api call will return an empty list if there are no entities with the same name as the cluster
 			definedEntities, resp, err := workloadVCDClient.APIClient.DefinedEntityApi.GetDefinedEntitiesByEntityType(ctx,
 				capisdk.CAPVCDTypeVendor, capisdk.CAPVCDTypeNss, rdeType.CapvcdRDETypeVersion, 1, 25, nameFilter)
 			if err != nil {
 				log.Error(err, "Error while checking if RDE is already present for the cluster",
 					"entityTypeId", CAPVCDEntityTypeID)
+				return ctrl.Result{}, errors.Wrapf(err, "Error while checking if RDE is already present for the cluster with entity type ID [%s]",
+					CAPVCDEntityTypeID)
 			}
 			if resp == nil {
-				log.Error(nil, "Error while checking if RDE is already present for the cluster; "+
-					"obtained an empty response for get defined entity call for the cluster")
+				msg := fmt.Sprintf("Error while checking if RDE for the cluster [%s] is already present for the cluster; "+
+					"obtained an empty response for get defined entity call for the cluster", vcdCluster.Name)
+				log.Error(nil, msg)
+				return ctrl.Result{}, errors.Wrapf(fmt.Errorf(msg), msg)
+
 			} else if resp.StatusCode != http.StatusOK {
-				log.Error(nil, "Error while checking if RDE is already present for the cluster",
-					"entityTypeId", CAPVCDEntityTypeID, "responseStatusCode", resp.StatusCode)
+				msg := fmt.Sprintf("Invalid status code [%d] while checking if RDE is already present for the cluster using the entityTYpeID [%s]",
+					resp.StatusCode, CAPVCDEntityTypeID)
+				log.Error(nil, msg)
+				return ctrl.Result{}, errors.Wrapf(err, msg)
 			}
+			// create an RDE with the same name as the vcdCluster object if there are no RDEs with the same name as the vcdCluster object
 			if err == nil && resp != nil && resp.StatusCode == http.StatusOK {
 				if len(definedEntities.Values) == 0 {
 					rdeID, err := r.constructAndCreateRDEFromCluster(ctx, workloadVCDClient, cluster, vcdCluster)
 					if err != nil {
 						log.Error(err, "Error creating RDE for the cluster")
-					} else {
-						infraID = rdeID
+						return ctrl.Result{}, errors.Wrapf(err, "error creating RDE for the cluster %s", vcdCluster.Name)
 					}
-					vcdCluster.Status.RdeVersionInUse = rdeType.CapvcdRDETypeVersion
+					infraID = rdeID
 				} else {
 					log.Info("RDE for the cluster is already present; skipping RDE creation", "InfraId",
 						definedEntities.Values[0].Id)
 					infraID = definedEntities.Values[0].Id
 				}
 			}
+			rdeVersionInUse = rdeType.CapvcdRDETypeVersion
 		} else {
 			// If there is no RDE ID specified (or) created for any reason, self-generate one and use.
 			// We need UUIDs to single-instance cleanly in the Virtual Services etc.
 			noRDEID := NoRdePrefix + uuid.New().String()
 			log.Info("Error retrieving InfraId. Hence using a self-generated UUID", "UUID", noRDEID)
 			infraID = noRDEID
+			rdeVersionInUse = NoRdePrefix
 		}
+
 	} else {
 		log.V(3).Info("Reusing already available InfraID", "infraID", infraID)
+		if strings.Contains(infraID, NoRdePrefix) {
+			log.V(3).Info("Infra ID has NO_RDE_ prefix. Using RdeVersionInUse -", "RdeVersionInUse", NoRdePrefix)
+			rdeVersionInUse = NoRdePrefix
+		} else {
+			_, rdeVersion, err := capvcdRdeManager.GetRDEVersion(ctx, infraID)
+			if err != nil {
+				return ctrl.Result{}, errors.Wrapf(err,
+					"\"Unexpected error retrieving RDE [%s] for the cluster [%s]", infraID, vcdCluster.Name)
+			}
+			// update the RdeVersionInUse with the entity type version of the rde.
+			rdeVersionInUse = rdeVersion
+		}
+
+		// upgrade RDE if necessary
 		if !strings.Contains(infraID, NoRdePrefix) && vcdCluster.Status.RdeVersionInUse != "" &&
 			vcdCluster.Status.RdeVersionInUse != rdeType.CapvcdRDETypeVersion {
 			capvcdRdeManager := capisdk.NewCapvcdRdeManager(workloadVCDClient, infraID)
@@ -607,7 +629,7 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 			if err != nil {
 				log.Error(err, "failed to remove RDE-upgrade error (RDE upgraded successfully) ", "rdeID", infraID)
 			}
-			vcdCluster.Status.RdeVersionInUse = rdeType.CapvcdRDETypeVersion
+			rdeVersionInUse = rdeType.CapvcdRDETypeVersion
 		}
 	}
 
@@ -616,25 +638,19 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		log.Error(err, "failed to add RdeAvailable event", "rdeID", infraID)
 	}
 
-	vcdCluster.Spec.RDEId = infraID
-	log.Info("infraID for the cluster is", "infraID", infraID)
+	if vcdCluster.Status.InfraId != infraID || vcdCluster.Status.RdeVersionInUse != rdeVersionInUse {
+		log.Info("updating vcdCluster with the following data", "vcdCluster.Status.InfraId", infraID, "vcdCluster.Status.RdeVersionInUse", rdeVersionInUse)
 
-	// If the vcdClusterObject does not have the InfraId set, we need to set it. If it has one, we can reuse it.
-	if vcdCluster.Status.InfraId == "" {
 		oldVCDCluster := vcdCluster.DeepCopy()
-
 		vcdCluster.Status.InfraId = infraID
-		if vcdCluster.Spec.SkipRDE {
-			vcdCluster.Status.RdeVersionInUse = NoRdePrefix
-		} else {
-			vcdCluster.Status.RdeVersionInUse = rdeType.CapvcdRDETypeVersion
-		}
+		vcdCluster.Status.RdeVersionInUse = rdeVersionInUse
 		if err := r.Status().Patch(ctx, vcdCluster, client.MergeFrom(oldVCDCluster)); err != nil {
 			return ctrl.Result{}, errors.Wrapf(err,
 				"unable to patch status of vcdCluster [%s] with InfraID [%s], RDEVersion [%s]",
 				vcdCluster.Name, infraID, rdeType.CapvcdRDETypeVersion)
 		}
 	}
+	vcdCluster.Spec.RDEId = infraID
 
 	rdeManager := vcdsdk.NewRDEManager(workloadVCDClient, vcdCluster.Status.InfraId,
 		capisdk.StatusComponentNameCAPVCD, release.CAPVCDVersion)
