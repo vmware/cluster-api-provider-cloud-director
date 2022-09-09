@@ -204,7 +204,6 @@ const (
 	KubeadmTokenGenerate                   = "guestinfo.postcustomization.kubeadm.token.generate.status"
 	KubeadmNodeJoin                        = "guestinfo.postcustomization.kubeadm.node.join.status"
 	NvidiaRuntimeInstall                   = "guestinfo.postcustomization.nvidia.runtime.install.status"
-	NvidiaContainerdConfiguration          = "guestinfo.postcustomization.containerd.nvidia.configuration.status"
 	PostCustomizationScriptExecutionStatus = "guestinfo.post_customization_script_execution_status"
 	PostCustomizationScriptFailureReason   = "guestinfo.post_customization_script_execution_failure_reason"
 )
@@ -695,7 +694,7 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	phases := controlPlanePostCustPhases
 	if !useControlPlaneScript {
 		if vcdMachine.Spec.NvidiaGPU {
-			phases = []string{joinPostCustPhases[0], joinPostCustPhases[1], NvidiaRuntimeInstall, joinPostCustPhases[2], NvidiaContainerdConfiguration}
+			phases = []string{joinPostCustPhases[0], joinPostCustPhases[1], NvidiaRuntimeInstall}
 		} else {
 			phases = joinPostCustPhases
 		}
