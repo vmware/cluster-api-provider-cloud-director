@@ -4,15 +4,6 @@
       "type": "object",
       "description": "The network-related settings for the cluster.",
       "properties": {
-        "cni": {
-          "type": "object",
-          "description": "The CNI to use.",
-          "properties": {
-            "name": {
-              "type": "string"
-            }
-          }
-        },
         "pods": {
           "type": "object",
           "description": "The network settings for Kubernetes pods.",

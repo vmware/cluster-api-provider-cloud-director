@@ -10,6 +10,7 @@ import (
 	_ "embed"
 	"fmt"
 	"github.com/antihax/optional"
+	"github.com/blang/semver"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	vcdsdkutil "github.com/vmware/cloud-provider-for-cloud-director/pkg/util"
@@ -42,8 +43,6 @@ import (
 
 const (
 	EnvSkipRDE = "CAPVCD_SKIP_RDE"
-
-	CAPVCDClusterCniName = "antrea" // TODO: Get the correct value for CNI name
 
 	RDEStatusResolved = "RESOLVED"
 	VCDLocationHeader = "Location"
@@ -185,6 +184,48 @@ func addLBResourcesToVCDResourceSet(ctx context.Context, rdeManager *vcdsdk.RDEM
 	return nil
 }
 
+func validateDerivedRDEProperties(vcdCluster *infrav1.VCDCluster, infraID string, rdeVersionInUse string) error {
+	// If the RDEVersionInUse is NO_RDE_ then there RDEVersionInUse cannot change
+	// If the RDEVersionInUse is a semantic version, RDEVersionInUse can only be upgraded to a higher version
+	// InfraID is not expected to change
+	if infraID == "" || rdeVersionInUse == "" {
+		return fmt.Errorf("empty values derived for infraID or RDEVersionInUse - InfraID: [%s], RDEVersionInUse: [%s]",
+			infraID, rdeVersionInUse)
+	}
+	if vcdCluster.Spec.RDEId != "" && vcdCluster.Spec.RDEId != infraID {
+		return fmt.Errorf("derived infraID [%s] is different from the infraID in VCDCluster spec [%s]",
+			infraID, vcdCluster.Spec.RDEId)
+	}
+	if vcdCluster.Status.InfraId != "" && vcdCluster.Status.InfraId != infraID {
+		// infra ID cannot change
+		return fmt.Errorf("derived infraID [%s] is different from the infraID in VCDCluster status [%s]",
+			infraID, vcdCluster.Status.InfraId)
+	}
+	if vcdCluster.Status.RdeVersionInUse != "" && vcdCluster.Status.RdeVersionInUse != NoRdePrefix {
+		statusRdeVersion, err := semver.New(vcdCluster.Status.RdeVersionInUse)
+		if err != nil {
+			return fmt.Errorf("invalid RDE version [%s] in VCDCluster status", vcdCluster.Status.RdeVersionInUse)
+		}
+		newRdeVersion, err := semver.New(rdeVersionInUse)
+		if err != nil {
+			return fmt.Errorf("invalid RDE verison [%s] derived", rdeVersionInUse)
+		}
+		if newRdeVersion.LT(*statusRdeVersion) {
+			return fmt.Errorf("derived RDE version [%s] is lesser than RDE version in VCDCluster status [%s]",
+				rdeVersionInUse, vcdCluster.Status.RdeVersionInUse)
+		}
+	}
+	if vcdCluster.Status.RdeVersionInUse == NoRdePrefix && rdeVersionInUse != NoRdePrefix {
+		return fmt.Errorf("RDE version in VCDCluster status [%s] is auto generated while the derived RDE version [%s] is not ",
+			vcdCluster.Status.RdeVersionInUse, rdeVersionInUse)
+	}
+	if vcdCluster.Status.RdeVersionInUse != NoRdePrefix && rdeVersionInUse == NoRdePrefix {
+		return fmt.Errorf("derived RDE version in VCDCluster [%s] is auto generated while RDE version in VCDCluster status [%s] is not",
+			rdeVersionInUse, vcdCluster.Status.RdeVersionInUse)
+	}
+	return nil
+}
+
 // TODO: Remove uncommented code when decision to only keep capi.yaml as part of RDE spec is finalized
 func (r *VCDClusterReconciler) constructCapvcdRDE(ctx context.Context, cluster *clusterv1.Cluster,
 	vcdCluster *infrav1.VCDCluster) (*swagger.DefinedEntity, error) {
@@ -228,9 +269,6 @@ func (r *VCDClusterReconciler) constructCapvcdRDE(ctx context.Context, cluster *
 				CapvcdVersion:          release.CAPVCDVersion,
 				UseAsManagementCluster: vcdCluster.Spec.UseAsManagementCluster,
 				K8sNetwork: rdeType.K8sNetwork{
-					Cni: rdeType.Cni{
-						Name: CAPVCDClusterCniName,
-					},
 					Pods: rdeType.Pods{
 						CidrBlocks: cluster.Spec.ClusterNetwork.Pods.CIDRBlocks,
 					},
@@ -585,7 +623,7 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 
 	} else {
 		log.V(3).Info("Reusing already available InfraID", "infraID", infraID)
-		if strings.Contains(infraID, NoRdePrefix) {
+		if strings.HasPrefix(infraID, NoRdePrefix) {
 			log.V(3).Info("Infra ID has NO_RDE_ prefix. Using RdeVersionInUse -", "RdeVersionInUse", NoRdePrefix)
 			rdeVersionInUse = NoRdePrefix
 		} else {
@@ -638,7 +676,13 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		log.Error(err, "failed to add RdeAvailable event", "rdeID", infraID)
 	}
 
-	if vcdCluster.Status.InfraId != infraID || vcdCluster.Status.RdeVersionInUse != rdeVersionInUse {
+	if err := validateDerivedRDEProperties(vcdCluster, infraID, rdeVersionInUse); err != nil {
+		log.Error(err, "Error validating derived infraID and RDE version")
+		return ctrl.Result{}, errors.Wrapf(err, "error validating derived infraID and RDE version with VCDCluster status")
+	}
+
+	if vcdCluster.Status.InfraId == "" || vcdCluster.Status.RdeVersionInUse != rdeVersionInUse || vcdCluster.Spec.RDEId == "" {
+		// update the status
 		log.Info("updating vcdCluster with the following data", "vcdCluster.Status.InfraId", infraID, "vcdCluster.Status.RdeVersionInUse", rdeVersionInUse)
 
 		oldVCDCluster := vcdCluster.DeepCopy()
@@ -650,7 +694,6 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 				vcdCluster.Name, infraID, rdeType.CapvcdRDETypeVersion)
 		}
 	}
-	vcdCluster.Spec.RDEId = infraID
 
 	rdeManager := vcdsdk.NewRDEManager(workloadVCDClient, vcdCluster.Status.InfraId,
 		capisdk.StatusComponentNameCAPVCD, release.CAPVCDVersion)

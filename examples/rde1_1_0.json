@@ -41,9 +41,6 @@
       "errors":["Machine<name>creationFailed_timestamp, "],
       "conditions":[],
       "k8sNetwork": {
-        "cni": {
-          "name": "ABCDEFGHIJKLMN"
-        },
         "pods": {
           "cidrBlocks": []
         },
