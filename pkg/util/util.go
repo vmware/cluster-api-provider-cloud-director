@@ -79,5 +79,8 @@ func Float2FloatPtr(val float64) *float64 {
 
 // Str2Bool returns true if the string value is not false
 func Str2Bool(val string) bool {
-	return strings.ToLower(val) != "false"
+	if strings.ToLower(val) == "true" {
+		return true
+	}
+	return false
 }

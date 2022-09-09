@@ -531,7 +531,7 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 			if !capvcdRdeManager.IsCapvcdEntityTypeRegistered(rdeType.CapvcdRDETypeVersion) {
 				return ctrl.Result{}, errors.Wrapf(errors.New("capvcdCluster entity type not registered or capvcdCluster rights missing from the user's role"),
 					"cluster create issued with executeWithoutRDE=[%v] but unable to create capvcdCluster entity at version [%s]",
-					vcdCluster.Spec.SkipRDE, rdeType.CapvcdRDETypeVersion)
+					SkipRDE, rdeType.CapvcdRDETypeVersion)
 			}
 			// create RDE
 			nameFilter := &swagger.DefinedEntityApiGetDefinedEntitiesByEntityTypeOpts{
