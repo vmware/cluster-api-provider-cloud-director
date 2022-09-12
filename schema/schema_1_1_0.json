@@ -184,8 +184,16 @@
             "vcdProperties": {
               "type": "object",
               "properties": {
-                "orgName": {
-                  "type": "string"
+                "vcdOrg": {
+                  "type": "object",
+                  "properties": {
+                    "name": {
+                      "type": "string"
+                    },
+                    "id": {
+                      "type": "string"
+                    }
+                  }
                 },
                 "virtualDataCenterName": {
                   "type": "string"
@@ -195,6 +203,20 @@
                 },
                 "site": {
                   "type": "string"
+                },
+                "orgVdc": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "name": {
+                        "type": "string"
+                      },
+                      "id": {
+                        "type": "string"
+                      }
+                    }
+                  }
                 }
               }
             },
