@@ -442,6 +442,11 @@ func (r *VCDClusterReconciler) reconcileRDE(ctx context.Context, cluster *cluste
 		capvcdStatusPatch["CapiStatusYaml"] = capiStatusYaml
 	}
 
+	tkgVersion := getTKGVersion(cluster)
+	if capvcdStatus.TKGVersion != tkgVersion {
+		capvcdStatusPatch["TKGVersion"] = tkgVersion
+	}
+
 	pods := rdeType.Pods{
 		CidrBlocks: cluster.Spec.ClusterNetwork.Pods.CIDRBlocks,
 	}
