@@ -6,7 +6,33 @@ write_files:
 - path: /etc/cloud/cloud.cfg.d/cse.cfg
   owner: root
   content: |
-     ssh_deletekeys: false
+     ssh_deletekeys: false {{- if .NvidiaGPU }}
+- path: /etc/containerd/config.toml
+  owner: root
+  content: |
+    version = 2
+
+    [plugins]
+      [plugins."io.containerd.grpc.v1.cri"]
+        sandbox_image = "projects.registry.vmware.com/tkg/pause:3.4.1"
+
+        [plugins."io.containerd.grpc.v1.cri".containerd]
+          default_runtime_name = "nvidia"
+
+          [plugins."io.containerd.grpc.v1.cri".containerd.runtimes]
+            [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.nvidia]
+              privileged_without_host_devices = false
+              runtime_engine = ""
+              runtime_root = ""
+              runtime_type = "io.containerd.runc.v2"
+
+              [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.nvidia.options]
+                BinaryName = "/usr/bin/nvidia-container-runtime"
+
+        [plugins."io.containerd.grpc.v1.cri".registry]
+          [plugins."io.containerd.grpc.v1.cri".registry.mirrors]
+            [plugins."io.containerd.grpc.v1.cri".registry.mirrors."docker.io"]
+              endpoint = ["https://registry-1.docker.io"] {{- end }}
 - path: /opt/vmware/cloud-director/metering.sh
   owner: root
   content: |
@@ -101,12 +127,12 @@ write_files:
     vmtoolsd --cmd "info-set guestinfo.postcustomization.proxy.setting.status successful" {{- if .NvidiaGPU }}
 
     vmtoolsd --cmd "info-set guestinfo.postcustomization.nvidia.runtime.install.status in_progress"
-    DISTRIBUTION=$(. /etc/os-release;echo $ID$VERSION_ID)
-    curl -s -L https://nvidia.github.io/nvidia-docker/gpgkey | sudo apt-key add -
-    curl -s -L https://nvidia.github.io/nvidia-docker/$DISTRIBUTION/nvidia-docker.list | sudo tee /etc/apt/sources.list.d/nvidia-docker.list
+    distribution=$(. /etc/os-release;echo $ID$VERSION_ID)
+    curl -s -L https://nvidia.github.io/libnvidia-container/gpgkey | sudo apt-key add -
+    curl -s -L https://nvidia.github.io/libnvidia-container/$distribution/libnvidia-container.list | sudo tee /etc/apt/sources.list.d/libnvidia-container.list
 
-    apt-get update
-    apt-get install -y nvidia-container-runtime
+    sudo apt-get update && sudo apt-get install -y nvidia-container-toolkit
+
     vmtoolsd --cmd "info-set guestinfo.postcustomization.nvidia.runtime.install.status successful" {{- end }}
 
     vmtoolsd --cmd "info-set {{ if .ControlPlane -}} guestinfo.postcustomization.kubeinit.status {{- else -}} guestinfo.postcustomization.kubeadm.node.join.status {{- end }} in_progress"
@@ -131,48 +157,7 @@ write_files:
     vmtoolsd --cmd "info-set guestinfo.postcustomization.kubeadm.token.generate.status in_progress"
     KUBEADM_JOIN_INFO=$(kubeadm token create --print-join-command 2> /dev/null)
     vmtoolsd --cmd "info-set guestinfo.postcustomization.kubeadm.token.info $KUBEADM_JOIN_INFO"
-    vmtoolsd --cmd "info-set guestinfo.postcustomization.kubeadm.token.generate.status successful" {{- end }} {{- if .NvidiaGPU }}
-
-    vmtoolsd --cmd "info-set guestinfo.postcustomization.containerd.nvidia.configuration.status in_progress"
-    cat > /etc/containerd/config.toml << EOF
-    ## template: jinja
-
-    # Use config version 2 to enable new configuration fields.
-    # Config file is parsed as version 1 by default.
-    version = 2
-
-    [plugins]
-      [plugins."io.containerd.grpc.v1.cri"]
-        sandbox_image = "projects.registry.vmware.com/tkg/pause:3.4.1"
-        [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc]
-        runtime_type = "io.containerd.runc.v2"
-        [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc.options]
-          SystemdCgroup = true
-        [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.nvidia]
-        privileged_without_host_devices = false
-        runtime_engine = ""
-        runtime_root = ""
-        runtime_type = "io.containerd.runc.v1"
-        [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.nvidia.options]
-          BinaryName = "/usr/bin/nvidia-container-runtime"
-          SystemdCgroup = true
-        [plugins."io.containerd.grpc.v1.cri".cni]
-        bin_dir = "/opt/cni/bin"
-        conf_dir = "/etc/cni/net.d"
-        [plugins."io.containerd.grpc.v1.cri".registry]
-        [plugins."io.containerd.grpc.v1.cri".registry.mirrors]
-          [plugins."io.containerd.grpc.v1.cri".registry.mirrors."docker.io"]
-          endpoint = ["https://registry-1.docker.io"]
-        [plugins."io.containerd.grpc.v1.cri".registry.configs]
-          [plugins."io.containerd.grpc.v1.cri".registry.configs."registry-1.docker.io".auth]
-          username = "${DOCKER_USERNAME}"
-          password = "${DOCKER_PASSWORD}"
-          auth = ""
-          identitytoken = ""
-    EOF
-
-    systemctl restart containerd
-    vmtoolsd --cmd "info-set guestinfo.postcustomization.containerd.nvidia.configuration.status successful" {{- end }}
+    vmtoolsd --cmd "info-set guestinfo.postcustomization.kubeadm.token.generate.status successful" {{- end }}
 
     echo "$(date) post customization script execution completed" &>> /var/log/capvcd/customization/status.log
     exit 0

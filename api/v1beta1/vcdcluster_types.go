@@ -43,16 +43,6 @@ type UserCredentialsContext struct {
 	SecretRef    *v1.SecretReference `json:"secretRef,omitempty"`
 }
 
-type DefaultStorageClassOptions struct {
-	VCDStorageProfileName string `json:"vcdStorageProfileName"`
-	// +kubebuilder:default=cloud-director-default
-	K8sStorageClassName string `json:"k8sStorageClassName,omitempty"`
-	// +kubebuilder:default=false
-	UseDeleteReclaimPolicy bool `json:"useDeleteReclaimPolicy,omitempty"`
-	// +kubebuilder:default=ext4
-	FileSystem string `json:"fileSystem,omitempty"`
-}
-
 // ProxyConfig defines HTTP proxy environment variables for containerd
 type ProxyConfig struct {
 	HTTPProxy  string `json:"httpProxy,omitempty"`
@@ -90,8 +80,6 @@ type VCDClusterSpec struct {
 	OvdcNetwork string `json:"ovdcNetwork"`
 	// +kubebuilder:validation:Required
 	UserCredentialsContext UserCredentialsContext `json:"userContext"`
-	// +optional
-	DefaultStorageClassOptions DefaultStorageClassOptions `json:"defaultStorageClassOptions"`
 	// + optional
 	RDEId string `json:"rdeId,omitempty"`
 	// +optional
@@ -139,9 +127,6 @@ type VCDClusterStatus struct {
 
 	// +optional
 	ProxyConfig ProxyConfig `json:"proxyConfig,omitempty"`
-
-	// +optional
-	DefaultStorageClassOptions DefaultStorageClassOptions `json:"defaultStorageClassOptions,omitempty"`
 }
 
 //+kubebuilder:object:root=true

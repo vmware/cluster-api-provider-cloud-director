@@ -1595,7 +1595,7 @@ stringData:
           type: management
           plan: dev
           kubernetesProvider: VMware Tanzu Kubernetes Grid
-          tkgVersion: v1.4.2
+          tkgVersion: v1.4.3
           infrastructure:
             provider: vsphere
         bom:
@@ -1623,9 +1623,9 @@ stringData:
       bom.yaml: |
         apiVersion: run.tanzu.vmware.com/v1alpha2
         default:
-          k8sVersion: v1.21.8+vmware.1-tkg.2
+          k8sVersion: v1.21.8+vmware.1-tkg.7
         release:
-          version: v1.4.2
+          version: v1.4.3
         components:
           aad-pod-identity:
           - version: v1.6.3+vmware.2
@@ -1664,20 +1664,20 @@ stringData:
                 imagePath: cluster-api/cluster-api-azure-controller
                 tag: v0.4.15_vmware.1
           cluster_api:
-          - version: v0.3.23+vmware.1
+          - version: v0.3.23+vmware.3
             images:
               cabpkControllerImage:
                 imagePath: cluster-api/kubeadm-bootstrap-controller
-                tag: v0.3.23_vmware.1
+                tag: v0.3.23_vmware.3
               capdManagerImage:
                 imagePath: cluster-api/capd-manager
-                tag: v0.3.23_vmware.1
+                tag: v0.3.23_vmware.3
               capiControllerImage:
                 imagePath: cluster-api/cluster-api-controller
-                tag: v0.3.23_vmware.1
+                tag: v0.3.23_vmware.3
               kcpControllerImage:
                 imagePath: cluster-api/kubeadm-control-plane-controller
-                tag: v0.3.23_vmware.1
+                tag: v0.3.23_vmware.3
           cluster_api_aws:
           - version: v0.6.6+vmware.1
             images:
@@ -1894,25 +1894,25 @@ stringData:
                 imagePath: sonobuoy
                 tag: v0.20.0_vmware.1
           tanzu-framework:
-          - version: v1.4.2
+          - version: v1.4.3
             images:
               capabilitiesImage:
                 imagePath: tanzu_core/capabilities/capabilities-controller-manager
-                tag: v1.4.2
+                tag: v1.4.3
               providerTemplateImage:
                 imagePath: tanzu_core/provider/provider-templates
-                tag: v1.4.2
+                tag: v1.4.3
               tkrImage:
                 imagePath: tanzu_core/tkr/tkr-controller-manager
-                tag: v1.4.2
+                tag: v1.4.3
           tkg-bom:
-          - version: v1.4.2
+          - version: v1.4.3
             images:
               tkgBomImage:
                 imagePath: tkg-bom
-                tag: v1.4.2
+                tag: v1.4.3
           tkg-standard-packages:
-          - version: v1.4.2
+          - version: v1.4.3
             images:
               cert-manager.tanzu.vmware.com:
                 imagePath: packages/standard/cert-manager
@@ -1940,7 +1940,7 @@ stringData:
                 tag: v2.27.0_vmware.1-tkg.1
               tanzuStandardPackageRepositoryImage:
                 imagePath: packages/standard/repo
-                tag: v1.4.2
+                tag: v1.4.3
           tkg_telemetry:
           - version: v1.4.0+vmware.1
             images:
@@ -2091,7 +2091,7 @@ stringData:
     spec:
       fetch:
         imgpkgBundle:
-          image: projects.registry.vmware.com/tkg/packages/core/repo:v1.21.8_vmware.1-tkg.2
+          image: projects.registry.vmware.com/tkg/packages/core/repo:v1.21.8_vmware.1-tkg.7
 type: addons.cluster.x-k8s.io/resource-set
 ---
 apiVersion: addons.cluster.x-k8s.io/v1alpha3
@@ -2132,7 +2132,7 @@ stringData:
     spec:
       fetch:
         imgpkgBundle:
-          image: projects.registry.vmware.com/tkg/packages/standard/repo:v1.4.2
+          image: projects.registry.vmware.com/tkg/packages/standard/repo:v1.4.3
 type: addons.cluster.x-k8s.io/resource-set
 ---
 apiVersion: addons.cluster.x-k8s.io/v1alpha3
@@ -2206,7 +2206,7 @@ stringData:
     kind: PackageInstall
     metadata:
       name: tanzu-addons-manager
-      namespace: tkg-system
+      namespace: tkg-system_
       annotations:
         ext.packaging.carvel.dev/ytt-data-values-overlays: tanzu-addons-manager-data-values
         tkg.tanzu.vmware.com/addon-type: addons-management/tanzu-addons-manager
@@ -2612,7 +2612,7 @@ stringData:
             - --continuous-discover-frequency=600
             command:
             - /manager
-            image: projects.registry.vmware.com/tkg/tanzu_core/tkr/tkr-controller-manager:v1.4.2
+            image: projects.registry.vmware.com/tkg/tanzu_core/tkr/tkr-controller-manager:v1.4.3
             imagePullPolicy: Always
             name: manager
             resources:
@@ -3018,7 +3018,7 @@ stringData:
             app: tanzu-capabilities-manager
         spec:
           containers:
-          - image: projects.registry.vmware.com/tkg/tanzu_core/capabilities/capabilities-controller-manager:v1.4.2
+          - image: projects.registry.vmware.com/tkg/tanzu_core/capabilities/capabilities-controller-manager:v1.4.3
             imagePullPolicy: IfNotPresent
             name: manager
             resources:

@@ -13,14 +13,17 @@ func (src *VCDCluster) ConvertTo(dstRaw conversion.Hub) error {
 	if err := Convert_v1alpha4_VCDCluster_To_v1beta1_VCDCluster(src, dst, nil); err != nil {
 		return err
 	}
-	dst.Spec.DefaultStorageClassOptions = v1beta1.DefaultStorageClassOptions{}
 	dst.Spec.ProxyConfig = v1beta1.ProxyConfig{}
 	// TODO: Update the new params to match previous release's Status; ex) dst.Spec.* = src.Status.*, maybe RDE.Status
 	dst.Spec.RDEId = src.Status.InfraId
 	dst.Spec.SkipRDE = strings.HasPrefix(src.Status.InfraId, vcdsdk.NoRdePrefix)
 	dst.Spec.ParentUID = ""
 	dst.Spec.UseAsManagementCluster = false // defaults to false
-	dst.Status.RdeVersionInUse = "1.0.0"
+	if strings.HasPrefix(src.Status.InfraId, vcdsdk.NoRdePrefix) {
+		dst.Status.RdeVersionInUse = vcdsdk.NoRdePrefix
+	} else {
+		dst.Status.RdeVersionInUse = "1.0.0" // value will be checked by vcdcluster controller if RDE upgrade is necessary
+	}
 
 	// In v1alpha4 DNAT rules (and one-arm) are used by default. Therefore, use that in v1beta1
 	dst.Spec.LoadBalancer.UseOneArm = true
