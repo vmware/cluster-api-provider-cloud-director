@@ -22,6 +22,7 @@ import (
 	rdeType "github.com/vmware/cluster-api-provider-cloud-director/pkg/vcdtypes/rde_type_1_1_0"
 	"github.com/vmware/cluster-api-provider-cloud-director/release"
 	"github.com/vmware/go-vcloud-director/v2/govcd"
+	"github.com/vmware/go-vcloud-director/v2/types/v56"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/klog"
@@ -228,10 +229,14 @@ func validateDerivedRDEProperties(vcdCluster *infrav1.VCDCluster, infraID string
 
 // TODO: Remove uncommented code when decision to only keep capi.yaml as part of RDE spec is finalized
 func (r *VCDClusterReconciler) constructCapvcdRDE(ctx context.Context, cluster *clusterv1.Cluster,
-	vcdCluster *infrav1.VCDCluster) (*swagger.DefinedEntity, error) {
-	org := vcdCluster.Spec.Org
-	vdc := vcdCluster.Spec.Ovdc
+	vcdCluster *infrav1.VCDCluster, vdc *types.Vdc, vcdOrg *types.Org) (*swagger.DefinedEntity, error) {
 
+	if vdc == nil {
+		return nil, fmt.Errorf("VDC cannot be nil")
+	}
+	if vcdOrg == nil {
+		return nil, fmt.Errorf("org cannot be nil")
+	}
 	kcpList, err := getAllKubeadmControlPlaneForCluster(ctx, r.Client, *cluster)
 	if err != nil {
 		return nil, fmt.Errorf("error getting KubeadmControlPlane objects for cluster [%s]: [%v]", vcdCluster.Name, err)
@@ -247,12 +252,13 @@ func (r *VCDClusterReconciler) constructCapvcdRDE(ctx context.Context, cluster *
 		Name:       vcdCluster.Name,
 	}
 	capvcdEntity := rdeType.CAPVCDEntity{
+		ExternalID: "",
 		Kind:       capisdk.CAPVCDClusterKind,
 		ApiVersion: capisdk.CAPVCDClusterEntityApiVersion,
 		Metadata: rdeType.Metadata{
 			Name: vcdCluster.Name,
-			Org:  org,
-			Vdc:  vdc,
+			Org:  vcdOrg.Name,
+			Vdc:  vdc.Name,
 			Site: vcdCluster.Spec.Site,
 		},
 		Spec: rdeType.CAPVCDSpec{},
@@ -278,9 +284,19 @@ func (r *VCDClusterReconciler) constructCapvcdRDE(ctx context.Context, cluster *
 				},
 				ParentUID: vcdCluster.Spec.ParentUID,
 				VcdProperties: rdeType.VCDProperties{
-					Site:        vcdCluster.Spec.Site,
-					Org:         org,
-					Vdc:         vdc,
+					Site: vcdCluster.Spec.Site,
+					Org: []rdeType.Org{
+						rdeType.Org{
+							Name: vcdOrg.Name,
+							ID:   vcdOrg.ID,
+						},
+					},
+					Ovdc: []rdeType.Ovdc{
+						rdeType.Ovdc{
+							Name: vdc.Name,
+							ID:   vdc.ID,
+						},
+					},
 					OvdcNetwork: vcdCluster.Spec.OvdcNetwork,
 				},
 				CapiStatusYaml:             "",
@@ -303,7 +319,11 @@ func (r *VCDClusterReconciler) constructCapvcdRDE(ctx context.Context, cluster *
 func (r *VCDClusterReconciler) constructAndCreateRDEFromCluster(ctx context.Context, workloadVCDClient *vcdsdk.Client, cluster *clusterv1.Cluster, vcdCluster *infrav1.VCDCluster) (string, error) {
 	log := ctrl.LoggerFrom(ctx)
 
-	rde, err := r.constructCapvcdRDE(ctx, cluster, vcdCluster)
+	org, err := workloadVCDClient.VCDClient.GetOrgByName(vcdCluster.Spec.Org)
+	if err != nil {
+		return "", fmt.Errorf("failed to get org by name [%s]", vcdCluster.Spec.Org)
+	}
+	rde, err := r.constructCapvcdRDE(ctx, cluster, vcdCluster, workloadVCDClient.VDC.Vdc, org.Org)
 	if err != nil {
 		return "", fmt.Errorf("error occurred while constructing RDE payload for the cluster [%s]: [%v]", vcdCluster.Name, err)
 	}
@@ -328,9 +348,16 @@ func (r *VCDClusterReconciler) constructAndCreateRDEFromCluster(ctx context.Cont
 }
 
 func (r *VCDClusterReconciler) reconcileRDE(ctx context.Context, cluster *clusterv1.Cluster,
-	vcdCluster *infrav1.VCDCluster, workloadVCDClient *vcdsdk.Client) error {
+	vcdCluster *infrav1.VCDCluster, workloadVCDClient *vcdsdk.Client, vappID string, updateExternalID bool) error {
 	log := ctrl.LoggerFrom(ctx)
 
+	org, err := workloadVCDClient.VCDClient.GetOrgByName(vcdCluster.Spec.Org)
+	if err != nil {
+		return fmt.Errorf("failed to get org by name [%s]", vcdCluster.Spec.Org)
+	}
+	if org == nil || org.Org == nil {
+		return fmt.Errorf("found nil org when getting org by name [%s]", vcdCluster.Spec.Org)
+	}
 	capvcdRdeManager := capisdk.NewCapvcdRdeManager(workloadVCDClient, vcdCluster.Status.InfraId)
 	_, capvcdSpec, capvcdMetadata, capvcdStatus, err := capvcdRdeManager.GetCAPVCDEntity(ctx, vcdCluster.Status.InfraId)
 	if err != nil {
@@ -338,9 +365,9 @@ func (r *VCDClusterReconciler) reconcileRDE(ctx context.Context, cluster *cluste
 	}
 	// TODO(VCDA-3107): Should we be updating org and vdc information here.
 	metadataPatch := make(map[string]interface{})
-	org := vcdCluster.Spec.Org
-	if org != capvcdMetadata.Org {
-		metadataPatch["Org"] = org
+
+	if org.Org.Name != capvcdMetadata.Org {
+		metadataPatch["Org"] = org.Org.Name
 	}
 
 	vdc := vcdCluster.Spec.Ovdc
@@ -483,9 +510,19 @@ func (r *VCDClusterReconciler) reconcileRDE(ctx context.Context, cluster *cluste
 	}
 
 	vcdResources := rdeType.VCDProperties{
-		Site:        vcdCluster.Spec.Site,
-		Org:         vcdCluster.Spec.Org,
-		Vdc:         vcdCluster.Spec.Ovdc,
+		Site: vcdCluster.Spec.Site,
+		Org: []rdeType.Org{
+			rdeType.Org{
+				Name: org.Org.Name,
+				ID:   org.Org.ID,
+			},
+		},
+		Ovdc: []rdeType.Ovdc{
+			rdeType.Ovdc{
+				Name: workloadVCDClient.VDC.Vdc.Name,
+				ID:   workloadVCDClient.VDC.Vdc.Name,
+			},
+		},
 		OvdcNetwork: vcdCluster.Spec.OvdcNetwork,
 	}
 	if !reflect.DeepEqual(vcdResources, capvcdStatus.VcdProperties) {
@@ -505,7 +542,7 @@ func (r *VCDClusterReconciler) reconcileRDE(ctx context.Context, cluster *cluste
 		}
 	}
 
-	updatedRDE, err := capvcdRdeManager.PatchRDE(ctx, specPatch, metadataPatch, capvcdStatusPatch, vcdCluster.Status.InfraId)
+	updatedRDE, err := capvcdRdeManager.PatchRDE(ctx, specPatch, metadataPatch, capvcdStatusPatch, vcdCluster.Status.InfraId, vappID, true)
 	if err != nil {
 		return fmt.Errorf("failed to update defined entity with ID [%s] for cluster [%s]: [%v]", vcdCluster.Status.InfraId, vcdCluster.Name, err)
 	}
@@ -654,7 +691,7 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 				return ctrl.Result{}, errors.Wrapf(err, "failed to upgrade RDE [%s]", infraID)
 			}
 			// calling reconcileRDE here to avoid delay in updating the RDE contents
-			if err = r.reconcileRDE(ctx, cluster, vcdCluster, workloadVCDClient); err != nil {
+			if err = r.reconcileRDE(ctx, cluster, vcdCluster, workloadVCDClient, "", false); err != nil {
 				// TODO: can we recover the RDE to a proper state if RDE fails to reconcile?
 				log.Error(err, "failed to reconcile RDE after upgrading RDE", "rdeID", infraID)
 				return ctrl.Result{}, errors.Wrapf(err, "failed to reconcile RDE after upgrading RDE [%s]", infraID)
@@ -802,7 +839,7 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	if !strings.HasPrefix(vcdCluster.Status.InfraId, NoRdePrefix) {
 		_, resp, _, err := workloadVCDClient.APIClient.DefinedEntityApi.GetDefinedEntity(ctx, vcdCluster.Status.InfraId)
 		if err == nil && resp != nil && resp.StatusCode == http.StatusOK {
-			if err = r.reconcileRDE(ctx, cluster, vcdCluster, workloadVCDClient); err != nil {
+			if err = r.reconcileRDE(ctx, cluster, vcdCluster, workloadVCDClient, "", false); err != nil {
 				log.Error(err, "Error occurred during RDE reconciliation",
 					"InfraId", vcdCluster.Status.InfraId)
 			}
@@ -849,6 +886,13 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	if clusterVApp == nil || clusterVApp.VApp == nil {
 		return ctrl.Result{}, errors.Wrapf(err, "found nil value for VApp [%s]", vcdCluster.Name)
 	}
+	if !strings.HasPrefix(vcdCluster.Status.InfraId, NoRdePrefix) {
+		if err := r.reconcileRDE(ctx, cluster, vcdCluster, workloadVCDClient, clusterVApp.VApp.ID, true); err != nil {
+			log.Error(err, "failed to add VApp ID to RDE", "rdeID", infraID, "vappID", clusterVApp.VApp.ID)
+			return ctrl.Result{}, errors.Wrapf(err, "failed to update RDE [%s] with VApp ID [%s]: [%v]", vcdCluster.Status.InfraId, clusterVApp.VApp.ID, err)
+		}
+	}
+
 	if metadataMap != nil && len(metadataMap) > 0 && !vcdCluster.Status.VAppMetadataUpdated {
 		if err := vdcManager.AddMetadataToVApp(vcdCluster.Name, metadataMap); err != nil {
 			return ctrl.Result{}, fmt.Errorf("unable to add metadata [%s] to vApp [%s]: [%v]", metadataMap, vcdCluster.Name, err)
