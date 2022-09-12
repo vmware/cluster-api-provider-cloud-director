@@ -186,9 +186,6 @@
                     }
                   }
                 },
-                "virtualDataCenterName": {
-                  "type": "string"
-                },
                 "ovdcNetworkName": {
                   "type": "string"
                 },
