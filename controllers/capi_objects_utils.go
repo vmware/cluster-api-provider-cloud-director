@@ -440,3 +440,10 @@ func getUserCredentialsForCluster(ctx context.Context, cli client.Client, define
 
 	return userCredentials, nil
 }
+
+func isControlPlaneReady(kcp *kcpv1.KubeadmControlPlane) bool {
+	return kcp != nil && kcp.Status.Ready &&
+		kcp.Status.Version != nil &&
+		*kcp.Status.Version == kcp.Spec.Version &&
+		kcp.Status.UnavailableReplicas == 0
+}

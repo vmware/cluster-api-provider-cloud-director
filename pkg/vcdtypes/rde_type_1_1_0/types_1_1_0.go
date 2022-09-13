@@ -108,6 +108,17 @@ type ClusterResourceSetBinding struct {
 	LastAppliedTime        string `json:"lastAppliedTime,omitempty"`
 }
 
+type K8sInfo struct {
+	TkgVersion string `json:"tkgVersion,omitempty"`
+	K8sVersion string `json:"kubernetesVersion,omitempty"`
+}
+
+type Upgrade struct {
+	Current  *K8sInfo `json:"current"`
+	Previous *K8sInfo `json:"previous"`
+	Ready    bool     `json:"ready"`
+}
+
 type CAPVCDStatus struct {
 	Phase                      string                      `json:"phase,omitempty"`
 	Kubernetes                 string                      `json:"kubernetes,omitempty"`
@@ -127,6 +138,7 @@ type CAPVCDStatus struct {
 	CapiStatusYaml             string                      `json:"capiStatusYaml,omitempty"`
 	ClusterResourceSetBindings []ClusterResourceSetBinding `json:"clusterResourceSetBindings,omitempty"`
 	CreatedByVersion           string                      `json:"createdByVersion"`
+	Upgrade                    Upgrade                     `json:"upgrade,omitempty"`
 }
 
 type Status struct {

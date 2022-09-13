@@ -189,6 +189,36 @@
                 }
               }
             },
+            "upgrade": {
+              "type": "object",
+              "properties": {
+                "current": {
+                  "type": "object",
+                  "properties": {
+                    "kubernetesVersion": {
+                      "type": "string"
+                    },
+                    "tkgVersion": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "previous": {
+                  "type": "object",
+                  "properties": {
+                    "kubernetesVersion": {
+                      "type": "string"
+                    },
+                    "tkgVersion": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "ready": {
+                  "type": "boolean"
+                }
+              }
+            },
             "private": {
               "type": "object",
               "x-vcloud-restricted": "private",

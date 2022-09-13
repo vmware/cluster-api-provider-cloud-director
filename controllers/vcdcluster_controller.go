@@ -29,6 +29,7 @@ import (
 	"os"
 	"reflect"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
+	kcpv1 "sigs.k8s.io/cluster-api/controlplane/kubeadm/api/v1beta1"
 	"sigs.k8s.io/cluster-api/util"
 	"sigs.k8s.io/cluster-api/util/conditions"
 	kcfg "sigs.k8s.io/cluster-api/util/kubeconfig"
@@ -238,8 +239,10 @@ func (r *VCDClusterReconciler) constructCapvcdRDE(ctx context.Context, cluster *
 	}
 
 	kubernetesVersion := ""
+	ready := false
 	for _, kcp := range kcpList.Items {
 		kubernetesVersion = kcp.Spec.Version
+		ready = isControlPlaneReady(&kcp)
 	}
 
 	rde := &swagger.DefinedEntity{
@@ -286,6 +289,14 @@ func (r *VCDClusterReconciler) constructCapvcdRDE(ctx context.Context, cluster *
 				CapiStatusYaml:             "",
 				ClusterResourceSetBindings: nil,
 				CreatedByVersion:           release.CAPVCDVersion,
+				Upgrade: rdeType.Upgrade{
+					Current: &rdeType.K8sInfo{
+						K8sVersion: kubernetesVersion,
+						TkgVersion: getTKGVersion(cluster),
+					},
+					Previous: nil,
+					Ready:    ready,
+				},
 			},
 		},
 	}
@@ -358,14 +369,13 @@ func (r *VCDClusterReconciler) reconcileRDE(ctx context.Context, cluster *cluste
 		return fmt.Errorf("error getting all KubeadmControlPlane objects for cluster [%s]: [%v]", vcdCluster.Name, err)
 	}
 
-	kubernetesVersion := ""
-	for _, kcp := range kcpList.Items {
-		if kcp.Spec.Version != "" {
-			kubernetesVersion = kcp.Spec.Version
-			break
-		}
+	kubernetesSpecVersion := ""
+	var kcpObj *kcpv1.KubeadmControlPlane
+	if len(kcpList.Items) > 0 {
+		kcpObj = &kcpList.Items[0]
+		kubernetesSpecVersion = kcpObj.Spec.Version // for RDE updates, consider only the first kcp object
 	}
-
+	tkgVersion := getTKGVersion(cluster)
 	crsBindingList, err := getAllCRSBindingForCluster(ctx, r.Client, *cluster)
 	if err != nil {
 		// this is fundamentally not a mandatory field
@@ -389,9 +399,40 @@ func (r *VCDClusterReconciler) reconcileRDE(ctx context.Context, cluster *cluste
 		capvcdStatusPatch["Phase"] = cluster.Status.Phase
 	}
 
+	upgradeObject := capvcdStatus.Upgrade
+	if kcpObj != nil {
+		if upgradeObject.Current == nil {
+			upgradeObject = rdeType.Upgrade{
+				Current: &rdeType.K8sInfo{
+					K8sVersion: kubernetesSpecVersion,
+					TkgVersion: tkgVersion,
+				},
+				Previous: nil,
+				Ready:    isControlPlaneReady(kcpObj),
+			}
+		} else {
+			if !isControlPlaneReady(kcpObj) && kcpObj.Spec.Version != capvcdStatus.Upgrade.Current.K8sVersion {
+
+				upgradeObject.Previous = upgradeObject.Current
+				upgradeObject.Current = &rdeType.K8sInfo{
+					K8sVersion: kubernetesSpecVersion,
+					TkgVersion: tkgVersion,
+				}
+				upgradeObject.Ready = false
+			}
+		}
+	}
+
+	klog.Infof("upgradeObject prev: [%#v]", capvcdStatus.Upgrade)
+	klog.Infof("upgradeObject current: [%#v]", upgradeObject)
+
+	if !reflect.DeepEqual(upgradeObject, capvcdStatus.Upgrade) {
+		capvcdStatusPatch["Upgrade"] = upgradeObject
+	}
+
 	// TODO: Delete "kubernetes" string in RDE. Discuss with Sahithi
-	if capvcdStatus.Kubernetes != kubernetesVersion {
-		capvcdStatusPatch["Kubernetes"] = kubernetesVersion
+	if capvcdStatus.Kubernetes != kubernetesSpecVersion {
+		capvcdStatusPatch["Kubernetes"] = kubernetesSpecVersion
 	}
 
 	if capvcdStatus.Uid != vcdCluster.Status.InfraId {
