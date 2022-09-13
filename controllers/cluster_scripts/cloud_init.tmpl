@@ -48,7 +48,7 @@ write_files:
     VCD_SITE_ID={{ .VcdHostFormatted }}
     CLUSTER_ID={{ .ClusterID }}
     TKG_VERSION={{ .TKGVersion }}
-    MACHINE_TYPE={{- if .ControlPlane -}} control_plane {{- else -}} worker {{- end }}
+    MACHINE_TYPE={{- if or .ControlPlane .ResizedControlPlane -}} control_plane {{- else -}} worker {{- end }}
     MGMT=true
 - path: /etc/systemd/system/metering.service
   owner: root
