@@ -224,11 +224,6 @@ spec:
                 type: string
               site:
                 type: string
-              skipRDE:
-                default: false
-                description: SkipRDE tells CAPVCD if an RDE should be created for
-                  the cluster or not
-                type: boolean
               useAsManagementCluster:
                 type: boolean
               userContext:

@@ -73,7 +73,6 @@ type PrivateSection struct {
 }
 
 type K8sNetwork struct {
-	Cni      Cni      `json:"cni,omitempty"`
 	Pods     Pods     `json:"pods,omitempty"`
 	Services Services `json:"services,omitempty"`
 }
