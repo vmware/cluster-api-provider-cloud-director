@@ -229,10 +229,6 @@
             "createdByVersion": {
               "type": "string",
               "description": "CAPVCD version used to create the cluster"
-            },
-            "tkgVersion": {
-              "type": "string",
-              "description": "TKG version of the template"
             }
           }
         }

@@ -252,7 +252,6 @@ func (r *VCDClusterReconciler) constructCapvcdRDE(ctx context.Context, cluster *
 		Name:       vcdCluster.Name,
 	}
 	capvcdEntity := rdeType.CAPVCDEntity{
-		ExternalID: "",
 		Kind:       capisdk.CAPVCDClusterKind,
 		ApiVersion: capisdk.CAPVCDClusterEntityApiVersion,
 		Metadata: rdeType.Metadata{
@@ -440,11 +439,6 @@ func (r *VCDClusterReconciler) reconcileRDE(ctx context.Context, cluster *cluste
 	}
 	if capvcdStatus.CapiStatusYaml != capiStatusYaml {
 		capvcdStatusPatch["CapiStatusYaml"] = capiStatusYaml
-	}
-
-	tkgVersion := getTKGVersion(cluster)
-	if capvcdStatus.TKGVersion != tkgVersion {
-		capvcdStatusPatch["TKGVersion"] = tkgVersion
 	}
 
 	pods := rdeType.Pods{
