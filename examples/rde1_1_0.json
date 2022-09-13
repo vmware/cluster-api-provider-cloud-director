@@ -37,6 +37,7 @@
       }
     },
     "capvcd": {
+      "tkgVersion": "v1.5.4",
       "phase": "ABCDEFGHIJKLMNOPQRSTUVWX",
       "kubernetes": "ABCDEFGHIJKLMNOPQRST",
       "errors":["Machine<name>creationFailed_timestamp, "],
