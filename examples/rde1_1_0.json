@@ -19,7 +19,6 @@
     "site": "ABCD"
   },
   "apiVersion": "ABCDEFG",
-  "externalId": "VAppID",
   "status": {
     "vkp": {
       "operation": {

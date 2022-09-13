@@ -213,7 +213,7 @@ func (capvcdRdeManager *CapvcdRdeManager) PatchRDE(ctx context.Context, specPatc
 			}
 		}
 		if updateExternalID {
-			klog.V(4).Infof("setting externalID as [%s]", externalID)
+			klog.V(4).Infof("setting externalID as [%s] in RDE [%s]", externalID, rdeID)
 			rde.ExternalId = externalID
 		}
 

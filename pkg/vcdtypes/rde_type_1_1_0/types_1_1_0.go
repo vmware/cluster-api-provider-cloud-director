@@ -154,5 +154,4 @@ type CAPVCDEntity struct {
 	ApiVersion string     `json:"apiVersion"`
 	Status     Status     `json:"status"`
 	Kind       string     `json:"kind"`
-	ExternalID string     `json:"externalId,omitempty"`
 }
