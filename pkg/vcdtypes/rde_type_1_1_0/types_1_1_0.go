@@ -46,11 +46,21 @@ type Services struct {
 	CidrBlocks []string `json:"cidrBlocks,omitempty"`
 }
 
+type Ovdc struct {
+	Name string `json:"name,omitempty"`
+	ID   string `json:"id,omitempty"`
+}
+
+type Org struct {
+	Name string `json:"name,omitempty"`
+	ID   string `json:"id,omitempty"`
+}
+
 type VCDProperties struct {
 	Site        string `json:"site,omitempty"`
-	Org         string `json:"orgName,omitempty"`
-	Vdc         string `json:"virtualDataCenterName,omitempty"`
 	OvdcNetwork string `json:"ovdcNetworkName,omitempty"`
+	Ovdc        []Ovdc `json:"orgVdc,omitempty"`
+	Org         []Org  `json:"vcdOrg,omitempty"`
 }
 
 type ApiEndpoints struct {

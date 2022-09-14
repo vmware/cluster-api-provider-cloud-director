@@ -175,17 +175,36 @@
             "vcdProperties": {
               "type": "object",
               "properties": {
-                "orgName": {
-                  "type": "string"
-                },
-                "virtualDataCenterName": {
-                  "type": "string"
+                "vcdOrg": {
+                  "type": "object",
+                  "properties": {
+                    "name": {
+                      "type": "string"
+                    },
+                    "id": {
+                      "type": "string"
+                    }
+                  }
                 },
                 "ovdcNetworkName": {
                   "type": "string"
                 },
                 "site": {
                   "type": "string"
+                },
+                "orgVdc": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "name": {
+                        "type": "string"
+                      },
+                      "id": {
+                        "type": "string"
+                      }
+                    }
+                  }
                 }
               }
             },
