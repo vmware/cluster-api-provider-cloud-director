@@ -11,6 +11,14 @@ import (
 	_ "embed" // this needs go 1.16+
 	b64 "encoding/base64"
 	"fmt"
+	"io/ioutil"
+	"math"
+	"reflect"
+	"strconv"
+	"strings"
+	"text/template"
+	"time"
+
 	"github.com/pkg/errors"
 	"github.com/replicatedhq/troubleshoot/pkg/redact"
 	cpiutil "github.com/vmware/cloud-provider-for-cloud-director/pkg/util"
@@ -21,11 +29,9 @@ import (
 	"github.com/vmware/go-vcloud-director/v2/govcd"
 	"github.com/vmware/go-vcloud-director/v2/types/v56"
 	"gopkg.in/yaml.v2"
-	"io/ioutil"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/klog"
-	"math"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	"sigs.k8s.io/cluster-api/util"
 	"sigs.k8s.io/cluster-api/util/annotations"
@@ -38,10 +44,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/source"
-	"strconv"
-	"strings"
-	"text/template"
-	"time"
 )
 
 type CloudInitScriptInput struct {
@@ -541,37 +543,37 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		// 	VCDResourceSet can get bloated with VMs if the cluster contains a large number of worker nodes
 	}
 
+	desiredNetworks := append([]string{vcdCluster.Spec.OvdcNetwork}, vcdMachine.Spec.ExtraOvdcNetworks...)
+	if err = r.reconcileVMNetworks(vdcManager, vApp, vm, desiredNetworks); err != nil {
+		log.Error(err, fmt.Sprintf("Error while attaching networks to vApp and VMs"))
+		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
+	}
+
 	// checks before setting address in machine status
 	if vm.VM == nil {
 		log.Error(nil, fmt.Sprintf("Requeuing...; vm.VM should not be nil: [%#v]", vm))
 		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
 	}
-	networkConnectionSection := &types.NetworkConnectionSection{
-		NetworkConnection: []*types.NetworkConnection{
-			{
-				Network:                 vApp.VApp.NetworkConfigSection.NetworkNames()[0],
-				NeedsCustomization:      false,
-				IsConnected:             true,
-				IPAddressAllocationMode: "POOL",
-				NetworkAdapterType:      "VMXNET3",
-			},
-		},
+	if vm.VM.NetworkConnectionSection == nil || len(vm.VM.NetworkConnectionSection.NetworkConnection) == 0 {
+		log.Error(nil, fmt.Sprintf("Requeuing...; network connection section was not found for vm [%s(%s)]: [%#v]", vm.VM.Name, vm.VM.ID, vm.VM))
+		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
 	}
-	if (vm.VM.NetworkConnectionSection == nil || len(vm.VM.NetworkConnectionSection.NetworkConnection) == 0) ||
-		(vm.VM.NetworkConnectionSection.NetworkConnection[0] == nil) ||
-		(vm.VM.NetworkConnectionSection.NetworkConnection[0].IPAddress == "") {
-		log.V(4).Info("Attempting to update the VM [%s] with network connection section: [%#v]", vm.VM.Name, networkConnectionSection)
-		err := vm.UpdateNetworkConnectionSection(networkConnectionSection)
-		if err != nil {
-			log.V(4).Info("Failed to update VM [%s] with network connection section: [%v]", vm.VM.Name, err)
-		}
-		log.Error(nil, fmt.Sprintf("Requeuing...; invalid network connection section for the vm [%s(%s)]- network connection section was not found or the IP Address of the VM was empty: [%#v]",
+
+	primaryNetwork := getPrimaryNetwork(vm.VM)
+	if primaryNetwork == nil {
+		log.Error(nil, fmt.Sprintf("Requeuing...; failed to get existing network connection information for vm [%s(%s)]: [%#v]. NetworkConnection[0] should not be nil",
 			vm.VM.Name, vm.VM.ID, vm.VM.NetworkConnectionSection))
 		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
 	}
 
+	if primaryNetwork.IPAddress == "" {
+		log.Error(nil, fmt.Sprintf("Requeuing...; NetworkConnection[0] IP Address should not be empty for vm [%s(%s)]: [%#v]",
+			vm.VM.Name, vm.VM.ID, *vm.VM.NetworkConnectionSection.NetworkConnection[0]))
+		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
+	}
+
 	// set address in machine status
-	machineAddress := vm.VM.NetworkConnectionSection.NetworkConnection[0].IPAddress
+	machineAddress := primaryNetwork.IPAddress
 	vcdMachine.Status.Addresses = []clusterv1.MachineAddress{
 		{
 			Type:    clusterv1.MachineHostName,
@@ -863,6 +865,113 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	vcdMachine.Status.NvidiaGPUEnabled = vcdMachine.Spec.EnableNvidiaGPU
 	conditions.MarkTrue(vcdMachine, ContainerProvisionedCondition)
 	return ctrl.Result{}, nil
+}
+
+// getPrimaryNetwork returns the primary network based on vm.NetworkConnectionSection.PrimaryNetworkConnectionIndex
+// It is not possible to assume vm.NetworkConnectionSection.NetworkConnection[0] is the primary network when there are
+// multiple networks attached to the VM.
+func getPrimaryNetwork(vm *types.Vm) *types.NetworkConnection {
+	for _, network := range vm.NetworkConnectionSection.NetworkConnection {
+		if network.NetworkConnectionIndex == vm.NetworkConnectionSection.PrimaryNetworkConnectionIndex {
+			return network
+		}
+	}
+
+	return nil
+}
+
+// reconcileVMNetworks ensures that desired networks are attached to VMs
+// networks[0] refers the primary network
+func (r *VCDMachineReconciler) reconcileVMNetworks(vdcManager *vcdsdk.VdcManager, vApp *govcd.VApp, vm *govcd.VM, networks []string) error {
+	connections, err := vm.GetNetworkConnectionSection()
+	if err != nil {
+		return errors.Errorf("Failed to get attached networks to VM")
+	}
+
+	desiredConnectionArray := make([]*types.NetworkConnection, len(networks))
+
+	for index, ovdcNetwork := range networks {
+		err = ensureNetworkIsAttachedToVApp(vdcManager, vApp, ovdcNetwork)
+		if err != nil {
+			return errors.Errorf("Error ensuring network [%s] is attached to vApp", ovdcNetwork)
+		}
+
+		desiredConnectionArray[index] = getNetworkConnection(connections, ovdcNetwork)
+	}
+
+	if !containsTheSameElements(connections.NetworkConnection, desiredConnectionArray) {
+		connections.NetworkConnection = desiredConnectionArray
+		// update connection indexes for deterministic reconcilation
+		connections.PrimaryNetworkConnectionIndex = 0
+		for index, connection := range connections.NetworkConnection {
+			connection.NetworkConnectionIndex = index
+		}
+
+		err = vm.UpdateNetworkConnectionSection(connections)
+		if err != nil {
+			return errors.Errorf("failed to update networks of VM")
+		}
+	}
+
+	return nil
+}
+
+// containsTheSameElements checks all elements in the two array are the same regardless of order
+func containsTheSameElements(array1 []*types.NetworkConnection, array2 []*types.NetworkConnection) bool {
+	if len(array1) != len(array2) {
+		return false
+	}
+
+OUTER:
+	for _, element1 := range array1 {
+		for _, element2 := range array2 {
+			if reflect.DeepEqual(element1, element2) {
+				continue OUTER
+			}
+		}
+
+		return false
+	}
+
+	return true
+}
+
+func getNetworkConnection(connections *types.NetworkConnectionSection, ovdcNetwork string) *types.NetworkConnection {
+
+	for _, existingConnection := range connections.NetworkConnection {
+		if existingConnection.Network == ovdcNetwork {
+			return existingConnection
+		}
+	}
+
+	return &types.NetworkConnection{
+		Network:                 ovdcNetwork,
+		NeedsCustomization:      false,
+		IsConnected:             true,
+		IPAddressAllocationMode: "POOL",
+		NetworkAdapterType:      "VMXNET3",
+	}
+}
+
+func ensureNetworkIsAttachedToVApp(vdcManager *vcdsdk.VdcManager, vApp *govcd.VApp, ovdcNetworkName string) error {
+	for _, vAppNetwork := range vApp.VApp.NetworkConfigSection.NetworkNames() {
+		if vAppNetwork == ovdcNetworkName {
+			return nil
+		}
+	}
+
+	ovdcNetwork, err := vdcManager.Vdc.GetOrgVdcNetworkByName(ovdcNetworkName, true)
+	if err != nil {
+		return fmt.Errorf("unable to get ovdc network [%s]: [%v]", ovdcNetworkName, err)
+	}
+
+	_, err = vApp.AddOrgNetwork(&govcd.VappNetworkSettings{}, ovdcNetwork.OrgVDCNetwork, false)
+	if err != nil {
+		return fmt.Errorf("unable to add ovdc network [%s] to vApp [%s]: [%v]",
+			ovdcNetwork, vApp.VApp.Name, err)
+	}
+
+	return nil
 }
 
 func (r *VCDMachineReconciler) getBootstrapData(ctx context.Context, machine *clusterv1.Machine) (string, error) {
