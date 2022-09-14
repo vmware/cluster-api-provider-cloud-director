@@ -104,6 +104,13 @@ spec:
                     description: Spec is the specification of the desired behavior
                       of the machine.
                     properties:
+                      additionalOvdcNetworks:
+                        description: AdditionalOvdcNetworks is the list of additional
+                          Ovdc Networks that are mounted to machines. VCDClusterSpec.OvdcNetwork
+                          is always attached regardless of this field.
+                        items:
+                          type: string
+                        type: array
                       bootstrapped:
                         description: Bootstrapped is true when the kubeadm bootstrapping
                           has been run against this machine
