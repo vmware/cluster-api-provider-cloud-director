@@ -189,6 +189,42 @@
                 }
               }
             },
+            "upgrade": {
+              "type": "object",
+              "description": "determines the state of upgrade. If no upgrade is issued, only the existing version is stored.",
+              "properties": {
+                "current": {
+                  "type": "object",
+                  "properties": {
+                    "kubernetesVersion": {
+                      "type": "string",
+                      "description": "current kubernetes version of the cluster. If being upgraded, will represent target kubernetes version of the cluster."
+                    },
+                    "tkgVersion": {
+                      "type": "string",
+                      "description": "current TKG version of the cluster. If being upgraded, will represent the tarkget TKG version of the cluster."
+                    }
+                  }
+                },
+                "previous": {
+                  "type": "object",
+                  "properties": {
+                    "kubernetesVersion": {
+                      "type": "string",
+                      "description": "the kubernetes version from which the cluster was upgraded from. If cluster upgrade is still in progress, the field will represent the source kubernetes version from which the cluster is being upgraded."
+                    },
+                    "tkgVersion": {
+                      "type": "string",
+                      "description": "the TKG version from which the cluster was upgraded from. If cluster upgrade is still in progress, the field will represent the source TKG versoin from which the cluster is being upgraded."
+                    }
+                  }
+                },
+                "ready": {
+                  "type": "boolean",
+                  "description": "boolean indicating the status of the cluster upgrade."
+                }
+              }
+            },
             "private": {
               "type": "object",
               "x-vcloud-restricted": "private",

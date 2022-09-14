@@ -440,3 +440,11 @@ func getUserCredentialsForCluster(ctx context.Context, cli client.Client, define
 
 	return userCredentials, nil
 }
+
+// hasKcpReconciledToDesiredK8Version determines if the rolling upgrade process is complete. Returns false if the upgrade is still on going
+func hasKcpReconciledToDesiredK8Version(kcp *kcpv1.KubeadmControlPlane) bool {
+	return kcp != nil && kcp.Status.Ready &&
+		kcp.Status.Version != nil &&
+		*kcp.Status.Version == kcp.Spec.Version &&
+		kcp.Status.UnavailableReplicas == 0
+}
