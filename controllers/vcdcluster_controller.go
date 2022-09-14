@@ -239,10 +239,12 @@ func (r *VCDClusterReconciler) constructCapvcdRDE(ctx context.Context, cluster *
 	}
 
 	kubernetesVersion := ""
-	ready := false
+	ready := true
 	for _, kcp := range kcpList.Items {
+		if ready {
+			ready = hasKcpReconciledToDesiredK8Version(&kcp)
+		}
 		kubernetesVersion = kcp.Spec.Version
-		ready = isControlPlaneReady(&kcp)
 	}
 
 	rde := &swagger.DefinedEntity{
@@ -408,23 +410,22 @@ func (r *VCDClusterReconciler) reconcileRDE(ctx context.Context, cluster *cluste
 					TkgVersion: tkgVersion,
 				},
 				Previous: nil,
-				Ready:    isControlPlaneReady(kcpObj),
+				Ready:    hasKcpReconciledToDesiredK8Version(kcpObj),
 			}
 		} else {
-			if !isControlPlaneReady(kcpObj) && kcpObj.Spec.Version != capvcdStatus.Upgrade.Current.K8sVersion {
+			if kcpObj.Spec.Version != capvcdStatus.Upgrade.Current.K8sVersion {
 
 				upgradeObject.Previous = upgradeObject.Current
 				upgradeObject.Current = &rdeType.K8sInfo{
 					K8sVersion: kubernetesSpecVersion,
 					TkgVersion: tkgVersion,
 				}
-				upgradeObject.Ready = false
 			}
+			upgradeObject.Ready = hasKcpReconciledToDesiredK8Version(kcpObj)
 		}
 	}
 
-	klog.Infof("upgradeObject prev: [%#v]", capvcdStatus.Upgrade)
-	klog.Infof("upgradeObject current: [%#v]", upgradeObject)
+	log.Info("upgrade section of the RDE", "previous", capvcdStatus.Upgrade, "updated", upgradeObject)
 
 	if !reflect.DeepEqual(upgradeObject, capvcdStatus.Upgrade) {
 		capvcdStatusPatch["Upgrade"] = upgradeObject
