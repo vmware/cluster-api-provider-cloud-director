@@ -425,7 +425,7 @@ func (r *VCDClusterReconciler) reconcileRDE(ctx context.Context, cluster *cluste
 		}
 	}
 
-	log.Info("upgrade section of the RDE", "previous", capvcdStatus.Upgrade, "updated", upgradeObject)
+	log.V(4).Info("upgrade section of the RDE", "previous", capvcdStatus.Upgrade, "current", upgradeObject)
 
 	if !reflect.DeepEqual(upgradeObject, capvcdStatus.Upgrade) {
 		capvcdStatusPatch["Upgrade"] = upgradeObject
