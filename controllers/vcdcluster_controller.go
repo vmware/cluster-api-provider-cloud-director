@@ -582,6 +582,9 @@ func (r *VCDClusterReconciler) reconcileRDE(ctx context.Context, cluster *cluste
 			capvcdStatusPatch["Private.KubeConfig"] = string(kubeConfigBytes)
 		}
 	}
+	if release.CAPVCDVersion != capvcdStatus.CapvcdVersion {
+		capvcdStatusPatch["CapvcdVersion"] = release.CAPVCDVersion
+	}
 
 	updatedRDE, err := capvcdRdeManager.PatchRDE(ctx, specPatch, metadataPatch, capvcdStatusPatch, vcdCluster.Status.InfraId, vappID, updateExternalID)
 	if err != nil {
@@ -712,6 +715,11 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 			}
 			// update the RdeVersionInUse with the entity type version of the rde.
 			rdeVersionInUse = rdeVersion
+
+			// update the createdByVersion if not present already
+			if err := capvcdRdeManager.CheckForEmptyRDEAndUpdateCreatedByVersions(ctx, infraID); err != nil {
+				return ctrl.Result{}, errors.Wrapf(err, "Failed to update RDE [%s] with created by version", infraID)
+			}
 		}
 
 		// upgrade RDE if necessary
