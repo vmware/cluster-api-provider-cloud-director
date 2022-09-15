@@ -176,7 +176,7 @@
               "type": "object",
               "properties": {
                 "vcdOrg": {
-                  "type": "object",
+                  "type": "array",
                   "properties": {
                     "name": {
                       "type": "string"
