@@ -177,12 +177,15 @@
               "properties": {
                 "vcdOrg": {
                   "type": "array",
-                  "properties": {
-                    "name": {
-                      "type": "string"
-                    },
-                    "id": {
-                      "type": "string"
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "name": {
+                        "type": "string"
+                      },
+                      "id": {
+                        "type": "string"
+                      }
                     }
                   }
                 },
