@@ -59,7 +59,7 @@
     "metadata": {
       "type": "object",
       "properties": {
-        "vcdOrg": {
+        "organizations": {
           "type": "array",
           "items":  {
             "type": "object",
@@ -76,7 +76,7 @@
           },
           "description": "The Organizations in which cluster needs to be created or managed."
         },
-        "orgVdc": {
+        "orgVdcs": {
           "type": "array",
           "items": {
             "type": "object",

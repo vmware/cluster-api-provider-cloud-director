@@ -13,13 +13,13 @@
     }
   },
   "metadata": {
-    "vcdOrg": [
+    "organizations": [
       {
         "name": "ABCDEFGHIJKLMNOPQRSTUVWXYZAB",
         "id": "274c6240-3304-11ed-a261-0242ac120002"
       }
     ],
-    "orgVdc": [
+    "orgVdcs": [
       {
         "name": "ABCDEFGHIJKLMNOPQRSTUVWXYZAB",
         "id": "274c6240-3304-11ed-a261-0242ac120002"
