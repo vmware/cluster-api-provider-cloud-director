@@ -772,7 +772,7 @@ func (vdc *VdcManager) AddNewMultipleVM(vapp *govcd.VApp, vmNamePrefix string, v
 	return govcd.Task{}, nil
 }
 
-func (vdc *VdcManager) AddNewVM(VAppName string, vmNamePrefix string, vmNum int,
+func (vdc *VdcManager) AddNewVM(vmNamePrefix string, VAppName string, vmNum int,
 	catalogName string, templateName string, placementPolicyName string, computePolicyName string,
 	storageProfileName string, guestCustScript string, powerOn bool) error {
 
