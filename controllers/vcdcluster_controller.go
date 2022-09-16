@@ -252,6 +252,19 @@ func (r *VCDClusterReconciler) constructCapvcdRDE(ctx context.Context, cluster *
 		kubernetesVersion = kcp.Spec.Version
 	}
 
+	orgList := []rdeType.Org{
+		rdeType.Org{
+			Name: vcdOrg.Name,
+			ID:   vcdOrg.ID,
+		},
+	}
+	ovdcList := []rdeType.Ovdc{
+		rdeType.Ovdc{
+			Name: vdc.Name,
+			ID:   vdc.ID,
+		},
+	}
+
 	rde := &swagger.DefinedEntity{
 		EntityType: CAPVCDEntityTypeID,
 		Name:       vcdCluster.Name,
@@ -261,8 +274,8 @@ func (r *VCDClusterReconciler) constructCapvcdRDE(ctx context.Context, cluster *
 		ApiVersion: capisdk.CAPVCDClusterEntityApiVersion,
 		Metadata: rdeType.Metadata{
 			Name: vcdCluster.Name,
-			Org:  vcdOrg.Name,
-			Vdc:  vdc.Name,
+			Org:  orgList,
+			Ovdc:  ovdcList,
 			Site: vcdCluster.Spec.Site,
 		},
 		Spec: rdeType.CAPVCDSpec{},
@@ -289,18 +302,8 @@ func (r *VCDClusterReconciler) constructCapvcdRDE(ctx context.Context, cluster *
 				ParentUID: vcdCluster.Spec.ParentUID,
 				VcdProperties: rdeType.VCDProperties{
 					Site: vcdCluster.Spec.Site,
-					Org: []rdeType.Org{
-						rdeType.Org{
-							Name: vcdOrg.Name,
-							ID:   vcdOrg.ID,
-						},
-					},
-					Ovdc: []rdeType.Ovdc{
-						rdeType.Ovdc{
-							Name: vdc.Name,
-							ID:   vdc.ID,
-						},
-					},
+					Org: orgList,
+					Ovdc: ovdcList,
 					OvdcNetwork: vcdCluster.Spec.OvdcNetwork,
 				},
 				CapiStatusYaml:             "",
@@ -375,16 +378,27 @@ func (r *VCDClusterReconciler) reconcileRDE(ctx context.Context, cluster *cluste
 	if err != nil {
 		return fmt.Errorf("failed to get RDE with ID [%s] for cluster [%s]: [%v]", vcdCluster.Status.InfraId, vcdCluster.Name, err)
 	}
-	// TODO(VCDA-3107): Should we be updating org and vdc information here.
-	metadataPatch := make(map[string]interface{})
 
-	if org.Org.Name != capvcdMetadata.Org {
-		metadataPatch["Org"] = org.Org.Name
+		// TODO(VCDA-3107): Should we be updating org and vdc information here.
+	metadataPatch := make(map[string]interface{})
+	orgList := []rdeType.Org{
+		rdeType.Org{
+			Name: org.Org.Name,
+			ID: org.Org.ID,
+		},
+	}
+	if !reflect.DeepEqual(orgList, capvcdMetadata.Org) {
+		metadataPatch["vcdOrg"] = orgList
 	}
 
-	vdc := vcdCluster.Spec.Ovdc
-	if vdc != capvcdMetadata.Vdc {
-		metadataPatch["Vdc"] = vdc
+	ovdcList := []rdeType.Ovdc{
+		rdeType.Ovdc{
+			Name: workloadVCDClient.VDC.Vdc.Name,
+			ID:   workloadVCDClient.VDC.Vdc.Name,
+		},
+	}
+	if !reflect.DeepEqual(ovdcList, capvcdMetadata.Ovdc) {
+		metadataPatch["orgVdc"] = ovdcList
 	}
 
 	if capvcdMetadata.Site != vcdCluster.Spec.Site {
@@ -552,18 +566,8 @@ func (r *VCDClusterReconciler) reconcileRDE(ctx context.Context, cluster *cluste
 
 	vcdResources := rdeType.VCDProperties{
 		Site: vcdCluster.Spec.Site,
-		Org: []rdeType.Org{
-			rdeType.Org{
-				Name: org.Org.Name,
-				ID:   org.Org.ID,
-			},
-		},
-		Ovdc: []rdeType.Ovdc{
-			rdeType.Ovdc{
-				Name: workloadVCDClient.VDC.Vdc.Name,
-				ID:   workloadVCDClient.VDC.Vdc.Name,
-			},
-		},
+		Org: orgList,
+		Ovdc: ovdcList,
 		OvdcNetwork: vcdCluster.Spec.OvdcNetwork,
 	}
 	if !reflect.DeepEqual(vcdResources, capvcdStatus.VcdProperties) {

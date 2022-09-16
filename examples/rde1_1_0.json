@@ -13,8 +13,18 @@
     }
   },
   "metadata": {
-    "orgName": "ABCDEFGHIJKLMNOPQRSTUVWXYZA",
-    "virtualDataCenterName": "ABCDEFGHIJKLMNOPQRSTUVWXYZ",
+    "vcdOrg": [
+      {
+        "name": "ABCDEFGHIJKLMNOPQRSTUVWXYZAB",
+        "id": "274c6240-3304-11ed-a261-0242ac120002"
+      }
+    ],
+    "orgVdc": [
+      {
+        "name": "ABCDEFGHIJKLMNOPQRSTUVWXYZAB",
+        "id": "274c6240-3304-11ed-a261-0242ac120002"
+      }
+    ],
     "name": "ABCDEFGH",
     "site": "ABCD"
   },
