@@ -119,7 +119,7 @@ func patchObject(inputObj interface{}, patchMap map[string]interface{}) (map[str
 				// if objVal is nil ptr/doesn't exist, we can't write to the direct value.
 				// so we should not set objVal to it's value directly without checking.
 				ptrValue := objVal.Elem()
-				if ptrValue.IsZero() { // ptr is not nil, we can update objVal to the value for update
+				if ptrValue.IsValid() { // ptr is not nil, we can update objVal to the value for update
 					objVal = objVal.Elem()
 				}
 			}
