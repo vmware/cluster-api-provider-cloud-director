@@ -275,7 +275,7 @@ func (r *VCDClusterReconciler) constructCapvcdRDE(ctx context.Context, cluster *
 		Metadata: rdeType.Metadata{
 			Name: vcdCluster.Name,
 			Org:  orgList,
-			Ovdc:  ovdcList,
+			Ovdc: ovdcList,
 			Site: vcdCluster.Spec.Site,
 		},
 		Spec: rdeType.CAPVCDSpec{},
@@ -301,9 +301,9 @@ func (r *VCDClusterReconciler) constructCapvcdRDE(ctx context.Context, cluster *
 				},
 				ParentUID: vcdCluster.Spec.ParentUID,
 				VcdProperties: rdeType.VCDProperties{
-					Site: vcdCluster.Spec.Site,
-					Org: orgList,
-					Ovdc: ovdcList,
+					Site:        vcdCluster.Spec.Site,
+					Org:         orgList,
+					Ovdc:        ovdcList,
 					OvdcNetwork: vcdCluster.Spec.OvdcNetwork,
 				},
 				CapiStatusYaml:             "",
@@ -379,16 +379,16 @@ func (r *VCDClusterReconciler) reconcileRDE(ctx context.Context, cluster *cluste
 		return fmt.Errorf("failed to get RDE with ID [%s] for cluster [%s]: [%v]", vcdCluster.Status.InfraId, vcdCluster.Name, err)
 	}
 
-		// TODO(VCDA-3107): Should we be updating org and vdc information here.
+	// TODO(VCDA-3107): Should we be updating org and vdc information here.
 	metadataPatch := make(map[string]interface{})
 	orgList := []rdeType.Org{
 		rdeType.Org{
 			Name: org.Org.Name,
-			ID: org.Org.ID,
+			ID:   org.Org.ID,
 		},
 	}
 	if !reflect.DeepEqual(orgList, capvcdMetadata.Org) {
-		metadataPatch["vcdOrg"] = orgList
+		metadataPatch["Org"] = orgList
 	}
 
 	ovdcList := []rdeType.Ovdc{
@@ -398,11 +398,11 @@ func (r *VCDClusterReconciler) reconcileRDE(ctx context.Context, cluster *cluste
 		},
 	}
 	if !reflect.DeepEqual(ovdcList, capvcdMetadata.Ovdc) {
-		metadataPatch["orgVdc"] = ovdcList
+		metadataPatch["Ovdc"] = ovdcList
 	}
 
 	if capvcdMetadata.Site != vcdCluster.Spec.Site {
-		metadataPatch["Site"] = vcdCluster.Spec.Site
+		metadataPatch["Org"] = vcdCluster.Spec.Site
 	}
 
 	specPatch := make(map[string]interface{})
@@ -565,9 +565,9 @@ func (r *VCDClusterReconciler) reconcileRDE(ctx context.Context, cluster *cluste
 	}
 
 	vcdResources := rdeType.VCDProperties{
-		Site: vcdCluster.Spec.Site,
-		Org: orgList,
-		Ovdc: ovdcList,
+		Site:        vcdCluster.Spec.Site,
+		Org:         orgList,
+		Ovdc:        ovdcList,
 		OvdcNetwork: vcdCluster.Spec.OvdcNetwork,
 	}
 	if !reflect.DeepEqual(vcdResources, capvcdStatus.VcdProperties) {

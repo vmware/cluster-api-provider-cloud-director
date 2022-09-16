@@ -8,8 +8,8 @@ const (
 
 type Metadata struct {
 	Name string `json:"name,omitempty"`
-	Org  string `json:"orgName,omitempty"`
-	Vdc  string `json:"virtualDataCenterName,omitempty"`
+	Ovdc []Ovdc `json:"orgVdc,omitempty"`
+	Org  []Org  `json:"vcdOrg,omitempty"`
 	Site string `json:"site,omitempty"`
 }
 
