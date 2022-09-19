@@ -116,7 +116,12 @@ func patchObject(inputObj interface{}, patchMap map[string]interface{}) (map[str
 			// cannot call fieldByName on a zero value
 			objVal = objVal.FieldByName(attr)
 			if objVal.Kind() == reflect.Ptr {
-				objVal = objVal.Elem()
+				// if objVal is nil ptr/doesn't exist, we can't write to the direct value.
+				// so we should not set objVal to it's value directly without checking.
+				ptrValue := objVal.Elem()
+				if ptrValue.IsValid() { // ptr is not nil, we can update objVal to the value for update
+					objVal = objVal.Elem()
+				}
 			}
 		}
 		objVal.Set(updatedVal)
@@ -136,7 +141,7 @@ func (capvcdRdeManager *CapvcdRdeManager) SetIsManagementClusterInRDE(ctx contex
 	}
 	capvcdStatusPatch := make(map[string]interface{})
 	capvcdStatusPatch["UsedAsManagementCluster"] = true
-	_, err := capvcdRdeManager.PatchRDE(ctx, nil, nil, capvcdStatusPatch, managementClusterRDEId)
+	_, err := capvcdRdeManager.PatchRDE(ctx, nil, nil, capvcdStatusPatch, managementClusterRDEId, "", false)
 	if err != nil {
 		return fmt.Errorf("failed to set isManagementCluster flag for management cluster with RDE ID [%s]: [%v]",
 			managementClusterRDEId, err)
@@ -150,7 +155,8 @@ func (capvcdRdeManager *CapvcdRdeManager) SetIsManagementClusterInRDE(ctx contex
 // specPatch["CapiYaml"] = updated-yaml
 // metadataPatch["Name"] = updated-name
 // capvcdStatusPatch["Version"] = updated-version
-func (capvcdRdeManager *CapvcdRdeManager) PatchRDE(ctx context.Context, specPatch, metadataPatch, capvcdStatusPatch map[string]interface{}, rdeID string) (rde *swagger.DefinedEntity, err error) {
+func (capvcdRdeManager *CapvcdRdeManager) PatchRDE(ctx context.Context, specPatch, metadataPatch,
+	capvcdStatusPatch map[string]interface{}, rdeID string, externalID string, updateExternalID bool) (rde *swagger.DefinedEntity, err error) {
 	defer func() {
 		// recover from panic if panic occurs because of
 		// 1. calling Set() on a zero value
@@ -210,6 +216,10 @@ func (capvcdRdeManager *CapvcdRdeManager) PatchRDE(ctx context.Context, specPatc
 			if err != nil {
 				return nil, fmt.Errorf("failed to patch capvcd status in the CAPVCD entity: [%v]", err)
 			}
+		}
+		if updateExternalID {
+			klog.V(4).Infof("setting externalID as [%s] in RDE [%s]", externalID, rdeID)
+			rde.ExternalId = externalID
 		}
 
 		// update the defined entity

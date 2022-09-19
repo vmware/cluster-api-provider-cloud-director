@@ -14,6 +14,7 @@ import (
 	"github.com/vmware/go-vcloud-director/v2/util"
 	"io/ioutil"
 	"net/http"
+	"strings"
 )
 
 // indentJsonBody indents raw JSON body for easier readability
@@ -74,4 +75,9 @@ func Int2IntPtr(val int) *int {
 
 func Float2FloatPtr(val float64) *float64 {
 	return &val
+}
+
+// Str2Bool returns true if the string value is not false
+func Str2Bool(val string) bool {
+	return strings.ToLower(val) == "true"
 }

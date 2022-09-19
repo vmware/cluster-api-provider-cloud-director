@@ -4,12 +4,13 @@ go 1.17
 
 require (
 	github.com/antihax/optional v1.0.0
+	github.com/blang/semver v3.5.1+incompatible
 	github.com/google/uuid v1.3.0
 	github.com/onsi/ginkgo v1.16.5
 	github.com/onsi/gomega v1.19.0
 	github.com/pkg/errors v0.9.1
 	github.com/replicatedhq/troubleshoot v0.35.0
-	github.com/vmware/cloud-provider-for-cloud-director v0.0.0-20220815231236-187fe9886581
+	github.com/vmware/cloud-provider-for-cloud-director v0.0.0-20220914172655-5856ccb7a3a4
 	github.com/vmware/go-vcloud-director/v2 v2.15.0
 	gopkg.in/yaml.v2 v2.4.0
 	k8s.io/api v0.24.1
@@ -33,7 +34,6 @@ require (
 	github.com/apparentlymart/go-cidr v1.1.0 // indirect
 	github.com/araddon/dateparse v0.0.0-20190622164848-0fb0a474d195 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
-	github.com/blang/semver v3.5.1+incompatible // indirect
 	github.com/cespare/xxhash/v2 v2.1.2 // indirect
 	github.com/coredns/caddy v1.1.0 // indirect
 	github.com/coredns/corefile-migration v1.0.14 // indirect

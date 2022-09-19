@@ -8,8 +8,8 @@ const (
 
 type Metadata struct {
 	Name string `json:"name,omitempty"`
-	Org  string `json:"orgName,omitempty"`
-	Vdc  string `json:"virtualDataCenterName,omitempty"`
+	Ovdc []Ovdc `json:"orgVdcs,omitempty"`
+	Org  []Org  `json:"organizations,omitempty"`
 	Site string `json:"site,omitempty"`
 }
 
@@ -46,11 +46,21 @@ type Services struct {
 	CidrBlocks []string `json:"cidrBlocks,omitempty"`
 }
 
+type Ovdc struct {
+	Name string `json:"name,omitempty"`
+	ID   string `json:"id,omitempty"`
+}
+
+type Org struct {
+	Name string `json:"name,omitempty"`
+	ID   string `json:"id,omitempty"`
+}
+
 type VCDProperties struct {
 	Site        string `json:"site,omitempty"`
-	Org         string `json:"orgName,omitempty"`
-	Vdc         string `json:"virtualDataCenterName,omitempty"`
 	OvdcNetwork string `json:"ovdcNetworkName,omitempty"`
+	Ovdc        []Ovdc `json:"orgVdc,omitempty"`
+	Org         []Org  `json:"vcdOrg,omitempty"`
 }
 
 type ApiEndpoints struct {
@@ -73,7 +83,6 @@ type PrivateSection struct {
 }
 
 type K8sNetwork struct {
-	Cni      Cni      `json:"cni,omitempty"`
 	Pods     Pods     `json:"pods,omitempty"`
 	Services Services `json:"services,omitempty"`
 }
@@ -109,6 +118,17 @@ type ClusterResourceSetBinding struct {
 	LastAppliedTime        string `json:"lastAppliedTime,omitempty"`
 }
 
+type K8sInfo struct {
+	TkgVersion string `json:"tkgVersion,omitempty"`
+	K8sVersion string `json:"kubernetesVersion,omitempty"`
+}
+
+type Upgrade struct {
+	Current  *K8sInfo `json:"current"`
+	Previous *K8sInfo `json:"previous"`
+	Ready    bool     `json:"ready"`
+}
+
 type CAPVCDStatus struct {
 	Phase                      string                      `json:"phase,omitempty"`
 	Kubernetes                 string                      `json:"kubernetes,omitempty"`
@@ -128,6 +148,7 @@ type CAPVCDStatus struct {
 	CapiStatusYaml             string                      `json:"capiStatusYaml,omitempty"`
 	ClusterResourceSetBindings []ClusterResourceSetBinding `json:"clusterResourceSetBindings,omitempty"`
 	CreatedByVersion           string                      `json:"createdByVersion"`
+	Upgrade                    Upgrade                     `json:"upgrade,omitempty"`
 }
 
 type Status struct {

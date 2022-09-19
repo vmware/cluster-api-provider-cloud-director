@@ -44,16 +44,17 @@ import (
 )
 
 type CloudInitScriptInput struct {
-	ControlPlane     bool   // control plane node
-	NvidiaGPU        bool   // configure containerd for NVIDIA libraries
-	BootstrapRunCmd  string // bootstrap run command
-	HTTPProxy        string // httpProxy endpoint
-	HTTPSProxy       string // httpsProxy endpoint
-	NoProxy          string // no proxy values
-	MachineName      string // vm host name
-	VcdHostFormatted string // vcd host
-	TKGVersion       string // tkgVersion
-	ClusterID        string //cluster id
+	ControlPlane        bool   // control plane node
+	NvidiaGPU           bool   // configure containerd for NVIDIA libraries
+	BootstrapRunCmd     string // bootstrap run command
+	HTTPProxy           string // httpProxy endpoint
+	HTTPSProxy          string // httpsProxy endpoint
+	NoProxy             string // no proxy values
+	MachineName         string // vm host name
+	ResizedControlPlane bool   // resized node type: worker | control_plane
+	VcdHostFormatted    string // vcd host
+	TKGVersion          string // tkgVersion
+	ClusterID           string //cluster id
 }
 
 const (
@@ -407,6 +408,10 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	useControlPlaneScript := util.IsControlPlaneMachine(machine) &&
 		!strings.Contains(bootstrapJinjaScript, "kubeadm join")
 
+	// Scaling up Control Plane initially creates the nodes as worker, which eventually joins the original control plane
+	// Hence we are checking if it contains the control plane label and has kubeadm join in the script
+	isResizedControlPlane := util.IsControlPlaneMachine(machine) && strings.Contains(bootstrapJinjaScript, "kubeadm join")
+
 	// Construct a CloudInitScriptInput struct to pass into template.Execute() function to generate the necessary
 	// cloud init script for the relevant node type, i.e. control plane or worker node
 	cloudInitInput := CloudInitScriptInput{}
@@ -426,6 +431,7 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		cloudInitInput.NvidiaGPU = vcdMachine.Spec.NvidiaGPU
 		cloudInitInput.TKGVersion = getTKGVersion(cluster)   // needed for both worker & control plane machines for metering
 		cloudInitInput.ClusterID = vcdCluster.Status.InfraId // needed for both worker & control plane machines for metering
+		cloudInitInput.ResizedControlPlane = isResizedControlPlane
 	}
 
 	mergedCloudInitBytes, err := MergeJinjaToCloudInitScript(cloudInitInput, bootstrapJinjaScript)
@@ -470,7 +476,9 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	}
 	if !vmExists {
 		log.Info("Adding infra VM for the machine")
-		err = vdcManager.AddNewVM(vcdCluster.Name, machine.Name, 1,
+
+		// vcda-4391 fixed
+		err = vdcManager.AddNewVM(machine.Name, vcdCluster.Name, 1,
 			vcdMachine.Spec.Catalog, vcdMachine.Spec.Template, vcdMachine.Spec.PlacementPolicy,
 			vcdMachine.Spec.SizingPolicy, vcdMachine.Spec.StorageProfile, "", false)
 		if err != nil {

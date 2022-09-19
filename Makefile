@@ -156,6 +156,7 @@ build-within-docker:
 capi: generate fmt vet vendor
 	docker build -f Dockerfile . -t cluster-api-provider-cloud-director:$(version)
 	docker tag cluster-api-provider-cloud-director:$(version) $(IMG)
+	docker tag cluster-api-provider-cloud-director:$(version) $(IMG).$(GITCOMMIT)
 	docker push $(IMG)
 
 vendor: generate fmt vet
@@ -178,3 +179,11 @@ generate_conversions:  ## Runs Go related generate targets.
 		--output-file-base=zz_generated.conversion \
 		--go-header-file=./boilerplate.go.txt
 
+dev: capi
+	docker push $(IMG).$(GITCOMMIT)
+	sed -e "s/__GIT_COMMIT__/$(GITCOMMIT)/g" config/manager/manager.yaml.template > config/manager/manager.yaml
+	make release-manifests
+
+prod: capi
+	sed -e "s/\.__GIT_COMMIT__//g" config/manager/manager.yaml.template > config/manager/manager.yaml
+	make release-manifests

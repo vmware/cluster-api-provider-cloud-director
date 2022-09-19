@@ -13,8 +13,18 @@
     }
   },
   "metadata": {
-    "orgName": "ABCDEFGHIJKLMNOPQRSTUVWXYZA",
-    "virtualDataCenterName": "ABCDEFGHIJKLMNOPQRSTUVWXYZ",
+    "organizations": [
+      {
+        "name": "ABCDEFGHIJKLMNOPQRSTUVWXYZAB",
+        "id": "274c6240-3304-11ed-a261-0242ac120002"
+      }
+    ],
+    "orgVdcs": [
+      {
+        "name": "ABCDEFGHIJKLMNOPQRSTUVWXYZAB",
+        "id": "274c6240-3304-11ed-a261-0242ac120002"
+      }
+    ],
     "name": "ABCDEFGH",
     "site": "ABCD"
   },
@@ -36,14 +46,22 @@
       }
     },
     "capvcd": {
+      "upgrade": {
+        "ready": true,
+        "current": {
+          "tkgVersion": "v1.5.4",
+          "kubernetesVersion": "v1.22.9+vmware.1"
+        },
+        "previous": {
+          "tkgVersion": "v1.4.3",
+          "kubernetesVersion": "v1.21.8+vmware.1"
+        }
+      },
       "phase": "ABCDEFGHIJKLMNOPQRSTUVWX",
       "kubernetes": "ABCDEFGHIJKLMNOPQRST",
       "errors":["Machine<name>creationFailed_timestamp, "],
       "conditions":[],
       "k8sNetwork": {
-        "cni": {
-          "name": "ABCDEFGHIJKLMN"
-        },
         "pods": {
           "cidrBlocks": []
         },
@@ -94,8 +112,18 @@
       "createdByVersion": "1.1.0",
       "capvcdVersion": "ABCD",
       "vcdProperties": {
-        "orgName": "ABCDEFGHIJKLMNOPQRSTUVWXYZAB",
-        "virtualDataCenterName": "ABCDEFGHIJKLMNOPQRSTUVWX",
+        "vcdOrg": [
+          {
+            "name": "ABCDEFGHIJKLMNOPQRSTUVWXYZAB",
+            "id": "274c6240-3304-11ed-a261-0242ac120002"
+          }
+        ],
+        "orgVdc": [
+          {
+            "name": "ABCDEFGHIJKLMNOPQRSTUVWXYZAB",
+            "id": "274c6240-3304-11ed-a261-0242ac120002"
+          }
+        ],
         "ovdcNetworkName": "ABCDEFGHIJKLMNOPQ",
         "site": "ABCDEFGHIJKLMNOPQRSTUVWX"
       },

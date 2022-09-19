@@ -4,15 +4,6 @@
       "type": "object",
       "description": "The network-related settings for the cluster.",
       "properties": {
-        "cni": {
-          "type": "object",
-          "description": "The CNI to use.",
-          "properties": {
-            "name": {
-              "type": "string"
-            }
-          }
-        },
         "pods": {
           "type": "object",
           "description": "The network settings for Kubernetes pods.",
@@ -68,13 +59,39 @@
     "metadata": {
       "type": "object",
       "properties": {
-        "orgName": {
-          "type": "string",
-          "description": "The name of the Organization in which cluster needs to be created or managed."
+        "organizations": {
+          "type": "array",
+          "items":  {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "description": "Organization name in which the cluster needs to be managed"
+              },
+              "id": {
+                "type": "string",
+                "description": "organizaiton ID of the Organization in which the cluster needs to be managed"
+              }
+            }
+          },
+          "description": "The Organizations in which cluster needs to be created or managed."
         },
-        "virtualDataCenterName": {
-          "type": "string",
-          "description": "The name of the Organization data center in which the cluster need to be created or managed."
+        "orgVdcs": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "description": "organization virtual data centers in which the cluster needs to be managed",
+            "properties": {
+              "name": {
+                "type": "string",
+                "description": "Org VDC name of the virtual data center in which the cluster needs to be managed"
+              },
+              "id": {
+                "type": "string",
+                "description": "Org VDC ID of the virtual data center in which the cluster needs to be managed"
+              }
+            }
+          }
         },
         "name": {
           "type": "string",
@@ -184,17 +201,75 @@
             "vcdProperties": {
               "type": "object",
               "properties": {
-                "orgName": {
-                  "type": "string"
-                },
-                "virtualDataCenterName": {
-                  "type": "string"
+                "vcdOrg": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "name": {
+                        "type": "string"
+                      },
+                      "id": {
+                        "type": "string"
+                      }
+                    }
+                  }
                 },
                 "ovdcNetworkName": {
                   "type": "string"
                 },
                 "site": {
                   "type": "string"
+                },
+                "orgVdc": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "name": {
+                        "type": "string"
+                      },
+                      "id": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "upgrade": {
+              "type": "object",
+              "description": "determines the state of upgrade. If no upgrade is issued, only the existing version is stored.",
+              "properties": {
+                "current": {
+                  "type": "object",
+                  "properties": {
+                    "kubernetesVersion": {
+                      "type": "string",
+                      "description": "current kubernetes version of the cluster. If being upgraded, will represent target kubernetes version of the cluster."
+                    },
+                    "tkgVersion": {
+                      "type": "string",
+                      "description": "current TKG version of the cluster. If being upgraded, will represent the tarkget TKG version of the cluster."
+                    }
+                  }
+                },
+                "previous": {
+                  "type": "object",
+                  "properties": {
+                    "kubernetesVersion": {
+                      "type": "string",
+                      "description": "the kubernetes version from which the cluster was upgraded from. If cluster upgrade is still in progress, the field will represent the source kubernetes version from which the cluster is being upgraded."
+                    },
+                    "tkgVersion": {
+                      "type": "string",
+                      "description": "the TKG version from which the cluster was upgraded from. If cluster upgrade is still in progress, the field will represent the source TKG versoin from which the cluster is being upgraded."
+                    }
+                  }
+                },
+                "ready": {
+                  "type": "boolean",
+                  "description": "boolean indicating the status of the cluster upgrade."
                 }
               }
             },
