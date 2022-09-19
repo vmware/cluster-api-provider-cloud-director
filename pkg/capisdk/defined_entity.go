@@ -48,6 +48,7 @@ const (
 	LoadBalancerDeleteError = "LoadBalancerDeleteError"
 	VappDeleteError         = "VappDeleteError"
 	RdeDeleteError          = "RdeDeleteError"
+	RdeValidateError        = "RdeValidateError"
 
 	// VCDMachine Events
 	InfraVmPoweredOn         = "VcdMachineInfraVMPoweredOn"
@@ -58,8 +59,17 @@ const (
 	// VCDMachine Errors
 	ScriptGenerationError = "VcdMachineScriptGenerationError"
 	InfraVMCreationError  = "VcdMachineInfraVMCreationError"
+	VMConfigureError      = "VcdMachineConfigureError"
 	ScriptExecutionError  = "VcdMachineScriptExecutionError"
+	PostBoostrapError     = "VcdMachinePostBoostrapError"
 	InfraVmDeleteError    = "VcdMachineInfraVmDeleteError"
+	LoadBalancerProvision = "LoadBalancerProvisionError"
+
+	// Errors for both VCDCluster and VCDMachine
+	PatchExecutionError  = "VcdMachinePatchExecutionError"
+	ManagerCreationError = "resourceManagerCreationError"
+	ResourceUpdateError  = "VcdResourceUpdateError"
+	MetaDataConfigError  = "vAppMetaDataConfigError"
 )
 
 // During upgrade from any old rde to a newer version format, we must be careful not to wipe out
