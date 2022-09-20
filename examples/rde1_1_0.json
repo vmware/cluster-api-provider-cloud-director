@@ -66,6 +66,28 @@
         "phase": "ABCDEFGHIJKLMNOPQ",
         "apiEndpoints": []
       },
+      "nodePool": [
+        {
+          "name": "tkg-cluster-1-worker-pool-1",
+          "replicas": 1,
+          "nodeStatus": {
+            "tkg-cluster-1-worker-pool-1-67b5c56c5d-xwht7": "Running"
+          },
+          "sizingPolicy": "TKG small",
+          "storageProfile": "*",
+          "availableReplicas": 1
+        },
+        {
+          "name": "tkg-cluster-1-control-plane",
+          "replicas": 1,
+          "nodeStatus": {
+            "tkg-cluster-1-control-plane-zznds": "Running"
+          },
+          "sizingPolicy": "TKG small",
+          "storageProfile": "*",
+          "availableReplicas": 1
+        }
+      ],
       "nodeStatus": {
         "node1": "running",
         "node2": "provisioning"
