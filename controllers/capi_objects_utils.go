@@ -267,13 +267,14 @@ func getNodePoolList(ctx context.Context, cli client.Client, cluster clusterv1.C
 			nodeStatusMap[machine.Name] = machine.Status.Phase
 		}
 		nodePool := rdeType.NodePool{
-			Name:            md.Name,
-			SizingPolicy:    vcdMachineTemplate.Spec.Template.Spec.SizingPolicy,
-			PlacementPolicy: vcdMachineTemplate.Spec.Template.Spec.PlacementPolicy,
-			NvidiaGpu:       vcdMachineTemplate.Spec.Template.Spec.NvidiaGPU,
-			StorageProfile:  vcdMachineTemplate.Spec.Template.Spec.StorageProfile,
-			Replicas:        md.Status.Replicas,
-			NodeStatus:      nodeStatusMap,
+			Name:              md.Name,
+			SizingPolicy:      vcdMachineTemplate.Spec.Template.Spec.SizingPolicy,
+			PlacementPolicy:   vcdMachineTemplate.Spec.Template.Spec.PlacementPolicy,
+			NvidiaGpu:         vcdMachineTemplate.Spec.Template.Spec.NvidiaGPU,
+			StorageProfile:    vcdMachineTemplate.Spec.Template.Spec.StorageProfile,
+			Replicas:          md.Status.Replicas,
+			AvailableReplicas: md.Status.ReadyReplicas,
+			NodeStatus:        nodeStatusMap,
 		}
 		nodePoolList = append(nodePoolList, nodePool)
 	}
@@ -298,13 +299,14 @@ func getNodePoolList(ctx context.Context, cli client.Client, cluster clusterv1.C
 			nodeStatusMap[machine.Name] = machine.Status.Phase
 		}
 		nodePool := rdeType.NodePool{
-			Name:            kcp.Name,
-			SizingPolicy:    vcdMachineTemplate.Spec.Template.Spec.SizingPolicy,
-			PlacementPolicy: vcdMachineTemplate.Spec.Template.Spec.PlacementPolicy,
-			NvidiaGpu:       vcdMachineTemplate.Spec.Template.Spec.NvidiaGPU,
-			StorageProfile:  vcdMachineTemplate.Spec.Template.Spec.StorageProfile,
-			Replicas:        kcp.Status.Replicas,
-			NodeStatus:      nodeStatusMap,
+			Name:              kcp.Name,
+			SizingPolicy:      vcdMachineTemplate.Spec.Template.Spec.SizingPolicy,
+			PlacementPolicy:   vcdMachineTemplate.Spec.Template.Spec.PlacementPolicy,
+			NvidiaGpu:         vcdMachineTemplate.Spec.Template.Spec.NvidiaGPU,
+			StorageProfile:    vcdMachineTemplate.Spec.Template.Spec.StorageProfile,
+			Replicas:          kcp.Status.Replicas,
+			AvailableReplicas: kcp.Status.ReadyReplicas,
+			NodeStatus:        nodeStatusMap,
 		}
 		nodePoolList = append(nodePoolList, nodePool)
 	}

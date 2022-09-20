@@ -100,14 +100,15 @@ type VCDResource struct {
 }
 
 type NodePool struct {
-	Name            string            `json:"name,omitempty"`
-	SizingPolicy    string            `json:"sizingPolicy,omitempty"`
-	PlacementPolicy string            `json:"placementPolicy,omitempty"`
-	DiskSizeMb      int32             `json:"diskSizeMb,omitempty"`
-	NvidiaGpu       bool              `json:"nvidiaGpu,omitempty"`
-	StorageProfile  string            `json:"storageProfile,omitempty"`
-	Replicas        int32             `json:"replicas,omitempty"`
-	NodeStatus      map[string]string `json:"nodeStatus,omitempty"`
+	Name              string            `json:"name,omitempty"`
+	SizingPolicy      string            `json:"sizingPolicy,omitempty"`
+	PlacementPolicy   string            `json:"placementPolicy,omitempty"`
+	DiskSizeMb        int32             `json:"diskSizeMb,omitempty"`
+	NvidiaGpu         bool              `json:"nvidiaGpu,omitempty"`
+	StorageProfile    string            `json:"storageProfile,omitempty"`
+	Replicas          int32             `json:"replicas,omitempty"`
+	AvailableReplicas int32             `json:"availableReplicas,omitempty"`
+	NodeStatus        map[string]string `json:"nodeStatus,omitempty"`
 }
 
 type ClusterResourceSetBinding struct {
