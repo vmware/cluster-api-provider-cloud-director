@@ -13,18 +13,8 @@
     }
   },
   "metadata": {
-    "organizations": [
-      {
-        "name": "ABCDEFGHIJKLMNOPQRSTUVWXYZAB",
-        "id": "274c6240-3304-11ed-a261-0242ac120002"
-      }
-    ],
-    "orgVdcs": [
-      {
-        "name": "ABCDEFGHIJKLMNOPQRSTUVWXYZAB",
-        "id": "274c6240-3304-11ed-a261-0242ac120002"
-      }
-    ],
+    "orgName": "ABCDEFGHIJKLMNOPQRSTUVWXYZA",
+    "virtualDataCenterName": "ABCDEFGHIJKLMNOPQRSTUVWXYZ",
     "name": "ABCDEFGH",
     "site": "ABCD"
   },
@@ -112,19 +102,19 @@
       "createdByVersion": "1.1.0",
       "capvcdVersion": "ABCD",
       "vcdProperties": {
-        "vcdOrg": [
+        "organizations": [
           {
             "name": "ABCDEFGHIJKLMNOPQRSTUVWXYZAB",
             "id": "274c6240-3304-11ed-a261-0242ac120002"
           }
         ],
-        "orgVdc": [
+        "orgVdcs": [
           {
             "name": "ABCDEFGHIJKLMNOPQRSTUVWXYZAB",
-            "id": "274c6240-3304-11ed-a261-0242ac120002"
+            "id": "274c6240-3304-11ed-a261-0242ac120002",
+            "ovdcNetworkName": "ABCDEFGHIJKLMNOPQ"
           }
         ],
-        "ovdcNetworkName": "ABCDEFGHIJKLMNOPQ",
         "site": "ABCDEFGHIJKLMNOPQRSTUVWX"
       },
       "vcdResourceSet": [
