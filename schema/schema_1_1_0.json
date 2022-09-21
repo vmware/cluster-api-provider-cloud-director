@@ -158,7 +158,7 @@
                     "type": "integer",
                     "description": "disk size of the VMs in the node pool in MB"
                   },
-                  "nvidiaGpu": {
+                  "nvidiaGpuEnabled": {
                     "type": "boolean",
                     "description": "boolean indicating if the node pools have nvidia GPU enabled"
                   },
