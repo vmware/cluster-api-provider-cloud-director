@@ -624,7 +624,7 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		return ctrl.Result{}, errors.Wrapf(err, "Error creating VCD client to reconcile Cluster [%s] infrastructure", vcdCluster.Name)
 	}
 
-	gateway, err := vcdsdk.NewGatewayManager(ctx, workloadVCDClient, vcdCluster.Spec.OvdcNetwork, vcdCluster.Spec.LoadBalancer.VipSubnet)
+	gateway, err := vcdsdk.NewGatewayManager(ctx, workloadVCDClient, vcdCluster.Spec.OvdcNetwork, vcdCluster.Spec.LoadBalancerConfigSpec.VipSubnet)
 	if err != nil {
 		return ctrl.Result{}, errors.Wrapf(err, "failed to create gateway manager using the workload client to reconcile cluster [%s]", vcdCluster.Name)
 	}
@@ -779,17 +779,23 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 
 	rdeManager := vcdsdk.NewRDEManager(workloadVCDClient, vcdCluster.Status.InfraId,
 		capisdk.StatusComponentNameCAPVCD, release.CAPVCDVersion)
-	// After InfraId has been set, we can update parentUid, useAsMgmtCluster status
+	// After InfraId has been set, we can update site, org, ovdcNetwork, parentUid, useAsManagementCluster
+	// proxyConfigSpec loadBalancerConfigSpec for vcdCluster status
+	vcdCluster.Status.Site = vcdCluster.Spec.Site
+	vcdCluster.Status.Org = vcdCluster.Spec.Org
+	vcdCluster.Status.Ovdc = vcdCluster.Spec.Ovdc
+	vcdCluster.Status.OvdcNetwork = vcdCluster.Spec.OvdcNetwork
 	vcdCluster.Status.UseAsManagementCluster = vcdCluster.Spec.UseAsManagementCluster
 	vcdCluster.Status.ParentUID = vcdCluster.Spec.ParentUID
-	vcdCluster.Status.ProxyConfig = vcdCluster.Spec.ProxyConfig
+	vcdCluster.Status.ProxyConfig = vcdCluster.Spec.ProxyConfigSpec
+	vcdCluster.Status.LoadBalancerConfig = vcdCluster.Spec.LoadBalancerConfigSpec
 
 	// create load balancer for the cluster. Only one-arm load balancer is fully tested.
 	virtualServiceNamePrefix := capisdk.GetVirtualServiceNamePrefix(vcdCluster.Name, vcdCluster.Status.InfraId)
 	lbPoolNamePrefix := capisdk.GetLoadBalancerPoolNamePrefix(vcdCluster.Name, vcdCluster.Status.InfraId)
 
 	var oneArm *vcdsdk.OneArm = nil
-	if vcdCluster.Spec.LoadBalancer.UseOneArm {
+	if vcdCluster.Spec.LoadBalancerConfigSpec.UseOneArm {
 		oneArm = &OneArmDefault
 	}
 	var resourcesAllocated *vcdsdkutil.AllocatedResourcesMap
@@ -829,7 +835,7 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 					ExternalPort: int32(controlPlanePort),
 					InternalPort: int32(controlPlanePort),
 				},
-			}, oneArm, !vcdCluster.Spec.LoadBalancer.UseOneArm,
+			}, oneArm, !vcdCluster.Spec.LoadBalancerConfigSpec.UseOneArm,
 			nil, vcdCluster.Spec.ControlPlaneEndpoint.Host, resourcesAllocated)
 
 		// Update VCDResourceSet even if the creation has failed since we may have partially
@@ -1005,7 +1011,7 @@ func (r *VCDClusterReconciler) reconcileDelete(ctx context.Context,
 	}
 	capvcdRdeManager := capisdk.NewCapvcdRdeManager(workloadVCDClient, vcdCluster.Status.InfraId)
 
-	gateway, err := vcdsdk.NewGatewayManager(ctx, workloadVCDClient, vcdCluster.Spec.OvdcNetwork, vcdCluster.Spec.LoadBalancer.VipSubnet)
+	gateway, err := vcdsdk.NewGatewayManager(ctx, workloadVCDClient, vcdCluster.Spec.OvdcNetwork, vcdCluster.Spec.LoadBalancerConfigSpec.VipSubnet)
 	if err != nil {
 		return ctrl.Result{}, errors.Wrapf(err, "failed to create gateway manager using the workload client to reconcile cluster [%s]", vcdCluster.Name)
 	}
@@ -1019,7 +1025,7 @@ func (r *VCDClusterReconciler) reconcileDelete(ctx context.Context,
 		controlPlanePort = TcpPort
 	}
 	var oneArm *vcdsdk.OneArm = nil
-	if vcdCluster.Spec.LoadBalancer.UseOneArm {
+	if vcdCluster.Spec.LoadBalancerConfigSpec.UseOneArm {
 		oneArm = &OneArmDefault
 	}
 	resourcesAllocated := &vcdsdkutil.AllocatedResourcesMap{}
