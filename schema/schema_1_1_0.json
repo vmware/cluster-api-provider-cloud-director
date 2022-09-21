@@ -166,7 +166,7 @@
                     "type": "string",
                     "description": "storage profile used by the node pool"
                   },
-                  "replicas": {
+                  "desiredReplicas": {
                     "type": "integer",
                     "description": "number of VMs in the node pool"
                   },
