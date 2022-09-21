@@ -741,7 +741,6 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 
 	vcdMachine.Spec.Bootstrapped = true
 	conditions.MarkTrue(vcdMachine, BootstrapExecSucceededCondition)
-
 	// Set ProviderID so the Cluster API Machine Controller can pull it
 	providerID := fmt.Sprintf("%s://%s", infrav1.VCDProviderID, vm.VM.ID)
 	vcdMachine.Spec.ProviderID = &providerID
@@ -752,6 +751,9 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	vcdMachine.Status.PlacementPolicy = vcdMachine.Spec.PlacementPolicy
 	vcdMachine.Status.NvidiaGPUEnabled = vcdMachine.Spec.EnableNvidiaGPU
 	conditions.MarkTrue(vcdMachine, ContainerProvisionedCondition)
+	if err := patchVCDMachine(ctx, patchHelper, vcdMachine); err != nil {
+		return ctrl.Result{}, errors.Wrapf(err, "Error patching VCDMachine [%s] of cluster [%s]", vcdMachine.Name, vcdCluster.Name)
+	}
 
 	return ctrl.Result{}, nil
 }

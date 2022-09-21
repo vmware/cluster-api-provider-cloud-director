@@ -51,7 +51,7 @@ spec:
       name: capi-user-credentials # name of the secret containing the credentials of the VCD persona creating the cluster
       namespace: ${TARGET_NAMESPACE} # name of the secret containing the credentials of the VCD persona creating the cluster
   rdeId: ${VCD_RDE_ID} # rdeId if it is already created. If empty, CAPVCD will create one for the cluster.
-  loadBalancer:
+  loadBalancerConfigSpec:
     vipSubnet: ${IP_SUBNET} # Virtual IP CIDR for the external network
 ---
 apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
@@ -67,7 +67,7 @@ spec:
       sizingPolicy: ${VCD_CONTROL_PLANE_SIZING_POLICY} # Sizing policy to be used for the control plane VMs (this must be pre-published on the chosen organization virtual datacenter)
       placementPolicy: ${VCD_CONTROL_PLANE_PLACEMENT_POLICY} # Placement policy to be used for worker VMs (this must be pre-published on the chosen organization virtual datacenter)
       storageProfile: ${VCD_CONTROL_PLANE_STORAGE_PROFILE} # Storage profile to be used for the control plane VMs (this must be pre-published on the chosen organization virtual datacenter)
-      nvidiaGpu: ${ENABLE_NVIDIA_GPU}
+      enableNvidiaGpu: ${ENABLE_NVIDIA_GPU}
       diskSize: ${DISK_SIZE}
 ---
 apiVersion: controlplane.cluster.x-k8s.io/v1beta1
@@ -131,7 +131,7 @@ spec:
       sizingPolicy: ${VCD_WORKER_SIZING_POLICY} # Sizing policy to be used for the control plane VMs (this must be pre-published on the chosen organization virtual datacenter)
       placementPolicy: ${VCD_WORKER_PLACEMENT_POLICY} # Placement policy to be used for worker VMs (this must be pre-published on the chosen organization virtual datacenter)
       storageProfile: ${VCD_WORKER_STORAGE_PROFILE} # Storage profile to be used for the control plane VMs (this must be pre-published on the chosen organization virtual datacenter)
-      nvidiaGpu: ${ENABLE_NVIDIA_GPU}
+      enableNvidiaGpu: ${ENABLE_NVIDIA_GPU}
       diskSize: ${DISK_SIZE}
 ---
 apiVersion: bootstrap.cluster.x-k8s.io/v1beta1
