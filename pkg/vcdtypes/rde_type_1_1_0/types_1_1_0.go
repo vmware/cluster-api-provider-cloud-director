@@ -8,8 +8,8 @@ const (
 
 type Metadata struct {
 	Name string `json:"name,omitempty"`
-	Ovdc []Ovdc `json:"orgVdcs,omitempty"`
-	Org  []Org  `json:"organizations,omitempty"`
+	Vdc  string `json:"virtualDataCenterName,omitempty"`
+	Org  string `json:"orgName,omitempty"`
 	Site string `json:"site,omitempty"`
 }
 
@@ -47,8 +47,9 @@ type Services struct {
 }
 
 type Ovdc struct {
-	Name string `json:"name,omitempty"`
-	ID   string `json:"id,omitempty"`
+	Name        string `json:"name,omitempty"`
+	ID          string `json:"id,omitempty"`
+	OvdcNetwork string `json:"ovdcNetworkName,omitempty"`
 }
 
 type Org struct {
@@ -57,10 +58,9 @@ type Org struct {
 }
 
 type VCDProperties struct {
-	Site        string `json:"site,omitempty"`
-	OvdcNetwork string `json:"ovdcNetworkName,omitempty"`
-	Ovdc        []Ovdc `json:"orgVdc,omitempty"`
-	Org         []Org  `json:"vcdOrg,omitempty"`
+	Site string `json:"site,omitempty"`
+	Ovdc []Ovdc `json:"orgVdcs,omitempty"`
+	Org  []Org  `json:"organizations,omitempty"`
 }
 
 type ApiEndpoints struct {
