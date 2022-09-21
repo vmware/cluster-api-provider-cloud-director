@@ -75,7 +75,8 @@
           },
           "sizingPolicy": "TKG small",
           "storageProfile": "*",
-          "availableReplicas": 1
+          "availableReplicas": 1,
+          "nvidiaGpuEnabled": false
         },
         {
           "name": "tkg-cluster-1-control-plane",
@@ -85,13 +86,10 @@
           },
           "sizingPolicy": "TKG small",
           "storageProfile": "*",
-          "availableReplicas": 1
+          "availableReplicas": 1,
+          "nvidiaGpuEnabled": false
         }
       ],
-      "nodeStatus": {
-        "node1": "running",
-        "node2": "provisioning"
-      },
       "clusterResourceSet": [
         {
           "name": "cni",

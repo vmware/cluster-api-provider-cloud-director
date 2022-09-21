@@ -138,7 +138,7 @@
               }
             },
             "nodePool": {
-              "additionalProperties": {
+              "properties": {
                 "type": "array",
                 "items": {
                   "type": "object",
@@ -168,7 +168,7 @@
                   },
                   "desiredReplicas": {
                     "type": "integer",
-                    "description": "number of VMs in the node pool"
+                    "description": "desired replica count of the nodes in the node pool"
                   },
                   "availableReplicas": {
                     "type": "integer",
