@@ -115,16 +115,16 @@ type VCDClusterStatus struct {
 	Conditions clusterv1.Conditions `json:"conditions,omitempty"`
 
 	// optional
-	Site string `json:"site"`
+	Site string `json:"site,omitempty"`
 
 	// optional
-	Org string `json:"org"`
+	Org string `json:"org,omitempty"`
 
 	// optional
-	Ovdc string `json:"ovdc"`
+	Ovdc string `json:"ovdc,omitempty"`
 
 	// optional
-	OvdcNetwork string `json:"ovdcNetwork"`
+	OvdcNetwork string `json:"ovdcNetwork,omitempty"`
 
 	// +optional
 	InfraId string `json:"infraId,omitempty"`

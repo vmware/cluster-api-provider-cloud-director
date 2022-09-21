@@ -336,12 +336,8 @@ spec:
                   updated.
                 type: boolean
             required:
-            - org
-            - ovdc
-            - ovdcNetwork
             - rdeVersionInUse
             - ready
-            - site
             type: object
         required:
         - spec
