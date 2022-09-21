@@ -1117,7 +1117,7 @@ spec:
       containers:
       - command:
         - /opt/vcloud/bin/cluster-api-provider-cloud-director
-        image: harbor-repo.vmware.com/vcloud/cluster-api-provider-cloud-director:main-branch-cb1
+        image: harbor-repo.vmware.com/vcloud/cluster-api-provider-cloud-director:main-branch.750b6d6
         livenessProbe:
           httpGet:
             path: /healthz
