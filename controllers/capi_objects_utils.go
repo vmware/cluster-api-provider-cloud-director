@@ -266,14 +266,19 @@ func getNodePoolList(ctx context.Context, cli client.Client, cluster clusterv1.C
 		for _, machine := range machineList.Items {
 			nodeStatusMap[machine.Name] = machine.Status.Phase
 		}
+		desiredReplicasCount := int32(0)
+		if md.Spec.Replicas != nil {
+			desiredReplicasCount = *md.Spec.Replicas
+		}
 		nodePool := rdeType.NodePool{
-			Name:            md.Name,
-			SizingPolicy:    vcdMachineTemplate.Spec.Template.Spec.SizingPolicy,
-			PlacementPolicy: vcdMachineTemplate.Spec.Template.Spec.PlacementPolicy,
-			NvidiaGpu:       vcdMachineTemplate.Spec.Template.Spec.EnableNvidiaGPU,
-			StorageProfile:  vcdMachineTemplate.Spec.Template.Spec.StorageProfile,
-			Replicas:        md.Status.Replicas,
-			NodeStatus:      nodeStatusMap,
+			Name:              md.Name,
+			SizingPolicy:      vcdMachineTemplate.Spec.Template.Spec.SizingPolicy,
+			PlacementPolicy:   vcdMachineTemplate.Spec.Template.Spec.PlacementPolicy,
+			NvidiaGpuEnabled:  vcdMachineTemplate.Spec.Template.Spec.EnableNvidiaGPU,
+			StorageProfile:    vcdMachineTemplate.Spec.Template.Spec.StorageProfile,
+			DesiredReplicas:   desiredReplicasCount,
+			AvailableReplicas: md.Status.ReadyReplicas,
+			NodeStatus:        nodeStatusMap,
 		}
 		nodePoolList = append(nodePoolList, nodePool)
 	}
@@ -297,14 +302,19 @@ func getNodePoolList(ctx context.Context, cli client.Client, cluster clusterv1.C
 		for _, machine := range machineArr {
 			nodeStatusMap[machine.Name] = machine.Status.Phase
 		}
+		desiredReplicaCount := int32(0)
+		if kcp.Spec.Replicas != nil {
+			desiredReplicaCount = *kcp.Spec.Replicas
+		}
 		nodePool := rdeType.NodePool{
-			Name:            kcp.Name,
-			SizingPolicy:    vcdMachineTemplate.Spec.Template.Spec.SizingPolicy,
-			PlacementPolicy: vcdMachineTemplate.Spec.Template.Spec.PlacementPolicy,
-			NvidiaGpu:       vcdMachineTemplate.Spec.Template.Spec.EnableNvidiaGPU,
-			StorageProfile:  vcdMachineTemplate.Spec.Template.Spec.StorageProfile,
-			Replicas:        kcp.Status.Replicas,
-			NodeStatus:      nodeStatusMap,
+			Name:              kcp.Name,
+			SizingPolicy:      vcdMachineTemplate.Spec.Template.Spec.SizingPolicy,
+			PlacementPolicy:   vcdMachineTemplate.Spec.Template.Spec.PlacementPolicy,
+			NvidiaGpuEnabled:  vcdMachineTemplate.Spec.Template.Spec.EnableNvidiaGPU,
+			StorageProfile:    vcdMachineTemplate.Spec.Template.Spec.StorageProfile,
+			DesiredReplicas:   desiredReplicaCount,
+			AvailableReplicas: kcp.Status.ReadyReplicas,
+			NodeStatus:        nodeStatusMap,
 		}
 		nodePoolList = append(nodePoolList, nodePool)
 	}

@@ -59,39 +59,13 @@
     "metadata": {
       "type": "object",
       "properties": {
-        "organizations": {
-          "type": "array",
-          "items":  {
-            "type": "object",
-            "properties": {
-              "name": {
-                "type": "string",
-                "description": "Organization name in which the cluster needs to be managed"
-              },
-              "id": {
-                "type": "string",
-                "description": "organizaiton ID of the Organization in which the cluster needs to be managed"
-              }
-            }
-          },
-          "description": "The Organizations in which cluster needs to be created or managed."
+        "orgName": {
+          "type": "string",
+          "description": "The name of the Organization in which cluster needs to be created or managed."
         },
-        "orgVdcs": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "description": "organization virtual data centers in which the cluster needs to be managed",
-            "properties": {
-              "name": {
-                "type": "string",
-                "description": "Org VDC name of the virtual data center in which the cluster needs to be managed"
-              },
-              "id": {
-                "type": "string",
-                "description": "Org VDC ID of the virtual data center in which the cluster needs to be managed"
-              }
-            }
-          }
+        "virtualDataCenterName": {
+          "type": "string",
+          "description": "The name of the Organization data center in which the cluster need to be created or managed."
         },
         "name": {
           "type": "string",
@@ -164,9 +138,43 @@
               }
             },
             "nodePool": {
-              "additionalProperties": {
-                "type": "string",
-                "properties": {}
+              "properties": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "name": {
+                    "type": "string",
+                    "description": "name of the node pool"
+                  },
+                  "sizingPolicy": {
+                    "type": "string",
+                    "description": "name of the sizing policy used by the node pool"
+                  },
+                  "placementPolicy": {
+                    "type": "string",
+                    "description": "name of the sizing policy used by the node pool"
+                  },
+                  "diskSizeMb": {
+                    "type": "integer",
+                    "description": "disk size of the VMs in the node pool in MB"
+                  },
+                  "nvidiaGpuEnabled": {
+                    "type": "boolean",
+                    "description": "boolean indicating if the node pools have nvidia GPU enabled"
+                  },
+                  "storageProfile": {
+                    "type": "string",
+                    "description": "storage profile used by the node pool"
+                  },
+                  "desiredReplicas": {
+                    "type": "integer",
+                    "description": "desired replica count of the nodes in the node pool"
+                  },
+                  "availableReplicas": {
+                    "type": "integer",
+                    "description": "number of available replicas in the node pool"
+                  }
+                }
               }
             },
             "clusterResourceSet": {
@@ -211,12 +219,12 @@
                       },
                       "id": {
                         "type": "string"
+                      },
+                      "ovdcNetworkName": {
+                        "type": "string"
                       }
                     }
                   }
-                },
-                "ovdcNetworkName": {
-                  "type": "string"
                 },
                 "site": {
                   "type": "string"

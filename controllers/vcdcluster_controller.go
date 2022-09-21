@@ -260,8 +260,9 @@ func (r *VCDClusterReconciler) constructCapvcdRDE(ctx context.Context, cluster *
 	}
 	ovdcList := []rdeType.Ovdc{
 		rdeType.Ovdc{
-			Name: vdc.Name,
-			ID:   vdc.ID,
+			Name:        vdc.Name,
+			ID:          vdc.ID,
+			OvdcNetwork: vcdCluster.Spec.OvdcNetwork,
 		},
 	}
 
@@ -274,8 +275,8 @@ func (r *VCDClusterReconciler) constructCapvcdRDE(ctx context.Context, cluster *
 		ApiVersion: capisdk.CAPVCDClusterEntityApiVersion,
 		Metadata: rdeType.Metadata{
 			Name: vcdCluster.Name,
-			Org:  orgList,
-			Ovdc: ovdcList,
+			Org:  vcdOrg.Name,
+			Vdc:  vdc.Name,
 			Site: vcdCluster.Spec.Site,
 		},
 		Spec: rdeType.CAPVCDSpec{},
@@ -301,10 +302,9 @@ func (r *VCDClusterReconciler) constructCapvcdRDE(ctx context.Context, cluster *
 				},
 				ParentUID: vcdCluster.Spec.ParentUID,
 				VcdProperties: rdeType.VCDProperties{
-					Site:        vcdCluster.Spec.Site,
-					Org:         orgList,
-					Ovdc:        ovdcList,
-					OvdcNetwork: vcdCluster.Spec.OvdcNetwork,
+					Site: vcdCluster.Spec.Site,
+					Org:  orgList,
+					Ovdc: ovdcList,
 				},
 				CapiStatusYaml:             "",
 				ClusterResourceSetBindings: nil,
@@ -381,28 +381,17 @@ func (r *VCDClusterReconciler) reconcileRDE(ctx context.Context, cluster *cluste
 
 	// TODO(VCDA-3107): Should we be updating org and vdc information here.
 	metadataPatch := make(map[string]interface{})
-	orgList := []rdeType.Org{
-		rdeType.Org{
-			Name: org.Org.Name,
-			ID:   org.Org.ID,
-		},
-	}
-	if !reflect.DeepEqual(orgList, capvcdMetadata.Org) {
-		metadataPatch["Org"] = orgList
+	if org.Org.Name != capvcdMetadata.Org {
+		metadataPatch["Org"] = org.Org.Name
 	}
 
-	ovdcList := []rdeType.Ovdc{
-		rdeType.Ovdc{
-			Name: workloadVCDClient.VDC.Vdc.Name,
-			ID:   workloadVCDClient.VDC.Vdc.Name,
-		},
-	}
-	if !reflect.DeepEqual(ovdcList, capvcdMetadata.Ovdc) {
-		metadataPatch["Ovdc"] = ovdcList
+	vdc := vcdCluster.Spec.Ovdc
+	if vdc != capvcdMetadata.Vdc {
+		metadataPatch["Vdc"] = capvcdMetadata.Vdc
 	}
 
 	if capvcdMetadata.Site != vcdCluster.Spec.Site {
-		metadataPatch["Org"] = vcdCluster.Spec.Site
+		metadataPatch["Site"] = vcdCluster.Spec.Site
 	}
 
 	specPatch := make(map[string]interface{})
@@ -564,11 +553,23 @@ func (r *VCDClusterReconciler) reconcileRDE(ctx context.Context, cluster *cluste
 		capvcdStatusPatch["NodePool"] = nodePoolList
 	}
 
+	ovdcList := []rdeType.Ovdc{
+		rdeType.Ovdc{
+			Name:        workloadVCDClient.VDC.Vdc.Name,
+			ID:          workloadVCDClient.VDC.Vdc.Name,
+			OvdcNetwork: vcdCluster.Spec.OvdcNetwork,
+		},
+	}
+	orgList := []rdeType.Org{
+		rdeType.Org{
+			Name: org.Org.Name,
+			ID:   org.Org.ID,
+		},
+	}
 	vcdResources := rdeType.VCDProperties{
-		Site:        vcdCluster.Spec.Site,
-		Org:         orgList,
-		Ovdc:        ovdcList,
-		OvdcNetwork: vcdCluster.Spec.OvdcNetwork,
+		Site: vcdCluster.Spec.Site,
+		Org:  orgList,
+		Ovdc: ovdcList,
 	}
 	if !reflect.DeepEqual(vcdResources, capvcdStatus.VcdProperties) {
 		capvcdStatusPatch["VcdProperties"] = vcdResources
@@ -585,6 +586,9 @@ func (r *VCDClusterReconciler) reconcileRDE(ctx context.Context, cluster *cluste
 		if !reflect.DeepEqual(string(kubeConfigBytes), capvcdStatus.Private.KubeConfig) {
 			capvcdStatusPatch["Private.KubeConfig"] = string(kubeConfigBytes)
 		}
+	}
+	if release.CAPVCDVersion != capvcdStatus.CapvcdVersion {
+		capvcdStatusPatch["CapvcdVersion"] = release.CAPVCDVersion
 	}
 
 	updatedRDE, err := capvcdRdeManager.PatchRDE(ctx, specPatch, metadataPatch, capvcdStatusPatch, vcdCluster.Status.InfraId, vappID, updateExternalID)
@@ -716,6 +720,11 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 			}
 			// update the RdeVersionInUse with the entity type version of the rde.
 			rdeVersionInUse = rdeVersion
+
+			// update the createdByVersion if not present already
+			if err := capvcdRdeManager.CheckForEmptyRDEAndUpdateCreatedByVersions(ctx, infraID); err != nil {
+				return ctrl.Result{}, errors.Wrapf(err, "Failed to update RDE [%s] with created by version", infraID)
+			}
 		}
 
 		// upgrade RDE if necessary
@@ -968,7 +977,7 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	}
 
 	// Update the vcdCluster resource with updated information
-	// TODO Check if updating ovdcNetwork, Org and Ovdc should be done somewhere earlier in the code.
+	// TODO Check if updating ovdcNetwork, Org and Vdc should be done somewhere earlier in the code.
 	vcdCluster.Status.Ready = true
 	conditions.MarkTrue(vcdCluster, LoadBalancerAvailableCondition)
 	if cluster.Status.ControlPlaneReady {
