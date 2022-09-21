@@ -164,9 +164,43 @@
               }
             },
             "nodePool": {
-              "additionalProperties": {
-                "type": "string",
-                "properties": {}
+              "properties": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "name": {
+                    "type": "string",
+                    "description": "name of the node pool"
+                  },
+                  "sizingPolicy": {
+                    "type": "string",
+                    "description": "name of the sizing policy used by the node pool"
+                  },
+                  "placementPolicy": {
+                    "type": "string",
+                    "description": "name of the sizing policy used by the node pool"
+                  },
+                  "diskSizeMb": {
+                    "type": "integer",
+                    "description": "disk size of the VMs in the node pool in MB"
+                  },
+                  "nvidiaGpuEnabled": {
+                    "type": "boolean",
+                    "description": "boolean indicating if the node pools have nvidia GPU enabled"
+                  },
+                  "storageProfile": {
+                    "type": "string",
+                    "description": "storage profile used by the node pool"
+                  },
+                  "desiredReplicas": {
+                    "type": "integer",
+                    "description": "desired replica count of the nodes in the node pool"
+                  },
+                  "availableReplicas": {
+                    "type": "integer",
+                    "description": "number of available replicas in the node pool"
+                  }
+                }
               }
             },
             "clusterResourceSet": {
