@@ -192,11 +192,13 @@ spec:
                 - host
                 - port
                 type: object
-              loadBalancer:
-                description: LoadBalancer defines load-balancer configuration for
-                  the Cluster both for the control plane nodes and for the CPI
+              loadBalancerConfigSpec:
+                description: LoadBalancerConfig defines load-balancer configuration
+                  for the Cluster both for the control plane nodes and for the CPI
                 properties:
                   useOneArm:
+                    description: UseOneArm defines the intent to une OneArm when upgrading
+                      CAPVCD from 0.5.x to 1.0.0
                     type: boolean
                   vipSubnet:
                     type: string
@@ -209,7 +211,7 @@ spec:
                 type: string
               parentUid:
                 type: string
-              proxyConfig:
+              proxyConfigSpec:
                 description: ProxyConfig defines HTTP proxy environment variables
                   for containerd
                 properties:
@@ -225,6 +227,7 @@ spec:
               site:
                 type: string
               useAsManagementCluster:
+                default: false
                 type: boolean
               userContext:
                 properties:
@@ -305,6 +308,26 @@ spec:
                 type: array
               infraId:
                 type: string
+              loadBalancerConfig:
+                description: LoadBalancerConfig defines load-balancer configuration
+                  for the Cluster both for the control plane nodes and for the CPI
+                properties:
+                  useOneArm:
+                    description: UseOneArm defines the intent to une OneArm when upgrading
+                      CAPVCD from 0.5.x to 1.0.0
+                    type: boolean
+                  vipSubnet:
+                    type: string
+                type: object
+              org:
+                description: optional
+                type: string
+              ovdc:
+                description: optional
+                type: string
+              ovdcNetwork:
+                description: optional
+                type: string
               parentUid:
                 type: string
               proxyConfig:
@@ -328,9 +351,12 @@ spec:
                 description: Ready denotes that the vcd cluster (infrastructure) is
                   ready.
                 type: boolean
+              site:
+                description: optional
+                type: string
               useAsManagementCluster:
                 type: boolean
-              vappmetadataUpdated:
+              vappMetadataUpdated:
                 description: MetadataUpdated denotes that the metadata of Vapp is
                   updated.
                 type: boolean
@@ -535,9 +561,9 @@ spec:
                   machine
                 pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                 x-kubernetes-int-or-string: true
-              nvidiaGPU:
-                description: NvidiaGPU is true when a VM should be created with the
-                  relevant binaries installed If true, then an appropriate placement
+              enableNvidiaGPU:
+                description: EnableNvidiaGPU is true when a VM should be created with
+                  the relevant binaries installed If true, then an appropriate placement
                   policy should be set
                 type: boolean
               placementPolicy:
@@ -629,6 +655,22 @@ spec:
                   - type
                   type: object
                 type: array
+              diskSize:
+                anyOf:
+                - type: integer
+                - type: string
+                description: DiskSize is the size, in bytes, of the disk for this
+                  machine
+                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                x-kubernetes-int-or-string: true
+              nvidiaGpuEnabled:
+                description: NvidiaGPUEnabled is true when a VM should be created
+                  with the relevant binaries installed
+                type: boolean
+              placementPolicy:
+                description: PlacementPolicy is the placement policy to be used on
+                  this machine.
+                type: string
               providerID:
                 description: ProviderID will be the container name in ProviderID format
                   (vmware-cloud-director://<vm id>)
@@ -637,6 +679,10 @@ spec:
                 description: Ready denotes that the machine (docker container) is
                   ready
                 type: boolean
+              sizingPolicy:
+                description: SizingPolicy is the sizing policy to be used on this
+                  machine.
+                type: string
               template:
                 description: Template is the path of the template OVA that is to be
                   used
@@ -789,8 +835,8 @@ spec:
                           this machine
                         pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                         x-kubernetes-int-or-string: true
-                      nvidiaGPU:
-                        description: NvidiaGPU is true when a VM should be created
+                      enableNvidiaGPU:
+                        description: EnableNvidiaGPU is true when a VM should be created
                           with the relevant binaries installed If true, then an appropriate
                           placement policy should be set
                         type: boolean
