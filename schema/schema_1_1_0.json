@@ -138,10 +138,10 @@
               }
             },
             "nodePool": {
-              "properties": {
-                "type": "array",
-                "items": {
-                  "type": "object",
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
                   "name": {
                     "type": "string",
                     "description": "name of the node pool"
