@@ -32,9 +32,9 @@ metadata:
   namespace: default
 type: Opaque
 data:
-  username: username # username of the VCD persona creating the cluster. If system administrator is the user, please use 'system/administrator' as the username.
-  password: vmware # password associated with the user creating the cluster
-  refreshToken: "" # refresh token of the client registered with VCD for creating clusters. username and password can be left blank if refresh token is provided
+  username: base64_username # username of the VCD persona creating the cluster. If system administrator is the user, please use 'system/administrator' as the username.
+  password: base64_password # password associated with the user creating the cluster
+  refreshToken: base64_refreshToken # refresh token of the client registered with VCD for creating clusters. username and password can be left blank if refresh token is provided
 ---
 apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
 kind: VCDCluster
@@ -55,6 +55,9 @@ spec:
   rdeId: "urn:vcloud:entity:vmware:capvcdCluster:UUID" # rdeId if it is already created. If empty, CAPVCD will create one for the cluster.
   loadBalancerConfigSpec:
     vipSubnet: "" # Virtual IP CIDR for the external network
+  proxyConfigSpec:
+    http: "" # http proxy
+    https: "" # https proxy
   executeWithoutRDE: false
 ---
 apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
@@ -71,7 +74,7 @@ spec:
       placementPolicy: tkgm-placement-policy # Placement policy to be used for worker VMs (this must be pre-published on the chosen organization virtual datacenter)
       storageProfile: "*" # Storage profile to be used for the control plane VMs (this must be pre-published on the chosen organization virtual datacenter)
       diskSize: 20Gi  # DiskSize is the size of VM storage
-      enableNvidiaGPU: false   # NvidiaGPU is true when a VM should be created with the relevant binaries installed. If true, then an appropriate placement policy should be set
+#      enableNvidiaGPU: false   # NvidiaGPU is true when a VM should be created with the relevant binaries installed. If true, then an appropriate placement policy should be set
 ---
 apiVersion: controlplane.cluster.x-k8s.io/v1beta1
 kind: KubeadmControlPlane

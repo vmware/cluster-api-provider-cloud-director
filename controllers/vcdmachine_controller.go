@@ -751,10 +751,6 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	vcdMachine.Status.PlacementPolicy = vcdMachine.Spec.PlacementPolicy
 	vcdMachine.Status.NvidiaGPUEnabled = vcdMachine.Spec.EnableNvidiaGPU
 	conditions.MarkTrue(vcdMachine, ContainerProvisionedCondition)
-	if err := patchVCDMachine(ctx, patchHelper, vcdMachine); err != nil {
-		return ctrl.Result{}, errors.Wrapf(err, "Error patching VCDMachine [%s] of cluster [%s]", vcdMachine.Name, vcdCluster.Name)
-	}
-
 	return ctrl.Result{}, nil
 }
 
