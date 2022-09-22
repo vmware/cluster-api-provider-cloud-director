@@ -59,6 +59,7 @@ type Ports struct {
 
 // LoadBalancerConfig defines load-balancer configuration for the Cluster both for the control plane nodes and for the CPI
 type LoadBalancerConfig struct {
+	// UseOneArm defines the intent to une OneArm when upgrading CAPVCD from 0.5.x to 1.0.0
 	UseOneArm bool   `json:"useOneArm,omitempty"`
 	VipSubnet string `json:"vipSubnet,omitempty"`
 }

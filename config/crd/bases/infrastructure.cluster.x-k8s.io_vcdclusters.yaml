@@ -176,6 +176,8 @@ spec:
                   for the Cluster both for the control plane nodes and for the CPI
                 properties:
                   useOneArm:
+                    description: UseOneArm defines the intent to une OneArm when upgrading
+                      CAPVCD from 0.5.x to 1.0.0
                     type: boolean
                   vipSubnet:
                     type: string
@@ -290,6 +292,8 @@ spec:
                   for the Cluster both for the control plane nodes and for the CPI
                 properties:
                   useOneArm:
+                    description: UseOneArm defines the intent to une OneArm when upgrading
+                      CAPVCD from 0.5.x to 1.0.0
                     type: boolean
                   vipSubnet:
                     type: string

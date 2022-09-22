@@ -60,7 +60,7 @@ spec:
   rdeId: ${VCD_RDE_ID} # rdeId if it is already created. If empty, CAPVCD will create one for the cluster.
   loadBalancerConfigSpec:
     vipSubnet: ${IP_SUBNET} # Virtual IP CIDR for the external network
-    useOneArm: ${ENABLE_ONEARM}
+    useOneArm: ${ENABLE_ONEARM} # Set uneOneArm to true only inetent to upgrade CAPVCD from 0.5.x to 1.0.0
   proxyConfigSpec:
     httpProxy: ${HTTP_PROXY}
     httpsProxy: ${HTTPS_PROXY}
