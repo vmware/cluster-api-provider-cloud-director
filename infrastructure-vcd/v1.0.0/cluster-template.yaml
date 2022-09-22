@@ -60,9 +60,11 @@ spec:
   rdeId: ${VCD_RDE_ID} # rdeId if it is already created. If empty, CAPVCD will create one for the cluster.
   loadBalancerConfigSpec:
     vipSubnet: ${IP_SUBNET} # Virtual IP CIDR for the external network
+    useOneArm: ${ENABLE_ONEARM}
   proxyConfigSpec:
-    http: ${PROXY_HTTP}
-    https: ${PROXY_HTTPS}
+    httpProxy: ${HTTP_PROXY}
+    httpsProxy: ${HTTPS_PROXY}
+    noProxy: ${NO_PROXY}
 ---
 apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
 kind: VCDMachineTemplate

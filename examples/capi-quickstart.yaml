@@ -54,11 +54,12 @@ spec:
       namespace: default # name of the secret containing the credentials of the VCD persona creating the cluster
   rdeId: "urn:vcloud:entity:vmware:capvcdCluster:UUID" # rdeId if it is already created. If empty, CAPVCD will create one for the cluster.
   loadBalancerConfigSpec:
+    useOneArm: false # intent to use one Arm for load balancer
     vipSubnet: "" # Virtual IP CIDR for the external network
   proxyConfigSpec:
-    http: "" # http proxy
-    https: "" # https proxy
-  executeWithoutRDE: false
+    httpProxy: "" # set global variable: http_proxy
+    httpsProxy: "" # set global variable: https_proxy
+    noProxy: "" # set global variable: no_proxy
 ---
 apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
 kind: VCDMachineTemplate
