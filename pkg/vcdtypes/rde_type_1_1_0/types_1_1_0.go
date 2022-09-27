@@ -106,8 +106,8 @@ type NodePool struct {
 	DiskSizeMb        int32             `json:"diskSizeMb,omitempty"`
 	NvidiaGpuEnabled  bool              `json:"nvidiaGpuEnabled,omitempty"`
 	StorageProfile    string            `json:"storageProfile,omitempty"`
-	DesiredReplicas   int32             `json:"desiredReplicas,omitempty"`
-	AvailableReplicas int32             `json:"availableReplicas,omitempty"`
+	DesiredReplicas   int32             `json:"desiredReplicas"`
+	AvailableReplicas int32             `json:"availableReplicas"`
 	NodeStatus        map[string]string `json:"nodeStatus,omitempty"`
 }
 
