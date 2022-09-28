@@ -226,7 +226,7 @@
                 "site": {
                   "type": "string"
                 },
-                "orgVdc": {
+                "orgVdcs": {
                   "type": "array",
                   "items": {
                     "type": "object",
