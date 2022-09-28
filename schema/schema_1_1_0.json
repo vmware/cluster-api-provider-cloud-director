@@ -219,9 +219,6 @@
                       },
                       "id": {
                         "type": "string"
-                      },
-                      "ovdcNetworkName": {
-                        "type": "string"
                       }
                     }
                   }
@@ -238,6 +235,9 @@
                         "type": "string"
                       },
                       "id": {
+                        "type": "string"
+                      },
+                      "ovdcNetworkName": {
                         "type": "string"
                       }
                     }
