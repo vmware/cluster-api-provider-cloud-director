@@ -209,7 +209,7 @@
             "vcdProperties": {
               "type": "object",
               "properties": {
-                "vcdOrg": {
+                "organizations": {
                   "type": "array",
                   "items": {
                     "type": "object",
