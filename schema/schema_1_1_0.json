@@ -209,7 +209,24 @@
             "vcdProperties": {
               "type": "object",
               "properties": {
-                "vcdOrg": {
+                "organizations": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "name": {
+                        "type": "string"
+                      },
+                      "id": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                },
+                "site": {
+                  "type": "string"
+                },
+                "orgVdcs": {
                   "type": "array",
                   "items": {
                     "type": "object",
@@ -221,23 +238,6 @@
                         "type": "string"
                       },
                       "ovdcNetworkName": {
-                        "type": "string"
-                      }
-                    }
-                  }
-                },
-                "site": {
-                  "type": "string"
-                },
-                "orgVdc": {
-                  "type": "array",
-                  "items": {
-                    "type": "object",
-                    "properties": {
-                      "name": {
-                        "type": "string"
-                      },
-                      "id": {
                         "type": "string"
                       }
                     }
