@@ -458,3 +458,26 @@ func hasKcpReconciledToDesiredK8Version(kcp *kcpv1.KubeadmControlPlane) bool {
 		*kcp.Status.Version == kcp.Spec.Version &&
 		kcp.Status.UnavailableReplicas == 0
 }
+
+// hasMachineDeploymentReconciledToDesiredK8Version returns true if all the machines in the machine deployment have reconciled
+// to the desired kubernetes version, else returns false.
+func hasMachineDeploymentReconciledToDesiredK8Version(md *clusterv1.MachineDeployment) bool {
+	return md != nil && md.Status.Replicas == md.Status.AvailableReplicas
+}
+
+// hasClusterReconciledToDesiredK8Version returns true if all the kubeadm control plane objects and machine deployments have
+// reconciled to the desired kubernetes version, else returns false.
+func hasClusterReconciledToDesiredK8Version(kcpList *kcpv1.KubeadmControlPlaneList, mdList *clusterv1.MachineDeploymentList) bool {
+	for _, kcp := range kcpList.Items {
+		if !hasKcpReconciledToDesiredK8Version(&kcp) {
+			return false
+		}
+	}
+
+	for _, md := range mdList.Items {
+		if !hasMachineDeploymentReconciledToDesiredK8Version(&md) {
+			return false
+		}
+	}
+	return true
+}

@@ -243,14 +243,18 @@ func (r *VCDClusterReconciler) constructCapvcdRDE(ctx context.Context, cluster *
 		return nil, fmt.Errorf("error getting KubeadmControlPlane objects for cluster [%s]: [%v]", vcdCluster.Name, err)
 	}
 
+	// we assume that there is only one kcp object for a cluster.
+	// TODO: need to update the logic for multiple kcp objects in the cluster
 	kubernetesVersion := ""
-	ready := true
 	for _, kcp := range kcpList.Items {
-		if ready {
-			ready = hasKcpReconciledToDesiredK8Version(&kcp)
-		}
 		kubernetesVersion = kcp.Spec.Version
 	}
+
+	mdList, err := getAllMachineDeploymentsForCluster(ctx, r.Client, *cluster)
+	if err != nil {
+		return nil, fmt.Errorf("error gettin all machine deployment objects for the cluster [%s]: [%v]", vcdCluster.Name, err)
+	}
+	ready := hasClusterReconciledToDesiredK8Version(kcpList, mdList)
 
 	orgList := []rdeType.Org{
 		rdeType.Org{
@@ -400,8 +404,15 @@ func (r *VCDClusterReconciler) reconcileRDE(ctx context.Context, cluster *cluste
 		return fmt.Errorf("error getting all KubeadmControlPlane objects for cluster [%s]: [%v]", vcdCluster.Name, err)
 	}
 
+	mdList, err := getAllMachineDeploymentsForCluster(ctx, r.Client, *cluster)
+	if err != nil {
+		return fmt.Errorf("error getting all MachineDeployment objects for cluster [%s]: [%v]", vcdCluster.Name, err)
+	}
+
 	kubernetesSpecVersion := ""
 	var kcpObj *kcpv1.KubeadmControlPlane
+	// we assume that there is only one kcp object for a cluster.
+	// TODO: need to update the logic for multiple kcp objects in the cluster
 	if len(kcpList.Items) > 0 {
 		kcpObj = &kcpList.Items[0]
 		kubernetesSpecVersion = kcpObj.Spec.Version // for RDE updates, consider only the first kcp object
@@ -430,6 +441,7 @@ func (r *VCDClusterReconciler) reconcileRDE(ctx context.Context, cluster *cluste
 		capvcdStatusPatch["Phase"] = cluster.Status.Phase
 	}
 
+	ready := hasClusterReconciledToDesiredK8Version(kcpList, mdList)
 	upgradeObject := capvcdStatus.Upgrade
 	if kcpObj != nil {
 		if upgradeObject.Current == nil {
@@ -439,7 +451,7 @@ func (r *VCDClusterReconciler) reconcileRDE(ctx context.Context, cluster *cluste
 					TkgVersion: tkgVersion,
 				},
 				Previous: nil,
-				Ready:    hasKcpReconciledToDesiredK8Version(kcpObj),
+				Ready:    ready,
 			}
 		} else {
 			if kcpObj.Spec.Version != capvcdStatus.Upgrade.Current.K8sVersion {
@@ -450,7 +462,7 @@ func (r *VCDClusterReconciler) reconcileRDE(ctx context.Context, cluster *cluste
 					TkgVersion: tkgVersion,
 				}
 			}
-			upgradeObject.Ready = hasKcpReconciledToDesiredK8Version(kcpObj)
+			upgradeObject.Ready = ready
 		}
 	}
 
