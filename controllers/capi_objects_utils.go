@@ -468,22 +468,16 @@ func hasMachineDeploymentReconciledToDesiredK8Version(md *clusterv1.MachineDeplo
 // hasClusterReconciledToDesiredK8Version returns true if all the kubeadm control plane objects and machine deployments have
 // reconciled to the desired kubernetes version, else returns false.
 func hasClusterReconciledToDesiredK8Version(kcpList *kcpv1.KubeadmControlPlaneList, mdList *clusterv1.MachineDeploymentList) bool {
-	kcpReady := true
 	for _, kcp := range kcpList.Items {
 		if !hasKcpReconciledToDesiredK8Version(&kcp) {
-			kcpReady = false
+			return false
 		}
-	}
-	if !kcpReady {
-		return false
 	}
 
-	mdReady := true
 	for _, md := range mdList.Items {
 		if !hasMachineDeploymentReconciledToDesiredK8Version(&md) {
-			mdReady = false
-			break
+			return false
 		}
 	}
-	return mdReady
+	return true
 }

@@ -243,6 +243,8 @@ func (r *VCDClusterReconciler) constructCapvcdRDE(ctx context.Context, cluster *
 		return nil, fmt.Errorf("error getting KubeadmControlPlane objects for cluster [%s]: [%v]", vcdCluster.Name, err)
 	}
 
+	// we assume that there is only one kcp object for a cluster.
+	// TODO: need to update the logic for multiple kcp objects in the cluster
 	kubernetesVersion := ""
 	for _, kcp := range kcpList.Items {
 		kubernetesVersion = kcp.Spec.Version
@@ -409,6 +411,8 @@ func (r *VCDClusterReconciler) reconcileRDE(ctx context.Context, cluster *cluste
 
 	kubernetesSpecVersion := ""
 	var kcpObj *kcpv1.KubeadmControlPlane
+	// we assume that there is only one kcp object for a cluster.
+	// TODO: need to update the logic for multiple kcp objects in the cluster
 	if len(kcpList.Items) > 0 {
 		kcpObj = &kcpList.Items[0]
 		kubernetesSpecVersion = kcpObj.Spec.Version // for RDE updates, consider only the first kcp object
