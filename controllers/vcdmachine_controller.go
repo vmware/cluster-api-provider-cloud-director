@@ -327,7 +327,7 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	log := ctrl.LoggerFrom(ctx, "machine", machine.Name, "cluster", vcdCluster.Name)
 
 	// To avoid spamming RDEs with updates, only update the RDE with events when machine creation is ongoing
-	shouldUpdateEvents := !machine.Status.BootstrapReady
+	skipRDEEventUpdates := machine.Status.BootstrapReady
 
 	userCreds, err := getUserCredentialsForCluster(ctx, r.Client, vcdCluster.Spec.UserCredentialsContext)
 	if err != nil {
@@ -342,7 +342,7 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	if vcdMachine.Spec.ProviderID != nil {
 		vcdMachine.Status.Ready = true
 		conditions.MarkTrue(vcdMachine, ContainerProvisionedCondition)
-		err = capvcdRdeManager.AddToEventSet(ctx, capisdk.InfraVmBootstrapped, "", machine.Name, "", shouldUpdateEvents)
+		err = capvcdRdeManager.AddToEventSet(ctx, capisdk.InfraVmBootstrapped, "", machine.Name, "", skipRDEEventUpdates)
 		if err != nil {
 			log.Error(err, "failed to add InfraVmBootstrapped event into RDE", "rdeID", vcdCluster.Status.InfraId)
 		}
@@ -460,7 +460,7 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	}
 
 	log.Info(fmt.Sprintf("Cloud init Script: [%s]", redactedCloudInit))
-	err = capvcdRdeManager.AddToEventSet(ctx, capisdk.CloudInitScriptGenerated, "", machine.Name, "", shouldUpdateEvents)
+	err = capvcdRdeManager.AddToEventSet(ctx, capisdk.CloudInitScriptGenerated, "", machine.Name, "", skipRDEEventUpdates)
 	if err != nil {
 		log.Error(err, "failed to add CloudInitScriptGenerated event into RDE", "rdeID", vcdCluster.Status.InfraId)
 	}
@@ -693,7 +693,7 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		}
 		return ctrl.Result{}, errors.Wrapf(err, "Error bootstrapping the machine [%s/%s]; machine is probably in unreconciliable state", vAppName, vm.VM.Name)
 	}
-	err = capvcdRdeManager.AddToEventSet(ctx, capisdk.InfraVmPoweredOn, "", machine.Name, "", shouldUpdateEvents)
+	err = capvcdRdeManager.AddToEventSet(ctx, capisdk.InfraVmPoweredOn, "", machine.Name, "", skipRDEEventUpdates)
 	if err != nil {
 		log.Error(err, "failed to add InfraVmPoweredOn event into RDE", "rdeID", vcdCluster.Status.InfraId)
 	}
@@ -730,7 +730,7 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	}
 
 	log.Info("Successfully bootstrapped the machine")
-	err = capvcdRdeManager.AddToEventSet(ctx, capisdk.InfraVmBootstrapped, "", machine.Name, "", shouldUpdateEvents)
+	err = capvcdRdeManager.AddToEventSet(ctx, capisdk.InfraVmBootstrapped, "", machine.Name, "", skipRDEEventUpdates)
 	if err != nil {
 		log.Error(err, "failed to add InfraVmBootstrapped event into RDE", "rdeID", vcdCluster.Status.InfraId)
 	}

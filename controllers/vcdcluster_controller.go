@@ -631,7 +631,7 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	log := ctrl.LoggerFrom(ctx)
 
 	// To avoid spamming RDEs with updates, only update the RDE with events when machine creation is ongoing
-	shouldUpdateEvents := cluster.Status.Phase != "Provisioned"
+	skipRDEEventUpdates := clusterv1.ClusterPhase(cluster.Status.Phase) == clusterv1.ClusterPhaseProvisioned
 
 	userCreds, err := getUserCredentialsForCluster(ctx, r.Client, vcdCluster.Spec.UserCredentialsContext)
 	if err != nil {
@@ -765,7 +765,7 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 				log.Error(err, "failed to reconcile RDE after upgrading RDE", "rdeID", infraID)
 				return ctrl.Result{}, errors.Wrapf(err, "failed to reconcile RDE after upgrading RDE [%s]", infraID)
 			}
-			err = capvcdRdeManager.AddToEventSet(ctx, capisdk.RdeUpgraded, infraID, "", "", shouldUpdateEvents)
+			err = capvcdRdeManager.AddToEventSet(ctx, capisdk.RdeUpgraded, infraID, "", "", skipRDEEventUpdates)
 			if err != nil {
 				log.Error(err, "failed to add RDE-upgrade event (RDE upgraded successfully) ", "rdeID", infraID)
 			}
@@ -777,7 +777,7 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		}
 	}
 
-	err = capvcdRdeManager.AddToEventSet(ctx, capisdk.RdeAvailable, infraID, "", "", shouldUpdateEvents)
+	err = capvcdRdeManager.AddToEventSet(ctx, capisdk.RdeAvailable, infraID, "", "", skipRDEEventUpdates)
 	if err != nil {
 		log.Error(err, "failed to add RdeAvailable event", "rdeID", infraID)
 	}
@@ -902,7 +902,7 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	}
 	log.Info(fmt.Sprintf("Control plane endpoint for the cluster is [%s]", controlPlaneNodeIP))
 
-	err = capvcdRdeManager.AddToEventSet(ctx, capisdk.LoadBalancerAvailable, virtualServiceHref, "", "", shouldUpdateEvents)
+	err = capvcdRdeManager.AddToEventSet(ctx, capisdk.LoadBalancerAvailable, virtualServiceHref, "", "", skipRDEEventUpdates)
 	if err != nil {
 		log.Error(err, "failed to add LoadBalancerAvailable event into RDE", "rdeID", infraID)
 	}
@@ -982,7 +982,7 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		return ctrl.Result{}, errors.Wrapf(err, "failed to add resource [%s] of type [%s] to VCDResourceSet of RDE [%s]: [%v]",
 			vcdCluster.Name, VCDResourceVApp, infraID, err)
 	}
-	err = capvcdRdeManager.AddToEventSet(ctx, capisdk.InfraVappAvailable, clusterVApp.VApp.ID, "", "", shouldUpdateEvents)
+	err = capvcdRdeManager.AddToEventSet(ctx, capisdk.InfraVappAvailable, clusterVApp.VApp.ID, "", "", skipRDEEventUpdates)
 	if err != nil {
 		log.Error(err, "failed to add InfraVappAvailable event into RDE", "rdeID", infraID)
 	}
@@ -996,7 +996,7 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	vcdCluster.Status.Ready = true
 	conditions.MarkTrue(vcdCluster, LoadBalancerAvailableCondition)
 	if cluster.Status.ControlPlaneReady {
-		err = capvcdRdeManager.AddToEventSet(ctx, capisdk.ControlplaneReady, infraID, "", "", shouldUpdateEvents)
+		err = capvcdRdeManager.AddToEventSet(ctx, capisdk.ControlplaneReady, infraID, "", "", skipRDEEventUpdates)
 		if err != nil {
 			log.Error(err, "failed to add ControlPlaneReady event into RDE", "rdeID", infraID)
 		}
