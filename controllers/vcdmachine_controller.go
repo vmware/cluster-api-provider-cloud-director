@@ -202,7 +202,6 @@ const (
 	ProxyConfiguration                     = "guestinfo.postcustomization.proxy.setting.status"
 	MeteringConfiguration                  = "guestinfo.metering.status"
 	KubeadmInit                            = "guestinfo.postcustomization.kubeinit.status"
-	KubeadmTokenGenerate                   = "guestinfo.postcustomization.kubeadm.token.generate.status"
 	KubeadmNodeJoin                        = "guestinfo.postcustomization.kubeadm.node.join.status"
 	NvidiaRuntimeInstall                   = "guestinfo.postcustomization.nvidia.runtime.install.status"
 	PostCustomizationScriptExecutionStatus = "guestinfo.post_customization_script_execution_status"
@@ -214,7 +213,6 @@ var controlPlanePostCustPhases = []string{
 	MeteringConfiguration,
 	ProxyConfiguration,
 	KubeadmInit,
-	KubeadmTokenGenerate,
 }
 
 var joinPostCustPhases = []string{
