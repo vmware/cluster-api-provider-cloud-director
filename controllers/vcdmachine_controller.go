@@ -422,7 +422,7 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 			}
 		}
 
-		cloudInitInput.HTTPSProxy = vcdCluster.Spec.ProxyConfigSpec.HTTPProxy
+		cloudInitInput.HTTPProxy = vcdCluster.Spec.ProxyConfigSpec.HTTPProxy
 		cloudInitInput.HTTPSProxy = vcdCluster.Spec.ProxyConfigSpec.HTTPSProxy
 		cloudInitInput.NoProxy = vcdCluster.Spec.ProxyConfigSpec.NoProxy
 		cloudInitInput.MachineName = machine.Name
