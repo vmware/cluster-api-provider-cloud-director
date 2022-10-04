@@ -494,7 +494,7 @@ func (capvcdRdeManager *CapvcdRdeManager) AddToErrorSet(ctx context.Context, err
 
 func (capvcdRdeManager *CapvcdRdeManager) AddToEventSet(ctx context.Context, eventName, vcdResourceId, vcdResourceName, detailedEventMsg string, skipRDEEventUpdates bool) error {
 	if skipRDEEventUpdates {
-		klog.V(4).Infof("skipping updates to event set as value for shouldUpdateEventSet is [%t] for RDE [%s]", skipRDEEventUpdates, capvcdRdeManager.RdeManager.ClusterID)
+		klog.V(4).Infof("skipping updates to event set as value for skipRDEEventUpdates is [%t] for RDE [%s]", skipRDEEventUpdates, capvcdRdeManager.RdeManager.ClusterID)
 		return nil
 	}
 	backendEvent := vcdsdk.BackendEvent{
