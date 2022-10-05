@@ -492,7 +492,11 @@ func (capvcdRdeManager *CapvcdRdeManager) AddToErrorSet(ctx context.Context, err
 	return capvcdRdeManager.RdeManager.AddToErrorSet(ctx, vcdsdk.ComponentCAPVCD, backendErr, DefaultRollingWindowSize)
 }
 
-func (capvcdRdeManager *CapvcdRdeManager) AddToEventSet(ctx context.Context, eventName, vcdResourceId, vcdResourceName, detailedEventMsg string) error {
+func (capvcdRdeManager *CapvcdRdeManager) AddToEventSet(ctx context.Context, eventName, vcdResourceId, vcdResourceName, detailedEventMsg string, skipRDEEventUpdates bool) error {
+	if skipRDEEventUpdates {
+		klog.V(4).Infof("skipping updates to event set as value for skipRDEEventUpdates is [%t] for RDE [%s]", skipRDEEventUpdates, capvcdRdeManager.RdeManager.ClusterID)
+		return nil
+	}
 	backendEvent := vcdsdk.BackendEvent{
 		Name:            eventName,
 		OccurredAt:      time.Now(),
