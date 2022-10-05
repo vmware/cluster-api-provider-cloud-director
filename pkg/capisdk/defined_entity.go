@@ -42,9 +42,12 @@ const (
 	VappDeleted           = "vAppDeleted"
 
 	// VCDCluster Errors
-	VappCreationError = "vAppCreationError"
-	VappDeleteError   = "VappDeleteError"
-	VCDClusterError   = "VCDClusterError"
+	RdeError            = "RdeError"
+	LoadBalancerPending = "LoadBalancerPending"
+	VappCreationError   = "vAppCreationError"
+	LoadBalancerError   = "LoadBalancerError"
+	VappDeleteError     = "VappDeleteError"
+	VCDClusterError     = "VCDClusterError"
 
 	// VCDMachine Events
 	InfraVmPoweredOn         = "VcdMachineInfraVMPoweredOn"
@@ -58,11 +61,7 @@ const (
 	ScriptExecutionError  = "VcdMachineScriptExecutionError"
 	InfraVmDeleteError    = "VcdMachineInfraVmDeleteError"
 	VCDMachineError       = "VCDMachineError"
-
-	// Errors for both VCDCluster and VCDMachine
-	VCDObjectPatchError = "VCDObjectPatchError"
-	LoadBalancerError   = "LoadBalancerError"
-	RdeError            = "RdeError"
+	VCDObjectPatchError   = "VCDObjectPatchError"
 )
 
 // During upgrade from any old rde to a newer version format, we must be careful not to wipe out
