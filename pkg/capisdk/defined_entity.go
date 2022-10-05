@@ -42,13 +42,9 @@ const (
 	VappDeleted           = "vAppDeleted"
 
 	// VCDCluster Errors
-	RdeUpgradeError         = "RdeUpgradeError"
-	LoadbalancerPending     = "LoadBalancerPending"
-	VappCreationError       = "vAppCreationError"
-	LoadBalancerDeleteError = "LoadBalancerDeleteError"
-	VappDeleteError         = "VappDeleteError"
-	RdeDeleteError          = "RdeDeleteError"
-	RdeValidateError        = "RdeValidateError"
+	VappCreationError = "vAppCreationError"
+	VappDeleteError   = "VappDeleteError"
+	VCDClusterError   = "VCDClusterError"
 
 	// VCDMachine Events
 	InfraVmPoweredOn         = "VcdMachineInfraVMPoweredOn"
@@ -59,17 +55,14 @@ const (
 	// VCDMachine Errors
 	ScriptGenerationError = "VcdMachineScriptGenerationError"
 	InfraVMCreationError  = "VcdMachineInfraVMCreationError"
-	VMConfigureError      = "VcdMachineConfigureError"
 	ScriptExecutionError  = "VcdMachineScriptExecutionError"
-	PostBoostrapError     = "VcdMachinePostBoostrapError"
 	InfraVmDeleteError    = "VcdMachineInfraVmDeleteError"
-	LoadBalancerProvision = "LoadBalancerProvisionError"
+	VCDMachineError       = "VCDMachineError"
 
 	// Errors for both VCDCluster and VCDMachine
-	PatchExecutionError  = "VcdMachinePatchExecutionError"
-	ManagerCreationError = "resourceManagerCreationError"
-	ResourceUpdateError  = "VcdResourceUpdateError"
-	MetaDataConfigError  = "vAppMetaDataConfigError"
+	VCDObjectPatchError = "VCDObjectPatchError"
+	LoadBalancerError   = "LoadBalancerError"
+	RdeError            = "RdeError"
 )
 
 // During upgrade from any old rde to a newer version format, we must be careful not to wipe out
