@@ -678,7 +678,9 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 					errors.Wrapf(err, "Error while provisioning the infrastructure VM for the machine [%s] of the cluster [%s]; failed to resize hard disk", vm.VM.Name, vApp.VApp.Name)
 			}
 		}
-		//Todo: Remove capisdk.InfraVMCreationError here
+		if err = capvcdRdeManager.RdeManager.RemoveErrorByNameOrIdFromErrorSet(ctx, vcdsdk.ComponentCAPVCD, capisdk.InfraVMCreationError, "", ""); err != nil {
+			log.Error(err, "failed to remove InfraVMCreationError from RDE")
+		}
 	}
 
 	vmStatus, err := vm.GetStatus()
@@ -690,7 +692,9 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		return ctrl.Result{},
 			errors.Wrapf(err, "Error while provisioning the infrastructure VM for the machine [%s] of the cluster [%s]; failed to get status of vm", vm.VM.Name, vApp.VApp.Name)
 	}
-
+	if err = capvcdRdeManager.RdeManager.RemoveErrorByNameOrIdFromErrorSet(ctx, vcdsdk.ComponentCAPVCD, capisdk.InfraVMCreationError, "", ""); err != nil {
+		log.Error(err, "failed to remove InfraVMCreationError from RDE")
+	}
 	if vmStatus != "POWERED_ON" {
 		// try to power on the VM
 		b64CloudInitScript := b64.StdEncoding.EncodeToString(mergedCloudInitBytes)
