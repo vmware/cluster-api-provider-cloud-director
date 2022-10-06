@@ -171,11 +171,13 @@ spec:
                 - host
                 - port
                 type: object
-              loadBalancer:
-                description: LoadBalancer defines load-balancer configuration for
-                  the Cluster both for the control plane nodes and for the CPI
+              loadBalancerConfigSpec:
+                description: LoadBalancerConfig defines load-balancer configuration
+                  for the Cluster both for the control plane nodes and for the CPI
                 properties:
                   useOneArm:
+                    description: UseOneArm defines the intent to une OneArm when upgrading
+                      CAPVCD from 0.5.x to 1.0.0
                     type: boolean
                   vipSubnet:
                     type: string
@@ -188,7 +190,7 @@ spec:
                 type: string
               parentUid:
                 type: string
-              proxyConfig:
+              proxyConfigSpec:
                 description: ProxyConfig defines HTTP proxy environment variables
                   for containerd
                 properties:
@@ -204,6 +206,7 @@ spec:
               site:
                 type: string
               useAsManagementCluster:
+                default: false
                 type: boolean
               userContext:
                 properties:
@@ -284,6 +287,26 @@ spec:
                 type: array
               infraId:
                 type: string
+              loadBalancerConfig:
+                description: LoadBalancerConfig defines load-balancer configuration
+                  for the Cluster both for the control plane nodes and for the CPI
+                properties:
+                  useOneArm:
+                    description: UseOneArm defines the intent to une OneArm when upgrading
+                      CAPVCD from 0.5.x to 1.0.0
+                    type: boolean
+                  vipSubnet:
+                    type: string
+                type: object
+              org:
+                description: optional
+                type: string
+              ovdc:
+                description: optional
+                type: string
+              ovdcNetwork:
+                description: optional
+                type: string
               parentUid:
                 type: string
               proxyConfig:
@@ -307,9 +330,12 @@ spec:
                 description: Ready denotes that the vcd cluster (infrastructure) is
                   ready.
                 type: boolean
+              site:
+                description: optional
+                type: string
               useAsManagementCluster:
                 type: boolean
-              vappmetadataUpdated:
+              vappMetadataUpdated:
                 description: MetadataUpdated denotes that the metadata of Vapp is
                   updated.
                 type: boolean

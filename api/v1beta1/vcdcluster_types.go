@@ -57,8 +57,9 @@ type Ports struct {
 	TCP   int32 `json:"tcp,omitempty"`
 }
 
-// LoadBalancer defines load-balancer configuration for the Cluster both for the control plane nodes and for the CPI
-type LoadBalancer struct {
+// LoadBalancerConfig defines load-balancer configuration for the Cluster both for the control plane nodes and for the CPI
+type LoadBalancerConfig struct {
+	// UseOneArm defines the intent to une OneArm when upgrading CAPVCD from 0.5.x to 1.0.0
 	UseOneArm bool   `json:"useOneArm,omitempty"`
 	VipSubnet string `json:"vipSubnet,omitempty"`
 }
@@ -85,11 +86,12 @@ type VCDClusterSpec struct {
 	// +optional
 	ParentUID string `json:"parentUid,omitempty"`
 	// +optional
+	//+kubebuilder:default=false
 	UseAsManagementCluster bool `json:"useAsManagementCluster,omitempty"`
 	// +optional
-	ProxyConfig ProxyConfig `json:"proxyConfig,omitempty"`
+	ProxyConfigSpec ProxyConfig `json:"proxyConfigSpec,omitempty"`
 	// +optional
-	LoadBalancer LoadBalancer `json:"loadBalancer,omitempty"`
+	LoadBalancerConfigSpec LoadBalancerConfig `json:"loadBalancerConfigSpec,omitempty"`
 }
 
 // VCDClusterStatus defines the observed state of VCDCluster
@@ -107,11 +109,23 @@ type VCDClusterStatus struct {
 
 	// MetadataUpdated denotes that the metadata of Vapp is updated.
 	// +optional
-	VAppMetadataUpdated bool `json:"vappmetadataUpdated,omitempty"`
+	VAppMetadataUpdated bool `json:"vappMetadataUpdated,omitempty"`
 
 	// Conditions defines current service state of the VCDCluster.
 	// +optional
 	Conditions clusterv1.Conditions `json:"conditions,omitempty"`
+
+	// optional
+	Site string `json:"site,omitempty"`
+
+	// optional
+	Org string `json:"org,omitempty"`
+
+	// optional
+	Ovdc string `json:"ovdc,omitempty"`
+
+	// optional
+	OvdcNetwork string `json:"ovdcNetwork,omitempty"`
 
 	// +optional
 	InfraId string `json:"infraId,omitempty"`
@@ -124,6 +138,9 @@ type VCDClusterStatus struct {
 
 	// +optional
 	ProxyConfig ProxyConfig `json:"proxyConfig,omitempty"`
+
+	// +optional
+	LoadBalancerConfig LoadBalancerConfig `json:"loadBalancerConfig,omitempty"`
 }
 
 //+kubebuilder:object:root=true

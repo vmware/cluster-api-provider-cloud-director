@@ -13,7 +13,7 @@ func (src *VCDCluster) ConvertTo(dstRaw conversion.Hub) error {
 	if err := Convert_v1alpha4_VCDCluster_To_v1beta1_VCDCluster(src, dst, nil); err != nil {
 		return err
 	}
-	dst.Spec.ProxyConfig = v1beta1.ProxyConfig{}
+	dst.Spec.ProxyConfigSpec = v1beta1.ProxyConfig{}
 	// TODO: Update the new params to match previous release's Status; ex) dst.Spec.* = src.Status.*, maybe RDE.Status
 	dst.Spec.RDEId = src.Status.InfraId
 	dst.Spec.ParentUID = ""
@@ -25,9 +25,9 @@ func (src *VCDCluster) ConvertTo(dstRaw conversion.Hub) error {
 	}
 
 	// In v1alpha4 DNAT rules (and one-arm) are used by default. Therefore, use that in v1beta1
-	dst.Spec.LoadBalancer.UseOneArm = true
+	dst.Spec.LoadBalancerConfigSpec.UseOneArm = true
 
-	dst.Spec.LoadBalancer.VipSubnet = ""
+	dst.Spec.LoadBalancerConfigSpec.VipSubnet = ""
 	return nil
 }
 

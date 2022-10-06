@@ -68,10 +68,10 @@ type VCDMachineSpec struct {
 	// +optional
 	Bootstrapped bool `json:"bootstrapped,omitempty"`
 
-	// NvidiaGPU is true when a VM should be created with the relevant binaries installed
+	// EnableNvidiaGPU is true when a VM should be created with the relevant binaries installed
 	// If true, then an appropriate placement policy should be set
 	// +optional
-	NvidiaGPU bool `json:"nvidiaGPU,omitempty"`
+	EnableNvidiaGPU bool `json:"enableNvidiaGPU,omitempty"`
 }
 
 // VCDMachineStatus defines the observed state of VCDMachine
@@ -94,6 +94,22 @@ type VCDMachineStatus struct {
 	// Template is the path of the template OVA that is to be used
 	// +optional
 	Template string `json:"template,omitempty"`
+
+	// SizingPolicy is the sizing policy to be used on this machine.
+	// +optional
+	SizingPolicy string `json:"sizingPolicy,omitempty"`
+
+	// PlacementPolicy is the placement policy to be used on this machine.
+	// +optional
+	PlacementPolicy string `json:"placementPolicy,omitempty"`
+
+	// NvidiaGPUEnabled is true when a VM should be created with the relevant binaries installed
+	// +optional
+	NvidiaGPUEnabled bool `json:"nvidiaGpuEnabled,omitempty"`
+
+	// DiskSize is the size, in bytes, of the disk for this machine
+	// +optional
+	DiskSize resource.Quantity `json:"diskSize,omitempty"`
 
 	// Conditions defines current service state of the DockerMachine.
 	// +optional

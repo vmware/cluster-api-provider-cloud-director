@@ -412,8 +412,9 @@ func (capvcdRdeManager *CapvcdRdeManager) convertFrom100Format(ctx context.Conte
 					srcRde.Id, rdeType.CapvcdRDETypeVersion, MaxUpdateRetries-retries-1)
 				continue
 			} else if resp.StatusCode != http.StatusOK {
-				return nil, fmt.Errorf("unexpected response status code when upgrading defined entity [%s] to version [%s]. Expected response [%d] obtained [%d]",
+				klog.Errorf("unexpected response status code when upgrading defined entity [%s] to version [%s]. Expected response [%d] obtained [%d]",
 					srcRde.Id, rdeType.CapvcdRDETypeVersion, http.StatusOK, resp.StatusCode)
+				continue
 			}
 		}
 		klog.V(4).Infof("successfully upgraded RDE [%s] to version [%s]", srcRde.Id, rdeType.CapvcdRDETypeVersion)
@@ -452,6 +453,46 @@ func (capvcdRdeManager *CapvcdRdeManager) ConvertToLatestRDEVersionFormat(ctx co
 	return dstRde, nil
 }
 
+// CheckForEmptyRDEAndUpdateCreatedByVersions updates createdBy version and also sets the value for capvcdVersion in the RDE
+func (capvcdRdeManager *CapvcdRdeManager) CheckForEmptyRDEAndUpdateCreatedByVersions(ctx context.Context, infraId string) error {
+
+	if capvcdRdeManager.RdeManager == nil {
+		return fmt.Errorf("nil rdeManager found while updating RDE [%s] with createdBy version [%s]", infraId, release.CAPVCDVersion)
+	}
+
+	rde, resp, _, err := capvcdRdeManager.RdeManager.Client.APIClient.DefinedEntityApi.GetDefinedEntity(ctx, infraId)
+	if err != nil {
+		return fmt.Errorf("failed to call get defined entity RDE with ID [%s] to update RDE with createdBy version: [%s]", infraId, err)
+	} else if resp == nil {
+
+	} else if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("error getting the defined entity with ID [%s]", infraId)
+	}
+
+	statusIf, ok := rde.Entity["status"]
+	if !ok {
+		return fmt.Errorf("RDE [%s] is missing status", infraId)
+	}
+	statusMap, ok := statusIf.(map[string]interface{})
+	if !ok {
+		return fmt.Errorf("status fo RDE [%s] is invalid", infraId)
+	}
+	if capvcdStatusIf, ok := statusMap[vcdsdk.ComponentCAPVCD]; ok {
+		// Should not update the created by section if "capvcd" status is already present
+		if capvcdStatusMap, ok := capvcdStatusIf.(map[string]interface{}); ok && len(capvcdStatusMap) != 0 {
+			return nil
+		}
+	}
+	capvcdStatusPatch := make(map[string]interface{})
+	capvcdStatusPatch["CreatedByVersion"] = release.CAPVCDVersion
+	_, err = capvcdRdeManager.PatchRDE(ctx, nil, nil, capvcdStatusPatch, infraId, "", false)
+	if err != nil {
+		return fmt.Errorf("failed to update CAPVCD status with created by version [%s] for RDE [%s]", release.CAPVCDVersion, infraId)
+	}
+	klog.V(4).Infof("successfully updated CAPVCD status with created by version [%s] for RDE [%s]", release.CAPVCDVersion, infraId)
+	return nil
+}
+
 func (capvcdRdeManager *CapvcdRdeManager) AddToErrorSet(ctx context.Context, errorName, vcdResourceId, vcdResourceName, detailedErrorMsg string) error {
 	backendErr := vcdsdk.BackendError{
 		Name:            errorName,
@@ -465,7 +506,11 @@ func (capvcdRdeManager *CapvcdRdeManager) AddToErrorSet(ctx context.Context, err
 	return capvcdRdeManager.RdeManager.AddToErrorSet(ctx, vcdsdk.ComponentCAPVCD, backendErr, DefaultRollingWindowSize)
 }
 
-func (capvcdRdeManager *CapvcdRdeManager) AddToEventSet(ctx context.Context, eventName, vcdResourceId, vcdResourceName, detailedEventMsg string) error {
+func (capvcdRdeManager *CapvcdRdeManager) AddToEventSet(ctx context.Context, eventName, vcdResourceId, vcdResourceName, detailedEventMsg string, skipRDEEventUpdates bool) error {
+	if skipRDEEventUpdates {
+		klog.V(4).Infof("skipping updates to event set as value for skipRDEEventUpdates is [%t] for RDE [%s]", skipRDEEventUpdates, capvcdRdeManager.RdeManager.ClusterID)
+		return nil
+	}
 	backendEvent := vcdsdk.BackendEvent{
 		Name:            eventName,
 		OccurredAt:      time.Now(),

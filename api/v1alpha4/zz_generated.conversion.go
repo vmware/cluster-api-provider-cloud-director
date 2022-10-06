@@ -337,7 +337,7 @@ func autoConvert_v1beta1_VCDClusterSpec_To_v1alpha4_VCDClusterSpec(in *v1beta1.V
 	// WARNING: in.ParentUID requires manual conversion: does not exist in peer-type
 	// WARNING: in.UseAsManagementCluster requires manual conversion: does not exist in peer-type
 	// WARNING: in.ProxyConfig requires manual conversion: does not exist in peer-type
-	// WARNING: in.LoadBalancer requires manual conversion: does not exist in peer-type
+	// WARNING: in.LoadBalancerConfig requires manual conversion: does not exist in peer-type
 	return nil
 }
 
@@ -457,7 +457,7 @@ func autoConvert_v1beta1_VCDMachineSpec_To_v1alpha4_VCDMachineSpec(in *v1beta1.V
 	// WARNING: in.StorageProfile requires manual conversion: does not exist in peer-type
 	// WARNING: in.DiskSize requires manual conversion: does not exist in peer-type
 	out.Bootstrapped = in.Bootstrapped
-	// WARNING: in.NvidiaGPU requires manual conversion: does not exist in peer-type
+	// WARNING: in.EnableNvidiaGPU requires manual conversion: does not exist in peer-type
 	return nil
 }
 
