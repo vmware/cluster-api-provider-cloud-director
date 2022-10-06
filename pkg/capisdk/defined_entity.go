@@ -225,11 +225,11 @@ func (capvcdRdeManager *CapvcdRdeManager) PatchRDE(ctx context.Context, specPatc
 		// update the defined entity
 		rde, resp, err = client.APIClient.DefinedEntityApi.UpdateDefinedEntity(ctx, rde, etag, rdeID, nil)
 		if err != nil {
-			klog.Errorf("failed to update defined entity with ID [%s]: [%v]. Remaining retry attempts: [%d]", rdeID, err, MaxUpdateRetries-retries-1)
+			klog.V(5).Infof("failed to update defined entity with ID [%s] using etag [%s]: [%v]. Remaining retry attempts: [%d]", rdeID, etag, err, MaxUpdateRetries-retries-1)
 			continue
 		}
 		if resp.StatusCode != http.StatusOK {
-			klog.Errorf("error updating the defined entity with ID [%s]. failed with status code [%d]. Remaining retry attempts: [%d]", rdeID, resp.StatusCode, MaxUpdateRetries-retries+1)
+			klog.V(5).Infof("error updating the defined entity with ID [%s] using etag [%s]. failed with status code [%d]. Remaining retry attempts: [%d]", rdeID, etag, resp.StatusCode, MaxUpdateRetries-retries+1)
 			continue
 		}
 		klog.V(4).Infof("successfully updated defined entity with ID [%s]", rdeID)
@@ -384,7 +384,7 @@ func (capvcdRdeManager *CapvcdRdeManager) convertFrom100Format(ctx context.Conte
 			var responseMessageBytes []byte
 			if gsErr, ok := err.(swagger.GenericSwaggerError); ok {
 				responseMessageBytes = gsErr.Body()
-				klog.Errorf("error occurred when upgrading defined entity [%s] to version [%s]: [%s]",
+				klog.V(5).Infof("error occurred when upgrading defined entity [%s] to version [%s]: [%s]",
 					srcRde.Id, rdeType.CapvcdRDETypeVersion, string(responseMessageBytes))
 			}
 			return nil, fmt.Errorf("error when upgrading defined entity [%s] to version [%s]: [%v]",
@@ -394,8 +394,8 @@ func (capvcdRdeManager *CapvcdRdeManager) convertFrom100Format(ctx context.Conte
 				srcRde.Id, rdeType.CapvcdRDETypeVersion)
 		} else {
 			if resp.StatusCode == http.StatusPreconditionFailed {
-				klog.Errorf("wrong etag found when upgrading the defined entity [%s] to version [%s]. Retries remaining: [%d]",
-					srcRde.Id, rdeType.CapvcdRDETypeVersion, MaxUpdateRetries-retries-1)
+				klog.V(5).Infof("wrong etag [%s] while upgrading the defined entity [%s] to version [%s]. Retries remaining: [%d]",
+					etag, srcRde.Id, rdeType.CapvcdRDETypeVersion, MaxUpdateRetries-retries-1)
 				continue
 			} else if resp.StatusCode != http.StatusOK {
 				klog.Errorf("unexpected response status code when upgrading defined entity [%s] to version [%s]. Expected response [%d] obtained [%d]",
