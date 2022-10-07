@@ -202,7 +202,6 @@ const (
 	ProxyConfiguration                     = "guestinfo.postcustomization.proxy.setting.status"
 	MeteringConfiguration                  = "guestinfo.metering.status"
 	KubeadmInit                            = "guestinfo.postcustomization.kubeinit.status"
-	KubeadmTokenGenerate                   = "guestinfo.postcustomization.kubeadm.token.generate.status"
 	KubeadmNodeJoin                        = "guestinfo.postcustomization.kubeadm.node.join.status"
 	NvidiaRuntimeInstall                   = "guestinfo.postcustomization.nvidia.runtime.install.status"
 	PostCustomizationScriptExecutionStatus = "guestinfo.post_customization_script_execution_status"
@@ -214,7 +213,6 @@ var controlPlanePostCustPhases = []string{
 	MeteringConfiguration,
 	ProxyConfiguration,
 	KubeadmInit,
-	KubeadmTokenGenerate,
 }
 
 var joinPostCustPhases = []string{
@@ -326,6 +324,9 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 
 	log := ctrl.LoggerFrom(ctx, "machine", machine.Name, "cluster", vcdCluster.Name)
 
+	// To avoid spamming RDEs with updates, only update the RDE with events when machine creation is ongoing
+	skipRDEEventUpdates := machine.Status.BootstrapReady
+
 	userCreds, err := getUserCredentialsForCluster(ctx, r.Client, vcdCluster.Spec.UserCredentialsContext)
 	if err != nil {
 		return ctrl.Result{}, errors.Wrapf(err, "Error getting client credentials to reconcile Cluster [%s] infrastructure", vcdCluster.Name)
@@ -336,10 +337,10 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		return ctrl.Result{}, errors.Wrapf(err, "Unable to create VCD client to reconcile infrastructure for the Machine [%s]", machine.Name)
 	}
 	capvcdRdeManager := capisdk.NewCapvcdRdeManager(workloadVCDClient, vcdCluster.Status.InfraId)
-	if vcdMachine.Spec.ProviderID != nil {
+	if vcdMachine.Spec.ProviderID != nil && vcdMachine.Status.ProviderID != nil {
 		vcdMachine.Status.Ready = true
 		conditions.MarkTrue(vcdMachine, ContainerProvisionedCondition)
-		err = capvcdRdeManager.AddToEventSet(ctx, capisdk.InfraVmBootstrapped, "", machine.Name, "")
+		err = capvcdRdeManager.AddToEventSet(ctx, capisdk.InfraVmBootstrapped, "", machine.Name, "", skipRDEEventUpdates)
 		if err != nil {
 			log.Error(err, "failed to add InfraVmBootstrapped event into RDE", "rdeID", vcdCluster.Status.InfraId)
 		}
@@ -422,13 +423,13 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 			}
 		}
 
-		cloudInitInput.HTTPSProxy = vcdCluster.Spec.ProxyConfig.HTTPProxy
-		cloudInitInput.HTTPSProxy = vcdCluster.Spec.ProxyConfig.HTTPSProxy
-		cloudInitInput.NoProxy = vcdCluster.Spec.ProxyConfig.NoProxy
+		cloudInitInput.HTTPProxy = vcdCluster.Spec.ProxyConfigSpec.HTTPProxy
+		cloudInitInput.HTTPSProxy = vcdCluster.Spec.ProxyConfigSpec.HTTPSProxy
+		cloudInitInput.NoProxy = vcdCluster.Spec.ProxyConfigSpec.NoProxy
 		cloudInitInput.MachineName = machine.Name
 		// TODO: After tenants has access to siteId, populate siteId to cloudInitInput as opposed to the site
 		cloudInitInput.VcdHostFormatted = strings.ReplaceAll(vcdCluster.Spec.Site, "/", "\\/")
-		cloudInitInput.NvidiaGPU = vcdMachine.Spec.NvidiaGPU
+		cloudInitInput.NvidiaGPU = vcdMachine.Spec.EnableNvidiaGPU
 		cloudInitInput.TKGVersion = getTKGVersion(cluster)   // needed for both worker & control plane machines for metering
 		cloudInitInput.ClusterID = vcdCluster.Status.InfraId // needed for both worker & control plane machines for metering
 		cloudInitInput.ResizedControlPlane = isResizedControlPlane
@@ -457,7 +458,7 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	}
 
 	log.Info(fmt.Sprintf("Cloud init Script: [%s]", redactedCloudInit))
-	err = capvcdRdeManager.AddToEventSet(ctx, capisdk.CloudInitScriptGenerated, "", machine.Name, "")
+	err = capvcdRdeManager.AddToEventSet(ctx, capisdk.CloudInitScriptGenerated, "", machine.Name, "", skipRDEEventUpdates)
 	if err != nil {
 		log.Error(err, "failed to add CloudInitScriptGenerated event into RDE", "rdeID", vcdCluster.Status.InfraId)
 	}
@@ -549,7 +550,7 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		},
 	}
 
-	gateway, err := vcdsdk.NewGatewayManager(ctx, workloadVCDClient, vcdCluster.Spec.OvdcNetwork, vcdCluster.Spec.LoadBalancer.VipSubnet)
+	gateway, err := vcdsdk.NewGatewayManager(ctx, workloadVCDClient, vcdCluster.Spec.OvdcNetwork, vcdCluster.Spec.LoadBalancerConfigSpec.VipSubnet)
 	if err != nil {
 		return ctrl.Result{}, errors.Wrapf(err, "failed to create gateway manager object while reconciling machine [%s]", vcdMachine.Name)
 	}
@@ -577,14 +578,14 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		updatedUniqueIPs := cpiutil.NewSet(updatedIPs).GetElements()
 		resourcesAllocated := &cpiutil.AllocatedResourcesMap{}
 		var oneArm *vcdsdk.OneArm = nil
-		if vcdCluster.Spec.LoadBalancer.UseOneArm {
+		if vcdCluster.Spec.LoadBalancerConfigSpec.UseOneArm {
 			oneArm = &OneArmDefault
 		}
 
 		// At this point the vcdCluster.Spec.ControlPlaneEndpoint should have been set correctly.
 		_, err = gateway.UpdateLoadBalancer(ctx, lbPoolName, virtualServiceName, updatedUniqueIPs,
 			int32(vcdCluster.Spec.ControlPlaneEndpoint.Port), int32(vcdCluster.Spec.ControlPlaneEndpoint.Port),
-			oneArm, !vcdCluster.Spec.LoadBalancer.UseOneArm, "TCP", resourcesAllocated)
+			oneArm, !vcdCluster.Spec.LoadBalancerConfigSpec.UseOneArm, "TCP", resourcesAllocated)
 		if err != nil {
 			return ctrl.Result{}, errors.Wrapf(err,
 				"Error updating the load balancer pool [%s] for the "+
@@ -690,7 +691,7 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		}
 		return ctrl.Result{}, errors.Wrapf(err, "Error bootstrapping the machine [%s/%s]; machine is probably in unreconciliable state", vAppName, vm.VM.Name)
 	}
-	err = capvcdRdeManager.AddToEventSet(ctx, capisdk.InfraVmPoweredOn, "", machine.Name, "")
+	err = capvcdRdeManager.AddToEventSet(ctx, capisdk.InfraVmPoweredOn, "", machine.Name, "", skipRDEEventUpdates)
 	if err != nil {
 		log.Error(err, "failed to add InfraVmPoweredOn event into RDE", "rdeID", vcdCluster.Status.InfraId)
 	}
@@ -701,7 +702,7 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	// wait for each vm phase
 	phases := controlPlanePostCustPhases
 	if !useControlPlaneScript {
-		if vcdMachine.Spec.NvidiaGPU {
+		if vcdMachine.Spec.EnableNvidiaGPU {
 			phases = []string{joinPostCustPhases[0], joinPostCustPhases[1], NvidiaRuntimeInstall}
 		} else {
 			phases = joinPostCustPhases
@@ -727,7 +728,7 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	}
 
 	log.Info("Successfully bootstrapped the machine")
-	err = capvcdRdeManager.AddToEventSet(ctx, capisdk.InfraVmBootstrapped, "", machine.Name, "")
+	err = capvcdRdeManager.AddToEventSet(ctx, capisdk.InfraVmBootstrapped, "", machine.Name, "", skipRDEEventUpdates)
 	if err != nil {
 		log.Error(err, "failed to add InfraVmBootstrapped event into RDE", "rdeID", vcdCluster.Status.InfraId)
 	}
@@ -741,15 +742,16 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 
 	vcdMachine.Spec.Bootstrapped = true
 	conditions.MarkTrue(vcdMachine, BootstrapExecSucceededCondition)
-
 	// Set ProviderID so the Cluster API Machine Controller can pull it
 	providerID := fmt.Sprintf("%s://%s", infrav1.VCDProviderID, vm.VM.ID)
 	vcdMachine.Spec.ProviderID = &providerID
 	vcdMachine.Status.Ready = true
 	vcdMachine.Status.Template = vcdMachine.Spec.Template
 	vcdMachine.Status.ProviderID = vcdMachine.Spec.ProviderID
+	vcdMachine.Status.SizingPolicy = vcdMachine.Spec.SizingPolicy
+	vcdMachine.Status.PlacementPolicy = vcdMachine.Spec.PlacementPolicy
+	vcdMachine.Status.NvidiaGPUEnabled = vcdMachine.Spec.EnableNvidiaGPU
 	conditions.MarkTrue(vcdMachine, ContainerProvisionedCondition)
-
 	return ctrl.Result{}, nil
 }
 
@@ -808,7 +810,7 @@ func (r *VCDMachineReconciler) reconcileDelete(ctx context.Context, cluster *clu
 		return ctrl.Result{}, errors.Wrapf(err, "Unable to create VCD client to reconcile infrastructure for the Machine [%s]", machine.Name)
 	}
 
-	gateway, err := vcdsdk.NewGatewayManager(ctx, workloadVCDClient, vcdCluster.Spec.OvdcNetwork, vcdCluster.Spec.LoadBalancer.VipSubnet)
+	gateway, err := vcdsdk.NewGatewayManager(ctx, workloadVCDClient, vcdCluster.Spec.OvdcNetwork, vcdCluster.Spec.LoadBalancerConfigSpec.VipSubnet)
 	if err != nil {
 		return ctrl.Result{}, errors.Wrapf(err, "failed to create gateway manager object while reconciling machine [%s]", vcdMachine.Name)
 	}
@@ -847,14 +849,14 @@ func (r *VCDMachineReconciler) reconcileDelete(ctx context.Context, cluster *clu
 			}
 			resourcesAllocated := &cpiutil.AllocatedResourcesMap{}
 			var oneArm *vcdsdk.OneArm = nil
-			if vcdCluster.Spec.LoadBalancer.UseOneArm {
+			if vcdCluster.Spec.LoadBalancerConfigSpec.UseOneArm {
 				oneArm = &OneArmDefault
 			}
 
 			// At this point the vcdCluster.Spec.ControlPlaneEndpoint should have been set correctly.
 			_, err = gateway.UpdateLoadBalancer(ctx, lbPoolName, virtualServiceName, updatedIPs,
 				int32(vcdCluster.Spec.ControlPlaneEndpoint.Port), int32(vcdCluster.Spec.ControlPlaneEndpoint.Port),
-				oneArm, !vcdCluster.Spec.LoadBalancer.UseOneArm, "TCP", resourcesAllocated)
+				oneArm, !vcdCluster.Spec.LoadBalancerConfigSpec.UseOneArm, "TCP", resourcesAllocated)
 			if err != nil {
 				return ctrl.Result{}, errors.Wrapf(err,
 					"Error while deleting the infra resources of the machine [%s/%s]; error deleting the control plane from the load balancer pool [%s]",
@@ -952,7 +954,7 @@ func (r *VCDMachineReconciler) reconcileDelete(ctx context.Context, cluster *clu
 			}
 		}
 		log.Info("Successfully deleted infra resources of the machine")
-		err = capvcdRdeManager.AddToEventSet(ctx, capisdk.InfraVmDeleted, "", machine.Name, "")
+		err = capvcdRdeManager.AddToEventSet(ctx, capisdk.InfraVmDeleted, "", machine.Name, "", true)
 		if err != nil {
 			log.Error(err, "failed to add InfraVmDeleted event into RDE", "rdeID", vcdCluster.Status.InfraId)
 		}

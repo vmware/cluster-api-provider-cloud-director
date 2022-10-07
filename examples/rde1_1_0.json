@@ -13,18 +13,8 @@
     }
   },
   "metadata": {
-    "organizations": [
-      {
-        "name": "ABCDEFGHIJKLMNOPQRSTUVWXYZAB",
-        "id": "274c6240-3304-11ed-a261-0242ac120002"
-      }
-    ],
-    "orgVdcs": [
-      {
-        "name": "ABCDEFGHIJKLMNOPQRSTUVWXYZAB",
-        "id": "274c6240-3304-11ed-a261-0242ac120002"
-      }
-    ],
+    "orgName": "ABCDEFGHIJKLMNOPQRSTUVWXYZA",
+    "virtualDataCenterName": "ABCDEFGHIJKLMNOPQRSTUVWXYZ",
     "name": "ABCDEFGH",
     "site": "ABCD"
   },
@@ -76,10 +66,30 @@
         "phase": "ABCDEFGHIJKLMNOPQ",
         "apiEndpoints": []
       },
-      "nodeStatus": {
-        "node1": "running",
-        "node2": "provisioning"
-      },
+      "nodePool": [
+        {
+          "name": "tkg-cluster-1-worker-pool-1",
+          "desiredReplicas": 1,
+          "nodeStatus": {
+            "tkg-cluster-1-worker-pool-1-67b5c56c5d-xwht7": "Running"
+          },
+          "sizingPolicy": "TKG small",
+          "storageProfile": "*",
+          "availableReplicas": 1,
+          "nvidiaGpuEnabled": false
+        },
+        {
+          "name": "tkg-cluster-1-control-plane",
+          "desiredReplicas": 1,
+          "nodeStatus": {
+            "tkg-cluster-1-control-plane-zznds": "Running"
+          },
+          "sizingPolicy": "TKG small",
+          "storageProfile": "*",
+          "availableReplicas": 1,
+          "nvidiaGpuEnabled": false
+        }
+      ],
       "clusterResourceSet": [
         {
           "name": "cni",
@@ -112,19 +122,19 @@
       "createdByVersion": "1.1.0",
       "capvcdVersion": "ABCD",
       "vcdProperties": {
-        "vcdOrg": [
+        "organizations": [
           {
             "name": "ABCDEFGHIJKLMNOPQRSTUVWXYZAB",
             "id": "274c6240-3304-11ed-a261-0242ac120002"
           }
         ],
-        "orgVdc": [
+        "orgVdcs": [
           {
             "name": "ABCDEFGHIJKLMNOPQRSTUVWXYZAB",
-            "id": "274c6240-3304-11ed-a261-0242ac120002"
+            "id": "274c6240-3304-11ed-a261-0242ac120002",
+            "ovdcNetworkName": "ABCDEFGHIJKLMNOPQ"
           }
         ],
-        "ovdcNetworkName": "ABCDEFGHIJKLMNOPQ",
         "site": "ABCDEFGHIJKLMNOPQRSTUVWX"
       },
       "vcdResourceSet": [

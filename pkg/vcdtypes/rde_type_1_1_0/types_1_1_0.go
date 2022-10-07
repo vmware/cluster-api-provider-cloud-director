@@ -8,8 +8,8 @@ const (
 
 type Metadata struct {
 	Name string `json:"name,omitempty"`
-	Ovdc []Ovdc `json:"orgVdcs,omitempty"`
-	Org  []Org  `json:"organizations,omitempty"`
+	Vdc  string `json:"virtualDataCenterName,omitempty"`
+	Org  string `json:"orgName,omitempty"`
 	Site string `json:"site,omitempty"`
 }
 
@@ -47,8 +47,9 @@ type Services struct {
 }
 
 type Ovdc struct {
-	Name string `json:"name,omitempty"`
-	ID   string `json:"id,omitempty"`
+	Name        string `json:"name,omitempty"`
+	ID          string `json:"id,omitempty"`
+	OvdcNetwork string `json:"ovdcNetworkName,omitempty"`
 }
 
 type Org struct {
@@ -57,10 +58,9 @@ type Org struct {
 }
 
 type VCDProperties struct {
-	Site        string `json:"site,omitempty"`
-	OvdcNetwork string `json:"ovdcNetworkName,omitempty"`
-	Ovdc        []Ovdc `json:"orgVdc,omitempty"`
-	Org         []Org  `json:"vcdOrg,omitempty"`
+	Site string `json:"site,omitempty"`
+	Ovdc []Ovdc `json:"orgVdcs,omitempty"`
+	Org  []Org  `json:"organizations,omitempty"`
 }
 
 type ApiEndpoints struct {
@@ -100,14 +100,15 @@ type VCDResource struct {
 }
 
 type NodePool struct {
-	Name            string            `json:"name,omitempty"`
-	SizingPolicy    string            `json:"sizingPolicy,omitempty"`
-	PlacementPolicy string            `json:"placementPolicy,omitempty"`
-	DiskSizeMb      int32             `json:"diskSizeMb,omitempty"`
-	NvidiaGpu       bool              `json:"nvidiaGpu,omitempty"`
-	StorageProfile  string            `json:"storageProfile,omitempty"`
-	Replicas        int32             `json:"replicas,omitempty"`
-	NodeStatus      map[string]string `json:"nodeStatus,omitempty"`
+	Name              string            `json:"name,omitempty"`
+	SizingPolicy      string            `json:"sizingPolicy,omitempty"`
+	PlacementPolicy   string            `json:"placementPolicy,omitempty"`
+	DiskSizeMb        int32             `json:"diskSizeMb,omitempty"`
+	NvidiaGpuEnabled  bool              `json:"nvidiaGpuEnabled,omitempty"`
+	StorageProfile    string            `json:"storageProfile,omitempty"`
+	DesiredReplicas   int32             `json:"desiredReplicas"`
+	AvailableReplicas int32             `json:"availableReplicas"`
+	NodeStatus        map[string]string `json:"nodeStatus,omitempty"`
 }
 
 type ClusterResourceSetBinding struct {

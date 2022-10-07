@@ -167,9 +167,9 @@ spec:
                   machine
                 pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                 x-kubernetes-int-or-string: true
-              nvidiaGPU:
-                description: NvidiaGPU is true when a VM should be created with the
-                  relevant binaries installed If true, then an appropriate placement
+              enableNvidiaGPU:
+                description: EnableNvidiaGPU is true when a VM should be created with
+                  the relevant binaries installed If true, then an appropriate placement
                   policy should be set
                 type: boolean
               placementPolicy:
@@ -261,6 +261,22 @@ spec:
                   - type
                   type: object
                 type: array
+              diskSize:
+                anyOf:
+                - type: integer
+                - type: string
+                description: DiskSize is the size, in bytes, of the disk for this
+                  machine
+                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                x-kubernetes-int-or-string: true
+              nvidiaGpuEnabled:
+                description: NvidiaGPUEnabled is true when a VM should be created
+                  with the relevant binaries installed
+                type: boolean
+              placementPolicy:
+                description: PlacementPolicy is the placement policy to be used on
+                  this machine.
+                type: string
               providerID:
                 description: ProviderID will be the container name in ProviderID format
                   (vmware-cloud-director://<vm id>)
@@ -269,6 +285,10 @@ spec:
                 description: Ready denotes that the machine (docker container) is
                   ready
                 type: boolean
+              sizingPolicy:
+                description: SizingPolicy is the sizing policy to be used on this
+                  machine.
+                type: string
               template:
                 description: Template is the path of the template OVA that is to be
                   used

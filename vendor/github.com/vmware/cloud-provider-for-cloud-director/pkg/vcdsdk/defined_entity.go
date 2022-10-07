@@ -8,6 +8,7 @@ import (
 	"k8s.io/klog"
 	"net/http"
 	"net/url"
+	"reflect"
 	"strings"
 	"time"
 )
@@ -137,7 +138,7 @@ func convertMapToComponentStatus(componentStatusMap map[string]interface{}) (*Co
 
 // AddVCDResourceToStatusMap updates the input status map with VCDResource created from the input parameters. This function doesn't make any
 // 	calls to VCD.
-func AddVCDResourceToStatusMap(component string, componentName string, componentVersion string, statusMap map[string]interface{}, vcdResource VCDResource) (map[string]interface{}, error) {
+func AddVCDResourceToStatusMap(component string, componentName string, componentVersion string, statusMap map[string]interface{}, vcdResource VCDResource) (map[string]interface{}, bool,  error) {
 	// get the component info from the status
 	componentIf, ok := statusMap[component]
 	if !ok {
@@ -150,17 +151,17 @@ func AddVCDResourceToStatusMap(component string, componentName string, component
 			},
 		}
 		klog.V(3).Infof("created component map [%#v] since the component was not found in the status map", statusMap[component])
-		return statusMap, nil
+		return statusMap, true,  nil
 	}
 
 	componentMap, ok := componentIf.(map[string]interface{})
 	if !ok {
-		return nil, fmt.Errorf("failed to convert the status belonging to component [%s] to map[string]interface{}", component)
+		return nil, false, fmt.Errorf("failed to convert the status belonging to component [%s] to map[string]interface{}", component)
 	}
 
 	componentStatus, err := convertMapToComponentStatus(componentMap)
 	if err != nil {
-		return nil, fmt.Errorf("failed to convert component status map to component status object")
+		return nil, false, fmt.Errorf("failed to convert component status map to component status object")
 	}
 
 	if componentStatus.VCDResourceSet == nil || len(componentStatus.VCDResourceSet) == 0 {
@@ -170,24 +171,28 @@ func AddVCDResourceToStatusMap(component string, componentName string, component
 		}
 		componentMap["name"] = componentName
 		componentMap["version"] = componentVersion
-		return statusMap, nil
+		return statusMap, true, nil
 	}
 
+	updateRequired := true
 	resourceFound := false
 	// check if vcdResource is already present
 	for idx, resource := range componentStatus.VCDResourceSet {
 		if resource.ID == vcdResource.ID && resource.Type == vcdResource.Type {
 			resourceFound = true
+			if reflect.DeepEqual(resource.AdditionalDetails, vcdResource.AdditionalDetails) {
+				updateRequired = false
+			}
 			componentStatus.VCDResourceSet[idx].AdditionalDetails = vcdResource.AdditionalDetails
+			break
 		}
 	}
-
 	if !resourceFound {
 		componentStatus.VCDResourceSet = append(componentStatus.VCDResourceSet, vcdResource)
 	}
 
 	componentMap[ComponentStatusFieldVCDResourceSet] = componentStatus.VCDResourceSet
-	return statusMap, nil
+	return statusMap, updateRequired, nil
 }
 
 /*
@@ -611,10 +616,15 @@ func (rdeManager *RDEManager) AddToVCDResourceSet(ctx context.Context, component
 			Name:              resourceName,
 			AdditionalDetails: additionalDetails,
 		}
-		updatedStatusMap, err := AddVCDResourceToStatusMap(component, rdeManager.StatusComponentName,
+		updatedStatusMap, rdeUpdateRequired, err := AddVCDResourceToStatusMap(component, rdeManager.StatusComponentName,
 			rdeManager.StatusComponentVersion, statusMap, vcdResource)
 		if err != nil {
 			return fmt.Errorf("error occurred when updating VCDResource set of %s status in RDE [%s]: [%v]", rdeManager.ClusterID, component, err)
+		}
+		if !rdeUpdateRequired {
+			klog.V(3).Infof("VCD resource set for the RDE [%s(%s)] already has the resource [%v] in the status of the component [%s]",
+				rde.Name, rde.Id, vcdResource, component)
+			return nil
 		}
 		rde.Entity["status"] = updatedStatusMap
 		_, resp, err = rdeManager.Client.APIClient.DefinedEntityApi.UpdateDefinedEntity(ctx, rde, etag, rdeManager.ClusterID, nil)
