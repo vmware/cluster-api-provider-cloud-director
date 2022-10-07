@@ -35,7 +35,7 @@ EdgeGatewayNatRulesApiService Creates a NAT Rule on the Edge Gateway.
 
 
 */
-func (a *EdgeGatewayNatRulesApiService) CreateNatRule(ctx context.Context, edgeNatRule EdgeNatRule, gatewayId string) (*http.Response, error) {
+func (a *EdgeGatewayNatRulesApiService) CreateNatRule(ctx context.Context, edgeNatRule EdgeNatRule, gatewayId string, orgID string) (*http.Response, error) {
 	var (
 		localVarHttpMethod = strings.ToUpper("Post")
 		localVarPostBody   interface{}
@@ -82,6 +82,9 @@ func (a *EdgeGatewayNatRulesApiService) CreateNatRule(ctx context.Context, edgeN
 			localVarHeaderParams["Authorization"] = key
 
 		}
+	}
+	if orgID != "" {
+		localVarHeaderParams[TenantContextHeader] = orgID
 	}
 	r, err := a.client.prepareRequest(ctx, localVarPath, localVarHttpMethod, localVarPostBody, localVarHeaderParams, localVarQueryParams, localVarFormParams, localVarFileName, localVarFileBytes)
 	if err != nil {
@@ -153,7 +156,7 @@ type EdgeGatewayNatRulesApiGetNatRulesOpts struct {
 	SortDesc optional.String
 }
 
-func (a *EdgeGatewayNatRulesApiService) GetNatRules(ctx context.Context, pageSize int32, gatewayId string, localVarOptionals *EdgeGatewayNatRulesApiGetNatRulesOpts) (EdgeNatRules, *http.Response, error) {
+func (a *EdgeGatewayNatRulesApiService) GetNatRules(ctx context.Context, pageSize int32, gatewayId string, orgID string, localVarOptionals *EdgeGatewayNatRulesApiGetNatRulesOpts) (EdgeNatRules, *http.Response, error) {
 	var (
 		localVarHttpMethod  = strings.ToUpper("Get")
 		localVarPostBody    interface{}
@@ -215,6 +218,9 @@ func (a *EdgeGatewayNatRulesApiService) GetNatRules(ctx context.Context, pageSiz
 			localVarHeaderParams["Authorization"] = key
 
 		}
+	}
+	if orgID != "" {
+		localVarHeaderParams[TenantContextHeader] = orgID
 	}
 	r, err := a.client.prepareRequest(ctx, localVarPath, localVarHttpMethod, localVarPostBody, localVarHeaderParams, localVarQueryParams, localVarFormParams, localVarFileName, localVarFileBytes)
 	if err != nil {
