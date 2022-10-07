@@ -224,8 +224,16 @@ func (rdeManager *RDEManager) AddToErrorSet(ctx context.Context, componentSectio
 			rdeManager.ClusterID, newError)
 		return nil
 	}
+	client := rdeManager.Client
+	clusterOrg, err := client.VCDClient.GetOrgByName(client.ClusterOrgName)
+	if err != nil {
+		return fmt.Errorf("unable to get org for org [%s]: [%v]", client.ClusterOrgName, err)
+	}
+	if clusterOrg == nil || clusterOrg.Org == nil {
+		return fmt.Errorf("obtained nil org for name [%s]", client.ClusterOrgName)
+	}
 	for i := MaxRDEUpdateRetries; i > 1; i-- {
-		rde, resp, etag, err := rdeManager.Client.APIClient.DefinedEntityApi.GetDefinedEntity(ctx, rdeManager.ClusterID)
+		rde, resp, etag, err := rdeManager.Client.APIClient.DefinedEntityApi.GetDefinedEntity(ctx, rdeManager.ClusterID, clusterOrg.Org.ID)
 		if resp != nil && resp.StatusCode != http.StatusOK {
 			var responseMessageBytes []byte
 			if gsErr, ok := err.(swaggerClient.GenericSwaggerError); ok {
@@ -262,7 +270,7 @@ func (rdeManager *RDEManager) AddToErrorSet(ctx context.Context, componentSectio
 		rde.Entity["status"] = updatedStatusMap
 
 		// persist the updated statusMap to VCD
-		_, resp, err = rdeManager.Client.APIClient.DefinedEntityApi.UpdateDefinedEntity(ctx, rde, etag, rdeManager.ClusterID, nil)
+		_, resp, err = rdeManager.Client.APIClient.DefinedEntityApi.UpdateDefinedEntity(ctx, rde, etag, rdeManager.ClusterID, clusterOrg.Org.ID, nil)
 		if resp != nil {
 			if resp.StatusCode == http.StatusPreconditionFailed {
 				klog.Errorf("wrong etag while adding newError [%v] in RDE [%s]. Retry attempts remaining: [%d]", newError, rdeManager.ClusterID, i-1)
@@ -314,8 +322,16 @@ func (rdeManager *RDEManager) RemoveErrorByNameOrIdFromErrorSet(ctx context.Cont
 	if errorName == "" {
 		return fmt.Errorf("errorName cannot be empty, while removing error from the errorSet of [%s]", rdeManager.ClusterID)
 	}
+	client := rdeManager.Client
+	clusterOrg, err := client.VCDClient.GetOrgByName(client.ClusterOrgName)
+	if err != nil {
+		return fmt.Errorf("unable to get org for org [%s]: [%v]", client.ClusterOrgName, err)
+	}
+	if clusterOrg == nil || clusterOrg.Org == nil {
+		return fmt.Errorf("obtained nil org for name [%s]", client.ClusterOrgName)
+	}
 	for i := MaxRDEUpdateRetries; i > 1; i-- {
-		rde, resp, etag, err := rdeManager.Client.APIClient.DefinedEntityApi.GetDefinedEntity(ctx, rdeManager.ClusterID)
+		rde, resp, etag, err := rdeManager.Client.APIClient.DefinedEntityApi.GetDefinedEntity(ctx, rdeManager.ClusterID, clusterOrg.Org.ID)
 		if resp != nil && resp.StatusCode != http.StatusOK {
 			var responseMessageBytes []byte
 			if gsErr, ok := err.(swaggerClient.GenericSwaggerError); ok {
@@ -356,7 +372,7 @@ func (rdeManager *RDEManager) RemoveErrorByNameOrIdFromErrorSet(ctx context.Cont
 		rde.Entity["status"] = updatedStatusMap
 
 		// persist the updated statusMap to VCD
-		_, resp, err = rdeManager.Client.APIClient.DefinedEntityApi.UpdateDefinedEntity(ctx, rde, etag, rdeManager.ClusterID, nil)
+		_, resp, err = rdeManager.Client.APIClient.DefinedEntityApi.UpdateDefinedEntity(ctx, rde, etag, rdeManager.ClusterID, clusterOrg.Org.ID, nil)
 		if resp != nil {
 			if resp.StatusCode == http.StatusPreconditionFailed {
 				klog.Errorf("wrong etag while removing error(s) of name [%s] in RDE [%s]. Retry attempts remaining: [%d]", errorName, rdeManager.ClusterID, i-1)
@@ -481,8 +497,16 @@ func (rdeManager *RDEManager) AddToEventSet(ctx context.Context, componentSectio
 			rdeManager.ClusterID, newEvent)
 		return nil
 	}
+	client := rdeManager.Client
+	clusterOrg, err := client.VCDClient.GetOrgByName(client.ClusterOrgName)
+	if err != nil {
+		return fmt.Errorf("unable to get org for org [%s]: [%v]", client.ClusterOrgName, err)
+	}
+	if clusterOrg == nil || clusterOrg.Org == nil {
+		return fmt.Errorf("obtained nil org for name [%s]", client.ClusterOrgName)
+	}
 	for i := MaxRDEUpdateRetries; i > 1; i-- {
-		rde, resp, etag, err := rdeManager.Client.APIClient.DefinedEntityApi.GetDefinedEntity(ctx, rdeManager.ClusterID)
+		rde, resp, etag, err := rdeManager.Client.APIClient.DefinedEntityApi.GetDefinedEntity(ctx, rdeManager.ClusterID, clusterOrg.Org.ID)
 		if resp != nil && resp.StatusCode != http.StatusOK {
 			var responseMessageBytes []byte
 			if gsErr, ok := err.(swaggerClient.GenericSwaggerError); ok {
@@ -519,7 +543,7 @@ func (rdeManager *RDEManager) AddToEventSet(ctx context.Context, componentSectio
 		rde.Entity["status"] = updatedStatusMap
 
 		// persist the updated statusMap to VCD
-		_, resp, err = rdeManager.Client.APIClient.DefinedEntityApi.UpdateDefinedEntity(ctx, rde, etag, rdeManager.ClusterID, nil)
+		_, resp, err = rdeManager.Client.APIClient.DefinedEntityApi.UpdateDefinedEntity(ctx, rde, etag, rdeManager.ClusterID, clusterOrg.Org.ID, nil)
 		if resp != nil {
 			if resp.StatusCode == http.StatusPreconditionFailed {
 				klog.Errorf("wrong etag while adding newEvent [%#v] in RDE [%s]. Retry attempts remaining: [%d]", newEvent, rdeManager.ClusterID, i-1)
@@ -582,8 +606,16 @@ func (rdeManager *RDEManager) AddToVCDResourceSet(ctx context.Context, component
 			rdeManager.ClusterID, resourceType, resourceId)
 		return nil
 	}
+	client := rdeManager.Client
+	clusterOrg, err := client.VCDClient.GetOrgByName(client.ClusterOrgName)
+	if err != nil {
+		return fmt.Errorf("unable to get org for org [%s]: [%v]", client.ClusterOrgName, err)
+	}
+	if clusterOrg == nil || clusterOrg.Org == nil {
+		return fmt.Errorf("obtained nil org for name [%s]", client.ClusterOrgName)
+	}
 	for i := MaxRDEUpdateRetries; i > 1; i-- {
-		rde, resp, etag, err := rdeManager.Client.APIClient.DefinedEntityApi.GetDefinedEntity(ctx, rdeManager.ClusterID)
+		rde, resp, etag, err := rdeManager.Client.APIClient.DefinedEntityApi.GetDefinedEntity(ctx, rdeManager.ClusterID, clusterOrg.Org.ID)
 		if resp != nil && resp.StatusCode != http.StatusOK {
 			var responseMessageBytes []byte
 			if gsErr, ok := err.(swaggerClient.GenericSwaggerError); ok {
@@ -627,7 +659,7 @@ func (rdeManager *RDEManager) AddToVCDResourceSet(ctx context.Context, component
 			return nil
 		}
 		rde.Entity["status"] = updatedStatusMap
-		_, resp, err = rdeManager.Client.APIClient.DefinedEntityApi.UpdateDefinedEntity(ctx, rde, etag, rdeManager.ClusterID, nil)
+		_, resp, err = rdeManager.Client.APIClient.DefinedEntityApi.UpdateDefinedEntity(ctx, rde, etag, rdeManager.ClusterID, clusterOrg.Org.ID, nil)
 		if resp != nil {
 			if resp.StatusCode == http.StatusPreconditionFailed {
 				klog.Errorf("wrong etag while adding [%v] to VCDResourceSet in RDE [%s]. Retry attempts remaining: [%d]", vcdResource, rdeManager.ClusterID, i-1)
@@ -710,8 +742,16 @@ func (rdeManager *RDEManager) RemoveFromVCDResourceSet(ctx context.Context, comp
 			rdeManager.ClusterID, resourceType, resourceName)
 		return nil
 	}
+	client := rdeManager.Client
+	clusterOrg, err := client.VCDClient.GetOrgByName(client.ClusterOrgName)
+	if err != nil {
+		return fmt.Errorf("unable to get org for org [%s]: [%v]", client.ClusterOrgName, err)
+	}
+	if clusterOrg == nil || clusterOrg.Org == nil {
+		return fmt.Errorf("obtained nil org for name [%s]", client.ClusterOrgName)
+	}
 	for i := MaxRDEUpdateRetries; i > 1; i-- {
-		rde, resp, etag, err := rdeManager.Client.APIClient.DefinedEntityApi.GetDefinedEntity(ctx, rdeManager.ClusterID)
+		rde, resp, etag, err := rdeManager.Client.APIClient.DefinedEntityApi.GetDefinedEntity(ctx, rdeManager.ClusterID, clusterOrg.Org.ID)
 		if resp != nil && resp.StatusCode != http.StatusOK {
 			var responseMessageBytes []byte
 			if gsErr, ok := err.(swaggerClient.GenericSwaggerError); ok {
@@ -749,7 +789,7 @@ func (rdeManager *RDEManager) RemoveFromVCDResourceSet(ctx context.Context, comp
 		}
 		rde.Entity["status"] = updatedStatus
 
-		_, resp, err = rdeManager.Client.APIClient.DefinedEntityApi.UpdateDefinedEntity(ctx, rde, etag, rdeManager.ClusterID, nil)
+		_, resp, err = rdeManager.Client.APIClient.DefinedEntityApi.UpdateDefinedEntity(ctx, rde, etag, rdeManager.ClusterID, clusterOrg.Org.ID,nil)
 		if resp != nil {
 			if resp.StatusCode == http.StatusPreconditionFailed {
 				klog.Errorf("wrong etag while removing [%s] from VCDResourceSet in RDE [%s]. Retry attempts remaining: [%d]", resourceName, rdeManager.ClusterID, i-1)

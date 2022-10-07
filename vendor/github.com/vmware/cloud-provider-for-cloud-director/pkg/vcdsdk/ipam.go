@@ -41,8 +41,15 @@ func (gm *GatewayManager) GetUnusedExternalIPAddress(ctx context.Context, allowe
 	// 		4. Check if the IP address is unused
 	// Note: This is not the best approach and can be optimized further by skipping ranges.
 
+	clusterOrg, err := client.VCDClient.GetOrgByName(client.ClusterOrgName)
+	if err != nil {
+		return "", fmt.Errorf("unable to get org for org [%s]: [%v]", client.ClusterOrgName, err)
+	}
+	if clusterOrg == nil || clusterOrg.Org == nil {
+		return "", fmt.Errorf("obtained nil org for name [%s]", client.ClusterOrgName)
+	}
 	// 1. Get all IP ranges in gateway
-	edgeGW, resp, err := client.APIClient.EdgeGatewayApi.GetEdgeGateway(ctx, gm.GatewayRef.Id)
+	edgeGW, resp, err := client.APIClient.EdgeGatewayApi.GetEdgeGateway(ctx, gm.GatewayRef.Id, clusterOrg.Org.ID)
 	if err != nil {
 		return "", fmt.Errorf("unable to retrieve edge gateway details for [%s]: resp [%+v]: [%v]",
 			gm.GatewayRef.Name, resp, err)
@@ -71,7 +78,7 @@ func (gm *GatewayManager) GetUnusedExternalIPAddress(ctx context.Context, allowe
 	pageNum := int32(1)
 	for {
 		gwUsedIPAddresses, resp, err := client.APIClient.EdgeGatewayApi.GetUsedIpAddresses(ctx, pageNum, 25,
-			gm.GatewayRef.Id, nil)
+			gm.GatewayRef.Id, clusterOrg.Org.ID, nil)
 		if err != nil {
 			return "", fmt.Errorf("unable to get used IP addresses of gateway [%s]: [%+v]: [%v]",
 				gm.GatewayRef.Name, resp, err)
@@ -134,11 +141,19 @@ func (gm *GatewayManager) GetUnusedInternalIPAddress(ctx context.Context, oneArm
 	}
 	client := gm.Client
 
+	clusterOrg, err := client.VCDClient.GetOrgByName(client.ClusterOrgName)
+	if err != nil {
+		return "", fmt.Errorf("unable to get org for org [%s]: [%v]", client.ClusterOrgName, err)
+	}
+	if clusterOrg == nil || clusterOrg.Org == nil {
+		return "", fmt.Errorf("obtained nil org for name [%s]", client.ClusterOrgName)
+	}
+
 	usedIPAddresses := make(map[string]bool)
 	pageNum := int32(1)
 	for {
 		lbVSSummaries, resp, err := client.APIClient.EdgeGatewayLoadBalancerVirtualServicesApi.GetVirtualServiceSummariesForGateway(
-			ctx, pageNum, 25, gm.GatewayRef.Id, nil)
+			ctx, pageNum, 25, gm.GatewayRef.Id, clusterOrg.Org.ID, nil)
 		if err != nil {
 			return "", fmt.Errorf("unable to get virtual service summaries for gateway [%s]: resp: [%v]: [%v]",
 				gm.GatewayRef.Name, resp, err)
