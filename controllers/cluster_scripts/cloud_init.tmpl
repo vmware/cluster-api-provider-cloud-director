@@ -149,9 +149,6 @@ write_files:
       echo "file /run/cluster-api/bootstrap-success.complete not found" &>> /var/log/capvcd/customization/error.log
     exit 1
     fi
-    export KUBECONFIG=/etc/kubernetes/ {{- if .ControlPlane -}} admin {{- else -}} kubelet {{- end -}} .conf
-    kubectl get po -A -owide {{- if .ControlPlane }}
-    vmtoolsd --cmd "info-set guestinfo.kubeconfig $(cat /etc/kubernetes/admin.conf | base64 | tr -d '\n')" {{- end }}
     vmtoolsd --cmd "info-set {{ if .ControlPlane -}} guestinfo.postcustomization.kubeinit.status {{- else -}} guestinfo.postcustomization.kubeadm.node.join.status {{- end }} successful"
 
     echo "$(date) post customization script execution completed" &>> /var/log/capvcd/customization/status.log
