@@ -2116,13 +2116,13 @@ stringData:
       metadata.yaml: |
         cluster:
           name: __CLUSTER_NAME__
-          type: management
+          type: workload
           plan: dev
           kubernetesProvider: VMware Tanzu Kubernetes Grid
           tkgVersion: v1.5.4
           edition: tkg
           infrastructure:
-            provider: vsphere
+            provider: cloud-director
         bom:
           configmapRef:
             name: tkg-bom
