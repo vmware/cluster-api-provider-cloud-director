@@ -342,6 +342,9 @@ func (r *VCDClusterReconciler) constructAndCreateRDEFromCluster(ctx context.Cont
 	if err != nil {
 		return "", fmt.Errorf("failed to get org by name [%s]", vcdCluster.Spec.Org)
 	}
+	if org == nil || org.Org == nil {
+		return "", fmt.Errorf("found nil org when getting org by name [%s]", vcdCluster.Spec.Org)
+	}
 	rde, err := r.constructCapvcdRDE(ctx, cluster, vcdCluster, workloadVCDClient.VDC.Vdc, org.Org)
 	if err != nil {
 		return "", fmt.Errorf("error occurred while constructing RDE payload for the cluster [%s]: [%v]", vcdCluster.Name, err)
