@@ -39,7 +39,6 @@ type GatewayManager struct {
 
 // CacheGatewayDetails get gateway reference and cache some details in client object
 func (gatewayManager *GatewayManager) cacheGatewayDetails(ctx context.Context) error {
-
 	if gatewayManager.NetworkName == "" {
 		return fmt.Errorf("network name should not be empty")
 	}
@@ -100,8 +99,16 @@ func (gatewayManager *GatewayManager) getOVDCNetwork(ctx context.Context, networ
 	ovdcNetworksAPI := client.APIClient.OrgVdcNetworksApi
 	pageNum := int32(1)
 	ovdcNetworkID := ""
+	org, err := client.VCDClient.GetOrgByName(client.ClusterOrgName)
+	if err != nil {
+		return nil, fmt.Errorf("error getting org by name for org [%s]: [%v]", client.ClusterOrgName, err)
+	}
+	if org == nil || org.Org == nil {
+		return nil, fmt.Errorf("obtained nil org when getting org by name [%s]", client.ClusterOrgName)
+	}
+	networkFound := false
 	for {
-		ovdcNetworks, resp, err := ovdcNetworksAPI.GetAllVdcNetworks(ctx, pageNum, 32, nil)
+		ovdcNetworks, resp, err := ovdcNetworksAPI.GetAllVdcNetworks(ctx, org.Org.ID, pageNum, 32, nil)
 		if err != nil {
 			// TODO: log resp in debug mode only
 			return nil, fmt.Errorf("unable to get all ovdc networks: [%+v]: [%v]", resp, err)
@@ -112,14 +119,13 @@ func (gatewayManager *GatewayManager) getOVDCNetwork(ctx context.Context, networ
 		}
 
 		for _, ovdcNetwork := range ovdcNetworks.Values {
+			if networkFound {
+				return nil, fmt.Errorf("found more than one network with the name [%s] in the org [%s] - please ensure the network name is unique within an org", gatewayManager.NetworkName, client.ClusterOrgName)
+			}
 			if ovdcNetwork.Name == gatewayManager.NetworkName {
 				ovdcNetworkID = ovdcNetwork.Id
-				break
+				networkFound = true
 			}
-		}
-
-		if ovdcNetworkID != "" {
-			break
 		}
 		pageNum++
 	}
