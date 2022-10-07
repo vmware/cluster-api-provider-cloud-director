@@ -28,6 +28,11 @@ const (
 	VCDVMIDPrefix = "urn:vcloud:vm:"
 )
 
+var (
+	trueVar     = true
+	falseVar    = false
+)
+
 type VdcManager struct {
 	OrgName string
 	VdcName string
@@ -638,6 +643,12 @@ func (vdc *VdcManager) AddNewMultipleVM(vapp *govcd.VApp, vmNamePrefix string, v
 				},
 				VAppScopedLocalID: vmName,
 				InstantiationParams: &types.InstantiationParams{
+					GuestCustomizationSection: &types.GuestCustomizationSection{
+						Enabled:               &trueVar,
+						AdminPasswordEnabled:  &trueVar,
+						AdminPasswordAuto:     &trueVar,
+						ResetPasswordRequired: &falseVar,
+					},
 					NetworkConnectionSection: &types.NetworkConnectionSection{
 						NetworkConnection: []*types.NetworkConnection{
 							{
