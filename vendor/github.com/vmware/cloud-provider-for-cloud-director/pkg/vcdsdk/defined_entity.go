@@ -138,7 +138,7 @@ func convertMapToComponentStatus(componentStatusMap map[string]interface{}) (*Co
 
 // AddVCDResourceToStatusMap updates the input status map with VCDResource created from the input parameters. This function doesn't make any
 // 	calls to VCD.
-func AddVCDResourceToStatusMap(component string, componentName string, componentVersion string, statusMap map[string]interface{}, vcdResource VCDResource) (map[string]interface{}, bool,  error) {
+func AddVCDResourceToStatusMap(component string, componentName string, componentVersion string, statusMap map[string]interface{}, vcdResource VCDResource) (map[string]interface{}, bool, error) {
 	// get the component info from the status
 	componentIf, ok := statusMap[component]
 	if !ok {
@@ -151,7 +151,7 @@ func AddVCDResourceToStatusMap(component string, componentName string, component
 			},
 		}
 		klog.V(3).Infof("created component map [%#v] since the component was not found in the status map", statusMap[component])
-		return statusMap, true,  nil
+		return statusMap, true, nil
 	}
 
 	componentMap, ok := componentIf.(map[string]interface{})
@@ -273,7 +273,7 @@ func (rdeManager *RDEManager) AddToErrorSet(ctx context.Context, componentSectio
 		_, resp, err = rdeManager.Client.APIClient.DefinedEntityApi.UpdateDefinedEntity(ctx, rde, etag, rdeManager.ClusterID, clusterOrg.Org.ID, nil)
 		if resp != nil {
 			if resp.StatusCode == http.StatusPreconditionFailed {
-				klog.Errorf("wrong etag while adding newError [%v] in RDE [%s]. Retry attempts remaining: [%d]", newError, rdeManager.ClusterID, i-1)
+				klog.V(4).Infof("wrong etag [%s] while adding newError [%s] in RDE [%s]. Retry attempts remaining: [%d]", etag, newError.Name, rdeManager.ClusterID, i-1)
 				continue
 			} else if resp.StatusCode != http.StatusOK {
 				var responseMessageBytes []byte
@@ -546,7 +546,7 @@ func (rdeManager *RDEManager) AddToEventSet(ctx context.Context, componentSectio
 		_, resp, err = rdeManager.Client.APIClient.DefinedEntityApi.UpdateDefinedEntity(ctx, rde, etag, rdeManager.ClusterID, clusterOrg.Org.ID, nil)
 		if resp != nil {
 			if resp.StatusCode == http.StatusPreconditionFailed {
-				klog.Errorf("wrong etag while adding newEvent [%#v] in RDE [%s]. Retry attempts remaining: [%d]", newEvent, rdeManager.ClusterID, i-1)
+				klog.V(4).Infof("wrong etag [%s] while adding newEvent [%s] in RDE [%s]. Retry attempts remaining: [%d]", etag, newEvent.Name, rdeManager.ClusterID, i-1)
 				continue
 			} else if resp.StatusCode != http.StatusOK {
 				var responseMessageBytes []byte
@@ -662,7 +662,7 @@ func (rdeManager *RDEManager) AddToVCDResourceSet(ctx context.Context, component
 		_, resp, err = rdeManager.Client.APIClient.DefinedEntityApi.UpdateDefinedEntity(ctx, rde, etag, rdeManager.ClusterID, clusterOrg.Org.ID, nil)
 		if resp != nil {
 			if resp.StatusCode == http.StatusPreconditionFailed {
-				klog.Errorf("wrong etag while adding [%v] to VCDResourceSet in RDE [%s]. Retry attempts remaining: [%d]", vcdResource, rdeManager.ClusterID, i-1)
+				klog.V(4).Infof("wrong etag [%s] while adding [%s/%s] to VCDResourceSet in RDE [%s]. Retry attempts remaining: [%d]", etag, vcdResource.Type, vcdResource.Name, rdeManager.ClusterID, i-1)
 				continue
 			} else if resp.StatusCode != http.StatusOK {
 				var responseMessageBytes []byte
@@ -792,7 +792,7 @@ func (rdeManager *RDEManager) RemoveFromVCDResourceSet(ctx context.Context, comp
 		_, resp, err = rdeManager.Client.APIClient.DefinedEntityApi.UpdateDefinedEntity(ctx, rde, etag, rdeManager.ClusterID, clusterOrg.Org.ID,nil)
 		if resp != nil {
 			if resp.StatusCode == http.StatusPreconditionFailed {
-				klog.Errorf("wrong etag while removing [%s] from VCDResourceSet in RDE [%s]. Retry attempts remaining: [%d]", resourceName, rdeManager.ClusterID, i-1)
+				klog.V(4).Infof("wrong etag [%s] while removing [%s/%s] from VCDResourceSet in RDE [%s]. Retry attempts remaining: [%d]", etag, resourceType, resourceName, rdeManager.ClusterID, i-1)
 				continue
 			} else if resp.StatusCode != http.StatusOK {
 				var responseMessageBytes []byte
