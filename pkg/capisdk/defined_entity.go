@@ -42,12 +42,18 @@ const (
 	VappDeleted           = "vAppDeleted"
 
 	// VCDCluster Errors
-	RdeUpgradeError         = "RdeUpgradeError"
-	LoadbalancerPending     = "LoadBalancerPending"
-	VappCreationError       = "vAppCreationError"
-	LoadBalancerDeleteError = "LoadBalancerDeleteError"
-	VappDeleteError         = "VappDeleteError"
-	RdeDeleteError          = "RdeDeleteError"
+	// Set RdeError for any errors that occurs during Rde update/validation errors
+	RdeError = "RdeError"
+	// Set LoadBalancerPending for loadBalancer components not created fully
+	LoadBalancerPending = "LoadBalancerPending"
+	// Set LoadBalancerError for any errors that occurs during load balance components create/get/delete
+	LoadBalancerError = "LoadBalancerError"
+	// Set VCDClusterVappCreationError for any errors that occurs during cluster creation
+	VCDClusterVappCreationError = "VCDClusterVAppCreationError"
+	// Set VCDClusterVappDeleteError for any errors that occurs during cluster deletion
+	VCDClusterVappDeleteError = "VCDClusterVAppDeleteError"
+	// Set VCDClusterError for metadata errors; newVdcManager errors; newGWManager errors
+	VCDClusterError = "VCDClusterError"
 
 	// VCDMachine Events
 	InfraVmPoweredOn         = "VcdMachineInfraVMPoweredOn"
@@ -56,10 +62,18 @@ const (
 	InfraVmDeleted           = "VcdMachineInfraVmDeleted"
 
 	// VCDMachine Errors
-	ScriptGenerationError = "VcdMachineScriptGenerationError"
-	InfraVMCreationError  = "VcdMachineInfraVMCreationError"
-	ScriptExecutionError  = "VcdMachineScriptExecutionError"
-	InfraVmDeleteError    = "VcdMachineInfraVmDeleteError"
+	// Set VCDMachineScriptGenerationError for any errors that occurs during the process of generating and setting the script on the VM
+	VCDMachineScriptGenerationError = "VcdMachineScriptGenerationError"
+	// Set VCDMachineCreationError for any errors that occurs during vcdMachine infrastructure creation
+	VCDMachineCreationError = "VcdMachineCreationError"
+	// Set VCDMachineScriptExecutionError for any errors that occurs during the process of executing the script on the VM
+	VCDMachineScriptExecutionError = "VcdMachineScriptExecutionError"
+	// Set VCDMachineDeletionError for any errors that occurs during vcdMachine infrastructure deletion
+	VCDMachineDeletionError = "VcdMachineDeletionError"
+	// Set VCDMachineError for any errors that occurs during metadata validation, getting newVdcManager/newGateWayManager
+	VCDMachineError = "VCDMachineError"
+	// Set CAPVCDObjectPatchError for any errors during patch execution of vcdmachine object and vcdcluster object
+	CAPVCDObjectPatchError = "CAPVCDObjectPatchError"
 )
 
 // During upgrade from any old rde to a newer version format, we must be careful not to wipe out
