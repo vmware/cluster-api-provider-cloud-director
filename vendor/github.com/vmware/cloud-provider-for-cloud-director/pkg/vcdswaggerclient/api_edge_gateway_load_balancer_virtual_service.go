@@ -34,7 +34,7 @@ Delete a Virtual Service.
 
 
 */
-func (a *EdgeGatewayLoadBalancerVirtualServiceApiService) DeleteVirtualService(ctx context.Context, virtualServiceId string) (*http.Response, error) {
+func (a *EdgeGatewayLoadBalancerVirtualServiceApiService) DeleteVirtualService(ctx context.Context, virtualServiceId string, orgID string) (*http.Response, error) {
 	var (
 		localVarHttpMethod = strings.ToUpper("Delete")
 		localVarPostBody   interface{}
@@ -80,6 +80,9 @@ func (a *EdgeGatewayLoadBalancerVirtualServiceApiService) DeleteVirtualService(c
 
 		}
 	}
+	if orgID != "" {
+		localVarHeaderParams[TenantContextHeader] = orgID
+	}
 	r, err := a.client.prepareRequest(ctx, localVarPath, localVarHttpMethod, localVarPostBody, localVarHeaderParams, localVarQueryParams, localVarFormParams, localVarFileName, localVarFileBytes)
 	if err != nil {
 		return nil, err
@@ -116,7 +119,7 @@ Retrieves a specific Virtual Service.
 
 @return EdgeLoadBalancerVirtualService
 */
-func (a *EdgeGatewayLoadBalancerVirtualServiceApiService) GetVirtualService(ctx context.Context, virtualServiceId string) (EdgeLoadBalancerVirtualService, *http.Response, error) {
+func (a *EdgeGatewayLoadBalancerVirtualServiceApiService) GetVirtualService(ctx context.Context, virtualServiceId string, orgID string) (EdgeLoadBalancerVirtualService, *http.Response, error) {
 	var (
 		localVarHttpMethod  = strings.ToUpper("Get")
 		localVarPostBody    interface{}
@@ -162,6 +165,9 @@ func (a *EdgeGatewayLoadBalancerVirtualServiceApiService) GetVirtualService(ctx 
 			localVarHeaderParams["Authorization"] = key
 
 		}
+	}
+	if orgID != "" {
+		localVarHeaderParams[TenantContextHeader] = orgID
 	}
 	r, err := a.client.prepareRequest(ctx, localVarPath, localVarHttpMethod, localVarPostBody, localVarHeaderParams, localVarQueryParams, localVarFormParams, localVarFileName, localVarFileBytes)
 	if err != nil {
@@ -217,7 +223,7 @@ Update a Virtual Service.
 
 
 */
-func (a *EdgeGatewayLoadBalancerVirtualServiceApiService) UpdateVirtualService(ctx context.Context, virtualServiceConfig EdgeLoadBalancerVirtualService, virtualServiceId string) (*http.Response, error) {
+func (a *EdgeGatewayLoadBalancerVirtualServiceApiService) UpdateVirtualService(ctx context.Context, virtualServiceConfig EdgeLoadBalancerVirtualService, virtualServiceId string, orgID string) (*http.Response, error) {
 	var (
 		localVarHttpMethod = strings.ToUpper("Put")
 		localVarPostBody   interface{}
@@ -264,6 +270,9 @@ func (a *EdgeGatewayLoadBalancerVirtualServiceApiService) UpdateVirtualService(c
 			localVarHeaderParams["Authorization"] = key
 
 		}
+	}
+	if orgID != "" {
+		localVarHeaderParams[TenantContextHeader] = orgID
 	}
 	r, err := a.client.prepareRequest(ctx, localVarPath, localVarHttpMethod, localVarPostBody, localVarHeaderParams, localVarQueryParams, localVarFormParams, localVarFileName, localVarFileBytes)
 	if err != nil {

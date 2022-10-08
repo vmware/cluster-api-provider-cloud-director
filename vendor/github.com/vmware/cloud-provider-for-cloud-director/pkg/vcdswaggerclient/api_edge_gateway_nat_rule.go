@@ -34,7 +34,7 @@ EdgeGatewayNatRuleApiService Deletes a specific NAT Rule configuration of the ed
 
 
 */
-func (a *EdgeGatewayNatRuleApiService) DeleteNatRule(ctx context.Context, gatewayId string, ruleId string) (*http.Response, error) {
+func (a *EdgeGatewayNatRuleApiService) DeleteNatRule(ctx context.Context, gatewayId string, ruleId string, orgID string) (*http.Response, error) {
 	var (
 		localVarHttpMethod = strings.ToUpper("Delete")
 		localVarPostBody   interface{}
@@ -80,6 +80,9 @@ func (a *EdgeGatewayNatRuleApiService) DeleteNatRule(ctx context.Context, gatewa
 			localVarHeaderParams["Authorization"] = key
 
 		}
+	}
+	if orgID != "" {
+		localVarHeaderParams[TenantContextHeader] = orgID
 	}
 	r, err := a.client.prepareRequest(ctx, localVarPath, localVarHttpMethod, localVarPostBody, localVarHeaderParams, localVarQueryParams, localVarFormParams, localVarFileName, localVarFileBytes)
 	if err != nil {
@@ -128,7 +131,7 @@ EdgeGatewayNatRuleApiService Retrieves a specific NAT Rule configuration of the 
 
 @return EdgeNatRule
 */
-func (a *EdgeGatewayNatRuleApiService) GetNatRule(ctx context.Context, gatewayId string, ruleId string) (EdgeNatRule, *http.Response, error) {
+func (a *EdgeGatewayNatRuleApiService) GetNatRule(ctx context.Context, gatewayId string, ruleId string, orgID string) (EdgeNatRule, *http.Response, error) {
 	var (
 		localVarHttpMethod  = strings.ToUpper("Get")
 		localVarPostBody    interface{}
@@ -175,6 +178,9 @@ func (a *EdgeGatewayNatRuleApiService) GetNatRule(ctx context.Context, gatewayId
 			localVarHeaderParams["Authorization"] = key
 
 		}
+	}
+	if orgID != "" {
+		localVarHeaderParams[TenantContextHeader] = orgID
 	}
 	r, err := a.client.prepareRequest(ctx, localVarPath, localVarHttpMethod, localVarPostBody, localVarHeaderParams, localVarQueryParams, localVarFormParams, localVarFileName, localVarFileBytes)
 	if err != nil {
@@ -241,7 +247,7 @@ EdgeGatewayNatRuleApiService Update a specific NAT Rule configuration of the edg
 
 
 */
-func (a *EdgeGatewayNatRuleApiService) UpdateNatRule(ctx context.Context, edgeNatRule EdgeNatRule, gatewayId string, ruleId string) (*http.Response, error) {
+func (a *EdgeGatewayNatRuleApiService) UpdateNatRule(ctx context.Context, edgeNatRule EdgeNatRule, gatewayId string, ruleId string, orgID string) (*http.Response, error) {
 	var (
 		localVarHttpMethod = strings.ToUpper("Put")
 		localVarPostBody   interface{}
@@ -289,6 +295,9 @@ func (a *EdgeGatewayNatRuleApiService) UpdateNatRule(ctx context.Context, edgeNa
 			localVarHeaderParams["Authorization"] = key
 
 		}
+	}
+	if orgID != "" {
+		localVarHeaderParams[TenantContextHeader] = orgID
 	}
 	r, err := a.client.prepareRequest(ctx, localVarPath, localVarHttpMethod, localVarPostBody, localVarHeaderParams, localVarQueryParams, localVarFormParams, localVarFileName, localVarFileBytes)
 	if err != nil {

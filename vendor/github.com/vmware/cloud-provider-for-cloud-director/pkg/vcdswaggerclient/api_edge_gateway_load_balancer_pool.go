@@ -33,7 +33,7 @@ EdgeGatewayLoadBalancerPoolApiService Deletes a specific Load Balancer Pool.
 
 
 */
-func (a *EdgeGatewayLoadBalancerPoolApiService) DeleteLoadBalancerPool(ctx context.Context, poolId string) (*http.Response, error) {
+func (a *EdgeGatewayLoadBalancerPoolApiService) DeleteLoadBalancerPool(ctx context.Context, poolId string, orgID string) (*http.Response, error) {
 	var (
 		localVarHttpMethod = strings.ToUpper("Delete")
 		localVarPostBody   interface{}
@@ -78,6 +78,9 @@ func (a *EdgeGatewayLoadBalancerPoolApiService) DeleteLoadBalancerPool(ctx conte
 			localVarHeaderParams["Authorization"] = key
 
 		}
+	}
+	if orgID != "" {
+		localVarHeaderParams[TenantContextHeader] = orgID
 	}
 	r, err := a.client.prepareRequest(ctx, localVarPath, localVarHttpMethod, localVarPostBody, localVarHeaderParams, localVarQueryParams, localVarFormParams, localVarFileName, localVarFileBytes)
 	if err != nil {
@@ -125,7 +128,7 @@ EdgeGatewayLoadBalancerPoolApiService Retrieves a specific Load Balancer Pool.
 
 @return EdgeLoadBalancerPool
 */
-func (a *EdgeGatewayLoadBalancerPoolApiService) GetLoadBalancerPool(ctx context.Context, poolId string) (EdgeLoadBalancerPool, *http.Response, error) {
+func (a *EdgeGatewayLoadBalancerPoolApiService) GetLoadBalancerPool(ctx context.Context, poolId string, orgID string) (EdgeLoadBalancerPool, *http.Response, error) {
 	var (
 		localVarHttpMethod  = strings.ToUpper("Get")
 		localVarPostBody    interface{}
@@ -171,6 +174,9 @@ func (a *EdgeGatewayLoadBalancerPoolApiService) GetLoadBalancerPool(ctx context.
 			localVarHeaderParams["Authorization"] = key
 
 		}
+	}
+	if orgID != "" {
+		localVarHeaderParams[TenantContextHeader] = orgID
 	}
 	r, err := a.client.prepareRequest(ctx, localVarPath, localVarHttpMethod, localVarPostBody, localVarHeaderParams, localVarQueryParams, localVarFormParams, localVarFileName, localVarFileBytes)
 	if err != nil {
@@ -225,7 +231,7 @@ EdgeGatewayLoadBalancerPoolApiService Updates a specific Load Balancer Pool.
 
 
 */
-func (a *EdgeGatewayLoadBalancerPoolApiService) UpdateLoadBalancerPool(ctx context.Context, loadBalancerPool EdgeLoadBalancerPool, poolId string) (*http.Response, error) {
+func (a *EdgeGatewayLoadBalancerPoolApiService) UpdateLoadBalancerPool(ctx context.Context, loadBalancerPool EdgeLoadBalancerPool, poolId string, orgID string) (*http.Response, error) {
 	var (
 		localVarHttpMethod = strings.ToUpper("Put")
 		localVarPostBody   interface{}
@@ -272,6 +278,9 @@ func (a *EdgeGatewayLoadBalancerPoolApiService) UpdateLoadBalancerPool(ctx conte
 			localVarHeaderParams["Authorization"] = key
 
 		}
+	}
+	if orgID != "" {
+		localVarHeaderParams[TenantContextHeader] = orgID
 	}
 	r, err := a.client.prepareRequest(ctx, localVarPath, localVarHttpMethod, localVarPostBody, localVarHeaderParams, localVarQueryParams, localVarFormParams, localVarFileName, localVarFileBytes)
 	if err != nil {

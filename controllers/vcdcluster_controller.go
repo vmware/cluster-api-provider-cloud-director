@@ -342,12 +342,15 @@ func (r *VCDClusterReconciler) constructAndCreateRDEFromCluster(ctx context.Cont
 	if err != nil {
 		return "", fmt.Errorf("failed to get org by name [%s]", vcdCluster.Spec.Org)
 	}
+	if org == nil || org.Org == nil {
+		return "", fmt.Errorf("found nil org when getting org by name [%s]", vcdCluster.Spec.Org)
+	}
 	rde, err := r.constructCapvcdRDE(ctx, cluster, vcdCluster, workloadVCDClient.VDC.Vdc, org.Org)
 	if err != nil {
 		return "", fmt.Errorf("error occurred while constructing RDE payload for the cluster [%s]: [%v]", vcdCluster.Name, err)
 	}
 	resp, err := workloadVCDClient.APIClient.DefinedEntityApi.CreateDefinedEntity(ctx, *rde,
-		rde.EntityType, nil)
+		rde.EntityType, org.Org.ID, nil)
 	if err != nil {
 		return "", fmt.Errorf("error occurred during RDE creation for the cluster [%s]: [%v]", vcdCluster.Name, err)
 	}
@@ -610,7 +613,7 @@ func (r *VCDClusterReconciler) reconcileRDE(ctx context.Context, cluster *cluste
 
 	if updatedRDE.State != RDEStatusResolved {
 		// try to resolve the defined entity
-		entityState, resp, err := workloadVCDClient.APIClient.DefinedEntityApi.ResolveDefinedEntity(ctx, updatedRDE.Id)
+		entityState, resp, err := workloadVCDClient.APIClient.DefinedEntityApi.ResolveDefinedEntity(ctx, updatedRDE.Id, org.Org.ID)
 		if err != nil {
 			return fmt.Errorf("failed to resolve defined entity with ID [%s] for cluster [%s]", vcdCluster.Status.InfraId, vcdCluster.Name)
 		}
@@ -689,9 +692,17 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 			nameFilter := &swagger.DefinedEntityApiGetDefinedEntitiesByEntityTypeOpts{
 				Filter: optional.NewString(fmt.Sprintf("name==%s", vcdCluster.Name)),
 			}
+			org, err := workloadVCDClient.VCDClient.GetOrgByName(workloadVCDClient.ClusterOrgName)
+			if err != nil {
+				return ctrl.Result{}, errors.Wrapf(errors.New("failed to get org by name"), "error getting org by name for org [%s]: [%v]", workloadVCDClient.ClusterOrgName, err)
+			}
+			if org == nil || org.Org == nil {
+				return ctrl.Result{}, errors.Wrapf(errors.New("invalid org ref obtained"),
+					"obtained nil org when getting org by name [%s]", workloadVCDClient.ClusterOrgName)
+			}
 			// the following api call will return an empty list if there are no entities with the same name as the cluster
 			definedEntities, resp, err := workloadVCDClient.APIClient.DefinedEntityApi.GetDefinedEntitiesByEntityType(ctx,
-				capisdk.CAPVCDTypeVendor, capisdk.CAPVCDTypeNss, rdeType.CapvcdRDETypeVersion, 1, 25, nameFilter)
+				capisdk.CAPVCDTypeVendor, capisdk.CAPVCDTypeNss, rdeType.CapvcdRDETypeVersion, org.Org.ID, 1, 25, nameFilter)
 			if err != nil {
 				updatedErr := capvcdRdeManager.AddToErrorSet(ctx, capisdk.RdeError, "", vcdCluster.Name, fmt.Sprintf("Error fetching RDE: [%v]", err))
 				if updatedErr != nil {
@@ -976,7 +987,15 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	}
 
 	if !strings.HasPrefix(vcdCluster.Status.InfraId, NoRdePrefix) {
-		_, resp, _, err := workloadVCDClient.APIClient.DefinedEntityApi.GetDefinedEntity(ctx, vcdCluster.Status.InfraId)
+		org, err := workloadVCDClient.VCDClient.GetOrgByName(workloadVCDClient.ClusterOrgName)
+		if err != nil {
+			return ctrl.Result{}, errors.Wrapf(errors.New("failed to get org by name"), "error getting org by name for org [%s]: [%v]", workloadVCDClient.ClusterOrgName, err)
+		}
+		if org == nil || org.Org == nil {
+			return ctrl.Result{}, errors.Wrapf(errors.New("invalid org ref obtained"),
+				"obtained nil org when getting org by name [%s]", workloadVCDClient.ClusterOrgName)
+		}
+		_, resp, _, err := workloadVCDClient.APIClient.DefinedEntityApi.GetDefinedEntity(ctx, vcdCluster.Status.InfraId, org.Org.ID)
 		if err == nil && resp != nil && resp.StatusCode == http.StatusOK {
 			if err = r.reconcileRDE(ctx, cluster, vcdCluster, workloadVCDClient, "", false); err != nil {
 				log.Error(err, "Error occurred during RDE reconciliation",
@@ -1280,8 +1299,16 @@ func (r *VCDClusterReconciler) reconcileDelete(ctx context.Context,
 	// TODO: If RDE deletion fails, should we throw an error during reconciliation?
 	// Delete RDE
 	if vcdCluster.Status.InfraId != "" && !strings.HasPrefix(vcdCluster.Status.InfraId, NoRdePrefix) {
+		org, err := workloadVCDClient.VCDClient.GetOrgByName(workloadVCDClient.ClusterOrgName)
+		if err != nil {
+			return ctrl.Result{}, errors.Wrapf(errors.New("failed to get org by name"), "error getting org by name for org [%s]: [%v]", workloadVCDClient.ClusterOrgName, err)
+		}
+		if org == nil || org.Org == nil {
+			return ctrl.Result{}, errors.Wrapf(errors.New("invalid org ref obtained"),
+				"obtained nil org when getting org by name [%s]", workloadVCDClient.ClusterOrgName)
+		}
 		definedEntities, resp, err := workloadVCDClient.APIClient.DefinedEntityApi.GetDefinedEntitiesByEntityType(ctx,
-			capisdk.CAPVCDTypeVendor, capisdk.CAPVCDTypeNss, rdeType.CapvcdRDETypeVersion, 1, 25,
+			capisdk.CAPVCDTypeVendor, capisdk.CAPVCDTypeNss, rdeType.CapvcdRDETypeVersion, org.Org.ID, 1, 25,
 			&swagger.DefinedEntityApiGetDefinedEntitiesByEntityTypeOpts{
 				Filter: optional.NewString(fmt.Sprintf("id==%s", vcdCluster.Status.InfraId)),
 			})
@@ -1302,7 +1329,7 @@ func (r *VCDClusterReconciler) reconcileDelete(ctx context.Context,
 		if len(definedEntities.Values) > 0 {
 			// resolve defined entity before deleting
 			entityState, resp, err := workloadVCDClient.APIClient.DefinedEntityApi.ResolveDefinedEntity(ctx,
-				vcdCluster.Status.InfraId)
+				vcdCluster.Status.InfraId, org.Org.ID)
 			if err != nil {
 				err1 := capvcdRdeManager.AddToErrorSet(ctx, capisdk.RdeError, "", "", fmt.Sprintf("failed to resolve entity: [%v]", err))
 				if err1 != nil {
@@ -1314,7 +1341,7 @@ func (r *VCDClusterReconciler) reconcileDelete(ctx context.Context,
 				log.Error(nil, "Error occurred during RDE deletion; failed to resolve RDE with ID [%s] for cluster [%s]: [%s]", vcdCluster.Status.InfraId, vcdCluster.Name, entityState.Message)
 			}
 			resp, err = workloadVCDClient.APIClient.DefinedEntityApi.DeleteDefinedEntity(ctx,
-				vcdCluster.Status.InfraId, nil)
+				vcdCluster.Status.InfraId, org.Org.ID, nil)
 			if err != nil {
 				err1 := capvcdRdeManager.AddToErrorSet(ctx, capisdk.RdeError, "", "", fmt.Sprintf("%v", err))
 				if err1 != nil {

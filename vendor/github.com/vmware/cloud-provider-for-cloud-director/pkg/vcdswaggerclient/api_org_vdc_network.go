@@ -280,7 +280,7 @@ OrgVdcNetworkApiService Retrieves a specific Org vDC network.
 
 @return VdcNetwork
 */
-func (a *OrgVdcNetworkApiService) GetOrgVdcNetwork(ctx context.Context, vdcNetworkId string) (VdcNetwork, *http.Response, error) {
+func (a *OrgVdcNetworkApiService) GetOrgVdcNetwork(ctx context.Context, vdcNetworkId string, orgID string) (VdcNetwork, *http.Response, error) {
 	var (
 		localVarHttpMethod  = strings.ToUpper("Get")
 		localVarPostBody    interface{}
@@ -326,6 +326,9 @@ func (a *OrgVdcNetworkApiService) GetOrgVdcNetwork(ctx context.Context, vdcNetwo
 			localVarHeaderParams["Authorization"] = key
 
 		}
+	}
+	if orgID != "" {
+		localVarHeaderParams[TenantContextHeader] = orgID
 	}
 	r, err := a.client.prepareRequest(ctx, localVarPath, localVarHttpMethod, localVarPostBody, localVarHeaderParams, localVarQueryParams, localVarFormParams, localVarFileName, localVarFileBytes)
 	if err != nil {

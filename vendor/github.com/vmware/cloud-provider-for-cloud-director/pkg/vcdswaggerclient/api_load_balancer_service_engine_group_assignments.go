@@ -129,7 +129,7 @@ type LoadBalancerServiceEngineGroupAssignmentsApiGetServiceEngineGroupAssignment
 	SortDesc optional.String
 }
 
-func (a *LoadBalancerServiceEngineGroupAssignmentsApiService) GetServiceEngineGroupAssignments(ctx context.Context, page int32, pageSize int32, localVarOptionals *LoadBalancerServiceEngineGroupAssignmentsApiGetServiceEngineGroupAssignmentsOpts) (LoadBalancerServiceEngineGroupAssignments, *http.Response, error) {
+func (a *LoadBalancerServiceEngineGroupAssignmentsApiService) GetServiceEngineGroupAssignments(ctx context.Context, page int32, pageSize int32, orgID string, localVarOptionals *LoadBalancerServiceEngineGroupAssignmentsApiGetServiceEngineGroupAssignmentsOpts) (LoadBalancerServiceEngineGroupAssignments, *http.Response, error) {
 	var (
 		localVarHttpMethod  = strings.ToUpper("Get")
 		localVarPostBody    interface{}
@@ -194,6 +194,9 @@ func (a *LoadBalancerServiceEngineGroupAssignmentsApiService) GetServiceEngineGr
 			localVarHeaderParams["Authorization"] = key
 
 		}
+	}
+	if orgID != "" {
+		localVarHeaderParams[TenantContextHeader] = orgID
 	}
 	r, err := a.client.prepareRequest(ctx, localVarPath, localVarHttpMethod, localVarPostBody, localVarHeaderParams, localVarQueryParams, localVarFormParams, localVarFileName, localVarFileBytes)
 	if err != nil {
