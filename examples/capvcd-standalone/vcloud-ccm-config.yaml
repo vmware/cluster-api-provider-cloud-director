@@ -1,0 +1,25 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: vcloud-ccm-configmap
+  namespace: kube-system
+data:
+  vcloud-ccm-config.yaml: |+
+    vcd:
+      host: __SITE__
+      org: __ORG__
+      vdc: __OVDC__
+    loadbalancer:
+      oneArm:
+        startIP: "192.168.8.2"
+        endIP: "192.168.8.100"
+      ports:
+        http: 80
+        https: 443
+      network: __OVDCNW__
+      vipSubnet: __GATEWAY__
+      certAlias: __CERT__
+      enableVirtualServiceSharedIP: false # supported for VCD >= 10.4
+    clusterid: __CLUSTERID__
+    vAppName: __VAPPNAME__
+immutable: true
