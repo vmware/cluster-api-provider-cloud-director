@@ -20,10 +20,6 @@ spec:
     kind: KubeadmControlPlane
     name: testcluster-control-plane # name of the KubeadmControlPlane object associated with the cluster.
     namespace: default # kubernetes namespace in which the KubeadmControlPlane object reside. Should be the same namespace as that of the Cluster object
-  # proxyConfigSpec:
-    # httpProxy: null
-    # httpsProxy: null
-    # noProxy: "localhost,127.0.0.1,k8s.test,.svc"
   infrastructureRef:
     apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
     kind: VCDCluster
@@ -50,10 +46,17 @@ spec:
   org: __ORG__ # VCD organization name where the cluster should be deployed
   ovdc: __OVDC__ # VCD virtual datacenter name where the cluster should be deployed
   ovdcNetwork: __OVDCNW__ # VCD virtual datacenter network to be used by the cluster
+  # controlPlaneEndpoint:
+    # host: ""
+    # port: 1234
   # parentUid: null
   # rdeId: null
   # loadBalancerConfigSpec:
   #   vipSubnet: null
+  # proxyConfigSpec:
+    # httpProxy: null
+    # httpsProxy: null
+    # noProxy: "localhost,127.0.0.1,k8s.test,.svc"
   useAsManagementCluster: false
   userContext:
     secretRef:
