@@ -6,9 +6,9 @@ metadata:
 data:
   vcloud-ccm-config.yaml: |+
     vcd:
-      host: __SITE__
-      org: __ORG__
-      vdc: __OVDC__
+      host: ${VCD_SITE}
+      org: ${VCD_ORG}
+      vdc: ${VCD_ORGANIZATION_VDC}
     loadbalancer:
       oneArm:
         startIP: "192.168.8.2"
@@ -16,10 +16,10 @@ data:
       ports:
         http: 80
         https: 443
-      network: __OVDCNW__
-      vipSubnet: __GATEWAY__
-      certAlias: __CERT__
+      network: ${VCD_ORGANIZATION_VDC_NETWORK}
+      vipSubnet: ${VCD_IP_SUBNET}
+      certAlias: ${VCD_CERT}
       enableVirtualServiceSharedIP: false # supported for VCD >= 10.4
-    clusterid: __CLUSTERID__
-    vAppName: __VAPPNAME__
+    clusterid: ${VCD_CLUSTERID}
+    vAppName: ${VCD_VAPP_NAME}
 immutable: true

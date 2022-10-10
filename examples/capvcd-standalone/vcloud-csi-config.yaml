@@ -7,10 +7,10 @@ metadata:
 data:
   vcloud-csi-config.yaml: |+
     vcd:
-      host: __SITE__
-      org: __ORG__
-      vdc: __OVDC__
-      vAppName: __VAPPNAME__
-    clusterid: __CLUSTERID__
+      host: ${VCD_SITE}
+      org: ${VCD_ORGANIZATION}
+      vdc: ${VCD_ORGANIZATION_VDC}
+      vAppName: ${VCD_VAPP_NAME}
+    clusterid: ${VCD_CLUSTERID}
 immutable: true
 ---
