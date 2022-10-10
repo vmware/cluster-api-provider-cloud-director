@@ -6,7 +6,7 @@ metadata:
 spec:
   clusterSelector:
     matchLabels:
-      csi: csi-crs 
+      csi: external
   resources:
   - kind: ConfigMap
     name: csi-controller-crs-cm
