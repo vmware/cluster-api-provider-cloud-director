@@ -1,0 +1,189 @@
+apiVersion: cluster.x-k8s.io/v1beta1
+kind: Cluster
+metadata:
+  name: ${CLUSTER_NAME}
+  labels:
+    cni: ${CLUSTER_NAME}-crs-0
+    ccm: external
+    csi: external
+spec:
+  clusterNetwork:
+    pods:
+      cidrBlocks:
+        - 100.96.0.0/11 # pod CIDR for the cluster
+    serviceDomain: k8s.test
+    services:
+      cidrBlocks:
+        - 100.64.0.0/13 # service CIDR for the clusterrdeId
+  controlPlaneRef:
+    apiVersion: controlplane.cluster.x-k8s.io/v1beta1
+    kind: KubeadmControlPlane
+    name: ${CLUSTER_NAME}-control-plane # name of the KubeadmControlPlane object associated with the cluster.
+    namespace: ${TARGET_NAMESPACE} # kubernetes namespace in which the KubeadmControlPlane object reside. Should be the same namespace as that of the Cluster object
+  infrastructureRef:
+    apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+    kind: VCDCluster
+    name: ${CLUSTER_NAME} # name of the VCDCluster object associated with the cluster.
+    namespace: ${TARGET_NAMESPACE} # kubernetes namespace in which the VCDCluster object resides. Should be the same namespace as that of the Cluster object
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: capi-user-credentials
+  namespace: ${TARGET_NAMESPACE}
+type: Opaque
+data:
+  username: ${VCD_USERNAME_B64} # B64 encoded username of the VCD persona creating the cluster. If system administrator is the user, please encode 'system/administrator' as the username.
+  password: ${VCD_PASSWOD_B64} # B64 encoded password associated with the user creating the cluster
+  refreshToken: ${VCD_REFRESH_TOKEN_B64} # B64 encoded refresh token of the client registered with VCD for creating clusters. password can be left blank if refresh token is provided
+---
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+kind: VCDCluster
+metadata:
+  name: ${CLUSTER_NAME}
+  namespace: ${TARGET_NAMESPACE}
+spec:
+  site: ${VCD_SITE} # VCD endpoint with the format https://VCD_HOST. No trailing '/'
+  org: ${VCD_ORGANIZATION} # VCD organization name where the cluster should be deployed
+  ovdc: ${VCD_ORGANIZATION_VDC} # VCD virtual datacenter name where the cluster should be deployed
+  ovdcNetwork: ${VCD_ORGANIZATION_VDC_NETWORK} # VCD virtual datacenter network to be used by the cluster
+    # controlPlaneEndpoint:
+      # host: ${IP_ENDPOINT}
+      # port: ${PORT}
+    # parentUid: ${PARENT_RDE_ID} # create the CAPVCD cluster from a specific management cluster associated with this UID.
+    # rdeId: null # rdeId generated/used by VCDKE Clusters
+    # loadBalancerConfigSpec:
+    #   vipSubnet: ${IP_SUBNET}
+    # proxyConfigSpec:
+      # httpProxy: ${HTTP_PROXY}
+      # httpsProxy: ${HTTPS_PROXY}
+      # noProxy: ${NO_PROXY}
+  useAsManagementCluster: false
+  userContext:
+    secretRef:
+      name: capi-user-credentials
+      namespace: ${TARGET_NAMESPACE}
+---
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+kind: VCDMachineTemplate
+metadata:
+  name: ${CLUSTER_NAME}-control-plane
+  namespace: ${TARGET_NAMESPACE}
+spec:
+  template:
+    spec:
+      catalog: ${VCD_CATALOG} # Catalog hosting the TKGm template, which will be used to deploy the control plane VMs
+      template: ${VCD_TEMPLATE_NAME} # Name of the template to be used to create (or) upgrade the control plane nodes
+      sizingPolicy: ${VCD_CONTROL_PLANE_SIZING_POLICY} # Sizing policy to be used for the control plane VMs (this must be pre-published on the chosen organization virtual datacenter). If no sizing policy should be used, use "".
+      # placementPolicy: ${VCD_PLACEMENT_POLICY} # Placement policy to be used for worker VMs (this must be pre-published on the chosen organization virtual datacenter)
+      storageProfile: ${STORAGE_PROFILE} # "*" for example
+      # enableNvidiaGpu: ${ENABLE_NVIDIA_GPU} # No GPU config on control plane
+      # diskSize: ${DISK_SIZE} # ex: 20Gi
+---
+apiVersion: controlplane.cluster.x-k8s.io/v1beta1
+kind: KubeadmControlPlane
+metadata:
+  name: ${CLUSTER_NAME}-control-plane
+  namespace: ${TARGET_NAMESPACE}
+spec:
+  kubeadmConfigSpec:
+    clusterConfiguration:
+      apiServer:
+        certSANs:
+          - localhost
+          - 127.0.0.1
+      controllerManager:
+        extraArgs:
+          enable-hostpath-provisioner: "true"
+      dns:
+        imageRepository: projects.registry.vmware.com/tkg # image repository to pull the DNS image from
+        imageTag: ${DNS_VERSION} # DNS image tag associated with the TKGm OVA used. The values must be retrieved from the TKGm ova BOM. Refer to the github documentation for more details
+      etcd:
+        local:
+          imageRepository: projects.registry.vmware.com/tkg # image repository to pull the etcd image from
+          imageTag: ${ETCD_VERSION} # etcd image tag associated with the TKGm OVA used. The values must be retrieved from the TKGm ova BOM. Refer to the github documentation for more details
+      imageRepository: projects.registry.vmware.com/tkg # image repository to use for the rest of kubernetes images
+    users:
+      - name: root
+        sshAuthorizedKeys:
+          - ${SSH_KEY} # ssh public key to log in to the control plane VMs in VCD
+    initConfiguration:
+      nodeRegistration:
+        criSocket: /run/containerd/containerd.sock
+        kubeletExtraArgs:
+          eviction-hard: nodefs.available<0%,nodefs.inodesFree<0%,imagefs.available<0%
+          cloud-provider: external
+    joinConfiguration:
+      nodeRegistration:
+        criSocket: /run/containerd/containerd.sock
+        kubeletExtraArgs:
+          eviction-hard: nodefs.available<0%,nodefs.inodesFree<0%,imagefs.available<0%
+          cloud-provider: external
+  machineTemplate:
+    infrastructureRef:
+      apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+      kind: VCDMachineTemplate
+      name: ${CLUSTER_NAME}-control-plane # name of the VCDMachineTemplate object used to deploy control plane VMs. Should be the same name as that of KubeadmControlPlane object
+      namespace: ${TARGET_NAMESPACE} # kubernetes namespace of the VCDMachineTemplate object. Should be the same namespace as that of the Cluster object
+  replicas: ${CONTROL_PLANE_MACHINE_COUNT} # desired number of control plane nodes for the cluster
+  version: ${KUBERNETES_VERSION} # Kubernetes version to be used to create (or) upgrade the control plane nodes. The value needs to be retrieved from the respective TKGm ova BOM. Refer to the documentation.
+---
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+kind: VCDMachineTemplate
+metadata:
+  name: ${CLUSTER_NAME}-md-0
+  namespace: ${TARGET_NAMESPACE}
+spec:
+  template:
+    spec:
+      catalog: ${VCD_CATALOG} # Catalog hosting the TKGm template, which will be used to deploy the worker VMs
+      template: ${VCD_TEMPLATE_NAME} # Name of the template to be used to create (or) upgrade the worker nodes
+      sizingPolicy: ${VCD_WORKER_SIZING_POLICY} # Sizing policy to be used for the worker VMs (this must be pre-published on the chosen organization virtual datacenter). If no sizing policy should be used, use "".
+      storageProfile: ${VCD_STORAGE_PROFILE} # "*" for example
+      # enableNvidiaGPU: false
+      # diskSize: ${DISK_SIZE}
+---
+apiVersion: bootstrap.cluster.x-k8s.io/v1beta1
+kind: KubeadmConfigTemplate
+metadata:
+  name: ${CLUSTER_NAME}-md-0
+  namespace: ${TARGET_NAMESPACE}
+spec:
+  template:
+    spec:
+      users:
+        - name: root
+          sshAuthorizedKeys:
+            - ${SSH_KEY} # ssh public key to log in to the control plane VMs in VCD
+      joinConfiguration:
+        nodeRegistration:
+          criSocket: /run/containerd/containerd.sock
+          kubeletExtraArgs:
+            eviction-hard: nodefs.available<0%,nodefs.inodesFree<0%,imagefs.available<0%
+            cloud-provider: external
+---
+apiVersion: cluster.x-k8s.io/v1beta1
+kind: MachineDeployment
+metadata:
+  name: ${CLUSTER_NAME}-md-0
+  namespace: ${TARGET_NAMESPACE}
+spec:
+  clusterName: ${CLUSTER_NAME} # name of the Cluster object
+  replicas: ${WORKER_MACHINE_COUNT} # desired number of worker nodes for the cluster
+  selector:
+    matchLabels: null
+  template:
+    spec:
+      bootstrap:
+        configRef:
+          apiVersion: bootstrap.cluster.x-k8s.io/v1beta1
+          kind: KubeadmConfigTemplate
+          name: ${CLUSTER_NAME}-md-0 # name of the KubeadmConfigTemplate object
+          namespace: ${TARGET_NAMESPACE} # kubernetes namespace of the KubeadmConfigTemplate object. Should be the same namespace as that of the Cluster object
+      clusterName: ${CLUSTER_NAME} # name of the Cluster object
+      infrastructureRef:
+        apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+        kind: VCDMachineTemplate
+        name: ${CLUSTER_NAME}-md-0 # name of the VCDMachineTemplate object used to deploy worker nodes
+        namespace: ${TARGET_NAMESPACE} # kubernetes namespace of the VCDMachineTemplate object used to deploy worker nodes
+      version: ${KUBERNETES_VERSION} # Kubernetes version to be used to create (or) upgrade the worker nodes. The value needs to be retrieved from the respective TKGm ova BOM.
