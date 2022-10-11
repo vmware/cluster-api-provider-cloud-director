@@ -139,7 +139,7 @@ type OrgVdcNetworksApiGetAllVdcNetworksOpts struct {
 	SortDesc optional.String
 }
 
-func (a *OrgVdcNetworksApiService) GetAllVdcNetworks(ctx context.Context, page int32, pageSize int32, localVarOptionals *OrgVdcNetworksApiGetAllVdcNetworksOpts) (VdcNetworks, *http.Response, error) {
+func (a *OrgVdcNetworksApiService) GetAllVdcNetworks(ctx context.Context, orgID string, page int32, pageSize int32, localVarOptionals *OrgVdcNetworksApiGetAllVdcNetworksOpts) (VdcNetworks, *http.Response, error) {
 	var (
 		localVarHttpMethod  = strings.ToUpper("Get")
 		localVarPostBody    interface{}
@@ -204,6 +204,9 @@ func (a *OrgVdcNetworksApiService) GetAllVdcNetworks(ctx context.Context, page i
 			localVarHeaderParams["Authorization"] = key
 
 		}
+	}
+	if orgID != "" {
+		localVarHeaderParams[TenantContextHeader] = orgID
 	}
 	r, err := a.client.prepareRequest(ctx, localVarPath, localVarHttpMethod, localVarPostBody, localVarHeaderParams, localVarQueryParams, localVarFormParams, localVarFileName, localVarFileBytes)
 	if err != nil {
