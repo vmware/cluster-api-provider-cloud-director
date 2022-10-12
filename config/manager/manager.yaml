@@ -22,7 +22,7 @@ spec:
       containers:
       - command:
         - /opt/vcloud/bin/cluster-api-provider-cloud-director
-        image: harbor-repo.vmware.com/vcloud/cluster-api-provider-cloud-director:1.0.z.ea12a87
+        image: harbor-repo.vmware.com/vcloud/cluster-api-provider-cloud-director:1.0.z.89ca65f
         name: manager
         securityContext:
           allowPrivilegeEscalation: false
