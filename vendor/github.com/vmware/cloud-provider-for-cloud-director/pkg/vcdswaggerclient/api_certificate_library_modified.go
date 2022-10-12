@@ -25,10 +25,6 @@ var (
 	_ context.Context
 )
 
-const (
-	TenantContextHeader = "X-VMWARE-VCLOUD-TENANT-CONTEXT"
-)
-
 type CertificateLibraryApiService service
 
 /*
