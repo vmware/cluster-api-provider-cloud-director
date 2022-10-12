@@ -60,7 +60,6 @@ spec:
   rdeId: ${VCD_RDE_ID} # rdeId if it is already created. If empty, CAPVCD will create one for the cluster.
   loadBalancerConfigSpec:
     vipSubnet: ${IP_SUBNET} # Virtual IP CIDR for the external network
-    useOneArm: ${ENABLE_ONEARM} # Set uneOneArm to true only inetent to upgrade CAPVCD from 0.5.x to 1.0.0
   proxyConfigSpec:
     httpProxy: ${HTTP_PROXY}
     httpsProxy: ${HTTPS_PROXY}
@@ -78,7 +77,7 @@ spec:
       template: ${VCD_TEMPLATE_NAME} # Name of the template to be used to create (or) upgrade the control plane nodes
       sizingPolicy: ${VCD_CONTROL_PLANE_SIZING_POLICY} # Sizing policy to be used for the control plane VMs (this must be pre-published on the chosen organization virtual datacenter)
       placementPolicy: ${VCD_CONTROL_PLANE_PLACEMENT_POLICY} # Placement policy to be used for worker VMs (this must be pre-published on the chosen organization virtual datacenter)
-      storageProfile: ${VCD_CONTROL_PLANE_STORAGE_PROFILE} # Storage profile to be used for the control plane VMs (this must be pre-published on the chosen organization virtual datacenter)
+      storageProfile: "${VCD_CONTROL_PLANE_STORAGE_PROFILE}" # Storage profile to be used for the control plane VMs (this must be pre-published on the chosen organization virtual datacenter)
       # enableNvidiaGpu: ${ENABLE_NVIDIA_GPU} # No GPU config on control plane
       diskSize: ${DISK_SIZE}
 ---
@@ -142,7 +141,7 @@ spec:
       template: ${VCD_TEMPLATE_NAME} # Name of the template to be used to create (or) upgrade the worker nodes
       sizingPolicy: ${VCD_WORKER_SIZING_POLICY} # Sizing policy to be used for the control plane VMs (this must be pre-published on the chosen organization virtual datacenter)
       placementPolicy: ${VCD_WORKER_PLACEMENT_POLICY} # Placement policy to be used for worker VMs (this must be pre-published on the chosen organization virtual datacenter)
-      storageProfile: ${VCD_WORKER_STORAGE_PROFILE} # Storage profile to be used for the control plane VMs (this must be pre-published on the chosen organization virtual datacenter)
+      storageProfile: "${VCD_WORKER_STORAGE_PROFILE}" # Storage profile to be used for the control plane VMs (this must be pre-published on the chosen organization virtual datacenter)
       enableNvidiaGpu: ${ENABLE_NVIDIA_GPU}
       diskSize: ${DISK_SIZE}
 ---
