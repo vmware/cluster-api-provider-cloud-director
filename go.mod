@@ -10,7 +10,7 @@ require (
 	github.com/onsi/gomega v1.19.0
 	github.com/pkg/errors v0.9.1
 	github.com/replicatedhq/troubleshoot v0.35.0
-	github.com/vmware/cloud-provider-for-cloud-director v0.0.0-20221013201317-709327d2db34
+	github.com/vmware/cloud-provider-for-cloud-director v0.0.0-20221011213152-8574691ef708
 	github.com/vmware/go-vcloud-director/v2 v2.15.0
 	gopkg.in/yaml.v2 v2.4.0
 	k8s.io/api v0.24.1
