@@ -51,7 +51,6 @@ spec:
   org: ${VCD_ORGANIZATION} # VCD organization name where the cluster should be deployed
   ovdc: ${VCD_ORGANIZATION_VDC} # VCD virtual datacenter name where the cluster should be deployed
   ovdcNetwork: ${VCD_ORGANIZATION_VDC_NETWORK} # VCD virtual datacenter network to be used by the cluster
-  parentUid: ${PARENT_RDE_ID} # create the CAPVCD cluster from a specific management cluster associated with this UID.
   useAsManagementCluster: ${USE_AS_MANAGEMENT_CLUSTER} # intent to use the resultant CAPVCD cluster as a management cluster
   userContext:
     secretRef:
