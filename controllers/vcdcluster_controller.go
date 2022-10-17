@@ -9,6 +9,12 @@ import (
 	"context"
 	_ "embed"
 	"fmt"
+	"net/http"
+	"os"
+	"reflect"
+	"strings"
+	"time"
+
 	"github.com/antihax/optional"
 	"github.com/blang/semver"
 	"github.com/google/uuid"
@@ -26,9 +32,6 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/klog"
-	"net/http"
-	"os"
-	"reflect"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	kcpv1 "sigs.k8s.io/cluster-api/controlplane/kubeadm/api/v1beta1"
 	"sigs.k8s.io/cluster-api/util"
@@ -39,8 +42,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-	"strings"
-	"time"
 )
 
 const (
