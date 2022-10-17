@@ -52,6 +52,8 @@ spec:
     secretRef:
       name: capi-user-credentials
       namespace: ${TARGET_NAMESPACE}
+  loadBalancerConfigSpec:
+    vipSubnet: ${VCD_VIP_CIDR} # Virtual IP CIDR for the external network
 ---
 apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
 kind: VCDMachineTemplate
@@ -64,8 +66,10 @@ spec:
       catalog: ${VCD_CATALOG} # Catalog hosting the TKGm template, which will be used to deploy the control plane VMs
       template: ${VCD_TEMPLATE_NAME} # Name of the template to be used to create (or) upgrade the control plane nodes (this template must be pre-suploaded to the catalog in VCD)
       sizingPolicy: ${VCD_CONTROL_PLANE_SIZING_POLICY} # Sizing policy to be used for the control plane VMs (this must be pre-published on the chosen organization virtual datacenter). If no sizing policy should be used, use "".
+      placementPolicy: ${VCD_CONTROL_PLANE_PLACEMENT_POLICY} # Placement policy to be used for worker VMs (this must be pre-published on the chosen organization virtual datacenter)
       storageProfile: "${VCD_CONTROL_PLANE_STORAGE_PROFILE}" # Storage profile for control plane machine if any
       diskSize: ${DISK_SIZE} # Disk size to use for the control plane machine, defaults to 20Gi
+      enableNvidiaGPU: false
 ---
 apiVersion: controlplane.cluster.x-k8s.io/v1beta1
 kind: KubeadmControlPlane
@@ -126,8 +130,10 @@ spec:
       catalog: ${VCD_CATALOG} # Catalog hosting the TKGm template, which will be used to deploy the worker VMs
       template: ${VCD_TEMPLATE_NAME} # Name of the template to be used to create (or) upgrade the control plane nodes (this template must be pre-suploaded to the catalog in VCD)
       sizingPolicy: ${VCD_WORKER_SIZING_POLICY} # Sizing policy to be used for the worker VMs (this must be pre-published on the chosen organization virtual datacenter). If no sizing policy should be used, use "".
+      placementPolicy: ${VCD_WORKER_PLACEMENT_POLICY} # Placement policy to be used for worker VMs (this must be pre-published on the chosen organization virtual datacenter)
       storageProfile: "${VCD_WORKER_STORAGE_PROFILE}" # Storage profile for control plane machine if any
       diskSize: ${DISK_SIZE} # Disk size for the worker machine; defaults to 20Gi
+      enableNvidiaGPU: false
 ---
 apiVersion: bootstrap.cluster.x-k8s.io/v1beta1
 kind: KubeadmConfigTemplate
@@ -140,7 +146,7 @@ spec:
       users:
         - name: root
           sshAuthorizedKeys:
-            - "${SSH_PUBLIC_KEY}" # ssh public key to log in to the control plane VMs in VCD
+            - "${SSH_PUBLIC_KEY}" # ssh public key to log in to the worker VMs in VCD
       joinConfiguration:
         nodeRegistration:
           criSocket: /run/containerd/containerd.sock
