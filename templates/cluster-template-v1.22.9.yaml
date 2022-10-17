@@ -43,7 +43,7 @@ spec:
   org: ${VCD_ORGANIZATION} # VCD organization name where the cluster should be deployed
   ovdc: ${VCD_ORGANIZATION_VDC} # VCD virtual datacenter name where the cluster should be deployed
   ovdcNetwork: ${VCD_ORGANIZATION_VDC_NETWORK} # VCD virtual datacenter network to be used by the cluster
-  useAsManagementCluster: ${USE_AS_MANAGEMENT_CLUSTER} # intent to use the resultant CAPVCD cluster as a management cluster; defaults to false
+  useAsManagementCluster: false # intent to use the resultant CAPVCD cluster as a management cluster; defaults to false
   userContext:
     secretRef:
       name: capi-user-credentials

@@ -12,8 +12,14 @@ LatestRelease:
 cert-manager:
   url: "https://github.com/cert-manager/cert-manager/releases/latest/cert-manager.yaml"
 providers:
+# provider name must correspond with provider url, as clusterctl follows semantic "path/infrastructure-${name}/v1.0.0/infrastructure-components.yaml"
+# example url for name "vcdInfra" would be: /basepath/infrastructure-vcdInfra/v1.0.0/infrastructure-components.yaml"
+# if "v1.0.0" or "infrastructure-" prefix is omitted, there will be an error thrown expecting path format: {basepath}/{provider-name or provider-label}/{version}/{components.yaml}
+# after the following path has been created, paste all cluster-templates inside the path specified provider url
+# a fully functional folder will look similar to below:
+# {basepath}/infrastructure-vcd/v1.0.0/infrastructure-components.yaml, clusterctl-template.yaml, clusterctl-template-v1.20.8.yaml
   - name: "vcd"
-    url: "~/go/cluster-api-provider-cloud-director/templates/infrastructure-components.yaml"
+    url: "~/go/cluster-api-provider-cloud-director/infrastructure-vcd/v1.0.0/infrastructure-components.yaml"
     type: "InfrastructureProvider"
 
 # Variables specific to both "cluster init" and "clusterctl generate"
@@ -21,7 +27,6 @@ VCD_SITE: "https://VCD_FQDN"
 VCD_ORGANIZATION: "test_org"
 VCD_ORGANIZATION_VDC: "test_ovdc"
 VCD_ORGANIZATION_VDC_NETWORK: "test_ovdc_nw"
-VCD_VIP_CIDR: 10.X.X.X/19
 
 # Variables specific to "clusterctl generate" only
 VCD_USERNAME_B64: "vcduser_encoded"
@@ -43,7 +48,7 @@ KUBERNETES_VERSION: v1.20.8+vmware.1
 VCD_TEMPLATE_NAME: Ubuntu 20.04 and Kubernetes v1.21.8+vmware.1
 ETCD_VERSION: v3.4.13_vmware.14
 DNS_VERSION: v1.7.0_vmware.12
-IP_SUBNET: "10.XX.XX.XX/19"
+VCD_VIP_CIDR: "10.X.X.X/19"
 POD_CIDR: "100.96.0.0/11"
 SERVICE_CIDR: "100.64.0.0/13"
 TKR_VERSION: v1.20.8---vmware.1-tkg.2
@@ -55,4 +60,3 @@ ENABLE_NVIDIA_GPU: false
 SSH_PUBLIC_KEY: ""
 DISK_SIZE: 20Gi
 WORKER_POOL_NAME: "work-pool-1"
-USE_AS_MANAGEMENT_CLUSTER: false
