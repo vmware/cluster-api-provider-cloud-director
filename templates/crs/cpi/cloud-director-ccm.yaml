@@ -166,6 +166,12 @@ spec:
               mountPath: /etc/kubernetes/vcloud
             - name: vcloud-ccm-vcloud-basic-auth-volume
               mountPath: /etc/kubernetes/vcloud/basic-auth
+          env:
+            - name: CLUSTER_ID
+              valueFrom:
+                secretKeyRef:
+                  name: vcloud-clusterid-secret
+                  key: clusterid
       tolerations:
         - key: node.cloudprovider.kubernetes.io/uninitialized
           value: "true"
