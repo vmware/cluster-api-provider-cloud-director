@@ -103,7 +103,7 @@ spec:
     users:
       - name: root
         sshAuthorizedKeys:
-          - ${SSH_PUBLIC_KEY} # ssh public key to log in to the control plane VMs in VCD
+          - "${SSH_PUBLIC_KEY}" # ssh public key to log in to the control plane VMs in VCD
     initConfiguration:
       nodeRegistration:
         criSocket: /run/containerd/containerd.sock
@@ -152,7 +152,7 @@ spec:
       users:
         - name: root
           sshAuthorizedKeys:
-            - ${SSH_PUBLIC_KEY} # ssh public key to log in to the worker VMs in VCD
+            - "${SSH_PUBLIC_KEY}" # ssh public key to log in to the worker VMs in VCD
       joinConfiguration:
         nodeRegistration:
           criSocket: /run/containerd/containerd.sock
