@@ -12,6 +12,12 @@ LatestRelease:
 cert-manager:
   url: "https://github.com/cert-manager/cert-manager/releases/latest/cert-manager.yaml"
 providers:
+# provider name must correspond with provider url, as clusterctl follows semantic "path/infrastructure-${name}/v1.0.0/infrastructure-components.yaml"
+# example url for name "vcdInfra" would be: /basepath/infrastructure-vcdInfra/v1.0.0/infrastructure-components.yaml"
+# if "v1.0.0" or "infrastructure-" prefix is omitted, there will be an error thrown expecting path format: {basepath}/{provider-name or provider-label}/{version}/{components.yaml}
+# after the following path has been created, paste all cluster-templates inside the path specified provider url
+# a fully functional folder will look similar to below:
+# {basepath}/infrastructure-vcd/v1.0.0/infrastructure-components.yaml, clusterctl-template.yaml, clusterctl-template-v1.20.8.yaml
   - name: "vcd"
     url: "~/go/cluster-api-provider-cloud-director/infrastructure-vcd/v1.0.0/infrastructure-components.yaml"
     type: "InfrastructureProvider"
@@ -21,7 +27,6 @@ VCD_SITE: "https://VCD_FQDN"
 VCD_ORGANIZATION: "test_org"
 VCD_ORGANIZATION_VDC: "test_ovdc"
 VCD_ORGANIZATION_VDC_NETWORK: "test_ovdc_nw"
-VCD_VIP_CIDR: 10.X.X.X/19
 
 # Variables specific to "clusterctl generate" only
 VCD_USERNAME_B64: "vcduser_encoded"
@@ -35,24 +40,22 @@ VCD_WORKER_SIZING_POLICY: "medium_2core8gb"
 VCD_WORKER_PLACEMENT_POLICY: ""
 VCD_WORKER_STORAGE_PROFILE:  "*"
 VCD_RDE_ID: "urn:vcloud:entity:vmware:capvcdCluster:UUID"
+VCD_TEMPLATE_NAME: Ubuntu 20.04 and Kubernetes v1.21.8+vmware.1
+VCD_VIP_CIDR: "10.X.X.X/19"
 CLUSTER_NAME: "myCluster"
 TARGET_NAMESPACE: default
 CONTROL_PLANE_MACHINE_COUNT: 1
 WORKER_MACHINE_COUNT: 1
 KUBERNETES_VERSION: v1.20.8+vmware.1
-TEMPLATE_NAME: ubuntu-2004-kube-v1.20.8+vmware.1-tkg.1-17589475007677388652
 ETCD_VERSION: v3.4.13_vmware.14
 DNS_VERSION: v1.7.0_vmware.12
-IP_SUBNET: "10.89.159.253/19"
-POD_CIDR: ""
-SERVICE_CIDR: ""
+POD_CIDR: "100.96.0.0/11"
+SERVICE_CIDR: "100.64.0.0/13"
 TKR_VERSION: v1.20.8---vmware.1-tkg.2
 TKG_VERSION: v1.4.2
 HTTP_PROXY:  "http://USERNAME:PASSWORD@SERVER:PORT"
 HTTPS_PROXY:  "https://USERNAME:PASSWORD@SERVER:PORT"
 NO_PROXY:  ""
-ENABLE_NVIDIA_GPU: false
-PARENT_RDE_ID: vcdKE
 SSH_PUBLIC_KEY: ""
 DISK_SIZE: 20Gi
 WORKER_POOL_NAME: "work-pool-1"
