@@ -1,0 +1,18 @@
+---
+apiVersion: addons.cluster.x-k8s.io/v1beta1
+kind: ClusterResourceSet
+metadata:
+  name: csi-crs
+spec:
+  clusterSelector:
+    matchLabels:
+      csi: external
+  resources:
+    - kind: ConfigMap
+      name: csi-controller-crs-cm
+    - kind: ConfigMap
+      name: csi-node-crs-cm
+    - kind: ConfigMap
+      name: csi-driver-crs-cm
+---
+
