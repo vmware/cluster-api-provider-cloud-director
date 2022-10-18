@@ -2,12 +2,13 @@ apiVersion: cluster.x-k8s.io/v1beta1
 kind: Cluster
 metadata:
   name: ${CLUSTER_NAME}
+  namespace: ${TARGET_NAMESPACE}
 spec:
   clusterNetwork:
     pods:
       cidrBlocks:
         - ${POD_CIDR} # pod CIDR for the cluster
-    serviceDomain: k8s.test
+    serviceDomain: cluster.local
     services:
       cidrBlocks:
         - ${SERVICE_CIDR} # service CIDR for the cluster
