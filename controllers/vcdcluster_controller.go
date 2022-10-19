@@ -915,6 +915,10 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 			}, oneArm, !vcdCluster.Spec.LoadBalancerConfigSpec.UseOneArm,
 			nil, vcdCluster.Spec.ControlPlaneEndpoint.Host, resourcesAllocated)
 
+		if err != nil {
+			log.Info("failed to create load balancer: ", "error", err)
+		}
+
 		// Update VCDResourceSet even if the creation has failed since we may have partially
 		// created set of resources
 		if err = addLBResourcesToVCDResourceSet(ctx, rdeManager, resourcesAllocated, controlPlaneNodeIP); err != nil {
