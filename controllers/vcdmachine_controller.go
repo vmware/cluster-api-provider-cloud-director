@@ -19,6 +19,7 @@ import (
 	"github.com/vmware/cluster-api-provider-cloud-director/pkg/capisdk"
 	"github.com/vmware/cluster-api-provider-cloud-director/release"
 	"github.com/vmware/go-vcloud-director/v2/govcd"
+	"github.com/vmware/go-vcloud-director/v2/types/v56"
 	"gopkg.in/yaml.v2"
 	"io/ioutil"
 	corev1 "k8s.io/api/core/v1"
@@ -545,18 +546,44 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		log.Error(nil, fmt.Sprintf("Requeuing...; vm.VM should not be nil: [%#v]", vm))
 		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
 	}
+	networkConnectionSection := &types.NetworkConnectionSection{
+		NetworkConnection: []*types.NetworkConnection{
+			{
+				Network:                 vApp.VApp.NetworkConfigSection.NetworkNames()[0],
+				NeedsCustomization:      false,
+				IsConnected:             true,
+				IPAddressAllocationMode: "POOL",
+				NetworkAdapterType:      "VMXNET3",
+			},
+		},
+	}
 	if vm.VM.NetworkConnectionSection == nil || len(vm.VM.NetworkConnectionSection.NetworkConnection) == 0 {
+		log.V(4).Info("Attempting to update the VM [%s] with network connection section: [%#v]", vm.VM.Name, networkConnectionSection)
+		err := vm.UpdateNetworkConnectionSection(networkConnectionSection)
+		if err != nil {
+			klog.Warningf("Failed to update VM [%s] with network connection section: [%v]", vm.VM.Name, err)
+		}
 		log.Error(nil, fmt.Sprintf("Requeuing...; network connection section was not found for vm [%s(%s)]: [%#v]", vm.VM.Name, vm.VM.ID, vm.VM))
 		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
 	}
 
 	if vm.VM.NetworkConnectionSection.NetworkConnection[0] == nil {
+		log.V(4).Info("Attempting to update the VM [%s] with network connection section: [%#v]", vm.VM.Name, networkConnectionSection)
+		err := vm.UpdateNetworkConnectionSection(networkConnectionSection)
+		if err != nil {
+			klog.Warningf("Failed to update VM [%s] with network connection section: [%v]", vm.VM.Name, err)
+		}
 		log.Error(nil, fmt.Sprintf("Requeuing...; failed to get existing network connection information for vm [%s(%s)]: [%#v]. NetworkConnection[0] should not be nil",
 			vm.VM.Name, vm.VM.ID, vm.VM.NetworkConnectionSection))
 		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
 	}
 
 	if vm.VM.NetworkConnectionSection.NetworkConnection[0].IPAddress == "" {
+		log.Info("Attempting to update the VM [%s] with network connection section: [%#v]", vm.VM.Name, networkConnectionSection)
+		err := vm.UpdateNetworkConnectionSection(networkConnectionSection)
+		if err != nil {
+			klog.Warningf("Failed to update VM [%s] with network connection section: [%v]", vm.VM.Name, err)
+		}
 		log.Error(nil, fmt.Sprintf("Requeuing...; NetworkConnection[0] IP Address should not be empty for vm [%s(%s)]: [%#v]",
 			vm.VM.Name, vm.VM.ID, *vm.VM.NetworkConnectionSection.NetworkConnection[0]))
 		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
