@@ -218,13 +218,15 @@ func validateDerivedRDEProperties(vcdCluster *infrav1.VCDCluster, infraID string
 				rdeVersionInUse, vcdCluster.Status.RdeVersionInUse)
 		}
 	}
-	if vcdCluster.Status.RdeVersionInUse == NoRdePrefix && rdeVersionInUse != NoRdePrefix {
-		return fmt.Errorf("RDE version in VCDCluster status [%s] is auto generated while the derived RDE version [%s] is not ",
-			vcdCluster.Status.RdeVersionInUse, rdeVersionInUse)
-	}
-	if vcdCluster.Status.RdeVersionInUse != NoRdePrefix && rdeVersionInUse == NoRdePrefix {
-		return fmt.Errorf("derived RDE version in VCDCluster [%s] is auto generated while RDE version in VCDCluster status [%s] is not",
-			rdeVersionInUse, vcdCluster.Status.RdeVersionInUse)
+	if vcdCluster.Status.RdeVersionInUse != "" {
+		if vcdCluster.Status.RdeVersionInUse == NoRdePrefix && rdeVersionInUse != NoRdePrefix {
+			return fmt.Errorf("RDE version in VCDCluster status [%s] is auto generated while the derived RDE version [%s] is not ",
+				vcdCluster.Status.RdeVersionInUse, rdeVersionInUse)
+		}
+		if vcdCluster.Status.RdeVersionInUse != NoRdePrefix && rdeVersionInUse == NoRdePrefix {
+			return fmt.Errorf("derived RDE version in VCDCluster [%s] is auto generated while RDE version in VCDCluster status [%s] is not",
+				rdeVersionInUse, vcdCluster.Status.RdeVersionInUse)
+		}
 	}
 	return nil
 }
