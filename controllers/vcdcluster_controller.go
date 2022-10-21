@@ -187,6 +187,11 @@ func addLBResourcesToVCDResourceSet(ctx context.Context, rdeManager *vcdsdk.RDEM
 	return nil
 }
 
+// On VCDCluster reconciliation, we either create a new Infra ID or use an existing Infra ID from the VCDCluster object.
+// The values for infra ID is not expected to change. rdeVersionInUse is not expected to change too unless the CAPVCD is being upgraded and the new
+// CAPVCD version makes use of a higher RDE version.
+// Derived values for infraID and rdeVersionInUse are essentially the final computed values - i.e either created or picked from the VCDCluster object.
+// validateDerivedRDEProperties makes sure the infra ID and the RDE version in-use doesn't change to unexpected versions over different reconciliations.
 func validateDerivedRDEProperties(vcdCluster *infrav1.VCDCluster, infraID string, rdeVersionInUse string) error {
 	// If the RDEVersionInUse is NO_RDE_ then there RDEVersionInUse cannot change
 	// If the RDEVersionInUse is a semantic version, RDEVersionInUse can only be upgraded to a higher version
@@ -232,9 +237,10 @@ func validateDerivedRDEProperties(vcdCluster *infrav1.VCDCluster, infraID string
 		return nil
 	}
 
-	// return error on anything else
-	return fmt.Errorf("stored and derived RDE versions mismatched: status says [%s] while derived version says [%s]",
-		vcdCluster.Status.RdeVersionInUse, rdeVersionInUse)
+	// rdeVersionInUse cannot change from a valid semantic version (valid RDE) to NO_RDE_ (RDE creation skipped). This can occur
+	// when the there is an update to VCDCluster object from an external source, some misconfiguration or a bug in the logic to obtain infraID/rdeVersionInUse.
+	return fmt.Errorf("stored and derived RDE versions mismatched for the cluster [%s]: status says [%s] while derived version says [%s]",
+		vcdCluster.Name, vcdCluster.Status.RdeVersionInUse, rdeVersionInUse)
 }
 
 // TODO: Remove uncommented code when decision to only keep capi.yaml as part of RDE spec is finalized
