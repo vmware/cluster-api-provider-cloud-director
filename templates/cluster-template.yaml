@@ -75,7 +75,6 @@ spec:
       placementPolicy: ${VCD_CONTROL_PLANE_PLACEMENT_POLICY} # Placement policy to be used for worker VMs (this must be pre-published on the chosen organization virtual datacenter)
       storageProfile: "${VCD_CONTROL_PLANE_STORAGE_PROFILE}" # Storage profile to be used for the control plane VMs (this must be pre-published on the chosen organization virtual datacenter)
       diskSize: ${DISK_SIZE}
-      enableNvidiaGPU: false
 ---
 apiVersion: controlplane.cluster.x-k8s.io/v1beta1
 kind: KubeadmControlPlane
@@ -139,7 +138,6 @@ spec:
       placementPolicy: ${VCD_WORKER_PLACEMENT_POLICY} # Placement policy to be used for worker VMs (this must be pre-published on the chosen organization virtual datacenter)
       storageProfile: "${VCD_WORKER_STORAGE_PROFILE}" # Storage profile to be used for the control plane VMs (this must be pre-published on the chosen organization virtual datacenter)
       diskSize: ${DISK_SIZE}
-      enableNvidiaGPU: false
 ---
 apiVersion: bootstrap.cluster.x-k8s.io/v1beta1
 kind: KubeadmConfigTemplate
