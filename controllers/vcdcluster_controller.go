@@ -928,6 +928,16 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 				},
 			}, oneArm, !vcdCluster.Spec.LoadBalancerConfigSpec.UseOneArm,
 			nil, vcdCluster.Spec.ControlPlaneEndpoint.Host, resourcesAllocated)
+		if err != nil {
+			updatedErr := capvcdRdeManager.AddToErrorSet(ctx, capisdk.LoadBalancerError, "", "",
+				fmt.Sprintf("failed to create load balancer for the cluster [%s(%s)]: [%v]",
+					vcdCluster.Name, vcdCluster.Status.InfraId, err))
+			if updatedErr != nil {
+				log.Error(updatedErr, "failed to add LoadBalancerError into RDE", "rdeID", vcdCluster.Status.InfraId)
+			}
+			return ctrl.Result{}, errors.Wrapf(err, "failed to create load balancer for the cluster [%s(%s)]: [%v]",
+				vcdCluster.Name, vcdCluster.Status.InfraId, err)
+		}
 
 		// Update VCDResourceSet even if the creation has failed since we may have partially
 		// created set of resources
