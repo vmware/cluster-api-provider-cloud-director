@@ -218,17 +218,23 @@ func validateDerivedRDEProperties(vcdCluster *infrav1.VCDCluster, infraID string
 				rdeVersionInUse, vcdCluster.Status.RdeVersionInUse)
 		}
 	}
-	if vcdCluster.Status.RdeVersionInUse != "" {
-		if vcdCluster.Status.RdeVersionInUse == NoRdePrefix && rdeVersionInUse != NoRdePrefix {
-			return fmt.Errorf("RDE version in VCDCluster status [%s] is auto generated while the derived RDE version [%s] is not ",
-				vcdCluster.Status.RdeVersionInUse, rdeVersionInUse)
-		}
-		if vcdCluster.Status.RdeVersionInUse != NoRdePrefix && rdeVersionInUse == NoRdePrefix {
-			return fmt.Errorf("derived RDE version in VCDCluster [%s] is auto generated while RDE version in VCDCluster status [%s] is not",
-				rdeVersionInUse, vcdCluster.Status.RdeVersionInUse)
-		}
+
+	// don't validate rde version in use if it is empty. Empty value for vcdCluster.Status.RdeVersionInUse may mean
+	// that vcdCluster status has not been updated with RdeVersionInUse
+	if vcdCluster.Status.RdeVersionInUse == "" {
+		return nil
 	}
-	return nil
+
+	// If vcdCluster.Status.RdeVersionInUse and the derived rdeVersionInUse are both NO_RDE_ or if both are not NO_RDE_
+	// then don't return error
+	if (vcdCluster.Status.RdeVersionInUse == NoRdePrefix && rdeVersionInUse == NoRdePrefix) ||
+		(vcdCluster.Status.RdeVersionInUse != NoRdePrefix && rdeVersionInUse != NoRdePrefix) {
+		return nil
+	}
+
+	// return error on anything else
+	return fmt.Errorf("stored and derived RDE versions mismatched: status says [%s] while derived version says [%s]",
+		vcdCluster.Status.RdeVersionInUse, rdeVersionInUse)
 }
 
 // TODO: Remove uncommented code when decision to only keep capi.yaml as part of RDE spec is finalized
