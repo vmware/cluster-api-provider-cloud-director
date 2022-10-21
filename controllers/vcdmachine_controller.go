@@ -557,35 +557,16 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 			},
 		},
 	}
-	if vm.VM.NetworkConnectionSection == nil || len(vm.VM.NetworkConnectionSection.NetworkConnection) == 0 {
+	if (vm.VM.NetworkConnectionSection == nil || len(vm.VM.NetworkConnectionSection.NetworkConnection) == 0) ||
+		(vm.VM.NetworkConnectionSection.NetworkConnection[0] == nil) ||
+		(vm.VM.NetworkConnectionSection.NetworkConnection[0].IPAddress == "") {
 		log.V(4).Info("Attempting to update the VM [%s] with network connection section: [%#v]", vm.VM.Name, networkConnectionSection)
 		err := vm.UpdateNetworkConnectionSection(networkConnectionSection)
 		if err != nil {
 			log.V(4).Info("Failed to update VM [%s] with network connection section: [%v]", vm.VM.Name, err)
 		}
-		log.Error(nil, fmt.Sprintf("Requeuing...; network connection section was not found for vm [%s(%s)]: [%#v]", vm.VM.Name, vm.VM.ID, vm.VM))
-		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
-	}
-
-	if vm.VM.NetworkConnectionSection.NetworkConnection[0] == nil {
-		log.V(4).Info("Attempting to update the VM [%s] with network connection section: [%#v]", vm.VM.Name, networkConnectionSection)
-		err := vm.UpdateNetworkConnectionSection(networkConnectionSection)
-		if err != nil {
-			log.V(4).Info("Failed to update VM [%s] with network connection section: [%v]", vm.VM.Name, err)
-		}
-		log.Error(nil, fmt.Sprintf("Requeuing...; failed to get existing network connection information for vm [%s(%s)]: [%#v]. NetworkConnection[0] should not be nil",
+		log.Error(nil, fmt.Sprintf("Requeuing...; invalid network connection section for the vm [%s(%s)]- network connection section was not found or the IP Address of the VM was empty: [%#v]",
 			vm.VM.Name, vm.VM.ID, vm.VM.NetworkConnectionSection))
-		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
-	}
-
-	if vm.VM.NetworkConnectionSection.NetworkConnection[0].IPAddress == "" {
-		log.Info("Attempting to update the VM [%s] with network connection section: [%#v]", vm.VM.Name, networkConnectionSection)
-		err := vm.UpdateNetworkConnectionSection(networkConnectionSection)
-		if err != nil {
-			klog.Warningf("Failed to update VM [%s] with network connection section: [%v]", vm.VM.Name, err)
-		}
-		log.Error(nil, fmt.Sprintf("Requeuing...; NetworkConnection[0] IP Address should not be empty for vm [%s(%s)]: [%#v]",
-			vm.VM.Name, vm.VM.ID, *vm.VM.NetworkConnectionSection.NetworkConnection[0]))
 		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
 	}
 
