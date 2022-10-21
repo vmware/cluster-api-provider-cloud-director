@@ -561,7 +561,7 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		log.V(4).Info("Attempting to update the VM [%s] with network connection section: [%#v]", vm.VM.Name, networkConnectionSection)
 		err := vm.UpdateNetworkConnectionSection(networkConnectionSection)
 		if err != nil {
-			klog.Warningf("Failed to update VM [%s] with network connection section: [%v]", vm.VM.Name, err)
+			log.V(4).Info("Failed to update VM [%s] with network connection section: [%v]", vm.VM.Name, err)
 		}
 		log.Error(nil, fmt.Sprintf("Requeuing...; network connection section was not found for vm [%s(%s)]: [%#v]", vm.VM.Name, vm.VM.ID, vm.VM))
 		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
@@ -571,7 +571,7 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		log.V(4).Info("Attempting to update the VM [%s] with network connection section: [%#v]", vm.VM.Name, networkConnectionSection)
 		err := vm.UpdateNetworkConnectionSection(networkConnectionSection)
 		if err != nil {
-			klog.Warningf("Failed to update VM [%s] with network connection section: [%v]", vm.VM.Name, err)
+			log.V(4).Info("Failed to update VM [%s] with network connection section: [%v]", vm.VM.Name, err)
 		}
 		log.Error(nil, fmt.Sprintf("Requeuing...; failed to get existing network connection information for vm [%s(%s)]: [%#v]. NetworkConnection[0] should not be nil",
 			vm.VM.Name, vm.VM.ID, vm.VM.NetworkConnectionSection))
