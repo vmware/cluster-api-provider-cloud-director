@@ -191,7 +191,7 @@ func addLBResourcesToVCDResourceSet(ctx context.Context, rdeManager *vcdsdk.RDEM
 // The values for infra ID is not expected to change. rdeVersionInUse is not expected to change too unless the CAPVCD is being upgraded and the new
 // CAPVCD version makes use of a higher RDE version.
 // Derived values for infraID and rdeVersionInUse are essentially the final computed values - i.e either created or picked from the VCDCluster object.
-// validateDerivedRDEProperties makes sure the infra ID and the RDE version in-use doesn't change to unexpected versions over different reconciliations.
+// validateDerivedRDEProperties makes sure the infra ID and the RDE version in-use doesn't change to unexpected values over different reconciliations.
 func validateDerivedRDEProperties(vcdCluster *infrav1.VCDCluster, infraID string, rdeVersionInUse string) error {
 	// If the RDEVersionInUse is NO_RDE_ then there RDEVersionInUse cannot change
 	// If the RDEVersionInUse is a semantic version, RDEVersionInUse can only be upgraded to a higher version
