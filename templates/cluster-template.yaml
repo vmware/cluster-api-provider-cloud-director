@@ -34,9 +34,9 @@ metadata:
   namespace: ${TARGET_NAMESPACE}
 type: Opaque
 data:
-  username: ${VCD_USERNAME_B64} # username of the VCD persona creating the cluster. If system administrator is the user, please encode 'system/administrator' as the username.
-  password: ${VCD_PASSWORD_B64} # password associated with the user creating the cluster
-  refreshToken: ${VCD_REFRESH_TOKEN_B64} # refresh token of the client registered with VCD for creating clusters. username and password can be left blank if refresh token is provided
+  username: "${VCD_USERNAME_B64}" # username of the VCD persona creating the cluster. If system administrator is the user, please encode 'system/administrator' as the username.
+  password: "${VCD_PASSWORD_B64}" # password associated with the user creating the cluster
+  refreshToken: "${VCD_REFRESH_TOKEN_B64}" # refresh token of the client registered with VCD for creating clusters. username and password can be left blank if refresh token is provided
 ---
 apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
 kind: VCDCluster
