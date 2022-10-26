@@ -50,7 +50,7 @@ func (config *VCDAuthConfig) GetBearerToken() (*govcd.VCDClient, *http.Response,
 		err = vcdClient.SetToken("system",
 			govcd.ApiTokenHeader, config.RefreshToken)
 		if err != nil {
-			klog.Errorf("failed to authenticate using refresh token and as system org user. Retrying as [%s] org user: [%v]", config.UserOrg, err)
+			klog.V(3).Infof("Authenticate as system org user didn't go through. Attempting as [%s] org user: [%v]", config.UserOrg, err)
 			// failed to authenticate as system user. Retry as a tenant user
 			err = vcdClient.SetToken(config.UserOrg,
 				govcd.ApiTokenHeader, config.RefreshToken)
