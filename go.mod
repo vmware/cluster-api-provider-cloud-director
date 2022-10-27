@@ -12,6 +12,7 @@ require (
 	github.com/replicatedhq/troubleshoot v0.35.0
 	github.com/vmware/cloud-provider-for-cloud-director v0.0.0-20221026173520-ee1c9e696dcf
 	github.com/vmware/go-vcloud-director/v2 v2.15.0
+	go.uber.org/zap v1.19.1
 	gopkg.in/yaml.v2 v2.4.0
 	k8s.io/api v0.24.1
 	k8s.io/apimachinery v0.24.1
@@ -80,7 +81,6 @@ require (
 	github.com/stretchr/testify v1.7.2 // indirect
 	go.uber.org/atomic v1.7.0 // indirect
 	go.uber.org/multierr v1.6.0 // indirect
-	go.uber.org/zap v1.19.1 // indirect
 	golang.org/x/crypto v0.0.0-20220315160706-3147a52a75dd // indirect
 	golang.org/x/net v0.0.0-20220225172249-27dd8689420f // indirect
 	golang.org/x/oauth2 v0.0.0-20220411215720-9780585627b5 // indirect
