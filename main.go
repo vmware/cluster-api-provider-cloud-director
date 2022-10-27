@@ -12,6 +12,7 @@ import (
 	infrav1alpha4 "github.com/vmware/cluster-api-provider-cloud-director/api/v1alpha4"
 	infrav1beta1 "github.com/vmware/cluster-api-provider-cloud-director/api/v1beta1"
 	"github.com/vmware/cluster-api-provider-cloud-director/controllers"
+	"go.uber.org/zap/zapcore"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -81,6 +82,7 @@ func main() {
 
 	opts := zap.Options{
 		Development: true,
+		TimeEncoder: zapcore.ISO8601TimeEncoder, // ISO8601 Format: 2022-10-25T05:58:15.639Z
 	}
 	opts.BindFlags(flag.CommandLine)
 	flag.Parse()
