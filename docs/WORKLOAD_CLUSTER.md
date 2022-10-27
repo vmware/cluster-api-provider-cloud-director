@@ -140,9 +140,9 @@ Ensure docker and yq are pre-installed on your local machine.
 # Extract etcd and coredns info for capi.yaml
 # Change the RAW version to match something similar from your TKG template
 export K8S_VERSION_RAW=v1.20.8+vmware.1-tkg.1
- 
+
 export K8S_VERSION=$(echo ${K8S_VERSION_RAW} | tr -s "+" "_")
- 
+
 # We need to loop through the last value after `tkg.` because of some TKR unexpected design
 no_tkg_found=false
 last=$(echo ${K8S_VERSION//*.})  # get last value after `tkg.`
@@ -163,15 +163,23 @@ if $no_tkg_found; then
 fi
 
 export K8S_VERSION_RAW=$(echo ${K8S_VERSION_RAW} | sed "s/.$/"$last"/")
-docker save projects.registry.vmware.com/tkg/tkr-bom:${K8S_VERSION} | tar Oxf - --strip-components 1 */layer.tar | tar xf -
- 
-ETCD_VERSION=$(yq e ".components.etcd[0].version" tkr-bom-${K8S_VERSION_RAW}.yaml | tr -s "+" "_")
-ETCD_IMAGE_PATH="projects.registry.vmware.com/tkg/$(yq e ".components.etcd[0].images.etcd.imagePath" tkr-bom-${K8S_VERSION_RAW}.yaml)"
-ETCD_IMAGE_TAG=$(yq e ".components.etcd[0].images.etcd.tag" tkr-bom-${K8S_VERSION_RAW}.yaml)
- 
-COREDNS_VERSION=$(yq e ".components.coredns[0].version" tkr-bom-${K8S_VERSION_RAW}.yaml | tr -s "+" "_")
-COREDNS_IMAGE_PATH="projects.registry.vmware.com/tkg/$(yq e ".components.coredns[0].images.coredns.imagePath" tkr-bom-${K8S_VERSION_RAW}.yaml)"
-COREDNS_IMAGE_TAG=$(yq e ".components.coredns[0].images.coredns.tag" tkr-bom-${K8S_VERSION_RAW}.yaml)
+docker save projects.registry.vmware.com/tkg/tkr-bom:${K8S_VERSION} | tar Oxf - --strip-components 1 '*/layer.tar' | tar xf -
+
+ETCD_VERSION=$(yq  -r ".components.etcd[0].version" tkr-bom-${K8S_VERSION_RAW}.yaml | tr -s "+" "_")
+ETCD_IMAGE_PATH="projects.registry.vmware.com/tkg/$(yq -r ".components.etcd[0].images.etcd.imagePath" tkr-bom-${K8S_VERSION_RAW}.yaml)"
+ETCD_IMAGE_TAG=$(yq -r ".components.etcd[0].images.etcd.tag" tkr-bom-${K8S_VERSION_RAW}.yaml)
+
+echo ETCD_VERSION: "${ETCD_VERSION}"
+echo ETCD_IMAGE_PATH: "${ETCD_IMAGE_PATH}"
+echo ETCD_IMAGE_TAG: "${ETCD_IMAGE_TAG}"
+
+COREDNS_VERSION=$(yq -r ".components.coredns[0].version" tkr-bom-${K8S_VERSION_RAW}.yaml | tr -s "+" "_")
+COREDNS_IMAGE_PATH="projects.registry.vmware.com/tkg/$(yq -r ".components.coredns[0].images.coredns.imagePath" tkr-bom-${K8S_VERSION_RAW}.yaml)"
+COREDNS_IMAGE_TAG=$(yq -r ".components.coredns[0].images.coredns.tag" tkr-bom-${K8S_VERSION_RAW}.yaml)
+
+echo COREDNS_VERSION: "${COREDNS_VERSION}"
+echo COREDNS_IMAGE_PATH: "${COREDNS_IMAGE_PATH}"
+echo COREDNS_IMAGE_TAG: "${COREDNS_IMAGE_TAG}"
 ```
 
 
