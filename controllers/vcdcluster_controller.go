@@ -269,7 +269,7 @@ func (r *VCDClusterReconciler) constructCapvcdRDE(ctx context.Context, cluster *
 	if err != nil {
 		return nil, fmt.Errorf("error gettin all machine deployment objects for the cluster [%s]: [%v]", vcdCluster.Name, err)
 	}
-	ready := hasClusterReconciledToDesiredK8Version(kcpList, mdList)
+	ready := hasClusterReconciledToDesiredK8Version(ctx, r.Client, vcdCluster.Name, kcpList, mdList, kubernetesVersion)
 
 	orgList := []rdeType.Org{
 		rdeType.Org{
@@ -459,8 +459,10 @@ func (r *VCDClusterReconciler) reconcileRDE(ctx context.Context, cluster *cluste
 		capvcdStatusPatch["Phase"] = cluster.Status.Phase
 	}
 
-	ready := hasClusterReconciledToDesiredK8Version(kcpList, mdList)
 	upgradeObject := capvcdStatus.Upgrade
+	var ready bool
+	ready = hasClusterReconciledToDesiredK8Version(ctx, r.Client, vcdCluster.Name, kcpList, mdList, kubernetesSpecVersion)
+
 	if kcpObj != nil {
 		if upgradeObject.Current == nil {
 			upgradeObject = rdeType.Upgrade{

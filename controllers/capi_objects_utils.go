@@ -9,6 +9,7 @@ import (
 	"gopkg.in/yaml.v2"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/klog"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	"sigs.k8s.io/cluster-api/bootstrap/kubeadm/api/v1beta1"
 	kcpv1 "sigs.k8s.io/cluster-api/controlplane/kubeadm/api/v1beta1"
@@ -453,32 +454,34 @@ func getUserCredentialsForCluster(ctx context.Context, cli client.Client, define
 	return userCredentials, nil
 }
 
-// hasKcpReconciledToDesiredK8Version determines if the rolling upgrade process is complete. Returns false if the upgrade is still on going
-func hasKcpReconciledToDesiredK8Version(kcp *kcpv1.KubeadmControlPlane) bool {
-	return kcp != nil && kcp.Status.Ready &&
-		kcp.Status.Version != nil &&
-		*kcp.Status.Version == kcp.Spec.Version &&
-		kcp.Status.UnavailableReplicas == 0
-}
-
-// hasMachineDeploymentReconciledToDesiredK8Version returns true if all the machines in the machine deployment have reconciled
-// to the desired kubernetes version, else returns false.
-func hasMachineDeploymentReconciledToDesiredK8Version(md *clusterv1.MachineDeployment) bool {
-	return md != nil && md.Status.Replicas == md.Status.AvailableReplicas
-}
-
 // hasClusterReconciledToDesiredK8Version returns true if all the kubeadm control plane objects and machine deployments have
 // reconciled to the desired kubernetes version, else returns false.
-func hasClusterReconciledToDesiredK8Version(kcpList *kcpv1.KubeadmControlPlaneList, mdList *clusterv1.MachineDeploymentList) bool {
+func hasClusterReconciledToDesiredK8Version(ctx context.Context, cli client.Client, clusterName string,
+	kcpList *kcpv1.KubeadmControlPlaneList, mdList *clusterv1.MachineDeploymentList, expectedVersion string) bool {
+
 	for _, kcp := range kcpList.Items {
-		if !hasKcpReconciledToDesiredK8Version(&kcp) {
+		machines, err := getAllMachinesInKCP(ctx, cli, kcp, clusterName)
+		if err != nil {
+			klog.Errorf("failed to fetch machines for the kubeadm control plane object [%s]: [%v]", kcp.Name, err)
 			return false
+		}
+		for _, machine := range machines {
+			if machine.Spec.Version != nil && *machine.Spec.Version != expectedVersion {
+				return false
+			}
 		}
 	}
 
 	for _, md := range mdList.Items {
-		if !hasMachineDeploymentReconciledToDesiredK8Version(&md) {
+		machineList, err := getAllMachinesInMachineDeployment(ctx, cli, md)
+		if err != nil {
+			klog.Errorf("failed to fetch machines for the machine deployment [%s]: [%v]", md.Name, err)
 			return false
+		}
+		for _, machine := range machineList.Items {
+			if machine.Spec.Version != nil && *machine.Spec.Version != expectedVersion {
+				return false
+			}
 		}
 	}
 	return true
