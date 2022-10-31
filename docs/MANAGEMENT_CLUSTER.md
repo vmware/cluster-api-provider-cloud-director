@@ -172,7 +172,7 @@ The steps to create the management cluster with CAPVCD and Antrea CNI are as spe
        ```
     2. Create a secret in the management cluster from the Refresh Token:
        ```shell
-       kubectl --kubeconfig=capi.kubeconfig -n kube-system create secret generic vcloud-basic-auth --from-literal=refreshToken=${REFRESH_TOKEN}
+       kubectl --kubeconfig=capi.kubeconfig -n kube-system create secret generic vcloud-basic-auth --from-literal=refreshToken=${REFRESH_TOKEN} --from-literal=username="" --from-literal=password=""
        ```
 5. Create a config map for the CCM pod in the management cluster. This is a mandatory step.
     1. Create a file with the following content, e.g `vcloud-csi-config.yaml`:
@@ -197,7 +197,7 @@ The steps to create the management cluster with CAPVCD and Antrea CNI are as spe
     2. Replace `VCD_HOST`, `ORG`, `OVDC`, `VAPP`, and `CLUSTER_ID` with the relevant values.
     3. Create the config map in the management cluster:
        ```shell
-       kubectl --kubeconfig=capi.kubeconfig create configmap --from-file=vcloud-csi-config.yaml
+       kubectl --kubeconfig=capi.kubeconfig apply -f vcloud-csi-config.yaml
        ```
 6. Create a config map for the CSI pod in the management cluster. This is a mandatory step.
     1. Create a file with the following content, e.g `vcloud-ccm-config.yaml`:
@@ -231,7 +231,7 @@ The steps to create the management cluster with CAPVCD and Antrea CNI are as spe
     2. Replace `VCD_HOST`, `ORG`, `OVDC`, `NETWORK`, `VAPP`, and `CLUSTER_ID` with the relevant values.
     3. 3. Create the config map in the management cluster:
        ```shell
-       kubectl --kubeconfig=capi.kubeconfig create configmap --from-file=vcloud-ccm-config.yaml
+       kubectl --kubeconfig=capi.kubeconfig apply -f vcloud-ccm-config.yaml
        ```
 7. Transform this cluster into management cluster by [initializing it with CAPVCD](#management_cluster_init).
 8. This cluster is now a fully functional multi-control plane management cluster. The next section walks you through
