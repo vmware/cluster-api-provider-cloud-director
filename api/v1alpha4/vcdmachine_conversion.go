@@ -15,7 +15,7 @@ func (src *VCDMachine) ConvertTo(dstRaw conversion.Hub) error {
 	dst.Spec.SizingPolicy = src.Spec.ComputePolicy
 	dst.Spec.StorageProfile = ""
 	dst.Status.Template = ""
-	dst.Status.ProviderID = nil
+	dst.Status.ProviderID = src.Spec.ProviderID
 	return nil
 }
 
