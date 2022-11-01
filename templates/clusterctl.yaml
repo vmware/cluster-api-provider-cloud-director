@@ -22,6 +22,8 @@ providers:
     url: "~/go/cluster-api-provider-cloud-director/infrastructure-vcd/v1.0.0/infrastructure-components.yaml"
     type: "InfrastructureProvider"
 
+EXP_CLUSTER_RESOURCE_SET: true
+
 # Variables specific to both "cluster init" and "clusterctl generate"
 VCD_SITE: "https://VCD_FQDN"
 VCD_ORGANIZATION: "test_org"
