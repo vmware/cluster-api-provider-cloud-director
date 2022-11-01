@@ -267,9 +267,12 @@ func (r *VCDClusterReconciler) constructCapvcdRDE(ctx context.Context, cluster *
 
 	mdList, err := getAllMachineDeploymentsForCluster(ctx, r.Client, *cluster)
 	if err != nil {
-		return nil, fmt.Errorf("error gettin all machine deployment objects for the cluster [%s]: [%v]", vcdCluster.Name, err)
+		return nil, fmt.Errorf("error getting all machine deployment objects for the cluster [%s]: [%v]", vcdCluster.Name, err)
 	}
-	ready := hasClusterReconciledToDesiredK8Version(ctx, r.Client, vcdCluster.Name, kcpList, mdList, kubernetesVersion)
+	ready, err := hasClusterReconciledToDesiredK8Version(ctx, r.Client, vcdCluster.Name, kcpList, mdList, kubernetesVersion)
+	if err != nil {
+		return nil, fmt.Errorf("error occurred while determining the value for the ready flag for cluster [%s]: [%v]", vcdCluster.Name, err)
+	}
 
 	orgList := []rdeType.Org{
 		rdeType.Org{
@@ -461,7 +464,11 @@ func (r *VCDClusterReconciler) reconcileRDE(ctx context.Context, cluster *cluste
 
 	upgradeObject := capvcdStatus.Upgrade
 	var ready bool
-	ready = hasClusterReconciledToDesiredK8Version(ctx, r.Client, vcdCluster.Name, kcpList, mdList, kubernetesSpecVersion)
+	ready, err = hasClusterReconciledToDesiredK8Version(ctx, r.Client, vcdCluster.Name, kcpList, mdList, kubernetesSpecVersion)
+	if err != nil {
+		return fmt.Errorf("failed to determine the value for ready flag for upgrades for cluster [%s(%s)]: [%v]",
+			vcdCluster.Name, vcdCluster.Status.InfraId, err)
+	}
 
 	if kcpObj != nil {
 		if upgradeObject.Current == nil {

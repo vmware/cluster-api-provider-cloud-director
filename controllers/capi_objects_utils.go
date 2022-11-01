@@ -9,7 +9,6 @@ import (
 	"gopkg.in/yaml.v2"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/klog"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	"sigs.k8s.io/cluster-api/bootstrap/kubeadm/api/v1beta1"
 	kcpv1 "sigs.k8s.io/cluster-api/controlplane/kubeadm/api/v1beta1"
@@ -457,17 +456,16 @@ func getUserCredentialsForCluster(ctx context.Context, cli client.Client, define
 // hasClusterReconciledToDesiredK8Version returns true if all the kubeadm control plane objects and machine deployments have
 // reconciled to the desired kubernetes version, else returns false.
 func hasClusterReconciledToDesiredK8Version(ctx context.Context, cli client.Client, clusterName string,
-	kcpList *kcpv1.KubeadmControlPlaneList, mdList *clusterv1.MachineDeploymentList, expectedVersion string) bool {
+	kcpList *kcpv1.KubeadmControlPlaneList, mdList *clusterv1.MachineDeploymentList, expectedVersion string) (bool, error) {
 
 	for _, kcp := range kcpList.Items {
 		machines, err := getAllMachinesInKCP(ctx, cli, kcp, clusterName)
 		if err != nil {
-			klog.Errorf("failed to fetch machines for the kubeadm control plane object [%s]: [%v]", kcp.Name, err)
-			return false
+			return false, fmt.Errorf("failed to fetch machines for the kubeadm control plane object [%s] for cluster [%s]: [%v]", kcp.Name, clusterName, err)
 		}
 		for _, machine := range machines {
 			if machine.Spec.Version != nil && *machine.Spec.Version != expectedVersion {
-				return false
+				return false, nil
 			}
 		}
 	}
@@ -475,14 +473,13 @@ func hasClusterReconciledToDesiredK8Version(ctx context.Context, cli client.Clie
 	for _, md := range mdList.Items {
 		machineList, err := getAllMachinesInMachineDeployment(ctx, cli, md)
 		if err != nil {
-			klog.Errorf("failed to fetch machines for the machine deployment [%s]: [%v]", md.Name, err)
-			return false
+			return false, fmt.Errorf("failed to fetch machines for the machine deployment [%s] for cluster [%s]: [%v]", md.Name, clusterName, err)
 		}
 		for _, machine := range machineList.Items {
 			if machine.Spec.Version != nil && *machine.Spec.Version != expectedVersion {
-				return false
+				return false, nil
 			}
 		}
 	}
-	return true
+	return true, nil
 }
