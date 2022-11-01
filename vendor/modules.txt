@@ -255,7 +255,7 @@ github.com/replicatedhq/troubleshoot/pkg/redact
 github.com/spf13/pflag
 # github.com/stretchr/testify v1.7.2
 ## explicit; go 1.13
-# github.com/vmware/cloud-provider-for-cloud-director v0.0.0-20221026173520-ee1c9e696dcf
+# github.com/vmware/cloud-provider-for-cloud-director v0.0.0-20221101175721-fc36adaf4dbb
 ## explicit; go 1.17
 github.com/vmware/cloud-provider-for-cloud-director/pkg/util
 github.com/vmware/cloud-provider-for-cloud-director/pkg/vcdsdk

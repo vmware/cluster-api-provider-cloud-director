@@ -478,7 +478,8 @@ func (gatewayManager *GatewayManager) UpdateAppPortProfile(appPortProfileName st
 	}
 	appPortProfile, err := org.GetNsxtAppPortProfileByName(appPortProfileName, types.ApplicationPortProfileScopeTenant)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get application port profile by name [%s]: [%v]", appPortProfileName, err)
+		klog.Errorf("NSX-T app port profile with the name [%s] is not found: [%v]", appPortProfileName, err)
+		return nil, govcd.ErrorEntityNotFound
 	}
 	if appPortProfile == nil || appPortProfile.NsxtAppPortProfile == nil || len(appPortProfile.NsxtAppPortProfile.ApplicationPorts) == 0 || len(appPortProfile.NsxtAppPortProfile.ApplicationPorts[0].DestinationPorts) == 0 {
 		return nil, fmt.Errorf("invalid app port profile [%s]", appPortProfileName)
@@ -573,6 +574,8 @@ func (gatewayManager *GatewayManager) UpdateDNATRule(ctx context.Context, dnatRu
 	return dnatRuleRef, nil
 }
 
+// DeleteAppPortProfile deletes app port profile if present. No error is returned if the app port profile with
+// the provided name is not present in VCD
 func (gatewayManager *GatewayManager) DeleteAppPortProfile(appPortProfileName string, failIfAbsent bool) error {
 	client := gatewayManager.Client
 	klog.Infof("Checking if App Port Profile [%s] in org [%s] exists", appPortProfileName,
@@ -1860,15 +1863,23 @@ func (gm *GatewayManager) UpdateLoadBalancer(ctx context.Context, lbPoolName str
 		// update app port profile
 		dnatRuleName := GetDNATRuleName(virtualServiceName)
 		appPortProfileName := GetAppPortProfileName(dnatRuleName)
+		// while updating the app port profile, if we find that the app port profile with the given name is not found,
+		// we silently ignore the error. This is because of an issue with CAPVCD where CAPVCD v0.5.x clusters did not
+		// create app port profiles for the DNAT rules.
+		// The check for govcd.ErroEntityNotFound should be removed when we remove oneArm support.
 		appPortProfileRef, err := gm.UpdateAppPortProfile(appPortProfileName, externalPort)
-		if err != nil {
+		if err == nil {
+			if appPortProfileRef != nil && appPortProfileRef.NsxtAppPortProfile != nil {
+				resourcesAllocated.Insert(VcdResourceAppPortProfile, &swaggerClient.EntityReference{
+					Name: appPortProfileName,
+					Id:   appPortProfileRef.NsxtAppPortProfile.ID,
+				})
+			}
+		} else if err == govcd.ErrorEntityNotFound {
+			klog.V(4).Infof("application port profile with the name [%s] is not found. skipping updating the application port profile", appPortProfileName)
+		} else {
+			// err != nil && err != govcd.ErrorEntityNotFound
 			return "", fmt.Errorf("unable to update application port profile [%s] with external port [%d]: [%v]", appPortProfileName, externalPort, err)
-		}
-		if appPortProfileRef != nil && appPortProfileRef.NsxtAppPortProfile != nil {
-			resourcesAllocated.Insert(VcdResourceAppPortProfile, &swaggerClient.EntityReference{
-				Name: appPortProfileName,
-				Id:   appPortProfileRef.NsxtAppPortProfile.ID,
-			})
 		}
 
 		// update DNAT rule
