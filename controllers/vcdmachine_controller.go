@@ -461,6 +461,7 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 
 	cloudInit := string(mergedCloudInitBytes)
 
+	// nothing is redacted in the cloud init script - please ensure no secrets are present
 	log.Info(fmt.Sprintf("Cloud init Script: [%s]", cloudInit))
 	err = capvcdRdeManager.AddToEventSet(ctx, capisdk.CloudInitScriptGenerated, "", machine.Name, "", skipRDEEventUpdates)
 	if err != nil {
