@@ -453,33 +453,33 @@ func getUserCredentialsForCluster(ctx context.Context, cli client.Client, define
 	return userCredentials, nil
 }
 
-// hasKcpReconciledToDesiredK8Version determines if the rolling upgrade process is complete. Returns false if the upgrade is still on going
-func hasKcpReconciledToDesiredK8Version(kcp *kcpv1.KubeadmControlPlane) bool {
-	return kcp != nil && kcp.Status.Ready &&
-		kcp.Status.Version != nil &&
-		*kcp.Status.Version == kcp.Spec.Version &&
-		kcp.Status.UnavailableReplicas == 0
-}
-
-// hasMachineDeploymentReconciledToDesiredK8Version returns true if all the machines in the machine deployment have reconciled
-// to the desired kubernetes version, else returns false.
-func hasMachineDeploymentReconciledToDesiredK8Version(md *clusterv1.MachineDeployment) bool {
-	return md != nil && md.Status.Replicas == md.Status.AvailableReplicas
-}
-
 // hasClusterReconciledToDesiredK8Version returns true if all the kubeadm control plane objects and machine deployments have
 // reconciled to the desired kubernetes version, else returns false.
-func hasClusterReconciledToDesiredK8Version(kcpList *kcpv1.KubeadmControlPlaneList, mdList *clusterv1.MachineDeploymentList) bool {
+func hasClusterReconciledToDesiredK8Version(ctx context.Context, cli client.Client, clusterName string,
+	kcpList *kcpv1.KubeadmControlPlaneList, mdList *clusterv1.MachineDeploymentList, expectedVersion string) (bool, error) {
+
 	for _, kcp := range kcpList.Items {
-		if !hasKcpReconciledToDesiredK8Version(&kcp) {
-			return false
+		machines, err := getAllMachinesInKCP(ctx, cli, kcp, clusterName)
+		if err != nil {
+			return false, fmt.Errorf("failed to fetch machines for the kubeadm control plane object [%s] for cluster [%s]: [%v]", kcp.Name, clusterName, err)
+		}
+		for _, machine := range machines {
+			if machine.Spec.Version != nil && *machine.Spec.Version != expectedVersion {
+				return false, nil
+			}
 		}
 	}
 
 	for _, md := range mdList.Items {
-		if !hasMachineDeploymentReconciledToDesiredK8Version(&md) {
-			return false
+		machineList, err := getAllMachinesInMachineDeployment(ctx, cli, md)
+		if err != nil {
+			return false, fmt.Errorf("failed to fetch machines for the machine deployment [%s] for cluster [%s]: [%v]", md.Name, clusterName, err)
+		}
+		for _, machine := range machineList.Items {
+			if machine.Spec.Version != nil && *machine.Spec.Version != expectedVersion {
+				return false, nil
+			}
 		}
 	}
-	return true
+	return true, nil
 }
