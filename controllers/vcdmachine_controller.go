@@ -11,7 +11,6 @@ import (
 	_ "embed" // this needs go 1.16+
 	b64 "encoding/base64"
 	"fmt"
-	"io/ioutil"
 	"math"
 	"reflect"
 	"strconv"
@@ -70,6 +69,7 @@ const Mebibyte = 1048576
 
 // The following `embed` directives read the file in the mentioned path and copy the content into the declared variable.
 // These variables need to be global within the package.
+//
 //go:embed cluster_scripts/cloud_init.tmpl
 var cloudInitScriptTemplate string
 
@@ -78,9 +78,9 @@ type VCDMachineReconciler struct {
 	client.Client
 }
 
-//+kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=vcdmachines,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=vcdmachines/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=vcdmachines/finalizers,verbs=update
+// +kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=vcdmachines,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=vcdmachines/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=vcdmachines/finalizers,verbs=update
 func (r *VCDMachineReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctrl.Result, rerr error) {
 	log := ctrl.LoggerFrom(ctx)
 
@@ -201,7 +201,6 @@ func patchVCDMachine(ctx context.Context, patchHelper *patch.Helper, vcdMachine 
 
 const (
 	NetworkConfiguration                   = "guestinfo.postcustomization.networkconfiguration.status"
-	ProxyConfiguration                     = "guestinfo.postcustomization.proxy.setting.status"
 	MeteringConfiguration                  = "guestinfo.metering.status"
 	KubeadmInit                            = "guestinfo.postcustomization.kubeinit.status"
 	KubeadmNodeJoin                        = "guestinfo.postcustomization.kubeadm.node.join.status"
@@ -213,7 +212,6 @@ const (
 var controlPlanePostCustPhases = []string{
 	NetworkConfiguration,
 	MeteringConfiguration,
-	ProxyConfiguration,
 	KubeadmInit,
 }
 
