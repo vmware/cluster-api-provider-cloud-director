@@ -104,26 +104,7 @@ write_files:
     systemctl enable --now metering
     vmtoolsd --cmd "info-set guestinfo.metering.status successful"
 
-    vmtoolsd --cmd "info-set guestinfo.postcustomization.proxy.setting.status in_progress"
-    export HTTP_PROXY="{{.HTTPProxy}}"
-    export HTTPS_PROXY="{{.HTTPSProxy}}"
-    export http_proxy="{{.HTTPProxy}}"
-    export https_proxy="{{.HTTPSProxy}}"
-    export NO_PROXY="{{.NoProxy}}"
-    export no_proxy="{{.NoProxy}}"
-    cat <<END > /etc/systemd/system/containerd.service.d/http-proxy.conf
-    [Service]
-    Environment="HTTP_PROXY={{.HTTPProxy}}"
-    Environment="HTTPS_PROXY={{.HTTPSProxy}}"
-    Environment="http_proxy={{.HTTPProxy}}"
-    Environment="https_proxy={{.HTTPSProxy}}"
-    Environment="no_proxy={{.NoProxy}}"
-    Environment="NO_PROXY={{.NoProxy}}"
-    END
-    systemctl daemon-reload
-    systemctl restart containerd
-    vmtoolsd --cmd "info-set guestinfo.postcustomization.proxy.setting.status successful" {{- if .NvidiaGPU }}
-
+    {{- if .NvidiaGPU }}
     vmtoolsd --cmd "info-set guestinfo.postcustomization.nvidia.runtime.install.status in_progress"
     distribution=$(. /etc/os-release;echo $ID$VERSION_ID)
     curl -s -L https://nvidia.github.io/libnvidia-container/gpgkey | sudo apt-key add -
