@@ -11,6 +11,12 @@ import (
 	_ "embed" // this needs go 1.16+
 	b64 "encoding/base64"
 	"fmt"
+	"math"
+	"strconv"
+	"strings"
+	"text/template"
+	"time"
+
 	"github.com/pkg/errors"
 	cpiutil "github.com/vmware/cloud-provider-for-cloud-director/pkg/util"
 	"github.com/vmware/cloud-provider-for-cloud-director/pkg/vcdsdk"
@@ -23,7 +29,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/klog"
-	"math"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	"sigs.k8s.io/cluster-api/util"
 	"sigs.k8s.io/cluster-api/util/annotations"
@@ -36,10 +41,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/source"
-	"strconv"
-	"strings"
-	"text/template"
-	"time"
 )
 
 type CloudInitScriptInput struct {
@@ -67,6 +68,7 @@ const Mebibyte = 1048576
 
 // The following `embed` directives read the file in the mentioned path and copy the content into the declared variable.
 // These variables need to be global within the package.
+//
 //go:embed cluster_scripts/cloud_init.tmpl
 var cloudInitScriptTemplate string
 
@@ -75,9 +77,9 @@ type VCDMachineReconciler struct {
 	client.Client
 }
 
-//+kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=vcdmachines,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=vcdmachines/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=vcdmachines/finalizers,verbs=update
+// +kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=vcdmachines,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=vcdmachines/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=vcdmachines/finalizers,verbs=update
 func (r *VCDMachineReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctrl.Result, rerr error) {
 	log := ctrl.LoggerFrom(ctx)
 
@@ -198,7 +200,6 @@ func patchVCDMachine(ctx context.Context, patchHelper *patch.Helper, vcdMachine 
 
 const (
 	NetworkConfiguration                   = "guestinfo.postcustomization.networkconfiguration.status"
-	ProxyConfiguration                     = "guestinfo.postcustomization.proxy.setting.status"
 	MeteringConfiguration                  = "guestinfo.metering.status"
 	KubeadmInit                            = "guestinfo.postcustomization.kubeinit.status"
 	KubeadmNodeJoin                        = "guestinfo.postcustomization.kubeadm.node.join.status"
@@ -210,7 +211,6 @@ const (
 var controlPlanePostCustPhases = []string{
 	NetworkConfiguration,
 	MeteringConfiguration,
-	ProxyConfiguration,
 	KubeadmInit,
 }
 
