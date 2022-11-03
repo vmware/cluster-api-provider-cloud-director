@@ -101,9 +101,7 @@ write_files:
     vmtoolsd --cmd "info-set guestinfo.postcustomization.networkconfiguration.status successful"
 
     vmtoolsd --cmd "info-set guestinfo.metering.status in_progress"
-    systemctl enable metering
-    systemctl daemon-reload
-    systemctl restart metering
+    systemctl enable --now metering
     vmtoolsd --cmd "info-set guestinfo.metering.status successful"
 
     vmtoolsd --cmd "info-set guestinfo.postcustomization.proxy.setting.status in_progress"
