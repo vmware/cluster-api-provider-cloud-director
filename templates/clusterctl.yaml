@@ -31,8 +31,8 @@ VCD_ORGANIZATION_VDC: "test_ovdc"
 VCD_ORGANIZATION_VDC_NETWORK: "test_ovdc_nw"
 
 # Variables specific to "clusterctl generate" only
-VCD_USERNAME_B64: "vcduser_encoded"
-VCD_PASSWORD_B64: "password_encoded"
+VCD_USERNAME_B64: ""
+VCD_PASSWORD_B64: ""
 VCD_REFRESH_TOKEN_B64: ""
 VCD_CATALOG: "test_catalog"
 VCD_CONTROL_PLANE_SIZING_POLICY: "large_4core16gb"
