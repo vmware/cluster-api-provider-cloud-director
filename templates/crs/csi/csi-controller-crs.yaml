@@ -140,7 +140,7 @@ spec:
             capabilities:
               add: ["SYS_ADMIN"]
             allowPrivilegeEscalation: true
-          image: harbor-repo.vmware.com/vcloud/cloud-director-named-disk-csi-driver:main-branch.f98ae03
+          image: harbor-repo.vmware.com/vcloud/cloud-director-named-disk-csi-driver:main-branch.6e69474
           imagePullPolicy: IfNotPresent
           command:
             - /opt/vcloud/bin/cloud-director-named-disk-csi-driver
