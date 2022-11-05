@@ -22,46 +22,45 @@ providers:
     url: "~/go/cluster-api-provider-cloud-director/infrastructure-vcd/v1.0.0/infrastructure-components.yaml"
     type: "InfrastructureProvider"
 
-# Mandatory properties
+
 EXP_CLUSTER_RESOURCE_SET: true
 
-# Variables specific to both "cluster init" and "clusterctl generate"
+# Mandatory VCD specific properties
 VCD_SITE: "https://VCD_FQDN"
 VCD_ORGANIZATION: "test_org"
 VCD_ORGANIZATION_VDC: "test_ovdc"
 VCD_ORGANIZATION_VDC_NETWORK: "test_ovdc_nw"
 VCD_CATALOG: "test_catalog"
-VCD_USERNAME_B64: "vcduser_encoded"
-VCD_PASSWORD_B64: "password_encoded"
+VCD_TEMPLATE_NAME: "Ubuntu 20.04 and Kubernetes v1.21.8+vmware.1"
+VCD_USERNAME_B64: "" # It is okay to leave username and password empty if VCD_REFRESH_TOKEN_B64 is specified
+VCD_PASSWORD_B64: "" # It is okay to leave username and password empty if VCD_REFRESH_TOKEN_B64 is specified
+VCD_REFRESH_TOKEN_B64: "" # API token of the VCD tenant user; it is okay to leave this empty if VCD_USERNAME_B64 and VCD_PASSWORD_B64 are specified
 
-# Variables specific to "clusterctl generate" only
-VCD_USERNAME_B64: ""
-VCD_PASSWORD_B64: ""
-VCD_REFRESH_TOKEN_B64: ""
-
+# Optional VCD specific properties
 VCD_CONTROL_PLANE_SIZING_POLICY: "large_4core16gb"
 VCD_CONTROL_PLANE_STORAGE_PROFILE: "*"
 VCD_CONTROL_PLANE_PLACEMENT_POLICY: ""
 VCD_WORKER_SIZING_POLICY: "medium_2core8gb"
 VCD_WORKER_PLACEMENT_POLICY: ""
 VCD_WORKER_STORAGE_PROFILE:  "*"
+DISK_SIZE: 20Gi
 VCD_RDE_ID: "urn:vcloud:entity:vmware:capvcdCluster:UUID"
-VCD_TEMPLATE_NAME: Ubuntu 20.04 and Kubernetes v1.21.8+vmware.1
-VCD_VIP_CIDR: "10.X.X.X/19"
+VCD_VIP_CIDR: ""
+
+# Kubernetes cluster properties
 CLUSTER_NAME: "myCluster"
 TARGET_NAMESPACE: default
 CONTROL_PLANE_MACHINE_COUNT: 1
 WORKER_MACHINE_COUNT: 1
-KUBERNETES_VERSION: v1.20.8+vmware.1
-ETCD_VERSION: v3.4.13_vmware.14
-DNS_VERSION: v1.7.0_vmware.12
+KUBERNETES_VERSION: v1.20.8+vmware.1 # Ensure this matches with the version of the VCD_TEMPLATE_NAME
+ETCD_VERSION: v3.4.13_vmware.14 # Ignore this property if you are using one of the existing flavors
+DNS_VERSION: v1.7.0_vmware.12 # Ignore this property if you are using one of the existing flavors
 POD_CIDR: "100.96.0.0/11"
 SERVICE_CIDR: "100.64.0.0/13"
-TKR_VERSION: v1.20.8---vmware.1-tkg.2
-TKG_VERSION: v1.4.2
+TKR_VERSION: v1.20.8---vmware.1-tkg.2 # Ignore this property if you are using one of the existing flavors
+TKG_VERSION: v1.4.2 # Ignore this property if you are using one of the existing flavors
 HTTP_PROXY:  "http://USERNAME:PASSWORD@SERVER:PORT"
 HTTPS_PROXY:  "https://USERNAME:PASSWORD@SERVER:PORT"
 NO_PROXY:  ""
 SSH_PUBLIC_KEY: ""
-DISK_SIZE: 20Gi
-WORKER_POOL_NAME: "work-pool-1"
+WORKER_POOL_NAME: "worker-pool-1"
