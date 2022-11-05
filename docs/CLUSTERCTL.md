@@ -17,14 +17,23 @@ providers:
 ```
 
 ## Initialize Management cluster
-Run the below command to initialize the management cluster with the Cluster API and the associated provider for VMware Cloud Director
+1. Run the below command to initialize the management cluster with the Cluster API and the associated provider for VMware Cloud Director
 `clusterctl init --core cluster-api:v1.1.3 -b kubeadm:v1.1.3 -c kubeadm:v1.1.3 -i vcd:v1.0.0`
+2. Apply CRS definitions to ensure CNI, CPI and CSI are automatically installed on the workload clusters.   
+
 
 ## Generate cluster manifests for workload cluster
 
 1. Fill out the values for the environment variables in `~/.cluster-api/clusterctl.yaml`. Note that you may skip filling in few variables if you decide to choose template flavors.
 2. Generate the CAPI manifest file.
    - `clusterctl generate cluster <clusterName> -f v1.21.8-crs > <clusterName>.yaml`.
-   - Note we only have v1.20.8, v1.21.8, v1.22.9 as template flavors, and they each have their own etcd/dns versions. Please ensure your `~/.cluster-api/clusterctl.yaml` has VCD_TEMPLATE_NAME matching the correct versions of Kubernetes. For example, if `VCD_TEMPLATE_NAME=Ubuntu 20.04 and Kubernetes v1.21.8+vmware.1` then use `v1.21.8-crs` flavor.
 3. Create the workload cluster
    - `kubectl apply -f <clusterName>.yaml`
+   
+## Template flavors
+
+- Currently, we have v1.20.8, v1.21.8, v1.22.9 as template flavors, and they each have their own etcd/dns versions pre-populated. 
+Please ensure your `~/.cluster-api/clusterctl.yaml` has VCD_TEMPLATE_NAME matching the correct versions of Kubernetes. 
+For example, if `VCD_TEMPLATE_NAME=Ubuntu 20.04 and Kubernetes v1.21.8+vmware.1` then use `v1.21.8-crs` flavor.
+- It is strongly recommended to use `v1.y.z-crs` flavors to ensure CNI, CPI and CSI are automatically installed on the 
+  workload clusters. CNI and CPI are required add-ons for the cluster creation to be successful.
