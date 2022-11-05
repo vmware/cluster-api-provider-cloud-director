@@ -3,8 +3,8 @@
 #
 # Below are the sample commands
 # clusterctl init --infrastructure vcd
-# clusterctl generate cluster demo -i vcd:v0.8.0
-# clusterctl generate cluster demo -i vcd:v0.8.0 -f v1.20.8
+# clusterctl generate cluster demo -i vcd:v1.0.0
+# clusterctl generate cluster demo -i vcd:v1.0.0 -f v1.20.8
 
 LatestRelease:
   URL: https://github.com/kubernetes-sigs/cluster-api/releases/tag/v1.0.2
@@ -22,6 +22,7 @@ providers:
     url: "~/go/cluster-api-provider-cloud-director/infrastructure-vcd/v1.0.0/infrastructure-components.yaml"
     type: "InfrastructureProvider"
 
+# Mandatory properties
 EXP_CLUSTER_RESOURCE_SET: true
 
 # Variables specific to both "cluster init" and "clusterctl generate"
@@ -29,12 +30,15 @@ VCD_SITE: "https://VCD_FQDN"
 VCD_ORGANIZATION: "test_org"
 VCD_ORGANIZATION_VDC: "test_ovdc"
 VCD_ORGANIZATION_VDC_NETWORK: "test_ovdc_nw"
+VCD_CATALOG: "test_catalog"
+VCD_USERNAME_B64: "vcduser_encoded"
+VCD_PASSWORD_B64: "password_encoded"
 
 # Variables specific to "clusterctl generate" only
 VCD_USERNAME_B64: ""
 VCD_PASSWORD_B64: ""
 VCD_REFRESH_TOKEN_B64: ""
-VCD_CATALOG: "test_catalog"
+
 VCD_CONTROL_PLANE_SIZING_POLICY: "large_4core16gb"
 VCD_CONTROL_PLANE_STORAGE_PROFILE: "*"
 VCD_CONTROL_PLANE_PLACEMENT_POLICY: ""
