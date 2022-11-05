@@ -21,7 +21,7 @@ providers:
 `clusterctl init --core cluster-api:v1.1.3 -b kubeadm:v1.1.3 -c kubeadm:v1.1.3 -i vcd:v1.0.0`
 2. Apply CRS definitions to ensure CNI, CPI and CSI are automatically installed on the workload clusters.   
 
-
+<a name="generate_cluster_manifest"></a>
 ## Generate cluster manifests for workload cluster
 
 1. Fill out the values for the environment variables in `~/.cluster-api/clusterctl.yaml`. Note that you may skip filling in few variables if you decide to choose template flavors.
@@ -29,7 +29,8 @@ providers:
    - `clusterctl generate cluster <clusterName> -f v1.21.8-crs > <clusterName>.yaml`.
 3. Create the workload cluster
    - `kubectl apply -f <clusterName>.yaml`
-   
+
+<a name="template_flavors"></a>   
 ## Template flavors
 
 - Currently, we have v1.20.8, v1.21.8, v1.22.9 as template flavors, and they each have their own etcd/dns versions pre-populated. 
