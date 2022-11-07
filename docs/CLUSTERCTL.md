@@ -26,7 +26,10 @@ providers:
 <a name="generate_cluster_manifest"></a>
 ## Generate cluster manifests for workload cluster
 
-1. Fill out the values for the environment variables in `~/.cluster-api/clusterctl.yaml`. Note that you may skip filling in few variables if you decide to choose template flavors.
+1. Fill out the values for the environment variables in `~/.cluster-api/clusterctl.yaml`. 
+   - One of the variables is RefreshToken. Refer to [how to create refreshToken](https://docs.vmware.com/en/VMware-Cloud-Director/10.3/VMware-Cloud-Director-Tenant-Portal-Guide/GUID-A1B3B2FA-7B2C-4EE1-9D1B-188BE703EEDE.html).
+   - Refer to the [script to get Kubernetes, etcd, coredns versions from TKG OVA](#tkgm_bom) to fill in few variables. Note that you may skip filling
+     in few of these variables if you decide to use the existing [clusterctl template flavors](#template_flavors).
 2. Generate the CAPI manifest file.
    - `clusterctl generate cluster <clusterName> -f v1.21.8-crs > <clusterName>.yaml`.
 3. Create the workload cluster by applying it on the (parent) management cluster.
@@ -35,6 +38,7 @@ providers:
 <a name="template_flavors"></a>   
 ## Template flavors
 
+- All of the templates to generate the cluster manifests are located at `templates` directory under the root of the github repository.
 - Currently, we have v1.20.8, v1.21.8, v1.22.9 as template flavors, and they each have their own etcd/dns versions pre-populated. 
 Please ensure your `~/.cluster-api/clusterctl.yaml` has VCD_TEMPLATE_NAME matching the correct versions of Kubernetes. 
 For example, if `VCD_TEMPLATE_NAME=Ubuntu 20.04 and Kubernetes v1.21.8+vmware.1` then use `v1.21.8-crs` flavor.
