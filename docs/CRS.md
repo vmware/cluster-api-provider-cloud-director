@@ -5,7 +5,8 @@ used to install CPI, CSI and CNI on the workload clusters.
 
 Initialize the management cluster via [clusterctl](CLUSTERCTL.md)
 
-## Apply CRS definitions on the management cluster
+<a name="apply_crs"></a>
+## Apply CRS definitions on the (parent) management cluster
 To install CRS components on the management cluster, in CAPVCD repo, copy the contents of  [templates](https://github.com/vmware/cluster-api-provider-cloud-director/tree/main/templates/crs) 
 to the management cluster at `~/infrastructure-vcd/v1.0.0/`
 1. Apply CNI (Antrea) CRS definitions:
@@ -22,8 +23,9 @@ to the management cluster at `~/infrastructure-vcd/v1.0.0/`
    - kubectl create configmap csi-node-crs-cm --from-file=csi-node-crs.yaml
    - kubectl create configmap csi-driver-crs-cm --from-file=csi-driver.yaml
    - kubectl apply -f csi-crs.yaml
-   
-## Apply CRS labels on the Cluster manifests of the workload cluster
+
+<a name="apply_crs_labels"></a>   
+## Apply CRS labels on the Cluster manifests of the (children) workload cluster
 1. Generate the [cluster manifest](CLUSTERCTL.md#generate_cluster_manifest) via clusterctl.
 2. Ensure these labels are set under `metadata` section of `Cluster` definition in the [workload cluster manifest]. You can also use clusterctl [CRS template flavors](CLUSTERCTL.md#template_flavors) to
    [generate cluster manifests](CLUSTERCTL.md#generate_cluster_manifest) with the CRS labels preset
@@ -35,7 +37,7 @@ labels:
 ```
 3. Apply the cluster manifest - `kubectl apply -f <clusterName>.yaml`
 
-
+<a name="enable_add_ons"></a>
 ## Enable CPI and CSI on the workload cluster to access VMware Cloud Director resources
 
 0. Say parent management cluster's kubeconfig is saved in `mangement_cluster.conf`

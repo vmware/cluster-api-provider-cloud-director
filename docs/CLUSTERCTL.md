@@ -1,5 +1,6 @@
 # Clusterctl 
 
+<a name="clusterctl_set_up"></a>
 ## Set up
 Install [Clusterctl v1.1.3](https://cluster-api.sigs.k8s.io/user/quick-start.html#install-clusterctl)
 Currently, the below manual steps are required to enable clusterctl for CAPVCD.
@@ -16,6 +17,7 @@ providers:
     type: "InfrastructureProvider"
 ```
 
+<a name="init_management_cluster"></a>
 ## Initialize Management cluster
 1. Run the below command to initialize the management cluster with the Cluster API and the associated provider for VMware Cloud Director
 `clusterctl init --core cluster-api:v1.1.3 -b kubeadm:v1.1.3 -c kubeadm:v1.1.3 -i vcd:v1.0.0`
@@ -27,7 +29,7 @@ providers:
 1. Fill out the values for the environment variables in `~/.cluster-api/clusterctl.yaml`. Note that you may skip filling in few variables if you decide to choose template flavors.
 2. Generate the CAPI manifest file.
    - `clusterctl generate cluster <clusterName> -f v1.21.8-crs > <clusterName>.yaml`.
-3. Create the workload cluster
+3. Create the workload cluster by applying it on the (parent) management cluster.
    - `kubectl apply -f <clusterName>.yaml`
 
 <a name="template_flavors"></a>   
