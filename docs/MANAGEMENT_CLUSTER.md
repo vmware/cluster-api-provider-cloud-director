@@ -37,7 +37,7 @@ Now that bootstrap cluster is ready, you can use Cluster API to create a multi c
 
 1. Generate the [cluster manifest](CLUSTERCTL.md#generate_cluster_manifest) and apply it on the bootstrap cluster to create a brand-new workload cluster. 
 2. [Apply CRS labels](CRS.md#apply_crs_labels) on the workload cluster.
-3. The last step is to [enable add-ons (CPI, CSI)](CRS.md#enable_add_ons) on the workload cluster to access VCD resources
+3. The next step is to [enable add-ons (CPI, CSI)](CRS.md#enable_add_ons) on the workload cluster to access VCD resources
 4. Transform this workload cluster into management cluster by [initializing it with Cluster API and CAPVCD](#management_cluster_init).
 5. This cluster is now a fully functional multi-control plane management cluster; you can use this to create and manage 
    multiple workload clusters.
@@ -58,7 +58,3 @@ This is an advanced workflow to enable Cloud Director tenant users to deploy wor
 cluster in an isolated manner.
 
 Refer to [enable multitenancy](MULTITENANCY.md) on the management cluster for more details
-
-Refer to [multitenancy](MULTITENANCY.md) to find 
-
-

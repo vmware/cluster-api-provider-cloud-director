@@ -21,7 +21,7 @@ providers:
 ## Initialize Management cluster
 1. Run the below command to initialize the management cluster with the Cluster API and the associated provider for VMware Cloud Director
 `clusterctl init --core cluster-api:v1.1.3 -b kubeadm:v1.1.3 -c kubeadm:v1.1.3 -i vcd:v1.0.0`
-2. Apply CRS definitions to ensure CNI, CPI and CSI are automatically installed on the workload clusters.   
+2. Apply [CRS definitions](CRS.md#apply_crs) to ensure CNI, CPI and CSI are automatically installed on the workload clusters.   
 
 <a name="generate_cluster_manifest"></a>
 ## Generate cluster manifests for workload cluster
@@ -34,6 +34,8 @@ providers:
    - `clusterctl generate cluster <clusterName> -f v1.21.8-crs > <clusterName>.yaml`.
 3. Create the workload cluster by applying it on the (parent) management cluster.
    - `kubectl apply -f <clusterName>.yaml`
+4. [Apply CRS labels](CRS.md#apply_crs_labels) and [enable the resultant add-ons like CPI, CSI to access VCD resources](CRS.md#enable_add_ons)    
+
 
 <a name="template_flavors"></a>   
 ## Template flavors
