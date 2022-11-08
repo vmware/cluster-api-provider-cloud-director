@@ -60,7 +60,7 @@ kubectl create -f user-rbac.yaml
 SECRETNAME=$(kubectl -n ${NAMESPACE} describe sa ${USERNAME} | grep "Tokens" | cut -f2 -d: | tr -d " ")
 USERTOKEN=$(kubectl -n ${NAMESPACE} get secret ${SECRETNAME} -o "jsonpath={.data.token}" | base64 -d)
 CERT=$(kubectl -n ${NAMESPACE} get secret ${SECRETNAME} -o "jsonpath={.data['ca\.crt']}")
-KUBE_APISERVER_ADDRESS=https://127.0.0.1:64265
+KUBE_APISERVER_ADDRESS=https://127.0.0.1:64265 #Ensure you update this with your own Kubernetes API server address
 
 cat > user1-management-kubeconfig.conf <<END
 apiVersion: v1

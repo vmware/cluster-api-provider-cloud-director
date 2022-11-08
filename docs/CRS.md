@@ -48,7 +48,7 @@ labels:
    - `kubectl --kubeconfig=workload_cluster.conf -n kube-system create secret generic vcloud-clusterid-secret --from-literal=clusterid=${CLUSTERID}`
 3. Retrieve RefreshToken of the user and create a secret with it on the workload cluster.
    - `export REFRESH_TOKEN=$(kubectl --kubeconfig=bootstrap_cluster.conf get secret <secret name> -o jsonpath="{.data.refreshToken}" | base64 -D)`
-   - `kubectl --kubeconfig=workload_cluster.conf -n kube-system create secret generic vcloud-basic-auth --from-literal=refreshToken=${REFRESH_TOKEN}`
+   - `kubectl --kubeconfig=workload_cluster.conf -n kube-system create secret generic vcloud-basic-auth --from-literal=refreshToken=${REFRESH_TOKEN} --from-literal=username="" --from-literal=password=""`
 4. Create a config map for the CSI pod in the workload cluster.
    - Create a file with the following content, e.g vcloud-csi-config.yaml:
    ```yaml
@@ -71,7 +71,7 @@ labels:
        ```
    - Replace VCD_HOST, ORG, OVDC, VAPP, and CLUSTER_ID with the relevant values.
    - Create the config map in the workload cluster:
-     `kubectl --kubeconfig=workload_cluster.conf create configmap --from-file=vcloud-csi-config.yaml`
+     `kubectl --kubeconfig=workload_cluster.conf apply -f vcloud-csi-config.yaml`
 5. Create a config map for the CCM/CPI pod in the workload cluster. 
    - Create a file with the following content, e.g vcloud-ccm-config.yaml:
    ```yaml
@@ -103,7 +103,7 @@ labels:
        ```
    - Replace VCD_HOST, ORG, OVDC, NETWORK, VAPP, and CLUSTER_ID with the relevant values.
    - Create the config map in the workload cluster:
-     `kubectl --kubeconfig=workload_cluster.conf create configmap --from-file=vcloud-ccm-config.yaml`
+     `kubectl --kubeconfig=workload_cluster.conf apply -f vcloud-ccm-config.yaml`
 
 
 
