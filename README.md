@@ -30,9 +30,11 @@ Kubernetes versions:
 |                        | v1.20 | v1.21 | v1.22 |
 | -----------------------| ----- | ----- | ----- |
 | CAPVCD v1alpha4 (v0.5) | ✓     | ✓     |       |
+| CAPVCD v1beta1  (v1.0) | ✓     | ✓     |   ✓   |
 
 ## Troubleshooting
-[Collect CAPI log bundle for Cloud Director](https://github.com/vmware/cluster-api-provider-cloud-director/tree/main/scripts)
+[Collect CAPI log bundle for Cloud Director](https://github.com/vmware/cluster-api-provider-cloud-director/tree/main/scripts).
+
 Refer to [enable wire logs for CAPVCD](docs/WIRE_LOGS.md) to log HTTP requests/responses between CAPVCD and Cloud Director
 
 ## Contributing

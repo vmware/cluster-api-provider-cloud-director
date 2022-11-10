@@ -15,6 +15,7 @@ Choose one of the options below to set up a management cluster on VMware Cloud D
    further create a Management cluster in VCD tenant organization.
 2. [Kind as a bootstrap cluster](https://cluster-api.sigs.k8s.io/user/quick-start.html#install-andor-configure-a-kubernetes-cluster)
    to create Management cluster in VCD tenant organization.
+   
 The next step is to initialize the bootstrap cluster with the Cluster API   
 
 <a name="management_cluster_init"></a>
@@ -30,7 +31,7 @@ The next step is to initialize the bootstrap cluster with the Cluster API
        capi-kubeadm-control-plane-system   capi-kubeadm-control-plane-controller-manager-cb9d954f5-ct5cp   1/1     Running
        capi-system                         capi-controller-manager-7594c7bc57-smjtg                        1/1     Running
        capvcd-system                       capvcd-controller-manager-769d64d4bf-54bf4                      1/1     Running
-       ```  
+       ```
 
 ### Create a multi-controlplane management cluster
 Now that bootstrap cluster is ready, you can use Cluster API to create a multi control-plane workload cluster
