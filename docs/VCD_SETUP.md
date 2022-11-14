@@ -2,17 +2,21 @@
 
 ## Provider steps
 
+All of the provider steps mentioned below can be done from UI of the Cloud Director. Please refer to 
+
 ### NSX-T and Avi Setup
 The LoadBalancers fronting the multi-controlplane workload clusters need a preconfigured Avi Controller, NSX-T Cloud and Avi Service Engine Group.
 Refer to [load balancer set up](https://github.com/vmware/cloud-provider-for-cloud-director#provider-setup).
 
 <a name="register_rde_schema"></a>
 ### Register Cluster API schema in Cloud Director
-Using Postman, register the Cluster API schema with Cloud Director. This is needed for CAPVCD to book-keep Kubernetes clusters 
+Using Postman, register the Cluster API schema with Cloud Director as mentioned below. This is needed for CAPVCD to book-keep Kubernetes clusters 
 as (first-class) Runtime Defined Entities (RDEs) in VCD's Database. You can choose to skip this by running steps at [Skip Book keeping in Cloud Director](#skip-bookkeeping) 
 
 POST `https://<vcd>/cloudapi/1.0.0/entityTypes`
 Body: [payload](#capvcd_rde_schema)
+
+As a side effect of the above schema registration, `vmware:capvcdCluster:1.1.0` right bundle gets automatically created.
 
 <a name="user_role"></a>  
 ### Publish the rights to the tenant organizations
