@@ -10,8 +10,9 @@ Refer to [load balancer set up](https://github.com/vmware/cloud-provider-for-clo
 
 <a name="register_rde_schema"></a>
 ### Register Cluster API schema in Cloud Director
-Using Postman, register the Cluster API schema with Cloud Director as mentioned below. This is needed for CAPVCD to book-keep Kubernetes clusters 
-as (first-class) Runtime Defined Entities (RDEs) in VCD's Database. You can choose to skip this by running steps at [Skip Book keeping in Cloud Director](#skip-bookkeeping) 
+Using Postman, register the Cluster API RDE (Runtime Defined Entity) schema with Cloud Director. This is required for CAPVCD to create 
+a logical object (RDE) in the Cloud Director for every workload cluster creation.
+RDE (Runtime Defined Entity) in Cloud Director is analogous to CRD (Custom Resource Definition) in Kubernetes. 
 
 POST `https://<vcd>/cloudapi/1.0.0/entityTypes`
 Body: [payload](#capvcd_rde_schema)
@@ -377,20 +378,5 @@ POST `https://<vcd>/cloudapi/1.0.0/entityTypes` with the provided payload
 }
 ```
 
-<a name="skip-bookkeeping"></a>
-### Skip Cluster book-keeping in Cloud Director
-
-The default behavior of CAPVCD is to create an associated logical object (Runtime Defined Entity) in the Cloud Director for every workload cluster creation.
-RDE (Runtime Defined Entity) in Cloud Director is analogous to CRD (Custom Resource Definition) in Kubernetes. 
-Refer to [register RDE schema](#register_rde_schema) for more details.
-
-You can choose to skip book-keeping of workload clusters by running below step. Disabling it also means your clusters may not work 
-well with the other Kubernetes solutions offered by Cloud Director. It will also not be possible to re-enable this option later.
-
-On the management cluster where Core CAPI and CAPVCD are initialized, run this command
-`kubectl set env -n capvcd-system deployment/capvcd-controller-manager CAPVCD_SKIP_RDE=true`
-
-As a result, all the workload clusters created from this management cluster will have no associated logical RDE object created in 
-VMware Cloud Director.
 
 
