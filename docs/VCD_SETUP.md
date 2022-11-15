@@ -2,26 +2,24 @@
 
 ## Provider steps
 
-All of the provider steps mentioned below can be done from UI of the Cloud Director. Please refer to 
-
 ### NSX-T and Avi Setup
 The LoadBalancers fronting the multi-controlplane workload clusters need a preconfigured Avi Controller, NSX-T Cloud and Avi Service Engine Group.
 Refer to [load balancer set up](https://github.com/vmware/cloud-provider-for-cloud-director#provider-setup).
 
 <a name="register_rde_schema"></a>
 ### Register Cluster API schema in Cloud Director
-Using Postman, register the Cluster API RDE (Runtime Defined Entity) schema with Cloud Director. This is required for CAPVCD to create 
+Using Postman, register the Cluster API RDE (Runtime Defined Entity Type) schema with Cloud Director. This is required for CAPVCD to create 
 a logical object (RDE) in the Cloud Director for every workload cluster creation.
-RDE (Runtime Defined Entity) in Cloud Director is analogous to CRD (Custom Resource Definition) in Kubernetes. 
+RDE (Runtime Defined Entity Type) in Cloud Director is analogous to CRD (Custom Resource Definition) in Kubernetes. 
 
 POST `https://<vcd>/cloudapi/1.0.0/entityTypes`
 Body: [payload](#capvcd_rde_schema)
 
-As a side effect of the above schema registration, `vmware:capvcdCluster:1.1.0` right bundle gets automatically created.
+As a side effect of the above schema registration, `vmware:capvcdCluster Entitlement` right bundle gets automatically created.
 
 <a name="user_role"></a>  
 ### Publish the rights to the tenant organizations
-1. Publish the `vmware:capvcdCluster:1.1.0` right bundle to the desired tenant organizations
+1. Publish the `vmware:capvcdCluster Entitlement` right bundle to the desired tenant organizations
 2. Below are the rights required for the Cluster API. Assign these rights to the desired tenant organizations
     * User > Manage user's own API token
     * vApp > Preserve ExtraConfig Elements during OVA Import and Export (follow the [KB](https://kb.vmware.com/s/article/2148573) to enable this right on VCD)
@@ -38,7 +36,7 @@ These will serve as templates for Cluster API to create Kubernetes Clusters.
 
 ## Tenant Admin steps
 * A ServiceEngineGroup needs to be added to the gateway of the OVDC within which the Kubernetes cluster is to be created. The overall steps to achieve that are documented at Enable Load Balancer on an NSX-T Data Center Edge Gateway
-Create and publish the desired sizing policies on the chosen ovdc(s)
+Create and publish the desired sizing policies on the chosen OVDC(s)
 * Ensure the OVDC gateway has outbound access. If required, set an SNAT rule with the internal IP range of the VMs.
 * Set up DNS on the desired virtual datacenter networks.
 * Create tenant user role with the above mentioned [rights](#user_role)
