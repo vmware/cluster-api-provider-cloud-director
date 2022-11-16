@@ -8,7 +8,7 @@ operate all his/her workload clusters in his/her namespace
 ## Create a workload cluster
 1. User1 can now access the management cluster via kubeconfig specifically generated for him/her
     1. `kubectl --namespace ${NAMESPACE} --kubeconfig=user1-management-kubeconfig.conf get machines`
-2. User1 generates the cluster configuration `capi.yaml`. Refer to [CAPI Yaml configuration](#capi_yaml) on how to generate the file.
+2. User1 generates the cluster configuration `capi.yaml`. Refer to [clusterctl generate cmd](CLUSTERCTL.md#generate_cluster_manifest) on how to generate the file.
 3. User1 creates the workload cluster 
     1. `kubectl --namespace=${NAMESPACE} --kubeconfig=user1-management-kubeconfig.conf apply -f capi.yaml`. The output is similar to the below
         * ```sh
@@ -42,7 +42,9 @@ In order to upgrade a workload cluster,
 * The upgrade of a Kubernetes cluster can only be done to the next incremental version, say from K8s 1.20 to K8s 1.21.
 
 In the CAPI yaml, update the below properties and run `kubectl --namespace=${NAMESPACE} --kubeconfig=user1-management-kubeconfig.conf apply -f capi.yaml`
- on the management cluster.
+ on the management cluster (or) use one of the existing [clusterctl template flavors](CLUSTERCTL.md#template_flavors) with 
+pre-populated Kubernetes and the associated etcd and coredns versions.
+
 1. Upgrade Control plane version
     1. Update `VCDMachineTemplate` object(s) with the new version of TKG template details
         * Update `VCDMachineTemplate.spec.template.spec.template` and other properties under `VCDMachineTemplate.spec.template.spec` if needed.
@@ -63,74 +65,6 @@ To delete the cluster, run this command on the management cluster
     
 It is not recommended using this command
 * `kubectl --namespace=${NAMESPACE} --kubeconfig=user-management-kubeconfig.conf delete -f capi-quickstart.yaml`
-
-<a name="capi_yaml"></a>
-## CAPI YAML configuration
-
-`clusterctl generate` command doesn't support the generation of CAPI yaml for Cloud Director; Follow the guidelines 
-provided below configure the CAPI Yaml file
-
-1. Retrieve the [sample YAML](https://github.com/vmware/cluster-api-provider-cloud-director/blob/main/examples/capi-quickstart.yaml) from github repo.
-2. Update the name of the cluster 
-    * Retrieve the value of `Cluster.metadata.name` and replace-all the value with the new cluster name.
-3. Update the `namespace` property of all the objects with the namespace assigned to you (tenant user) on the management
-   cluster by the organization administrator.
-3. Update the `VCDCluster.spec` parameters using the informational comments in the sample yaml. It is strongly recommended
-   that the `refreshToken` parameter be used, the username and password fields should be omitted or set as empty strings. 
-   Refer to [how to create refreshToken](https://docs.vmware.com/en/VMware-Cloud-Director/10.3/VMware-Cloud-Director-Tenant-Portal-Guide/GUID-A1B3B2FA-7B2C-4EE1-9D1B-188BE703EEDE.html).
-4. Update `VCDMachineTemplate` objects of both Control plane and workers with the whereabouts of TKG OVA, which will be 
-   used as a template for the cluster VMs. Refer to the informational comments of the example YAML.
-5. Update `KubeadmControlPlane` object(s) with the below details of Kubernetes components. The values must come from the TKG OVA specified in `VCDMachineTemplate` object(s). See the [script to get Kubernetes, etcd, coredns versions from TKG OVA](#tkgm_bom).
-    1. Update `KubeadmControlPlane.spec.version`, `KubeadmControlPlane.spec.kubeadmConfigSpec.dns`, 
-       `KubeadmControlPlane.spec.kubeadmConfigSpec.etcd`, `KubeadmControlPlane.spec.kubeadmConfigSpec.imageRepository`.
-       The above sample file has the values corresponding to v1.20.8 Kubernetes version of TKG template.
-    2. Update `KubeadmControlPlane.spec.replicas` to specify the control plane count. The value must be odd number.
-    3. Update `KubeadmControlPlane.spec.kubeadmConfigSpec.users` with the ssh keys to access the control plane node VMs.
-6. Update your ssh keys at `KubeadmConfigTemplate.spec.template.spec.users` to access the worker node VMs.
-7. Update `MachineDeployment.spec` with the below
-    1. To specify the worker count, update the property `MachineDeployment.spec.replicas`.
-    2. To specify the Kubernetes version, update the property `MachineDeployment.spec.version`.
-       The values must come from the TKG OVA specified in `VCDMachineTemplate` object(s).
-       See the [script to get Kubernetes, etcd, coredns versions from TKG OVA](#tkgm_bom).
-       
-Sample sub-section of the YAML
-```yaml
-apiVersion: cluster.x-k8s.io/v1alpha4
-kind: Cluster
-metadata:
-name: user1-cluster
-namespace: user1-ns
-spec:
-clusterNetwork:
-pods:
-cidrBlocks:
-- 100.96.0.0/11
-serviceDomain: k8s.test
-services:
-cidrBlocks:
-- 100.64.0.0/13
-controlPlaneRef:
-apiVersion: controlplane.cluster.x-k8s.io/v1alpha4
-kind: KubeadmControlPlane
-name: user1-cluster-control-plane
-namespace: user1-ns
-infrastructureRef:
-apiVersion: infrastructure.cluster.x-k8s.io/v1alpha4
-kind: VCDCluster
-name: user1-cluster
-namespace: user1-ns
----
-apiVersion: infrastructure.cluster.x-k8s.io/v1alpha4
-kind: VCDCluster
-metadata:
-name: user1-cluster
-namespace: user1-ns
-context:
-username: user1
-password: password
-refreshToken: ""
----
-```
 
 <a name="tkgm_bom"></a>
 ### Script to get Kubernetes, etcd, coredns versions from TKG OVA
