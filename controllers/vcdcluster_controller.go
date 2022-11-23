@@ -855,8 +855,7 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		return ctrl.Result{}, errors.Wrapf(err, "error validating derived infraID and RDE version with VCDCluster status")
 	}
 
-	vcdCluster.Spec.RDEId = infraID
-	if vcdCluster.Status.InfraId == "" || vcdCluster.Status.RdeVersionInUse != rdeVersionInUse || vcdCluster.Spec.RDEId == "" {
+	if vcdCluster.Status.InfraId == "" || vcdCluster.Status.RdeVersionInUse != rdeVersionInUse {
 		// update the status
 		log.Info("updating vcdCluster with the following data", "vcdCluster.Status.InfraId", infraID, "vcdCluster.Status.RdeVersionInUse", rdeVersionInUse)
 
@@ -877,6 +876,8 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 			log.Error(err, "failed to remove CAPVCDObjectPatchError from RDE", "rdeID", vcdCluster.Status.InfraId)
 		}
 	}
+
+	vcdCluster.Spec.RDEId = infraID
 
 	rdeManager := vcdsdk.NewRDEManager(workloadVCDClient, vcdCluster.Status.InfraId,
 		capisdk.StatusComponentNameCAPVCD, release.CAPVCDVersion)
