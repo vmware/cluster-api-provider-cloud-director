@@ -876,7 +876,8 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 			log.Error(err, "failed to remove CAPVCDObjectPatchError from RDE", "rdeID", vcdCluster.Status.InfraId)
 		}
 	}
-
+	// spec.RDEId should be populated because clusterctl move operation erases the status section of the VCDCluster object.
+	// This can cause issues for a cluster which has no RDE because the auto-generated infraID will be lost.
 	vcdCluster.Spec.RDEId = infraID
 
 	rdeManager := vcdsdk.NewRDEManager(workloadVCDClient, vcdCluster.Status.InfraId,
