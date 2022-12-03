@@ -124,6 +124,13 @@ spec:
                           with the relevant binaries installed If true, then an appropriate
                           placement policy should be set
                         type: boolean
+                      extraOvdcNetworks:
+                        description: ExtraOvdcNetworks is the list of extra Ovdc Networks
+                          that are mounted to machines. VCDClusterSpec.OvdcNetwork
+                          is always attached regardless of this field.
+                        items:
+                          type: string
+                        type: array
                       placementPolicy:
                         description: PlacementPolicy is the placement policy to be
                           used on this machine.
