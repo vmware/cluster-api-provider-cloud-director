@@ -72,6 +72,11 @@ type VCDMachineSpec struct {
 	// If true, then an appropriate placement policy should be set
 	// +optional
 	EnableNvidiaGPU bool `json:"enableNvidiaGPU,omitempty"`
+
+	// ExtraOvdcNetworks is the list of extra Ovdc Networks that are mounted to machines.
+	// VCDClusterSpec.OvdcNetwork is always attached regardless of this field.
+	// +optional
+	ExtraOvdcNetworks []string `json:"extraOvdcNetworks"`
 }
 
 // VCDMachineStatus defines the observed state of VCDMachine
