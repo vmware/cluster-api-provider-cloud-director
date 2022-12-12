@@ -11,7 +11,6 @@ import (
 	_ "embed" // this needs go 1.16+
 	b64 "encoding/base64"
 	"fmt"
-	"io/ioutil"
 	"math"
 	"reflect"
 	"strconv"
