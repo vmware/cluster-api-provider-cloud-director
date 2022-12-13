@@ -946,7 +946,7 @@ func ensureNetworkIsAttachedToVApp(vdcManager *vcdsdk.VdcManager, vApp *govcd.VA
 
 	_, err = vApp.AddOrgNetwork(&govcd.VappNetworkSettings{}, ovdcNetwork.OrgVDCNetwork, false)
 	if err != nil {
-		return fmt.Errorf("unable to add ovdc network [%s] to vApp [%s]: [%v]",
+		return fmt.Errorf("unable to add ovdc network [%v] to vApp [%s]: [%v]",
 			ovdcNetwork, vApp.VApp.Name, err)
 	}
 
