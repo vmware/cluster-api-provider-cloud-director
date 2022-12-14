@@ -2,6 +2,7 @@ package v1alpha4
 
 import (
 	"github.com/vmware/cluster-api-provider-cloud-director/api/v1beta1"
+	utilconversion "sigs.k8s.io/cluster-api/util/conversion"
 	"sigs.k8s.io/controller-runtime/pkg/conversion"
 )
 
@@ -12,9 +13,15 @@ func (src *VCDMachine) ConvertTo(dstRaw conversion.Hub) error {
 		return err
 	}
 
+	// manually restore data
+	restored := v1beta1.VCDMachine{}
+	if ok, err := utilconversion.UnmarshalData(src, restored); err != nil || !ok {
+		return err
+	}
+
 	dst.Spec.SizingPolicy = src.Spec.ComputePolicy
-	dst.Spec.StorageProfile = ""
-	dst.Status.Template = ""
+	dst.Spec.StorageProfile = restored.Spec.StorageProfile
+	dst.Status.Template = restored.Status.Template
 	dst.Status.ProviderID = src.Spec.ProviderID
 	return nil
 }
@@ -27,7 +34,7 @@ func (dst *VCDMachine) ConvertFrom(srcRaw conversion.Hub) error {
 	}
 
 	dst.Spec.ComputePolicy = src.Spec.SizingPolicy
-	return nil
+	return utilconversion.MarshalData(src, dst)
 }
 
 // ConvertTo converts this VCDMachineList to the Hub version (v1beta1).
