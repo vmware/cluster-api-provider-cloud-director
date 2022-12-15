@@ -187,4 +187,5 @@ dev: capi
 
 prod: capi
 	sed -e "s/\.__GIT_COMMIT__//g" config/manager/manager.yaml.template > config/manager/manager.yaml
+	sed -e "s/\.__GIT_COMMIT__//g" templates/infrastructure-components.yaml.template > templates/infrastructure-components.yaml
 	make release-manifests
