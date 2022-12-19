@@ -6,6 +6,11 @@
   "inheritedVersion": null,
   "externalId": null,
   "schema": {
+    "required": [
+      "kind",
+      "metadata",
+      "apiVersion"
+    ],
     "definitions": {
       "k8sNetwork": {
         "type": "object",
@@ -83,6 +88,11 @@
             "description": "Fully Qualified Domain Name of the VCD site in which the cluster is deployed"
           }
         }
+      },
+      "apiVersion": {
+        "type": "string",
+        "default": "capvcd.vmware.com/v1.0",
+        "description": "The version of the payload format"
       },
       "status": {
         "type": "object",
