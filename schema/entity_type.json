@@ -8,6 +8,7 @@
   "schema": {
     "required": [
       "kind",
+      "spec",
       "metadata",
       "apiVersion"
     ],
