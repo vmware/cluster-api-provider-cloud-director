@@ -23,6 +23,7 @@ func (dst *VCDMachineTemplate) ConvertFrom(srcRaw conversion.Hub) error {
 	if err := Convert_v1beta1_VCDMachineTemplate_To_v1alpha4_VCDMachineTemplate(src, dst, nil); err != nil {
 		return err
 	}
+	// add annotation "cluster.x-k8s.io/conversion-data" and return
 	return utilconversion.MarshalData(src, dst)
 }
 

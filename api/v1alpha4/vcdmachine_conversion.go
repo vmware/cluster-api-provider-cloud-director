@@ -13,16 +13,22 @@ func (src *VCDMachine) ConvertTo(dstRaw conversion.Hub) error {
 		return err
 	}
 
+	// there is a possibility that the older version (v1alpha4) won't have the "cluster.x-k8s.io/conversion-data" annotation.
+	// so use the src object to recover fields which are necessary in the new version
+	dst.Spec.SizingPolicy = src.Spec.ComputePolicy
+	dst.Status.ProviderID = src.Spec.ProviderID
+
 	// manually restore data
 	restored := v1beta1.VCDMachine{}
 	if ok, err := utilconversion.UnmarshalData(src, restored); err != nil || !ok {
 		return err
 	}
 
-	dst.Spec.SizingPolicy = src.Spec.ComputePolicy
+	// restore all the fields, even those which were derived using the src object, using the "cluster.x-k8s.io/conversion-data" annotation
+	dst.Spec.SizingPolicy = restored.Spec.SizingPolicy
 	dst.Spec.StorageProfile = restored.Spec.StorageProfile
 	dst.Status.Template = restored.Status.Template
-	dst.Status.ProviderID = src.Spec.ProviderID
+	dst.Status.ProviderID = restored.Spec.ProviderID
 	return nil
 }
 
@@ -34,6 +40,7 @@ func (dst *VCDMachine) ConvertFrom(srcRaw conversion.Hub) error {
 	}
 
 	dst.Spec.ComputePolicy = src.Spec.SizingPolicy
+	// add annotation "cluster.x-k8s.io/conversion-data" and return
 	return utilconversion.MarshalData(src, dst)
 }
 
