@@ -864,7 +864,7 @@ func getPrimaryNetwork(vm *types.Vm) *types.NetworkConnection {
 func (r *VCDMachineReconciler) reconcileVMNetworks(vdcManager *vcdsdk.VdcManager, vApp *govcd.VApp, vm *govcd.VM, networks []string) error {
 	connections, err := vm.GetNetworkConnectionSection()
 	if err != nil {
-		return errors.Errorf("Failed to get attached networks to VM")
+		return errors.Wrapf(err, "Failed to get attached networks to VM")
 	}
 
 	desiredConnectionArray := make([]*types.NetworkConnection, len(networks))
@@ -872,7 +872,7 @@ func (r *VCDMachineReconciler) reconcileVMNetworks(vdcManager *vcdsdk.VdcManager
 	for index, ovdcNetwork := range networks {
 		err = ensureNetworkIsAttachedToVApp(vdcManager, vApp, ovdcNetwork)
 		if err != nil {
-			return errors.Errorf("Error ensuring network [%s] is attached to vApp", ovdcNetwork)
+			return errors.Wrapf(err, "Error ensuring network [%s] is attached to vApp", ovdcNetwork)
 		}
 
 		desiredConnectionArray[index] = getNetworkConnection(connections, ovdcNetwork)
@@ -888,8 +888,10 @@ func (r *VCDMachineReconciler) reconcileVMNetworks(vdcManager *vcdsdk.VdcManager
 
 		err = vm.UpdateNetworkConnectionSection(connections)
 		if err != nil {
-			return errors.Errorf("failed to update networks of VM")
+			return errors.Wrapf(err, "failed to update networks of VM")
 		}
+		// update vm.VM object for the rest of the flow, especially for getPrimaryNetwork function
+		vm.VM.NetworkConnectionSection = connections
 	}
 
 	return nil
