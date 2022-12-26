@@ -28,6 +28,26 @@ webhooks:
     resources:
     - vcdclusters
   sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
+      path: /mutate-infrastructure-cluster-x-k8s-io-v1beta1-vcdmachine
+  failurePolicy: Fail
+  name: mvcdmachine.kb.io
+  rules:
+  - apiGroups:
+    - infrastructure.cluster.x-k8s.io
+    apiVersions:
+    - v1beta1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - vcdmachines
+  sideEffects: None
 
 ---
 apiVersion: admissionregistration.k8s.io/v1
@@ -58,4 +78,24 @@ webhooks:
     - DELETE
     resources:
     - vcdclusters
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
+      path: /validate-infrastructure-cluster-x-k8s-io-v1beta1-vcdmachine
+  failurePolicy: Fail
+  name: vvcdmachine.kb.io
+  rules:
+  - apiGroups:
+    - infrastructure.cluster.x-k8s.io
+    apiVersions:
+    - v1beta1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - vcdmachines
   sideEffects: None

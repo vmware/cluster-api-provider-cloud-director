@@ -200,6 +200,12 @@ spec:
                 description: TemplatePath is the path of the template OVA that is
                   to be used
                 type: string
+              vmNamingTemplate:
+                description: VmNamingTemplate is go template to generate VM names
+                  based on Machine and VCDMachine CRs. Functions of Sprig library
+                  are supported. See https://github.com/Masterminds/sprig Immutable
+                  field. machine.Name is used as VM name when this field is empty.
+                type: string
             type: object
           status:
             description: VCDMachineStatus defines the observed state of VCDMachine

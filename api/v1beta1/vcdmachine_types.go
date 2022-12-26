@@ -77,6 +77,12 @@ type VCDMachineSpec struct {
 	// VCDClusterSpec.OvdcNetwork is always attached regardless of this field.
 	// +optional
 	ExtraOvdcNetworks []string `json:"extraOvdcNetworks"`
+
+	// VmNamingTemplate is go template to generate VM names based on Machine and VCDMachine CRs.
+	// Functions of Sprig library are supported. See https://github.com/Masterminds/sprig
+	// Immutable field. machine.Name is used as VM name when this field is empty.
+	// +optional
+	VmNamingTemplate string `json:"vmNamingTemplate"`
 }
 
 // VCDMachineStatus defines the observed state of VCDMachine
