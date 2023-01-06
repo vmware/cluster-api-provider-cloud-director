@@ -21,10 +21,13 @@ func (src *VCDMachine) ConvertTo(dstRaw conversion.Hub) error {
 	// manually restore data
 	restored := v1beta1.VCDMachine{}
 	if ok, err := utilconversion.UnmarshalData(src, restored); err != nil || !ok {
+		// in the case of missing v1beta1 annotation, the return value of UnmarshalData() would be (false, nil)
+		// so the return value would be nil NOT err
 		return err
 	}
 
 	// restore all the fields, even those which were derived using the src object, using the "cluster.x-k8s.io/conversion-data" annotation
+	// Also note that dst and restored are of the same type
 	dst.Spec.SizingPolicy = restored.Spec.SizingPolicy
 	dst.Spec.StorageProfile = restored.Spec.StorageProfile
 	dst.Status.Template = restored.Status.Template
