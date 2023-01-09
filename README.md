@@ -41,5 +41,8 @@ Refer to [enable wire logs for CAPVCD](docs/WIRE_LOGS.md) to log HTTP requests/r
 ## Contributing
 The cluster-api-provider-cloud-director project team welcomes contributions from the community. Before you start working with cluster-api-provider-cloud-director, please refer to [CONTRIBUTING.md](CONTRIBUTING.md).
 
+## Communicating with the maintainers
+[#cluster-api-cloud-director](https://kubernetes.slack.com/archives/C04JFT7GDGR) can be used to communicate with the maintainers to learn more about cluster-api for Cloud Director or to discuss any potential issues.
+
 ## License
 [Apache-2.0](LICENSE)
