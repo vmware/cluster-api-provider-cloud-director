@@ -1,0 +1,17 @@
+{
+  "name": "CAPVCD Cluster",
+  "description": "",
+  "nss": "capvcdCluster",
+  "version": "1.1.0",
+  "inheritedVersion": null,
+  "externalId": null,
+  "schema": {
+    "$ref": "https://raw.githubusercontent.com/vmware/cluster-api-provider-cloud-director/main/schema/schema_1_1_0.json"
+  },
+  "vendor": "vmware",
+  "interfaces": [
+    "urn:vcloud:interface:vmware:k8s:1.0.0"
+  ],
+  "hooks": null,
+  "readonly": false
+}
