@@ -618,8 +618,10 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		}
 
 		// At this point the vcdCluster.Spec.ControlPlaneEndpoint should have been set correctly.
+		// Because vcdcluster_controller will get the existing virtual service IP, it will overwrite with that each time.
+		// So we are currently passing in an empty string as externalIP to UpdateLoadBalancer() as we are not updating the virtual service IP.
 		_, err = gateway.UpdateLoadBalancer(ctx, lbPoolName, virtualServiceName, updatedUniqueIPs,
-			vcdCluster.Spec.ControlPlaneEndpoint.Host, int32(vcdCluster.Spec.ControlPlaneEndpoint.Port), int32(vcdCluster.Spec.ControlPlaneEndpoint.Port),
+			"", int32(vcdCluster.Spec.ControlPlaneEndpoint.Port), int32(vcdCluster.Spec.ControlPlaneEndpoint.Port),
 			oneArm, !vcdCluster.Spec.LoadBalancerConfigSpec.UseOneArm, "TCP", resourcesAllocated)
 		if err != nil {
 			updatedErr := capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDMachineCreationError, "", machine.Name, fmt.Sprintf("%v", err))
@@ -1064,9 +1066,10 @@ func (r *VCDMachineReconciler) reconcileDelete(ctx context.Context, cluster *clu
 			}
 
 			// At this point the vcdCluster.Spec.ControlPlaneEndpoint should have been set correctly.
-			// If user specified a specific IP to use for Control Plane, we should pass vcdCluster.Spec.ControlPlaneEndpoint.Host as the externalIP when updating LB.
+			// Because vcdcluster_controller will get the existing virtual service IP, it will overwrite with that each time.
+			// So we are currently passing in an empty string as externalIP as we are not updating the virtual service IP.
 			_, err = gateway.UpdateLoadBalancer(ctx, lbPoolName, virtualServiceName, updatedIPs,
-				vcdCluster.Spec.ControlPlaneEndpoint.Host, int32(vcdCluster.Spec.ControlPlaneEndpoint.Port), int32(vcdCluster.Spec.ControlPlaneEndpoint.Port),
+				"", int32(vcdCluster.Spec.ControlPlaneEndpoint.Port), int32(vcdCluster.Spec.ControlPlaneEndpoint.Port),
 				oneArm, !vcdCluster.Spec.LoadBalancerConfigSpec.UseOneArm, "TCP", resourcesAllocated)
 			if err != nil {
 				updatedErr := capvcdRdeManager.AddToErrorSet(ctx, capisdk.LoadBalancerError, "", machine.Name, fmt.Sprintf("%v", err))
