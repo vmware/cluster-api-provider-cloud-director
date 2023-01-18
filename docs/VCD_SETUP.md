@@ -46,8 +46,10 @@ Create and publish the desired sizing policies on the chosen OVDC(s)
 
 <a name="capvcd_rde_schema"></a>
 **Payload of the Cluster API schema**
+* CAPVCD Schema Payload reference file: [CAPVCD Schema Entity Type](https://github.com/vmware/cluster-api-provider-cloud-director/tree/main/schema/entity_type.json)
+* Note: The CAPVCD Schema Payload reference file contains the full body/payload required for registering CAPVCD Entity Type which also includes [schema](https://github.com/vmware/cluster-api-provider-cloud-director/tree/main/schema/schema_1_1_0.json) and other fields.
 
-POST `https://<vcd>/cloudapi/1.0.0/entityTypes` with the provided payload
+POST `https://<vcd>/cloudapi/1.0.0/entityTypes` with the provided payload:
 ```json
 {
     "name": "CAPVCD Cluster",
