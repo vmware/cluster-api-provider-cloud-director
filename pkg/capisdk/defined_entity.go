@@ -60,7 +60,7 @@ const (
 	CloudInitScriptGenerated = "VcdMachineBootstrapScriptGenerated"
 	InfraVmBootstrapped      = "VcdMachineBootstrapped"
 	InfraVmDeleted           = "VcdMachineInfraVmDeleted"
-	MachineHealthCheckFailed = "HealthCheckFailedEvent"
+	MachineHealthCheckFailed = "VcdMachineHealthCheckFailedEvent"
 
 	// VCDMachine Errors
 	// Set VCDMachineScriptGenerationError for any errors that occurs during the process of generating and setting the script on the VM
