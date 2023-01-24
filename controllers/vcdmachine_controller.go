@@ -339,7 +339,7 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	if conditions.IsFalse(machine, clusterv1.MachineHealthCheckSucceededCondition) {
 		err := capvcdRdeManager.AddToEventSet(ctx, capisdk.MachineHealthCheckFailed, getVMIDFromProviderID(vcdMachine.Status.ProviderID), machine.Name, conditions.GetMessage(machine, clusterv1.MachineHealthCheckSucceededCondition), false)
 		if err != nil {
-			log.Error(err, "failed to add HealthCheckFailedEvent event into RDE", "rdeID", vcdCluster.Status.InfraId)
+			log.Error(err, "failed to add VcdMachineHealthCheckFailedEvent event into RDE", "rdeID", vcdCluster.Status.InfraId)
 		}
 	}
 	if vcdMachine.Spec.ProviderID != nil && vcdMachine.Status.ProviderID != nil {
