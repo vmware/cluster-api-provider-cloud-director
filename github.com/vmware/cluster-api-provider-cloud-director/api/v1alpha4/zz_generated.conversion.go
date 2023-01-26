@@ -24,12 +24,11 @@ package v1alpha4
 import (
 	unsafe "unsafe"
 
-	v1beta1 "github.com/vmware/cluster-api-provider-cloud-director/api/v1beta1"
 	v1beta2 "github.com/vmware/cluster-api-provider-cloud-director/api/v1beta2"
 	conversion "k8s.io/apimachinery/pkg/conversion"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	apiv1alpha4 "sigs.k8s.io/cluster-api/api/v1alpha4"
-	apiv1beta1 "sigs.k8s.io/cluster-api/api/v1beta1"
+	v1beta1 "sigs.k8s.io/cluster-api/api/v1beta1"
 )
 
 func init() {
@@ -54,11 +53,6 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}); err != nil {
 		return err
 	}
-	if err := s.AddGeneratedConversionFunc((*v1beta2.UserCredentialsContext)(nil), (*UserCredentialsContext)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1beta2_UserCredentialsContext_To_v1alpha4_UserCredentialsContext(a.(*v1beta2.UserCredentialsContext), b.(*UserCredentialsContext), scope)
-	}); err != nil {
-		return err
-	}
 	if err := s.AddGeneratedConversionFunc((*VCDCluster)(nil), (*v1beta2.VCDCluster)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1alpha4_VCDCluster_To_v1beta2_VCDCluster(a.(*VCDCluster), b.(*v1beta2.VCDCluster), scope)
 	}); err != nil {
@@ -79,23 +73,8 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}); err != nil {
 		return err
 	}
-	if err := s.AddGeneratedConversionFunc((*VCDClusterSpec)(nil), (*v1beta2.VCDClusterSpec)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1alpha4_VCDClusterSpec_To_v1beta2_VCDClusterSpec(a.(*VCDClusterSpec), b.(*v1beta2.VCDClusterSpec), scope)
-	}); err != nil {
-		return err
-	}
-	if err := s.AddGeneratedConversionFunc((*v1beta2.VCDClusterSpec)(nil), (*VCDClusterSpec)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1beta2_VCDClusterSpec_To_v1alpha4_VCDClusterSpec(a.(*v1beta2.VCDClusterSpec), b.(*VCDClusterSpec), scope)
-	}); err != nil {
-		return err
-	}
 	if err := s.AddGeneratedConversionFunc((*VCDClusterStatus)(nil), (*v1beta2.VCDClusterStatus)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1alpha4_VCDClusterStatus_To_v1beta2_VCDClusterStatus(a.(*VCDClusterStatus), b.(*v1beta2.VCDClusterStatus), scope)
-	}); err != nil {
-		return err
-	}
-	if err := s.AddGeneratedConversionFunc((*v1beta2.VCDClusterStatus)(nil), (*VCDClusterStatus)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1beta2_VCDClusterStatus_To_v1alpha4_VCDClusterStatus(a.(*v1beta2.VCDClusterStatus), b.(*VCDClusterStatus), scope)
 	}); err != nil {
 		return err
 	}
@@ -119,23 +98,8 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}); err != nil {
 		return err
 	}
-	if err := s.AddGeneratedConversionFunc((*VCDMachineSpec)(nil), (*v1beta2.VCDMachineSpec)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1alpha4_VCDMachineSpec_To_v1beta2_VCDMachineSpec(a.(*VCDMachineSpec), b.(*v1beta2.VCDMachineSpec), scope)
-	}); err != nil {
-		return err
-	}
-	if err := s.AddGeneratedConversionFunc((*v1beta2.VCDMachineSpec)(nil), (*VCDMachineSpec)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1beta2_VCDMachineSpec_To_v1alpha4_VCDMachineSpec(a.(*v1beta2.VCDMachineSpec), b.(*VCDMachineSpec), scope)
-	}); err != nil {
-		return err
-	}
 	if err := s.AddGeneratedConversionFunc((*VCDMachineStatus)(nil), (*v1beta2.VCDMachineStatus)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1alpha4_VCDMachineStatus_To_v1beta2_VCDMachineStatus(a.(*VCDMachineStatus), b.(*v1beta2.VCDMachineStatus), scope)
-	}); err != nil {
-		return err
-	}
-	if err := s.AddGeneratedConversionFunc((*v1beta2.VCDMachineStatus)(nil), (*VCDMachineStatus)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1beta2_VCDMachineStatus_To_v1alpha4_VCDMachineStatus(a.(*v1beta2.VCDMachineStatus), b.(*VCDMachineStatus), scope)
 	}); err != nil {
 		return err
 	}
@@ -189,38 +153,38 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}); err != nil {
 		return err
 	}
-	if err := s.AddConversionFunc((*VCDClusterSpec)(nil), (*v1beta1.VCDClusterSpec)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1alpha4_VCDClusterSpec_To_v1beta1_VCDClusterSpec(a.(*VCDClusterSpec), b.(*v1beta1.VCDClusterSpec), scope)
+	if err := s.AddConversionFunc((*VCDClusterSpec)(nil), (*v1beta2.VCDClusterSpec)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1alpha4_VCDClusterSpec_To_v1beta2_VCDClusterSpec(a.(*VCDClusterSpec), b.(*v1beta2.VCDClusterSpec), scope)
 	}); err != nil {
 		return err
 	}
-	if err := s.AddConversionFunc((*VCDMachineSpec)(nil), (*v1beta1.VCDMachineSpec)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1alpha4_VCDMachineSpec_To_v1beta1_VCDMachineSpec(a.(*VCDMachineSpec), b.(*v1beta1.VCDMachineSpec), scope)
+	if err := s.AddConversionFunc((*VCDMachineSpec)(nil), (*v1beta2.VCDMachineSpec)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1alpha4_VCDMachineSpec_To_v1beta2_VCDMachineSpec(a.(*VCDMachineSpec), b.(*v1beta2.VCDMachineSpec), scope)
 	}); err != nil {
 		return err
 	}
-	if err := s.AddConversionFunc((*v1beta1.UserCredentialsContext)(nil), (*UserCredentialsContext)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1beta1_UserCredentialsContext_To_v1alpha4_UserCredentialsContext(a.(*v1beta1.UserCredentialsContext), b.(*UserCredentialsContext), scope)
+	if err := s.AddConversionFunc((*v1beta2.UserCredentialsContext)(nil), (*UserCredentialsContext)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1beta2_UserCredentialsContext_To_v1alpha4_UserCredentialsContext(a.(*v1beta2.UserCredentialsContext), b.(*UserCredentialsContext), scope)
 	}); err != nil {
 		return err
 	}
-	if err := s.AddConversionFunc((*v1beta1.VCDClusterSpec)(nil), (*VCDClusterSpec)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1beta1_VCDClusterSpec_To_v1alpha4_VCDClusterSpec(a.(*v1beta1.VCDClusterSpec), b.(*VCDClusterSpec), scope)
+	if err := s.AddConversionFunc((*v1beta2.VCDClusterSpec)(nil), (*VCDClusterSpec)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1beta2_VCDClusterSpec_To_v1alpha4_VCDClusterSpec(a.(*v1beta2.VCDClusterSpec), b.(*VCDClusterSpec), scope)
 	}); err != nil {
 		return err
 	}
-	if err := s.AddConversionFunc((*v1beta1.VCDClusterStatus)(nil), (*VCDClusterStatus)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1beta1_VCDClusterStatus_To_v1alpha4_VCDClusterStatus(a.(*v1beta1.VCDClusterStatus), b.(*VCDClusterStatus), scope)
+	if err := s.AddConversionFunc((*v1beta2.VCDClusterStatus)(nil), (*VCDClusterStatus)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1beta2_VCDClusterStatus_To_v1alpha4_VCDClusterStatus(a.(*v1beta2.VCDClusterStatus), b.(*VCDClusterStatus), scope)
 	}); err != nil {
 		return err
 	}
-	if err := s.AddConversionFunc((*v1beta1.VCDMachineSpec)(nil), (*VCDMachineSpec)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1beta1_VCDMachineSpec_To_v1alpha4_VCDMachineSpec(a.(*v1beta1.VCDMachineSpec), b.(*VCDMachineSpec), scope)
+	if err := s.AddConversionFunc((*v1beta2.VCDMachineSpec)(nil), (*VCDMachineSpec)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1beta2_VCDMachineSpec_To_v1alpha4_VCDMachineSpec(a.(*v1beta2.VCDMachineSpec), b.(*VCDMachineSpec), scope)
 	}); err != nil {
 		return err
 	}
-	if err := s.AddConversionFunc((*v1beta1.VCDMachineStatus)(nil), (*VCDMachineStatus)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1beta1_VCDMachineStatus_To_v1alpha4_VCDMachineStatus(a.(*v1beta1.VCDMachineStatus), b.(*VCDMachineStatus), scope)
+	if err := s.AddConversionFunc((*v1beta2.VCDMachineStatus)(nil), (*VCDMachineStatus)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1beta2_VCDMachineStatus_To_v1alpha4_VCDMachineStatus(a.(*v1beta2.VCDMachineStatus), b.(*VCDMachineStatus), scope)
 	}); err != nil {
 		return err
 	}
@@ -379,7 +343,7 @@ func autoConvert_v1beta2_VCDClusterSpec_To_v1alpha4_VCDClusterSpec(in *v1beta2.V
 
 func autoConvert_v1alpha4_VCDClusterStatus_To_v1beta2_VCDClusterStatus(in *VCDClusterStatus, out *v1beta2.VCDClusterStatus, s conversion.Scope) error {
 	out.Ready = in.Ready
-	out.Conditions = *(*apiv1beta1.Conditions)(unsafe.Pointer(&in.Conditions))
+	out.Conditions = *(*v1beta1.Conditions)(unsafe.Pointer(&in.Conditions))
 	out.InfraId = in.InfraId
 	return nil
 }
@@ -505,8 +469,8 @@ func autoConvert_v1beta2_VCDMachineSpec_To_v1alpha4_VCDMachineSpec(in *v1beta2.V
 
 func autoConvert_v1alpha4_VCDMachineStatus_To_v1beta2_VCDMachineStatus(in *VCDMachineStatus, out *v1beta2.VCDMachineStatus, s conversion.Scope) error {
 	out.Ready = in.Ready
-	out.Addresses = *(*[]apiv1beta1.MachineAddress)(unsafe.Pointer(&in.Addresses))
-	out.Conditions = *(*apiv1beta1.Conditions)(unsafe.Pointer(&in.Conditions))
+	out.Addresses = *(*[]v1beta1.MachineAddress)(unsafe.Pointer(&in.Addresses))
+	out.Conditions = *(*v1beta1.Conditions)(unsafe.Pointer(&in.Conditions))
 	return nil
 }
 
