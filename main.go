@@ -130,33 +130,19 @@ func main() {
 		os.Exit(1)
 	}
 	if os.Getenv("ENABLE_WEBHOOKS") != "false" {
-		if err = (&infrav1beta1.VCDCluster{}).SetupWebhookWithManager(mgr); err != nil {
+		if err = (&infrav1beta2.VCDCluster{}).SetupWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "VCDCluster")
 			os.Exit(1)
 		}
-		if err = (&infrav1beta1.VCDMachine{}).SetupWebhookWithManager(mgr); err != nil {
+		if err = (&infrav1beta2.VCDMachine{}).SetupWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "VCDMachine")
 			os.Exit(1)
 		}
-		if err = (&infrav1beta1.VCDMachineTemplate{}).SetupWebhookWithManager(mgr); err != nil {
+		if err = (&infrav1beta2.VCDMachineTemplate{}).SetupWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "VCDMachineTemplate")
 			os.Exit(1)
 		}
 	}
-
-	if err = (&infrav1beta2.VCDCluster{}).SetupWebhookWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create webhook", "webhook", "VCDCluster")
-		os.Exit(1)
-	}
-	if err = (&infrav1beta2.VCDMachine{}).SetupWebhookWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create webhook", "webhook", "VCDMachine")
-		os.Exit(1)
-	}
-	if err = (&infrav1beta2.VCDMachineTemplate{}).SetupWebhookWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create webhook", "webhook", "VCDMachineTemplate")
-		os.Exit(1)
-	}
-	//+kubebuilder:scaffold:builder
 
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
 		setupLog.Error(err, "unable to set up health check")
