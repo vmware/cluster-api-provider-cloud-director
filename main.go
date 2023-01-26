@@ -9,20 +9,23 @@ import (
 	"context"
 	_ "embed"
 	"flag"
-	infrav1alpha4 "github.com/vmware/cluster-api-provider-cloud-director/api/v1alpha4"
-	infrav1beta1 "github.com/vmware/cluster-api-provider-cloud-director/api/v1beta1"
-	"github.com/vmware/cluster-api-provider-cloud-director/controllers"
+	"os"
+	"time"
+
 	"go.uber.org/zap/zapcore"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/klog"
-	"os"
 	clusterv1beta1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	bootstrapv1beta1 "sigs.k8s.io/cluster-api/bootstrap/kubeadm/api/v1beta1"
 	addonsv1 "sigs.k8s.io/cluster-api/exp/addons/api/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
-	"time"
+
+	infrav1alpha4 "github.com/vmware/cluster-api-provider-cloud-director/api/v1alpha4"
+	infrav1beta1 "github.com/vmware/cluster-api-provider-cloud-director/api/v1beta1"
+	"github.com/vmware/cluster-api-provider-cloud-director/controllers"
+
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
@@ -30,6 +33,8 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+
+	infrav1beta2 "github.com/vmware/cluster-api-provider-cloud-director/api/v1beta2"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -60,6 +65,7 @@ func init() {
 	// We need the addonsv1 scheme in order to list the ClusterResourceSetBindings addon.
 	utilruntime.Must(addonsv1.AddToScheme(myscheme))
 
+	utilruntime.Must(infrav1beta2.AddToScheme(myscheme))
 	//+kubebuilder:scaffold:scheme
 }
 
@@ -138,6 +144,18 @@ func main() {
 		}
 	}
 
+	if err = (&infrav1beta2.VCDCluster{}).SetupWebhookWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "VCDCluster")
+		os.Exit(1)
+	}
+	if err = (&infrav1beta2.VCDMachine{}).SetupWebhookWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "VCDMachine")
+		os.Exit(1)
+	}
+	if err = (&infrav1beta2.VCDMachineTemplate{}).SetupWebhookWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "VCDMachineTemplate")
+		os.Exit(1)
+	}
 	//+kubebuilder:scaffold:builder
 
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
