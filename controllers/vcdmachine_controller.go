@@ -884,7 +884,7 @@ func getVMName(machine *clusterv1.Machine, vcdMachine *infrav1.VCDMachine, log l
 	}
 
 	vmNameTemplate, err := template.New("vmname").
-		Funcs(sprig.FuncMap()).
+		Funcs(sprig.TxtFuncMap()).
 		Parse(vcdMachine.Spec.VmNamingTemplate)
 	if err != nil {
 		log.Error(err, "Error while parsing VmNamingTemplate of VCDMachine")
