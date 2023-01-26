@@ -24,6 +24,7 @@ import (
 
 	infrav1alpha4 "github.com/vmware/cluster-api-provider-cloud-director/api/v1alpha4"
 	infrav1beta1 "github.com/vmware/cluster-api-provider-cloud-director/api/v1beta1"
+	infrav1beta2 "github.com/vmware/cluster-api-provider-cloud-director/api/v1beta2"
 	"github.com/vmware/cluster-api-provider-cloud-director/controllers"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
@@ -33,9 +34,6 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
-
-	infrav1beta2 "github.com/vmware/cluster-api-provider-cloud-director/api/v1beta2"
-	//+kubebuilder:scaffold:imports
 )
 
 //go:embed release/version
@@ -49,24 +47,19 @@ var (
 func init() {
 	klog.InitFlags(nil)
 	utilruntime.Must(scheme.AddToScheme(myscheme))
-
 	// We need both schemes in order to be able to handle v1alpha4 and v1beta1 Infra objects. We can remove the v1alpha4
 	// when that version gets deprecated. However we will handle v1alpha4 objects by converting them to the v1beta1 hub.
 	utilruntime.Must(infrav1alpha4.AddToScheme(myscheme))
 	utilruntime.Must(infrav1beta1.AddToScheme(myscheme))
-
+	utilruntime.Must(infrav1beta2.AddToScheme(myscheme))
 	// We only need the v1beta1 for core CAPI since their webhooks will convert v1alpha4 to v1beta1. We will handle all
 	// core CAPI objects using v1beta1 using the available webhook conversion. Hence v1beta1 support in core CAPI is
 	// mandatory.
 	utilruntime.Must(clusterv1beta1.AddToScheme(myscheme))
 	utilruntime.Must(kcpv1beta1.AddToScheme(myscheme))
 	utilruntime.Must(bootstrapv1beta1.AddToScheme(myscheme))
-
 	// We need the addonsv1 scheme in order to list the ClusterResourceSetBindings addon.
 	utilruntime.Must(addonsv1.AddToScheme(myscheme))
-
-	utilruntime.Must(infrav1beta2.AddToScheme(myscheme))
-	//+kubebuilder:scaffold:scheme
 }
 
 func main() {

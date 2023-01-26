@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/pkg/errors"
-	infrav1 "github.com/vmware/cluster-api-provider-cloud-director/api/v1beta1"
+	infrav1 "github.com/vmware/cluster-api-provider-cloud-director/api/v1beta2"
 	rdeType "github.com/vmware/cluster-api-provider-cloud-director/pkg/vcdtypes/rde_type_1_1_0"
 	"gopkg.in/yaml.v2"
 	v1 "k8s.io/api/core/v1"
@@ -28,8 +28,9 @@ func getTKGVersion(cluster *clusterv1.Cluster) string {
 }
 
 // filterTypeMetaAndObjectMetaFromK8sObjectMap is a helper function to remove extraneous contents in "objectmeta" and "typemeta"
-//  keys. The function moves name and namespace from "objectmeta" key to "metadata" key and moves all the keys from "typemeta"
-//  key to objMap
+//
+//	keys. The function moves name and namespace from "objectmeta" key to "metadata" key and moves all the keys from "typemeta"
+//	key to objMap
 func filterTypeMetaAndObjectMetaFromK8sObjectMap(objMap map[string]interface{}) error {
 	if _, ok := objMap["typemeta"]; ok {
 		typeMetaMap, ok := objMap["typemeta"].(map[interface{}]interface{})

@@ -22,7 +22,7 @@ import (
 	vcdsdkutil "github.com/vmware/cloud-provider-for-cloud-director/pkg/util"
 	"github.com/vmware/cloud-provider-for-cloud-director/pkg/vcdsdk"
 	swagger "github.com/vmware/cloud-provider-for-cloud-director/pkg/vcdswaggerclient"
-	infrav1 "github.com/vmware/cluster-api-provider-cloud-director/api/v1beta1"
+	infrav1 "github.com/vmware/cluster-api-provider-cloud-director/api/v1beta2"
 	"github.com/vmware/cluster-api-provider-cloud-director/pkg/capisdk"
 	vcdutil "github.com/vmware/cluster-api-provider-cloud-director/pkg/util"
 	rdeType "github.com/vmware/cluster-api-provider-cloud-director/pkg/vcdtypes/rde_type_1_1_0"
