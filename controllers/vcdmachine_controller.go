@@ -465,9 +465,7 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		cloudInitInput.HTTPSProxy = vcdCluster.Spec.ProxyConfigSpec.HTTPSProxy
 		cloudInitInput.NoProxy = vcdCluster.Spec.ProxyConfigSpec.NoProxy
 		cloudInitInput.MachineName = vmName
-		if err != nil {
-			return ctrl.Result{}, err
-		}
+
 		// TODO: After tenants has access to siteId, populate siteId to cloudInitInput as opposed to the site
 		cloudInitInput.VcdHostFormatted = strings.ReplaceAll(vcdCluster.Spec.Site, "/", "\\/")
 		cloudInitInput.NvidiaGPU = vcdMachine.Spec.EnableNvidiaGPU
