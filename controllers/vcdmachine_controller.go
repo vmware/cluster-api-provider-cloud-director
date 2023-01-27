@@ -309,6 +309,14 @@ func (r *VCDMachineReconciler) waitForPostCustomizationPhase(ctx context.Context
 
 }
 
+// getVMIDFromProviderID returns VMID from the provider ID if providerID is not nil. If the providerID is nil, empty string is returned as providerID.
+func getVMIDFromProviderID(providerID *string) string {
+	if providerID == nil {
+		return ""
+	}
+	return strings.TrimPrefix("vmware-cloud-director://", *providerID)
+}
+
 func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clusterv1.Cluster,
 	machine *clusterv1.Machine, vcdMachine *infrav1.VCDMachine, vcdCluster *infrav1.VCDCluster) (res ctrl.Result, retErr error) {
 
@@ -326,7 +334,14 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	if err != nil {
 		return ctrl.Result{}, errors.Wrapf(err, "Unable to create VCD client to reconcile infrastructure for the Machine [%s]", machine.Name)
 	}
+
 	capvcdRdeManager := capisdk.NewCapvcdRdeManager(workloadVCDClient, vcdCluster.Status.InfraId)
+	if conditions.IsFalse(machine, clusterv1.MachineHealthCheckSucceededCondition) {
+		err := capvcdRdeManager.AddToEventSet(ctx, capisdk.NodeHealthCheckFailed, getVMIDFromProviderID(vcdMachine.Status.ProviderID), machine.Name, conditions.GetMessage(machine, clusterv1.MachineHealthCheckSucceededCondition), false)
+		if err != nil {
+			log.Error(err, "failed to add VcdMachineHealthCheckFailedEvent event into RDE", "rdeID", vcdCluster.Status.InfraId)
+		}
+	}
 	if vcdMachine.Spec.ProviderID != nil && vcdMachine.Status.ProviderID != nil {
 		vcdMachine.Status.Ready = true
 		conditions.MarkTrue(vcdMachine, ContainerProvisionedCondition)
