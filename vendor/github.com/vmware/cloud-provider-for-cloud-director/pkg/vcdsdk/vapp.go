@@ -29,8 +29,8 @@ const (
 )
 
 var (
-	trueVar     = true
-	falseVar    = false
+	trueVar  = true
+	falseVar = false
 )
 
 type VdcManager struct {
@@ -346,6 +346,11 @@ func (vdc *VdcManager) FindVMByUUID(VAppName string, vcdVmUUID string) (*govcd.V
 
 	vm, err := vApp.GetVMById(vmUUID, true)
 	if err != nil {
+		// CPI uses this function via vminfocache which finds VmInfo by using GetByUUID() which calls FindVMByUUID().
+		// In CPI, we are handling ErrorEntityNotFound case, but we were not returning it so it skipped this case causing nodes to not get deleted as it was not found.
+		if err == govcd.ErrorEntityNotFound {
+			return nil, govcd.ErrorEntityNotFound
+		}
 		return nil, fmt.Errorf("unable to find vm UUID [%s] in vApp [%s]: [%v]",
 			vmUUID, VAppName, err)
 	}

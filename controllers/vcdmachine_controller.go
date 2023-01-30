@@ -18,6 +18,9 @@ import (
 	"text/template"
 	"time"
 
+	"github.com/Masterminds/sprig/v3"
+	"github.com/go-logr/logr"
+
 	"github.com/pkg/errors"
 	cpiutil "github.com/vmware/cloud-provider-for-cloud-director/pkg/util"
 	"github.com/vmware/cloud-provider-for-cloud-director/pkg/vcdsdk"
@@ -308,6 +311,14 @@ func (r *VCDMachineReconciler) waitForPostCustomizationPhase(ctx context.Context
 
 }
 
+// getVMIDFromProviderID returns VMID from the provider ID if providerID is not nil. If the providerID is nil, empty string is returned as providerID.
+func getVMIDFromProviderID(providerID *string) string {
+	if providerID == nil {
+		return ""
+	}
+	return strings.TrimPrefix("vmware-cloud-director://", *providerID)
+}
+
 func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clusterv1.Cluster,
 	machine *clusterv1.Machine, vcdMachine *infrav1.VCDMachine, vcdCluster *infrav1.VCDCluster) (res ctrl.Result, retErr error) {
 
@@ -325,7 +336,14 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	if err != nil {
 		return ctrl.Result{}, errors.Wrapf(err, "Unable to create VCD client to reconcile infrastructure for the Machine [%s]", machine.Name)
 	}
+
 	capvcdRdeManager := capisdk.NewCapvcdRdeManager(workloadVCDClient, vcdCluster.Status.InfraId)
+	if conditions.IsFalse(machine, clusterv1.MachineHealthCheckSucceededCondition) {
+		err := capvcdRdeManager.AddToEventSet(ctx, capisdk.NodeHealthCheckFailed, getVMIDFromProviderID(vcdMachine.Status.ProviderID), machine.Name, conditions.GetMessage(machine, clusterv1.MachineHealthCheckSucceededCondition), false)
+		if err != nil {
+			log.Error(err, "failed to add VcdMachineHealthCheckFailedEvent event into RDE", "rdeID", vcdCluster.Status.InfraId)
+		}
+	}
 	if vcdMachine.Spec.ProviderID != nil && vcdMachine.Status.ProviderID != nil {
 		vcdMachine.Status.Ready = true
 		conditions.MarkTrue(vcdMachine, ContainerProvisionedCondition)
@@ -392,6 +410,11 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	}
 	// The vApp should have already been created, so this is more of a Get of the vApp
 	vAppName := cluster.Name
+	vmName, err := getVMName(machine, vcdMachine, log)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
 	vApp, err := vdcManager.Vdc.GetVAppByName(vAppName, true)
 	if err != nil {
 		updatedErr := capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDClusterVappCreationError, "", machine.Name, fmt.Sprintf("%v", err))
@@ -440,7 +463,8 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		cloudInitInput.HTTPProxy = vcdCluster.Spec.ProxyConfigSpec.HTTPProxy
 		cloudInitInput.HTTPSProxy = vcdCluster.Spec.ProxyConfigSpec.HTTPSProxy
 		cloudInitInput.NoProxy = vcdCluster.Spec.ProxyConfigSpec.NoProxy
-		cloudInitInput.MachineName = machine.Name
+		cloudInitInput.MachineName = vmName
+
 		// TODO: After tenants has access to siteId, populate siteId to cloudInitInput as opposed to the site
 		cloudInitInput.VcdHostFormatted = strings.ReplaceAll(vcdCluster.Spec.Site, "/", "\\/")
 		cloudInitInput.NvidiaGPU = vcdMachine.Spec.EnableNvidiaGPU
@@ -474,7 +498,7 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	}
 
 	vmExists := true
-	vm, err := vApp.GetVMByName(machine.Name, true)
+	vm, err := vApp.GetVMByName(vmName, true)
 	if err != nil && err != govcd.ErrorEntityNotFound {
 		updatedErr := capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDMachineCreationError, "", machine.Name, fmt.Sprintf("%v", err))
 		if updatedErr != nil {
@@ -489,7 +513,7 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		log.Info("Adding infra VM for the machine")
 
 		// vcda-4391 fixed
-		err = vdcManager.AddNewVM(machine.Name, vcdCluster.Name, 1,
+		err = vdcManager.AddNewVM(vmName, vcdCluster.Name, 1,
 			vcdMachine.Spec.Catalog, vcdMachine.Spec.Template, vcdMachine.Spec.PlacementPolicy,
 			vcdMachine.Spec.SizingPolicy, vcdMachine.Spec.StorageProfile, "", false)
 		if err != nil {
@@ -500,7 +524,7 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 			return ctrl.Result{}, errors.Wrapf(err, "Error provisioning infrastructure for the machine; unable to create VM [%s] in vApp [%s]",
 				machine.Name, vApp.VApp.Name)
 		}
-		vm, err = vApp.GetVMByName(machine.Name, true)
+		vm, err = vApp.GetVMByName(vmName, true)
 		if err != nil {
 			err1 := capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDMachineCreationError, "", machine.Name, fmt.Sprintf("%v", err))
 			if err1 != nil {
@@ -617,8 +641,14 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		}
 
 		// At this point the vcdCluster.Spec.ControlPlaneEndpoint should have been set correctly.
+		// We are not using externalIp=vcdCluster.Spec.ControlPlaneEndpoint.Host because of a possible race between which controller picks ups according to the spec.
+		// 1. If vcdcluster controller picks up vcdCluster.Spec.ControlPlaneEndpoint.Host, there is no issue as it will retrieve it from existing VCD VirtualService.
+		// 2. If vcdmachine controller picks up first, then it would update the LB according to vcdCluster.Spec.ControlPlaneEndpoint.Host.
+		// We are deciding to pass externalIp="" in this case, as UpdateVirtualService() would see it's an empty string, so it would just update the VS Object with what's already present.
+		// Users should not be updating control plane IP after it has been created, so this is not a valid use case.
+		// TODO: CAFV-143 In the the future, ideally we should add ControlPlaneEndpoint.Host, ControlPlaneEndpoint.Port into VCDClusterStatus, and pass externalIp=vcdCluster.Status.ControlPlaneEndpoint.Host instead
 		_, err = gateway.UpdateLoadBalancer(ctx, lbPoolName, virtualServiceName, updatedUniqueIPs,
-			int32(vcdCluster.Spec.ControlPlaneEndpoint.Port), int32(vcdCluster.Spec.ControlPlaneEndpoint.Port),
+			"", int32(vcdCluster.Spec.ControlPlaneEndpoint.Port), int32(vcdCluster.Spec.ControlPlaneEndpoint.Port),
 			oneArm, !vcdCluster.Spec.LoadBalancerConfigSpec.UseOneArm, "TCP", resourcesAllocated)
 		if err != nil {
 			updatedErr := capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDMachineCreationError, "", machine.Name, fmt.Sprintf("%v", err))
@@ -845,6 +875,32 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	return ctrl.Result{}, nil
 }
 
+func getVMName(machine *clusterv1.Machine, vcdMachine *infrav1.VCDMachine, log logr.Logger) (string, error) {
+	if vcdMachine.Spec.VmNamingTemplate == "" {
+		return machine.Name, nil
+	}
+
+	vmNameTemplate, err := template.New("vmname").
+		Funcs(sprig.TxtFuncMap()).
+		Parse(vcdMachine.Spec.VmNamingTemplate)
+	if err != nil {
+		log.Error(err, "Error while parsing VmNamingTemplate of VCDMachine")
+		return "", errors.Wrapf(err, "Error while parsing VmNamingTemplate of VCDMachine")
+	}
+
+	buf := new(bytes.Buffer)
+	err = vmNameTemplate.Execute(buf, map[string]interface{}{
+		"machine":    machine,
+		"vcdMachine": vcdMachine,
+	})
+	if err != nil {
+		log.Error(err, "Error while generating VM Name by using VmNamingTemplate of VCDMachine")
+		return "", errors.Wrapf(err, "Error while generating VM Name by using VmNamingTemplate of VCDMachine")
+	}
+
+	return buf.String(), nil
+}
+
 // getPrimaryNetwork returns the primary network based on vm.NetworkConnectionSection.PrimaryNetworkConnectionIndex
 // It is not possible to assume vm.NetworkConnectionSection.NetworkConnection[0] is the primary network when there are
 // multiple networks attached to the VM.
@@ -947,7 +1003,7 @@ func ensureNetworkIsAttachedToVApp(vdcManager *vcdsdk.VdcManager, vApp *govcd.VA
 
 	_, err = vApp.AddOrgNetwork(&govcd.VappNetworkSettings{}, ovdcNetwork.OrgVDCNetwork, false)
 	if err != nil {
-		return fmt.Errorf("unable to add ovdc network [%s] to vApp [%s]: [%v]",
+		return fmt.Errorf("unable to add ovdc network [%v] to vApp [%s]: [%v]",
 			ovdcNetwork, vApp.VApp.Name, err)
 	}
 
@@ -1065,8 +1121,15 @@ func (r *VCDMachineReconciler) reconcileDelete(ctx context.Context, cluster *clu
 			}
 
 			// At this point the vcdCluster.Spec.ControlPlaneEndpoint should have been set correctly.
+			// At this point the vcdCluster.Spec.ControlPlaneEndpoint should have been set correctly.
+			// We are not using externalIp=vcdCluster.Spec.ControlPlaneEndpoint.Host because of a possible race between which controller picks ups according to the spec.
+			// 1. If vcdcluster controller picks up vcdCluster.Spec.ControlPlaneEndpoint.Host, there is no issue as it will retrieve it from existing VCD VirtualService.
+			// 2. If vcdmachine controller picks up first, then it would update the LB according to vcdCluster.Spec.ControlPlaneEndpoint.Host.
+			// Hence, we are deciding to pass externalIp="" in this case, as UpdateVirtualService() would see it's an empty string, so it would just update the VS Object with what's already present.
+			// Users should not be updating control plane IP after it has been created, so this is not a valid use case.
+			// TODO: CAFV-143 - In the the future, ideally we should add ControlPlaneEndpoint.Host, ControlPlaneEndpoint.Port into VCDClusterStatus, and pass externalIp=vcdCluster.Status.ControlPlaneEndpoint.Host instead
 			_, err = gateway.UpdateLoadBalancer(ctx, lbPoolName, virtualServiceName, updatedIPs,
-				int32(vcdCluster.Spec.ControlPlaneEndpoint.Port), int32(vcdCluster.Spec.ControlPlaneEndpoint.Port),
+				"", int32(vcdCluster.Spec.ControlPlaneEndpoint.Port), int32(vcdCluster.Spec.ControlPlaneEndpoint.Port),
 				oneArm, !vcdCluster.Spec.LoadBalancerConfigSpec.UseOneArm, "TCP", resourcesAllocated)
 			if err != nil {
 				updatedErr := capvcdRdeManager.AddToErrorSet(ctx, capisdk.LoadBalancerError, "", machine.Name, fmt.Sprintf("%v", err))
@@ -1150,7 +1213,11 @@ func (r *VCDMachineReconciler) reconcileDelete(ctx context.Context, cluster *clu
 			log.Error(err, "failed to remove VCDMachineError from RDE", "rdeID", vcdCluster.Status.InfraId)
 		}
 		// delete the vm
-		vm, err := vApp.GetVMByName(machine.Name, true)
+		vmName, err := getVMName(machine, vcdMachine, log)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+		vm, err := vApp.GetVMByName(vmName, true)
 		if err != nil {
 			if err == govcd.ErrorEntityNotFound {
 				log.Error(err, "Error while deleting the machine; VM  not found")
