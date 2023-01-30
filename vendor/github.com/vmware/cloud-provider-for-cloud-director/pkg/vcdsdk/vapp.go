@@ -653,6 +653,7 @@ func (vdc *VdcManager) AddNewMultipleVM(vapp *govcd.VApp, vmNamePrefix string, v
 						AdminPasswordEnabled:  &trueVar,
 						AdminPasswordAuto:     &trueVar,
 						ResetPasswordRequired: &falseVar,
+						ComputerName:          vmName,
 					},
 					NetworkConnectionSection: &types.NetworkConnectionSection{
 						NetworkConnection: []*types.NetworkConnection{
