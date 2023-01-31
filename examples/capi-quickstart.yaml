@@ -36,7 +36,7 @@ data:
   password: base64_password # password associated with the user creating the cluster
   refreshToken: base64_refreshToken # refresh token of the client registered with VCD for creating clusters. username and password can be left blank if refresh token is provided
 ---
-apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta2
 kind: VCDCluster
 metadata:
   name: capi-cluster
@@ -61,7 +61,7 @@ spec:
     httpsProxy: "" # set global variable: https_proxy
     noProxy: "" # set global variable: no_proxy
 ---
-apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta2
 kind: VCDMachineTemplate
 metadata:
   name: capi-cluster-control-plane
@@ -118,14 +118,14 @@ spec:
           cloud-provider: external
   machineTemplate:
     infrastructureRef:
-      apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+      apiVersion: infrastructure.cluster.x-k8s.io/v1beta2
       kind: VCDMachineTemplate
       name: capi-cluster-control-plane # name of the VCDMachineTemplate object used to deploy control plane VMs. Should be the same name as that of KubeadmControlPlane object
       namespace: default # kubernetes namespace of the VCDMachineTemplate object. Should be the same namespace as that of the Cluster object
   replicas: 1 # desired number of control plane nodes for the cluster
   version: v1.20.8+vmware.1 # Kubernetes version to be used to create (or) upgrade the control plane nodes. The value needs to be retrieved from the respective TKGm ova BOM. Refer to the documentation.
 ---
-apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta2
 kind: VCDMachineTemplate
 metadata:
   name: capi-cluster-md0
@@ -180,7 +180,7 @@ spec:
           namespace: default # kubernetes namespace of the KubeadmConfigTemplate object. Should be the same namespace as that of the Cluster object
       clusterName: capi-cluster # name of the Cluster object
       infrastructureRef:
-        apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+        apiVersion: infrastructure.cluster.x-k8s.io/v1beta2
         kind: VCDMachineTemplate
         name: capi-cluster-md0 # name of the VCDMachineTemplate object used to deploy worker nodes
         namespace: default # kubernetes namespace of the VCDMachineTemplate object used to deploy worker nodes
