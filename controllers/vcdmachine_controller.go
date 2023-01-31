@@ -320,6 +320,22 @@ func getVMIDFromProviderID(providerID *string) string {
 	return strings.TrimPrefix("vmware-cloud-director://", *providerID)
 }
 
+// checkIfMachineNodeIsUnhealthy returns true if the Node associated with the Machine is regarded as unhealthy, and false otherwise.
+func checkIfMachineNodeIsUnhealthy(machine *clusterv1.Machine) bool {
+	if conditions.IsUnknown(machine, clusterv1.MachineNodeHealthyCondition) || conditions.IsFalse(machine, clusterv1.MachineNodeHealthyCondition) {
+		switch conditions.GetReason(machine, clusterv1.MachineNodeHealthyCondition) {
+		case clusterv1.NodeNotFoundReason, clusterv1.NodeConditionsFailedReason:
+			return true
+		default:
+			// handles the reasons clusterv1.WaitingForNodeRefReason and clusterv1.NodeProvisioningReason
+			// These reasons are set on the Machine when provider ID is not set on the Machine and when the Node is being provisioned, respectively
+			// These conditions are not regarded as Machine being unhealthy in CAPVCD.
+			return false
+		}
+	}
+	return false
+}
+
 func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clusterv1.Cluster,
 	machine *clusterv1.Machine, vcdMachine *infrav1.VCDMachine, vcdCluster *infrav1.VCDCluster) (res ctrl.Result, retErr error) {
 
@@ -342,7 +358,13 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	if conditions.IsFalse(machine, clusterv1.MachineHealthCheckSucceededCondition) {
 		err := capvcdRdeManager.AddToEventSet(ctx, capisdk.NodeHealthCheckFailed, getVMIDFromProviderID(vcdMachine.Status.ProviderID), machine.Name, conditions.GetMessage(machine, clusterv1.MachineHealthCheckSucceededCondition), false)
 		if err != nil {
-			log.Error(err, "failed to add VcdMachineHealthCheckFailedEvent event into RDE", "rdeID", vcdCluster.Status.InfraId)
+			log.Error(err, fmt.Sprintf("failed to add %s event into RDE", capisdk.NodeHealthCheckFailed), "rdeID", vcdCluster.Status.InfraId)
+		}
+	}
+	if checkIfMachineNodeIsUnhealthy(machine) {
+		err := capvcdRdeManager.AddToEventSet(ctx, capisdk.NodeUnhealthy, getVMIDFromProviderID(vcdMachine.Status.ProviderID), machine.Name, conditions.GetMessage(machine, clusterv1.MachineNodeHealthyCondition), false)
+		if err != nil {
+			log.Error(err, fmt.Sprintf("failed to add %s event into RDE", capisdk.NodeUnhealthy), "rdeID", vcdCluster.Status.InfraId)
 		}
 	}
 	if vcdMachine.Spec.ProviderID != nil && vcdMachine.Status.ProviderID != nil {
