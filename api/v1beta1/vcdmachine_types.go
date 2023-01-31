@@ -129,7 +129,6 @@ type VCDMachineStatus struct {
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
-//+kubebuilder:storageversion
 
 // VCDMachine is the Schema for the vcdmachines API
 type VCDMachine struct {
