@@ -44,7 +44,7 @@ labels:
 1. Retrieve the workload cluster's kubeconfig
    - `clusterctl get kubeconfig {cluster-name} > workload_cluster.conf`
 2. Retrieve ClusterID and create a secret
-   - `export CLUSTERID=$(kubectl --kubeconfig=management_cluster.conf get vcdclusters <management cluster name> -o jsonpath="{.status.infraId}")`
+   - `export CLUSTERID=$(kubectl --kubeconfig=management_cluster.conf get vcdclusters <workload cluster name> -o jsonpath="{.status.infraId}")`
    - `kubectl --kubeconfig=workload_cluster.conf -n kube-system create secret generic vcloud-clusterid-secret --from-literal=clusterid=${CLUSTERID}`
 3. Retrieve RefreshToken of the user and create a secret with it on the workload cluster.
    - `export REFRESH_TOKEN=$(kubectl --kubeconfig=bootstrap_cluster.conf get secret <secret name> -o jsonpath="{.data.refreshToken}" | base64 -D)`
