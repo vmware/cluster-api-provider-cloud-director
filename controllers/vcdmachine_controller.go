@@ -317,7 +317,8 @@ func getVMIDFromProviderID(providerID *string) string {
 	if providerID == nil {
 		return ""
 	}
-	return strings.TrimPrefix("vmware-cloud-director://", *providerID)
+	x := strings.TrimPrefix(*providerID, "vmware-cloud-director://", )
+	return x
 }
 
 // checkIfMachineNodeIsUnhealthy returns true if the Node associated with the Machine is regarded as unhealthy, and false otherwise.
