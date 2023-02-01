@@ -154,10 +154,10 @@ build-within-docker:
 	go build -ldflags "-X github.com/vmware/cluster-api-provider-cloud-director/version.Version=$(version)" -o /build/vcloud/cluster-api-provider-cloud-director main.go
 
 capi: generate fmt vet vendor
-#	docker build -f Dockerfile . -t cluster-api-provider-cloud-director:$(version)
-#	docker tag cluster-api-provider-cloud-director:$(version) $(IMG)
-#	docker tag cluster-api-provider-cloud-director:$(version) $(IMG).$(GITCOMMIT)
-#	docker push $(IMG)
+	docker build -f Dockerfile . -t cluster-api-provider-cloud-director:$(version)
+	docker tag cluster-api-provider-cloud-director:$(version) $(IMG)
+	docker tag cluster-api-provider-cloud-director:$(version) $(IMG).$(GITCOMMIT)
+	docker push $(IMG)
 
 vendor: generate fmt vet
 	go mod edit -go=1.17
@@ -180,7 +180,7 @@ generate_conversions:  ## Runs Go related generate targets.
 		--go-header-file=./boilerplate.go.txt
 
 dev: capi
-#	docker push $(IMG).$(GITCOMMIT)
+	docker push $(IMG).$(GITCOMMIT)
 	sed -e "s/__GIT_COMMIT__/$(GITCOMMIT)/g" -e "s/__VERSION__/$(version)/g" config/manager/manager.yaml.template > config/manager/manager.yaml
 	make release-manifests
 
