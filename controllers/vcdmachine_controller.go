@@ -686,6 +686,34 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		log.Error(err, "failed to remove VCDMachineCreationError from RDE")
 	}
 	if vmStatus != "POWERED_ON" {
+		// In TKG >= 1.6.0, there is a missing file at /etc/cloud/cloud.cfg.d/
+		// that tells cloud-init the datasource. Without this file, a file prefixed with 90-*
+		// lists possible sources and causes cloud-init to read from OVF.
+		// This file is present in TKG < 1.6.0 and lists the datasource as "VMwareGuestInfo".
+		// In TKG < 1.6.0, this file has the 99-* prefix (the higher the value, the higher the priority)
+		// For TKG >= 1.6.0, this datasource name is "VMware". In order for this added file not to conflict
+		// with the datasource file in TKG < 1.6.0, we prefix the file with 98-*, and we specify the datasource
+		// as "VMware". We use guest customization to add this file.
+		guestcustscript := "#!/usr/bin/env bash\n" +
+			"cat > /etc/cloud/cloud.cfg.d/98-cse-vmware-datasource.cfg <<EOF\n" +
+			"datasource_list: [ \"VMware\" ]\n" +
+			"EOF"
+		task, err := vm.RunCustomizationScript(vm.VM.Name, guestcustscript)
+		if err != nil {
+			err1 := capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDMachineCreationError, "", machine.Name, fmt.Sprintf("%v", err))
+			if err1 != nil {
+				log.Error(err1, "failed to add VCDMachineCreationError into RDE", "rdeID", vcdCluster.Status.InfraId)
+			}
+			return ctrl.Result{}, errors.Wrapf(err, "Error while deploying infra for the machine [%s/%s]; unable to add VM customization script", vcdCluster.Name, vm.VM.Name)
+		}
+		if err = task.WaitTaskCompletion(); err != nil {
+			err1 := capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDMachineCreationError, "", machine.Name, fmt.Sprintf("%v", err))
+			if err1 != nil {
+				log.Error(err1, "failed to add VCDMachineCreationError into RDE", "rdeID", vcdCluster.Status.InfraId)
+			}
+			return ctrl.Result{}, errors.Wrapf(err, "Error while deploying infra for the machine [%s/%s]; error waiting for adding VM customization script", vcdCluster.Name, vm.VM.Name)
+		}
+
 		// try to power on the VM
 		b64CloudInitScript := b64.StdEncoding.EncodeToString(mergedCloudInitBytes)
 		keyVals := map[string]string{
@@ -729,7 +757,7 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 			log.Info(fmt.Sprintf("Configured the infra machine with variable [%s] to enable cloud-init", key))
 		}
 
-		task, err := vm.PowerOn()
+		task, err = vm.PowerOn()
 		if err != nil {
 			err1 := capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDMachineCreationError, "", machine.Name, fmt.Sprintf("%v", err))
 			if err1 != nil {
