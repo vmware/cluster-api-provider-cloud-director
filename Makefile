@@ -181,9 +181,9 @@ generate_conversions:  ## Runs Go related generate targets.
 
 dev: capi
 	docker push $(IMG).$(GITCOMMIT)
-	sed -e "s/__GIT_COMMIT__/$(GITCOMMIT)/g" config/manager/manager.yaml.template > config/manager/manager.yaml
+	sed -e "s/__GIT_COMMIT__/$(GITCOMMIT)/g" -e "s/__VERSION__/$(version)/g" config/manager/manager.yaml.template > config/manager/manager.yaml
 	make release-manifests
 
 prod: capi
-	sed -e "s/\.__GIT_COMMIT__//g" config/manager/manager.yaml.template > config/manager/manager.yaml
+	sed -e "s/\.__GIT_COMMIT__//g" -e "s/__VERSION__/$(version)/g" config/manager/manager.yaml.template > config/manager/manager.yaml
 	make release-manifests

@@ -22,7 +22,7 @@ spec:
       containers:
       - command:
         - /opt/vcloud/bin/cluster-api-provider-cloud-director
-        image: harbor-repo.vmware.com/vcloud/cluster-api-provider-cloud-director:main-branch.__GIT_COMMIT__
+        image: harbor-repo.vmware.com/vcloud/cluster-api-provider-cloud-director:__VERSION__.__GIT_COMMIT__
         name: manager
         securityContext:
           allowPrivilegeEscalation: false
