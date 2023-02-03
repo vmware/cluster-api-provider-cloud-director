@@ -357,13 +357,13 @@ func (capvcdRdeManager *CapvcdRdeManager) IsCapvcdEntityTypeRegistered(version s
 }
 
 // convertFrom110Format provides an automatic conversion from RDE Version 1.1.0 to the latest RDE Version in use
-// Get the srcCapvcdEntity according to RDE ID.
-// Examine the existence of capiYaml entity in srcCapvcdEntity.entity.spec. Clean up the capiYaml inside srcCapvcdEntity. Capvcd will update capiYaml using the latest vcdCluster Status
+// Get the srcCapvcdEntity and sourceRDEVersion according to RDE ID.
+// Check the existence of capiYaml entity in srcCapvcdEntity.entity.spec. Clean up the capiYaml inside srcCapvcdEntity. Capvcd will update capiYaml using the latest vcdCluster Status
 // Provide an automatic conversion of the content in srcCapvcdEntity.entity.status.capvcd content to the latest RDE version format (rdeType.CAPVCDStatus)
 // Add the placeholder for any special conversion logic inside rdeType.CAPVCDStatus (for developers)
 // Updates the srcCapvcdEntity.entityType Id to the latest ENtitytype Version in use
 // Call an API call (PUT) to update CAPVCD entity and persist data into VCD
-// Return dstCapvcdEntity as output. VCD-KE do RDE acquire on dstCapvcdEntit in the parent method AcquireRDEWithClient()
+// Return dstCapvcdEntity as output. CAPVCD update capiYaml in the parent method reconcileRDE()
 func (capvcdRdeManager *CapvcdRdeManager) convertFrom110Format(ctx context.Context, srcRde *swagger.DefinedEntity, srcRdeTypeVersion string) (*swagger.DefinedEntity, error) {
 	if srcRdeTypeVersion == rdeType.CapvcdRDETypeVersion {
 		klog.V(4).Infof("RDE [%s] is already upgraded to version [%s]", srcRde.Id, rdeType.CapvcdRDETypeVersion)
@@ -476,6 +476,13 @@ func (capvcdRdeManager *CapvcdRdeManager) convertFrom110Format(ctx context.Conte
 	return nil, fmt.Errorf("failed to upgrade RDE [%s(%s)] from EntityType Version [%s] to EntityType Version [%s] after [%d] retries",
 		srcRde.Name, srcRde.Id, srcRdeTypeVersion, rdeType.CapvcdRDETypeVersion, MaxUpdateRetries)
 }
+
+// convertFrom100Format provides an automatic conversion from RDE Version 1.0.0 to the latest RDE Version in use
+// Check the existence of capiYaml entity in srcCapvcdEntity.entity.spec. Clean up the capiYaml inside srcCapvcdEntity. Capvcd will update capiYaml using the latest vcdCluster Status
+// 	"entity.status.csi", "entity.status.cpi", "entity.status.persistentVolumes" and "entity.status.virtualIPs" in the existing RDE will be retained in the upgraded RDE.
+// Updates the srcCapvcdEntity.entityType Id to the latest ENtitytype Version in use
+// Call an API call (PUT) to update CAPVCD entity and persist data into VCD
+// Return dstCapvcdEntity as output. CAPVCD update capiYaml in the parent method reconcileRDE()
 func (capvcdRdeManager *CapvcdRdeManager) convertFrom100Format(ctx context.Context, srcRde *swagger.DefinedEntity, srcRdeTypeVersion string) (*swagger.DefinedEntity, error) {
 	if srcRdeTypeVersion == rdeType.CapvcdRDETypeVersion {
 		klog.V(4).Infof("RDE [%s] is already upgraded to version [%s]", srcRde.Id, rdeType.CapvcdRDETypeVersion)
@@ -584,7 +591,6 @@ func (capvcdRdeManager *CapvcdRdeManager) convertFrom100Format(ctx context.Conte
 //  CAPVCD will reconcile the RDE eventually with proper data by CAPVCD.
 // Invokes the right converter to convert the srcRDE into the format of latest RDE version in use
 //  The function attempts upgrade multiple times as defined by MaxUpdateRetries to avoid failures due to incorrect ETag.
-// 	"entity.status.persistentVolumes" and "entity.status.virtualIPs" in the existing RDE will be retained in the upgraded RDE.
 func (capvcdRdeManager *CapvcdRdeManager) ConvertToLatestRDEVersionFormat(ctx context.Context, rdeID string) (*swagger.DefinedEntity, error) {
 	if !capvcdRdeManager.IsCapvcdEntityTypeRegistered(rdeType.CapvcdRDETypeVersion) {
 		return nil, fmt.Errorf("CAPVCD entity type with version [%s] not registered", rdeType.CapvcdRDETypeVersion)
