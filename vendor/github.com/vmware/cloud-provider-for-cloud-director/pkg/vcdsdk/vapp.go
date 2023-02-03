@@ -653,6 +653,7 @@ func (vdc *VdcManager) AddNewMultipleVM(vapp *govcd.VApp, vmNamePrefix string, v
 						AdminPasswordEnabled:  &trueVar,
 						AdminPasswordAuto:     &trueVar,
 						ResetPasswordRequired: &falseVar,
+						CustomizationScript: guestCustScript,
 					},
 					NetworkConnectionSection: &types.NetworkConnectionSection{
 						NetworkConnection: []*types.NetworkConnection{
@@ -786,6 +787,31 @@ func (vdc *VdcManager) AddNewMultipleVM(vapp *govcd.VApp, vmNamePrefix string, v
 	waitGroup.Wait()
 
 	return govcd.Task{}, nil
+}
+
+func (vdc *VdcManager) AddNewTkgVM(vmNamePrefix string, VAppName string, vmNum int,
+	catalogName string, templateName string, placementPolicyName string, computePolicyName string,
+	storageProfileName string, powerOn bool) error {
+
+	// In TKG >= 1.6.0, there is a missing file at /etc/cloud/cloud.cfg.d/
+	// that tells cloud-init the datasource. Without this file, a file prefixed with 90-*
+	// lists possible sources and causes cloud-init to read from OVF.
+	// This file is present in TKG < 1.6.0 and lists the datasource as "VMwareGuestInfo".
+	// In TKG < 1.6.0, this file has the 99-* prefix (the higher the value, the higher the priority)
+	// For TKG >= 1.6.0, this datasource name is "VMware". In order for this added file not to conflict
+	// with the datasource file in TKG < 1.6.0, we prefix the file with 98-*, and we specify the datasource
+	// as "VMware". We use guest customization to add this file.
+	guestCustScript := `#!/usr/bin/env bash
+cat > /etc/cloud/cloud.cfg.d/98-cse-vmware-datasource.cfg <<EOF
+datasource_list: [ "VMware" ]
+EOF`
+
+	err := vdc.AddNewVM(vmNamePrefix, VAppName, vmNum, catalogName, templateName, placementPolicyName,
+		computePolicyName, storageProfileName, guestCustScript, powerOn)
+	if err != nil {
+		return fmt.Errorf("error for adding TKG VM to vApp[%s]: [%v]", VAppName, err)
+	}
+	return nil
 }
 
 func (vdc *VdcManager) AddNewVM(vmNamePrefix string, VAppName string, vmNum int,
