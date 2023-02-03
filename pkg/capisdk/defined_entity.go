@@ -401,6 +401,7 @@ func (capvcdRdeManager *CapvcdRdeManager) convertFrom110Format(ctx context.Conte
 					resp.StatusCode, srcRde.Id, http.StatusOK)
 			}
 		}
+		var newSpecMap map[string]interface{}
 		// ******************  clean up spec.capiYaml content  ******************
 		// eventually updated by CAPVCD in parent method reconcileRDE()
 		srcEntitySpecIf, srcEntitySpecOk := srcCapvcdEntity.Entity["spec"]
@@ -412,11 +413,12 @@ func (capvcdRdeManager *CapvcdRdeManager) convertFrom110Format(ctx context.Conte
 			return nil, fmt.Errorf("failed to convert RDE [%s(%s)] Spec from [%T] to map[string]interface{}",
 				srcCapvcdEntity.Name, srcCapvcdEntity.Id, srcEntitySpecIf)
 		}
+		newSpecMap = srcSpecMapIf
 		_, srcEntityCapiYamlOk := srcSpecMapIf["capiYaml"]
 		if !srcEntityCapiYamlOk {
 			return nil, fmt.Errorf("failed to find entity capiYaml from cluster [%s(%s)]", srcCapvcdEntity.Name, srcCapvcdEntity.Id)
 		}
-		srcSpecMapIf["capiYaml"] = ""
+		newSpecMap["capiYaml"] = ""
 
 		var newStatusMap map[string]interface{}
 		newStatusMap = nil
@@ -442,9 +444,14 @@ func (capvcdRdeManager *CapvcdRdeManager) convertFrom110Format(ctx context.Conte
 				}
 			}
 		}
+		srcCapvcdEntity.Entity["spec"] = newSpecMap
 		if newStatusMap != nil {
 			srcCapvcdEntity.Entity["status"] = newStatusMap
 		}
+
+		// ******************  upgrade RDE EntityType Version ******************
+		srcCapvcdEntity.EntityType = CAPVCDEntityTypePrefix + ":" + rdeType.CapvcdRDETypeVersion
+
 		updatedRde, resp, err := capvcdRdeManager.Client.APIClient.DefinedEntityApi.UpdateDefinedEntity(
 			ctx, srcCapvcdEntity, etag, srcRde.Id, org.Org.ID, nil)
 		if err != nil {
