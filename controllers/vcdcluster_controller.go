@@ -725,9 +725,8 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 					"obtained nil org when getting org by name [%s]", workloadVCDClient.ClusterOrgName)
 			}
 			// the following api call will return an empty list if there are no entities with the same name as the cluster
-			// Todo: add capvcdRDEMajor Version
 			definedEntities, resp, err := workloadVCDClient.APIClient.DefinedEntityApi.GetDefinedEntitiesByEntityType(ctx,
-				capisdk.CAPVCDTypeVendor, capisdk.CAPVCDTypeNss, rdeType.CapvcdRDETypeVersion, org.Org.ID, 1, 25, nameFilter)
+				capisdk.CAPVCDTypeVendor, capisdk.CAPVCDTypeNss, capisdk.CAPVCDEntityTypeDefaultMajorVersion, org.Org.ID, 1, 25, nameFilter)
 			if err != nil {
 				updatedErr := capvcdRdeManager.AddToErrorSet(ctx, capisdk.RdeError, "", vcdCluster.Name, fmt.Sprintf("Error fetching RDE: [%v]", err))
 				if updatedErr != nil {
