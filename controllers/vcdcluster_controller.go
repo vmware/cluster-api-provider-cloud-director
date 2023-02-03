@@ -9,6 +9,7 @@ import (
 	"context"
 	_ "embed"
 	"fmt"
+	rdeType "github.com/vmware/cluster-api-provider-cloud-director/pkg/vcdtypes/rde_type_1_2_0"
 	"net/http"
 	"os"
 	"reflect"
@@ -25,7 +26,6 @@ import (
 	infrav1 "github.com/vmware/cluster-api-provider-cloud-director/api/v1beta1"
 	"github.com/vmware/cluster-api-provider-cloud-director/pkg/capisdk"
 	vcdutil "github.com/vmware/cluster-api-provider-cloud-director/pkg/util"
-	rdeType "github.com/vmware/cluster-api-provider-cloud-director/pkg/vcdtypes/rde_type_1_1_0"
 	"github.com/vmware/cluster-api-provider-cloud-director/release"
 	"github.com/vmware/go-vcloud-director/v2/govcd"
 	"github.com/vmware/go-vcloud-director/v2/types/v56"
@@ -725,6 +725,7 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 					"obtained nil org when getting org by name [%s]", workloadVCDClient.ClusterOrgName)
 			}
 			// the following api call will return an empty list if there are no entities with the same name as the cluster
+			// Todo: add capvcdRDEMajor Version
 			definedEntities, resp, err := workloadVCDClient.APIClient.DefinedEntityApi.GetDefinedEntitiesByEntityType(ctx,
 				capisdk.CAPVCDTypeVendor, capisdk.CAPVCDTypeNss, rdeType.CapvcdRDETypeVersion, org.Org.ID, 1, 25, nameFilter)
 			if err != nil {
