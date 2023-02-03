@@ -1,4 +1,4 @@
-# This file needs to be copied to ~/cluster-api/ for clusterctl init and generate commands to work.
+# This file needs to be copied to ~/.cluster-api/ for clusterctl init and generate commands to work.
 # Replace the providers.url to your local repo
 #
 # Below are the sample commands
