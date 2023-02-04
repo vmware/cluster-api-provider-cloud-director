@@ -514,9 +514,9 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		log.Info("Adding infra VM for the machine")
 
 		// vcda-4391 fixed
-		err = vdcManager.AddNewVM(vmName, vcdCluster.Name, 1,
+		err = vdcManager.AddNewTkgVM(vmName, vcdCluster.Name, 1,
 			vcdMachine.Spec.Catalog, vcdMachine.Spec.Template, vcdMachine.Spec.PlacementPolicy,
-			vcdMachine.Spec.SizingPolicy, vcdMachine.Spec.StorageProfile, "", false)
+			vcdMachine.Spec.SizingPolicy, vcdMachine.Spec.StorageProfile, false)
 		if err != nil {
 			err1 := capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDMachineCreationError, "", machine.Name, fmt.Sprintf("%v", err))
 			if err1 != nil {
