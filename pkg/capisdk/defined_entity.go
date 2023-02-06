@@ -358,7 +358,6 @@ func (capvcdRdeManager *CapvcdRdeManager) IsCapvcdEntityTypeRegistered(version s
 
 // convertFrom110Format provides an automatic conversion from RDE Version 1.1.0 to the latest RDE Version in use
 // Get the srcCapvcdEntity and sourceRDEVersion according to RDE ID.
-// Check the existence of capiYaml entity in srcCapvcdEntity.entity.spec. Clean up the capiYaml inside srcCapvcdEntity. Capvcd will update capiYaml using the latest vcdCluster Status
 // Provide an automatic conversion of the content in srcCapvcdEntity.entity.status.capvcd content to the latest RDE version format (rdeType.CAPVCDStatus)
 // Add the placeholder for any special conversion logic inside rdeType.CAPVCDStatus (for developers)
 // Updates the srcCapvcdEntity.entityType Id to the latest ENtitytype Version in use
