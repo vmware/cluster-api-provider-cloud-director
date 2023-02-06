@@ -59,3 +59,9 @@ This is an advanced workflow to enable Cloud Director tenant users to deploy wor
 cluster in an isolated manner.
 
 Refer to [enable multitenancy](MULTITENANCY.md) on the management cluster for more details
+
+## Configure Machine Health Check on the management cluster
+
+Configuring Machine Health Checks on the management cluster will instruct Cluster API to detect and remediate Machines in a cluster which are unhealthy.
+
+Refer to [Machine Health Checks](MHC.md) for more details.
