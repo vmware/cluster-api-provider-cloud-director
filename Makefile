@@ -187,7 +187,7 @@ prod: capi prod-capvcd-artifacts prod-manifests
 dev-capvcd-artifacts:
 	sed -e "s/__GIT_COMMIT__/$(GITCOMMIT)/g" -e "s/__VERSION__/$(version)/g" config/manager/manager.yaml.template > config/manager/manager.yaml
 	make release-manifests
-	cp templates/infrastructure-components.yaml ./artifacts/infrastructure-components-airgap.yaml.template
+	cp templates/infrastructure-components.yaml ./artifacts/infrastructure-components.yaml.template
 	docker build -f ./artifacts/Dockerfile . -t capvcd-manifest-airgapped:$(GITCOMMIT)
 	docker tag capvcd-manifest-airgapped:$(GITCOMMIT) $(REGISTRY)/capvcd-manifest-airgapped:$(GITCOMMIT)
 	docker push $(REGISTRY)/capvcd-manifest-airgapped:$(GITCOMMIT)
@@ -195,7 +195,7 @@ dev-capvcd-artifacts:
 prod-capvcd-artifacts:
 	sed -e "s/\.__GIT_COMMIT__//g" -e "s/__VERSION__/$(version)/g" config/manager/manager.yaml.template > config/manager/manager.yaml
 	make release-manifests
-	cp templates/infrastructure-components.yaml ./artifacts/infrastructure-components-airgap.yaml.template
+	cp templates/infrastructure-components.yaml ./artifacts/infrastructure-components.yaml.template
 	docker build -f ./artifacts/Dockerfile . -t capvcd-manifest-airgapped:$(version)
 	docker tag capvcd-manifest-airgapped:$(version) $(REGISTRY)/capvcd-manifest-airgapped:$(version)
 	docker push $(REGISTRY)/capvcd-manifest-airgapped:$(version)
