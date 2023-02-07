@@ -448,11 +448,11 @@ func (capvcdRdeManager *CapvcdRdeManager) convertFrom110Format(ctx context.Conte
 		} else {
 			if resp.StatusCode == http.StatusPreconditionFailed {
 				klog.V(5).Infof("wrong etag [%s] while upgrading the defined entity [%s(%s)] from EntityType Version [%s] to EntityType Version [%s]. Retries remaining: [%d]",
-					etag, srcRde.Name, srcRde.Id, srcRdeTypeVersion, MaxUpdateRetries-retries-1)
+					etag, srcRde.Name, srcRde.Id, srcRdeTypeVersion, rdeType.CapvcdRDETypeVersion, MaxUpdateRetries-retries-1)
 				continue
 			} else if resp.StatusCode != http.StatusOK {
 				klog.Errorf("unexpected response status code when upgrading defined entity [%s(%s)] from EntityType Version [%s] to EntityType Version [%s]. Expected response [%d] obtained [%d]",
-					srcRde.Name, srcRde.Id, srcRdeTypeVersion, http.StatusOK, resp.StatusCode)
+					srcRde.Name, srcRde.Id, srcRdeTypeVersion, rdeType.CapvcdRDETypeVersion, http.StatusOK, resp.StatusCode)
 				continue
 			}
 		}
