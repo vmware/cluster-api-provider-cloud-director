@@ -1,0 +1,47 @@
+# We are supposed to use architect-orb to build&push container images.
+# However, architect-orb has strict rules and tests. We don't have full control over this repository.
+# That is why we introduced this custom configuration in this repository.
+# Keep this file as it is while merging changes from upstream repository.
+
+version: 2.1
+
+jobs:
+  build:
+    machine:
+      image: ubuntu-2204:2023.07.2
+    steps:
+      - checkout
+      - run:
+          name : Build container
+          command: |
+            export REGISTRY=quay.io
+            export VERSION=latest
+            make docker-build-capvcd
+
+      - run:
+          name: Push to quay.io
+          command: |
+            echo "$QUAY_PASSWORD" | docker login quay.io --username $QUAY_USERNAME --password-stdin
+            
+            IMG_TAG=$(git rev-parse --short HEAD)
+            docker tag quay.io/cluster-api-provider-cloud-director:latest quay.io/giantswarm/cluster-api-provider-cloud-director-vcd:$IMG_TAG
+            docker push quay.io/giantswarm/cluster-api-provider-cloud-director-vcd:$IMG_TAG
+
+            echo "Pushed to quay.io/giantswarm/cluster-api-provider-cloud-director-vcd:$IMG_TAG"
+
+      - run:
+          name: Push to docker.io
+          command: |
+            echo "$DOCKER_PASSWORD" | docker login --username $DOCKER_USERNAME --password-stdin
+
+            IMG_TAG=$(git rev-parse --short HEAD)
+            docker tag quay.io/cluster-api-provider-cloud-director:latest docker.io/giantswarm/cluster-api-provider-cloud-director-vcd:$IMG_TAG
+            docker push docker.io/giantswarm/cluster-api-provider-cloud-director-vcd:$IMG_TAG
+
+            echo "Pushed to docker.io/giantswarm/cluster-api-provider-cloud-director-vcd:$IMG_TAG"
+workflows:
+  build-workflow:
+    jobs:
+      - build:
+          context:
+            - architect
