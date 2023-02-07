@@ -61,6 +61,7 @@ const (
 	InfraVmBootstrapped      = "VcdMachineBootstrapped"
 	InfraVmDeleted           = "VcdMachineInfraVmDeleted"
 	NodeHealthCheckFailed    = "VcdMachineHealthCheckFailedEvent"
+	NodeUnhealthy            = "VcdMachineNodeUnhealthy"
 
 	// VCDMachine Errors
 	// Set VCDMachineScriptGenerationError for any errors that occurs during the process of generating and setting the script on the VM
