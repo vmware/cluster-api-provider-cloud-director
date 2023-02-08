@@ -62,6 +62,6 @@ Refer to [enable multitenancy](MULTITENANCY.md) on the management cluster for mo
 
 ## Configure Machine Health Check on the management cluster
 
-Configuring Machine Health Checks on the management cluster will instruct Cluster API to detect and remediate Machines in a cluster which are unhealthy.
+Configuring Machine Health Checks on the management cluster will instruct Cluster API to detect unhealthy machines of a given cluster and remediate them.
 
 Refer to [Machine Health Checks](MHC.md) for more details.
