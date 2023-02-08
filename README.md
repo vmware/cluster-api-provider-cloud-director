@@ -12,26 +12,26 @@ The version of Cluster API Provider Cloud Director and Installation that are com
 
 |                                  CAPVCD Version                                   | VMware Cloud Director API | VMware Cloud Director Installation | CoreCAPI/Clusterctl CLI version | Kubernetes Versions |
 |:---------------------------------------------------------------------------------:| :-----------------------: | :--------------------------------: | :---: | :------------------ |
-| [0.5.0](https://github.com/vmware/cluster-api-provider-cloud-director/tree/0.5.0) | 36.0+ | 10.3.1+ <br/>(10.3.1 needs hot-patch to prevent VCD cell crashes in multi-cell environments) | [0.4.7](https://github.com/kubernetes-sigs/cluster-api/releases/tag/v0.4.7) |<ul><li>1.21</li><li>1.20</li></ul>|
-| [0.5.1](https://github.com/vmware/cluster-api-provider-cloud-director/tree/0.5.1) | 36.0+ | 10.3.1+ <br/>(10.3.1 needs hot-patch to prevent VCD cell crashes in multi-cell environments) | [0.4.7](https://github.com/kubernetes-sigs/cluster-api/releases/tag/v0.4.7) |<ul><li>1.21</li><li>1.20</li></ul>|
-| [1.0.0](https://github.com/vmware/cluster-api-provider-cloud-director/tree/1.0.0) | 36.0+ | 10.3.1+ <br/>(10.3.1 needs hot-patch to prevent VCD cell crashes in multi-cell environments) | [1.1.3](https://github.com/kubernetes-sigs/cluster-api/releases/tag/v1.1.3) |<ul><li>1.22</li><li>1.21</li><li>1.20</li></ul>|
 |  [main](https://github.com/vmware/cluster-api-provider-cloud-director/tree/main)  | 36.0+ | 10.3.1+ <br/>(10.3.1 needs hot-patch to prevent VCD cell crashes in multi-cell environments) | [1.1.3](https://github.com/kubernetes-sigs/cluster-api/releases/tag/v1.1.3) |<ul><li>1.22</li><li>1.21</li><li>1.20</li></ul>|
+| [1.0.0](https://github.com/vmware/cluster-api-provider-cloud-director/tree/1.0.0) | 36.0+ | 10.3.1+ <br/>(10.3.1 needs hot-patch to prevent VCD cell crashes in multi-cell environments) | [1.1.3](https://github.com/kubernetes-sigs/cluster-api/releases/tag/v1.1.3) |<ul><li>1.22</li><li>1.21</li><li>1.20</li></ul>|
+| [0.5.1](https://github.com/vmware/cluster-api-provider-cloud-director/tree/0.5.1) | 36.0+ | 10.3.1+ <br/>(10.3.1 needs hot-patch to prevent VCD cell crashes in multi-cell environments) | [0.4.7](https://github.com/kubernetes-sigs/cluster-api/releases/tag/v0.4.7) |<ul><li>1.21</li><li>1.20</li></ul>|
+| [0.5.0](https://github.com/vmware/cluster-api-provider-cloud-director/tree/0.5.0) | 36.0+ | 10.3.1+ <br/>(10.3.1 needs hot-patch to prevent VCD cell crashes in multi-cell environments) | [0.4.7](https://github.com/kubernetes-sigs/cluster-api/releases/tag/v0.4.7) |<ul><li>1.21</li><li>1.20</li></ul>|
 
 Cluster API versions:
 
 |                          | v1alpha4 (v1.0) | v1beta1 (v1.1) |
 |--------------------------| --------------  |----------------|
-| CAPVCD v1alpha4 (v0.5)   |     ✓           | Not supported  |
-| CAPVCD v1beta1 (v1.0)    |     ✓           | ✓              |
 | CAPVCD v1beta1 (main)    |     ✓           | ✓              |
+| CAPVCD v1beta1 (v1.0)    |     ✓           | ✓              |
+| CAPVCD v1alpha4 (v0.5)   |     ✓           | Not supported  |
 
 TKG versions:
 
 |                        | TKG versions |
 | -----------------------| ------------ | 
-| CAPVCD v1alpha4 (v0.5) | 1.4.0, 1.3.1 | 
-| CAPVCD v1beta1  (v1.0) | 1.5.4, 1.4.3 | 
 | CAPVCD v1beta1  (main) | 1.5.4, 1.4.3 | 
+| CAPVCD v1beta1  (v1.0) | 1.5.4, 1.4.3 | 
+| CAPVCD v1alpha4 (v0.5) | 1.4.0, 1.3.1 |
 
 ## Troubleshooting
 [Collect CAPI log bundle for Cloud Director](https://github.com/vmware/cluster-api-provider-cloud-director/tree/main/scripts).
