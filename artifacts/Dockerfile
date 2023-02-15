@@ -1,4 +1,4 @@
 FROM scratch
-COPY /artifacts/infrastructure-components.yaml.template \
+COPY ./templates/infrastructure-components.yaml \
     ./metadata.yaml /src/artifact/
 ENTRYPOINT ["/bin/sh"]

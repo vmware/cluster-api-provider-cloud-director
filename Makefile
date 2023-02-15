@@ -179,15 +179,14 @@ generate_conversions:  ## Runs Go related generate targets.
 		--output-file-base=zz_generated.conversion \
 		--go-header-file=./boilerplate.go.txt
 
-dev: capi dev-capvcd-artifacts dev-manifests
+dev: capi dev-capvcd-artifacts
 	docker push $(IMG).$(GITCOMMIT)
 
-prod: capi prod-capvcd-artifacts prod-manifests
+prod: capi prod-capvcd-artifacts
 
 dev-capvcd-artifacts:
 	sed -e "s/__GIT_COMMIT__/$(GITCOMMIT)/g" -e "s/__VERSION__/$(version)/g" config/manager/manager.yaml.template > config/manager/manager.yaml
 	make release-manifests
-	cp templates/infrastructure-components.yaml ./artifacts/infrastructure-components.yaml.template
 	docker build -f ./artifacts/Dockerfile . -t capvcd-manifest-airgapped:$(GITCOMMIT)
 	docker tag capvcd-manifest-airgapped:$(GITCOMMIT) $(REGISTRY)/capvcd-manifest-airgapped:$(GITCOMMIT)
 	docker push $(REGISTRY)/capvcd-manifest-airgapped:$(GITCOMMIT)
@@ -195,16 +194,6 @@ dev-capvcd-artifacts:
 prod-capvcd-artifacts:
 	sed -e "s/\.__GIT_COMMIT__//g" -e "s/__VERSION__/$(version)/g" config/manager/manager.yaml.template > config/manager/manager.yaml
 	make release-manifests
-	cp templates/infrastructure-components.yaml ./artifacts/infrastructure-components.yaml.template
 	docker build -f ./artifacts/Dockerfile . -t capvcd-manifest-airgapped:$(version)
 	docker tag capvcd-manifest-airgapped:$(version) $(REGISTRY)/capvcd-manifest-airgapped:$(version)
 	docker push $(REGISTRY)/capvcd-manifest-airgapped:$(version)
-
-# We will use `~` as the sed delimiter as our registry URL has `/` in it.
-dev-manifests:
-	sed -e "s~__REGISTRY__~$(REGISTRY)~g" -e "s/__GIT_COMMIT__/$(GITCOMMIT)/g" -e "s/__VERSION__/$(version)/g" config/manager/manager.yaml.template > config/manager/manager.yaml
-	make release-manifests
-
-prod-manifests:
-	sed -e "s~__REGISTRY__~$(REGISTRY)~g" -e "s/\.__GIT_COMMIT__//g" -e "s/__VERSION__/$(version)/g" config/manager/manager.yaml.template > config/manager/manager.yaml
-	make release-manifests
