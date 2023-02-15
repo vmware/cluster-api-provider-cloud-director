@@ -1,0 +1,40 @@
+default:
+  image: golang:1.19
+
+stages:
+  - build
+  - publish
+
+.script-build:
+  script:
+    - make vendor
+    - make build-within-docker
+
+build-main:
+  stage: build
+  extends: .script-build
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
+build-branch:
+  stage: build
+  extends: .script-build
+  rules:
+    - if: $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
+      when: manual
+
+publish:
+  stage: publish
+  image: docker:20.10.16
+  variables:
+    DOCKER_TLS_CERTDIR: "/certs"
+  services:
+    - docker:20.10.16-dind
+  before_script:
+    - docker login -u "$HARBOR_USER" -p "$HARBOR_AUTH" harbor-repo.vmware.com
+  script:
+    - apk add --update make git
+    - make dev
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      when: manual
