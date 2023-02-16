@@ -179,11 +179,21 @@ generate_conversions:  ## Runs Go related generate targets.
 		--output-file-base=zz_generated.conversion \
 		--go-header-file=./boilerplate.go.txt
 
-dev: capi
+dev: capi dev-capvcd-artifacts
 	docker push $(IMG).$(GITCOMMIT)
+
+prod: capi prod-capvcd-artifacts
+
+dev-capvcd-artifacts:
 	sed -e "s/__GIT_COMMIT__/$(GITCOMMIT)/g" -e "s/__VERSION__/$(version)/g" config/manager/manager.yaml.template > config/manager/manager.yaml
 	make release-manifests
+	docker build -f ./artifacts/Dockerfile . -t capvcd-manifest-airgapped:$(GITCOMMIT)
+	docker tag capvcd-manifest-airgapped:$(GITCOMMIT) $(REGISTRY)/capvcd-manifest-airgapped:$(GITCOMMIT)
+	docker push $(REGISTRY)/capvcd-manifest-airgapped:$(GITCOMMIT)
 
-prod: capi
+prod-capvcd-artifacts:
 	sed -e "s/\.__GIT_COMMIT__//g" -e "s/__VERSION__/$(version)/g" config/manager/manager.yaml.template > config/manager/manager.yaml
 	make release-manifests
+	docker build -f ./artifacts/Dockerfile . -t capvcd-manifest-airgapped:$(version)
+	docker tag capvcd-manifest-airgapped:$(version) $(REGISTRY)/capvcd-manifest-airgapped:$(version)
+	docker push $(REGISTRY)/capvcd-manifest-airgapped:$(version)
