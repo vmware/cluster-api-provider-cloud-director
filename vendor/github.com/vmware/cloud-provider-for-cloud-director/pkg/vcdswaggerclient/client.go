@@ -46,6 +46,8 @@ type APIClient struct {
 
 	// API Services
 
+	AccessControlsApiService *AccessControlsApiService
+
 	CertificateLibraryApi *CertificateLibraryApiService
 
 	EdgeGatewayApi *EdgeGatewayApiService
@@ -87,6 +89,7 @@ func NewAPIClient(cfg *Configuration) *APIClient {
 	c.common.client = c
 
 	// API Services
+	c.AccessControlsApiService = (*AccessControlsApiService)(&c.common)
 	c.CertificateLibraryApi = (*CertificateLibraryApiService)(&c.common)
 	c.EdgeGatewayApi = (*EdgeGatewayApiService)(&c.common)
 	c.EdgeGatewayLoadBalancerPoolApi = (*EdgeGatewayLoadBalancerPoolApiService)(&c.common)
