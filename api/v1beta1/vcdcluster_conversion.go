@@ -13,7 +13,7 @@ func (src *VCDCluster) ConvertTo(dstRaw conversion.Hub) error {
 		return err
 	}
 
-	restored := v1beta2.VCDCluster{}
+	restored := &v1beta2.VCDCluster{}
 	if ok, err := utilconversion.UnmarshalData(src, restored); err != nil || !ok {
 		return err
 	}

@@ -13,7 +13,7 @@ func (src *VCDMachine) ConvertTo(dstRaw conversion.Hub) error {
 		return err
 	}
 
-	restored := v1beta2.VCDMachine{}
+	restored := &v1beta2.VCDMachine{}
 	if ok, err := utilconversion.UnmarshalData(src, restored); err != nil || !ok {
 		return err
 	}
