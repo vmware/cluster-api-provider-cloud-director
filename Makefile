@@ -159,7 +159,7 @@ capi: generate fmt vet vendor
 	docker tag cluster-api-provider-cloud-director:$(version) $(IMG).$(GITCOMMIT)
 	docker push $(IMG)
 
-vendor: generate fmt vet
+vendor:
 	go mod edit -go=1.17
 	go mod tidy -compat=1.17
 	go mod vendor
