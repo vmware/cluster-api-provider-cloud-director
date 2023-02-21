@@ -464,6 +464,7 @@ func autoConvert_v1beta2_VCDMachineSpec_To_v1alpha4_VCDMachineSpec(in *v1beta2.V
 	out.Bootstrapped = in.Bootstrapped
 	// WARNING: in.EnableNvidiaGPU requires manual conversion: does not exist in peer-type
 	// WARNING: in.ExtraOvdcNetworks requires manual conversion: does not exist in peer-type
+	// WARNING: in.VmNamingTemplate requires manual conversion: does not exist in peer-type
 	return nil
 }
 

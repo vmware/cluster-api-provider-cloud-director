@@ -566,6 +566,7 @@ func autoConvert_v1beta1_VCDMachineSpec_To_v1beta2_VCDMachineSpec(in *VCDMachine
 	out.Bootstrapped = in.Bootstrapped
 	out.EnableNvidiaGPU = in.EnableNvidiaGPU
 	out.ExtraOvdcNetworks = *(*[]string)(unsafe.Pointer(&in.ExtraOvdcNetworks))
+	out.VmNamingTemplate = in.VmNamingTemplate
 	return nil
 }
 
@@ -585,6 +586,7 @@ func autoConvert_v1beta2_VCDMachineSpec_To_v1beta1_VCDMachineSpec(in *v1beta2.VC
 	out.Bootstrapped = in.Bootstrapped
 	out.EnableNvidiaGPU = in.EnableNvidiaGPU
 	out.ExtraOvdcNetworks = *(*[]string)(unsafe.Pointer(&in.ExtraOvdcNetworks))
+	out.VmNamingTemplate = in.VmNamingTemplate
 	return nil
 }
 
