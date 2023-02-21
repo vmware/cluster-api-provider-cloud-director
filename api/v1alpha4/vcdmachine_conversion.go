@@ -19,7 +19,7 @@ func (src *VCDMachine) ConvertTo(dstRaw conversion.Hub) error {
 	dst.Status.ProviderID = src.Spec.ProviderID
 
 	// manually restore data
-	restored := v1beta2.VCDMachine{}
+	restored := &v1beta2.VCDMachine{}
 	if ok, err := utilconversion.UnmarshalData(src, restored); err != nil || !ok {
 		// in the case of missing v1beta2 annotation, the return value of UnmarshalData() would be (false, nil)
 		// so the return value would be nil NOT err

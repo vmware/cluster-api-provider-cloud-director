@@ -9,10 +9,15 @@ import (
 // ConvertTo converts this (v1alpha4) VCDMachineTemplate to the Hub version (v1beta2).
 func (src *VCDMachineTemplate) ConvertTo(dstRaw conversion.Hub) error {
 	dst := dstRaw.(*v1beta2.VCDMachineTemplate)
-
 	if err := Convert_v1alpha4_VCDMachineTemplate_To_v1beta2_VCDMachineTemplate(src, dst, nil); err != nil {
 		return err
 	}
+
+	restored := &v1beta2.VCDMachineTemplate{}
+	if ok, err := utilconversion.UnmarshalData(src, restored); err != nil || !ok {
+		return err
+	}
+
 	return nil
 }
 

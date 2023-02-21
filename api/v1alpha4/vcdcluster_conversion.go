@@ -26,7 +26,7 @@ func (src *VCDCluster) ConvertTo(dstRaw conversion.Hub) error {
 	dst.Spec.LoadBalancerConfigSpec.UseOneArm = true
 
 	// manually restore data
-	restored := v1beta2.VCDCluster{}
+	restored := &v1beta2.VCDCluster{}
 	if ok, err := utilconversion.UnmarshalData(src, restored); err != nil || !ok {
 		// in the case of missing v1beta2 annotation, the return value of UnmarshalData() would be (false, nil)
 		// so the return value would be nil NOT err
