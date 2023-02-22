@@ -24,7 +24,11 @@ func (src *VCDMachineTemplate) ConvertTo(dstRaw conversion.Hub) error {
 // ConvertFrom converts from the Hub version (v1beta2) to this version (v1beta1).
 func (dst *VCDMachineTemplate) ConvertFrom(srcRaw conversion.Hub) error {
 	src := srcRaw.(*v1beta2.VCDMachineTemplate)
-	return Convert_v1beta2_VCDMachineTemplate_To_v1beta1_VCDMachineTemplate(src, dst, nil)
+	if err := Convert_v1beta2_VCDMachineTemplate_To_v1beta1_VCDMachineTemplate(src, dst, nil); err != nil {
+		return err
+	}
+
+	return utilconversion.MarshalData(src, dst)
 }
 
 // ConvertTo converts this VCDMachineTemplateList to the Hub version (v1beta2).
