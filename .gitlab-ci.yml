@@ -5,31 +5,23 @@ stages:
   - build
   - publish
 
-.script-build:
-  script:
-    - make vendor
-    - make build-within-docker
-
-build-main:
+build:
   stage: build
-  extends: .script-build
+  script:
+    - make build-within-docker
   rules:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
-
-build-branch:
-  stage: build
-  extends: .script-build
-  rules:
+    - if: $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH == $CAPVCD_RELEASE_BRANCH
     - if: $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
       when: manual
 
 publish:
   stage: publish
-  image: docker:20.10.16
+  image:
+    name: docker:20.10.16
+    pull_policy: if-not-present
   variables:
     DOCKER_TLS_CERTDIR: "/certs"
-  services:
-    - docker:20.10.16-dind
   before_script:
     - docker login -u "$HARBOR_USER" -p "$HARBOR_AUTH" harbor-repo.vmware.com
   script:
@@ -37,4 +29,6 @@ publish:
     - make dev
   rules:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - if: $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH == $CAPVCD_RELEASE_BRANCH
+    - if: $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
       when: manual
