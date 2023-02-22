@@ -145,7 +145,6 @@ type VCDClusterStatus struct {
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
-//+kubebuilder:storageversion
 
 // VCDCluster is the Schema for the vcdclusters API
 type VCDCluster struct {

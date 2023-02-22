@@ -466,7 +466,9 @@ func (capvcdRdeManager *CapvcdRdeManager) convertFrom110Format(ctx context.Conte
 
 // convertFrom100Format provides an automatic conversion from RDE Version 1.0.0 to the latest RDE Version in use
 // Check the existence of capiYaml entity in srcCapvcdEntity.entity.spec. Clean up the capiYaml inside srcCapvcdEntity. Capvcd will update capiYaml using the latest vcdCluster Status
-// 	"entity.status.csi", "entity.status.cpi", "entity.status.persistentVolumes" and "entity.status.virtualIPs" in the existing RDE will be retained in the upgraded RDE.
+//
+//	"entity.status.csi", "entity.status.cpi", "entity.status.persistentVolumes" and "entity.status.virtualIPs" in the existing RDE will be retained in the upgraded RDE.
+//
 // Updates the srcCapvcdEntity.entityType Id to the latest ENtitytype Version in use
 // Call an API call (PUT) to update CAPVCD entity and persist data into VCD
 // Return dstCapvcdEntity as output. CAPVCD update capiYaml in the parent method reconcileRDE()
@@ -575,9 +577,12 @@ func (capvcdRdeManager *CapvcdRdeManager) convertFrom100Format(ctx context.Conte
 }
 
 // ConvertToLatestRDEVersionFormat updates the RDE version. The upgraded RDE will only contain minimal information related to the cluster after upgrade.
-//  CAPVCD will reconcile the RDE eventually with proper data by CAPVCD.
+//
+//	CAPVCD will reconcile the RDE eventually with proper data by CAPVCD.
+//
 // Invokes the right converter to convert the srcRDE into the format of latest RDE version in use
-//  The function attempts upgrade multiple times as defined by MaxUpdateRetries to avoid failures due to incorrect ETag.
+//
+//	The function attempts upgrade multiple times as defined by MaxUpdateRetries to avoid failures due to incorrect ETag.
 func (capvcdRdeManager *CapvcdRdeManager) ConvertToLatestRDEVersionFormat(ctx context.Context, rdeID string) (*swagger.DefinedEntity, error) {
 	if !capvcdRdeManager.IsCapvcdEntityTypeRegistered(rdeType.CapvcdRDETypeVersion) {
 		return nil, fmt.Errorf("CAPVCD entity type with version [%s] not registered", rdeType.CapvcdRDETypeVersion)

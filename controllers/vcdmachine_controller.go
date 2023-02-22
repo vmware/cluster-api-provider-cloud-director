@@ -24,7 +24,7 @@ import (
 	"github.com/pkg/errors"
 	cpiutil "github.com/vmware/cloud-provider-for-cloud-director/pkg/util"
 	"github.com/vmware/cloud-provider-for-cloud-director/pkg/vcdsdk"
-	infrav1 "github.com/vmware/cluster-api-provider-cloud-director/api/v1beta1"
+	infrav1 "github.com/vmware/cluster-api-provider-cloud-director/api/v1beta2"
 	"github.com/vmware/cluster-api-provider-cloud-director/pkg/capisdk"
 	"github.com/vmware/cluster-api-provider-cloud-director/release"
 	"github.com/vmware/go-vcloud-director/v2/govcd"
@@ -72,6 +72,7 @@ const Mebibyte = 1048576
 
 // The following `embed` directives read the file in the mentioned path and copy the content into the declared variable.
 // These variables need to be global within the package.
+//
 //go:embed cluster_scripts/cloud_init.tmpl
 var cloudInitScriptTemplate string
 
@@ -80,9 +81,9 @@ type VCDMachineReconciler struct {
 	client.Client
 }
 
-//+kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=vcdmachines,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=vcdmachines/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=vcdmachines/finalizers,verbs=update
+// +kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=vcdmachines,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=vcdmachines/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=vcdmachines/finalizers,verbs=update
 func (r *VCDMachineReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctrl.Result, rerr error) {
 	log := ctrl.LoggerFrom(ctx)
 
