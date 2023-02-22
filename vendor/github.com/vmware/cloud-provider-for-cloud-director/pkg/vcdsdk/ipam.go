@@ -57,6 +57,11 @@ func (gm *GatewayManager) GetUnusedExternalIPAddress(ctx context.Context, allowe
 
 	ipRangeList := make([]IPRange, 0)
 	for _, edgeGWUplink := range edgeGW.EdgeGatewayUplinks {
+		// A nil check is needed for edgeGWUplink.Subnet because there is a possibility for subnet to be null which can cause CCM pod to crash.
+		// An example is the usage of IP Spaces which is in VCD 10.4.1.
+		if edgeGWUplink.Subnets == nil {
+			continue
+		}
 		for _, subnet := range edgeGWUplink.Subnets.Values {
 			if subnet.IpRanges == nil {
 				continue

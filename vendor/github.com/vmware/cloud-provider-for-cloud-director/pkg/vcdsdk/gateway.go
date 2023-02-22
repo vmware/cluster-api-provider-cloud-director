@@ -1103,8 +1103,8 @@ func (gatewayManager *GatewayManager) checkIfGatewayIsReady(ctx context.Context)
 	return NewGatewayBusyError(gatewayManager.GatewayRef.Name)
 }
 
-func (gatewayManager *GatewayManager) UpdateVirtualServicePort(ctx context.Context, virtualServiceName string,
-	externalPort int32) (*swaggerClient.EntityReference, error) {
+func (gatewayManager *GatewayManager) UpdateVirtualService(ctx context.Context, virtualServiceName string,
+	virtualServiceIP string, externalPort int32, oneArmEnabled bool) (*swaggerClient.EntityReference, error) {
 	client := gatewayManager.Client
 	vsSummary, err := gatewayManager.GetVirtualService(ctx, virtualServiceName)
 	if err != nil {
@@ -1124,8 +1124,8 @@ func (gatewayManager *GatewayManager) UpdateVirtualServicePort(ctx context.Conte
 		return nil, fmt.Errorf("obtained nil org when getting org by name [%s]", client.ClusterOrgName)
 	}
 
-	if vsSummary.ServicePorts[0].PortStart == externalPort {
-		klog.Infof("virtual service [%s] is already configured with port [%d]", virtualServiceName, externalPort)
+	if vsSummary.ServicePorts[0].PortStart == externalPort && vsSummary.VirtualIpAddress == virtualServiceIP {
+		klog.Infof("virtual service [%s] is already configured with port [%d] and virtual IP [%s]", virtualServiceName, externalPort, virtualServiceIP)
 		return &swaggerClient.EntityReference{
 			Name: vsSummary.Name,
 			Id:   vsSummary.Id,
@@ -1142,6 +1142,10 @@ func (gatewayManager *GatewayManager) UpdateVirtualServicePort(ctx context.Conte
 		// update both port start and port end to be the same.
 		vs.ServicePorts[0].PortStart = externalPort
 		vs.ServicePorts[0].PortEnd = externalPort
+	}
+	if virtualServiceIP != "" && !oneArmEnabled && vs.VirtualIpAddress != virtualServiceIP {
+		// update the virtual IP address of the virtual service when one arm is nil
+		vs.VirtualIpAddress = virtualServiceIP
 	}
 	resp, err := client.APIClient.EdgeGatewayLoadBalancerVirtualServiceApi.UpdateVirtualService(ctx, vs, vsSummary.Id, org.Org.ID)
 	if resp != nil && resp.StatusCode != http.StatusAccepted {
@@ -1564,7 +1568,7 @@ func (gm *GatewayManager) CreateLoadBalancer(ctx context.Context, virtualService
 	// 3 variables: enableVirtualServiceSharedIP, oneArm, sharedIP
 	// if enableVirtualServiceSharedIP is true and oneArm is nil, no internal ip is used
 	// if enableVirtualServiceSharedIP is true and oneArm is not nil, an internal ip will be used and shared
-	// if enableVirtualServiceSharedIP is false and oneArm is nil: this is an error case which is handled earlier
+	// if enableVirtualServiceSharedIP is false and oneArm is nil: this is an error case which is handled earlier in ValidateCloudConfig.
 	// if enableVirtualServiceSharedIP is false and oneArm is not nil, a pair of internal IPs will be used and not shared
 	if enableVirtualServiceSharedIP && oneArm == nil { // no internal ip used so no dnat rule needed
 		if sharedVirtualIP != "" { // shared virtual ip is an external ip
@@ -1828,7 +1832,7 @@ func (gm *GatewayManager) DeleteLoadBalancer(ctx context.Context, virtualService
 }
 
 func (gm *GatewayManager) UpdateLoadBalancer(ctx context.Context, lbPoolName string, virtualServiceName string,
-	ips []string, internalPort int32, externalPort int32, oneArm *OneArm, enableVirtualServiceSharedIP bool, protocol string,
+	ips []string, externalIP string, internalPort int32, externalPort int32, oneArm *OneArm, enableVirtualServiceSharedIP bool, protocol string,
 	resourcesAllocated *util.AllocatedResourcesMap) (string, error) {
 
 	if gm == nil {
@@ -1848,7 +1852,7 @@ func (gm *GatewayManager) UpdateLoadBalancer(ctx context.Context, lbPoolName str
 		return "", fmt.Errorf("unable to update load balancer pool [%s]: [%v]", lbPoolName, err)
 	}
 	resourcesAllocated.Insert(VcdResourceLoadBalancerPool, lbPoolRef)
-	vsRef, err := gm.UpdateVirtualServicePort(ctx, virtualServiceName, externalPort)
+	vsRef, err := gm.UpdateVirtualService(ctx, virtualServiceName, externalIP, externalPort, oneArm != nil)
 	if vsRef != nil {
 		resourcesAllocated.Insert(VcdResourceVirtualService, vsRef)
 	}
@@ -1859,8 +1863,14 @@ func (gm *GatewayManager) UpdateLoadBalancer(ctx context.Context, lbPoolName str
 		}
 		return "", fmt.Errorf("unable to update virtual service [%s] with port [%d]: [%v]", virtualServiceName, externalPort, err)
 	}
+	// The condition enableVirtualServiceSharedIP == nil, oneArm == nil is not a valid configuration.
+	// ValidateCloudConfig returns an error if CPI has the above configuration
 	if !(enableVirtualServiceSharedIP && oneArm == nil) { // dnat not used if vsSharedIP is used and oneArm is nil
 		// update app port profile
+		// cases handled here -
+		// enableVirtualServiceSharedIP = true, oneArm != nil
+		// enableVirtualServiceSharedIP = false, oneArm == nil -> an error case which is handled earlier
+		// enableVirtualServiceSharedIP = false, oneArm != nil
 		dnatRuleName := GetDNATRuleName(virtualServiceName)
 		appPortProfileName := GetAppPortProfileName(dnatRuleName)
 		// while updating the app port profile, if we find that the app port profile with the given name is not found,
@@ -1887,7 +1897,11 @@ func (gm *GatewayManager) UpdateLoadBalancer(ctx context.Context, lbPoolName str
 		if err != nil {
 			return "", fmt.Errorf("unable to retrieve created dnat rule [%s]: [%v]", dnatRuleName, err)
 		}
-		_, err = gm.UpdateDNATRule(ctx, dnatRuleName, dnatRuleRef.ExternalIP, dnatRuleRef.InternalIP, externalPort)
+		dnatExternalIP := externalIP
+		if dnatExternalIP == "" {
+			dnatExternalIP = dnatRuleRef.ExternalIP
+		}
+		updatedDnatRule, err := gm.UpdateDNATRule(ctx, dnatRuleName, dnatExternalIP, dnatRuleRef.InternalIP, externalPort)
 		if err != nil {
 			return "", fmt.Errorf("unable to update DNAT rule [%s]: [%v]", dnatRuleName, err)
 		}
@@ -1895,7 +1909,13 @@ func (gm *GatewayManager) UpdateLoadBalancer(ctx context.Context, lbPoolName str
 			Name: dnatRuleName,
 			Id:   dnatRuleRef.ID,
 		})
-		return dnatRuleRef.ExternalIP, nil
+		return updatedDnatRule.ExternalIP, nil
 	}
-	return "", nil
+	// handles cases -
+	// enableVirtualServiceSharedIP == true && oneArm == nil
+	vsSummary, err := gm.GetVirtualService(ctx, virtualServiceName)
+	if err != nil {
+		return "", fmt.Errorf("failed to get virtual service summary for the virtual service with name [%s]", virtualServiceName)
+	}
+	return vsSummary.VirtualIpAddress, nil
 }

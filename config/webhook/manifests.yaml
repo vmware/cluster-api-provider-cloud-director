@@ -8,15 +8,35 @@ metadata:
 webhooks:
 - admissionReviewVersions:
   - v1
-  - v1beta1
+  - v1beta2
   clientConfig:
     service:
       name: webhook-service
       namespace: system
-      path: /mutate-infrastructure-cluster-x-k8s-io-v1beta1-vcdcluster
+      path: /mutate-infrastructure-cluster-x-k8s-io-v1beta2-vcdcluster
   failurePolicy: Fail
   matchPolicy: Equivalent
   name: default.vcdcluster.infrastructure.cluster.x-k8s.io
+  rules:
+  - apiGroups:
+    - infrastructure.cluster.x-k8s.io
+    apiVersions:
+    - v1beta2
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - vcdclusters
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
+      path: /mutate-infrastructure-cluster-x-k8s-io-v1beta1-vcdmachine
+  failurePolicy: Fail
+  name: mvcdmachine.kb.io
   rules:
   - apiGroups:
     - infrastructure.cluster.x-k8s.io
@@ -26,7 +46,7 @@ webhooks:
     - CREATE
     - UPDATE
     resources:
-    - vcdclusters
+    - vcdmachines
   sideEffects: None
 
 ---
@@ -38,15 +58,36 @@ metadata:
 webhooks:
 - admissionReviewVersions:
   - v1
-  - v1beta1
+  - v1beta2
   clientConfig:
     service:
       name: webhook-service
       namespace: system
-      path: /validate-infrastructure-cluster-x-k8s-io-v1beta1-vcdcluster
+      path: /validate-infrastructure-cluster-x-k8s-io-v1beta2-vcdcluster
   failurePolicy: Fail
   matchPolicy: Equivalent
   name: validation.vcdcluster.infrastructure.cluster.x-k8s.io
+  rules:
+  - apiGroups:
+    - infrastructure.cluster.x-k8s.io
+    apiVersions:
+    - v1beta2
+    operations:
+    - CREATE
+    - UPDATE
+    - DELETE
+    resources:
+    - vcdclusters
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
+      path: /validate-infrastructure-cluster-x-k8s-io-v1beta1-vcdmachine
+  failurePolicy: Fail
+  name: vvcdmachine.kb.io
   rules:
   - apiGroups:
     - infrastructure.cluster.x-k8s.io
@@ -55,7 +96,6 @@ webhooks:
     operations:
     - CREATE
     - UPDATE
-    - DELETE
     resources:
-    - vcdclusters
+    - vcdmachines
   sideEffects: None

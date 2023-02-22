@@ -1,0 +1,12 @@
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta2
+kind: VCDMachine
+metadata:
+  labels:
+    app.kubernetes.io/name: vcdmachine
+    app.kubernetes.io/instance: vcdmachine-sample
+    app.kubernetes.io/part-of: cluster-api-provider-cloud-director
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/created-by: cluster-api-provider-cloud-director
+  name: vcdmachine-sample
+spec:
+  # TODO(user): Add fields here
