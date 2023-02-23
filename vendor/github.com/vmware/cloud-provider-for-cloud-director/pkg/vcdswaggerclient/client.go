@@ -1,7 +1,12 @@
 /*
+    Copyright 2021 VMware, Inc.
+    SPDX-License-Identifier: Apache-2.0
+*/
+
+/*
  * VMware Cloud Director OpenAPI
  *
- * VMware Cloud Director OpenAPI is a new API that is defined using the OpenAPI standards.<br/> This ReSTful API borrows some elements of the legacy VMware Cloud Director API and establishes new patterns for use as described below. <h4>Authentication</h4> Authentication and Authorization schemes are the same as those for the legacy APIs. You can authenticate using the JWT token via the <code>Authorization</code> header or specifying a session using <code>x-vcloud-authorization</code> (The latter form is deprecated). <h4>Operation Patterns</h4> This API follows the following general guidelines to establish a consistent CRUD pattern: <table> <tr>   <th>Operation</th><th>Description</th><th>Response Code</th><th>Response Content</th> </tr><tr>   <td>GET /items<td>Returns a paginated list of items<td>200<td>Response will include Navigational links to the items in the list. </tr><tr>   <td>POST /items<td>Returns newly created item<td>201<td>Content-Location header links to the newly created item </tr><tr>   <td>GET /items/urn<td>Returns an individual item<td>200<td>A single item using same data type as that included in list above </tr><tr>   <td>PUT /items/urn<td>Updates an individual item<td>200<td>Updated view of the item is returned </tr><tr>   <td>DELETE /items/urn<td>Deletes the item<td>204<td>No content is returned. </tr> </table> <h5>Asynchronous operations</h5> Asynchronous operations are determined by the server. In those cases, instead of responding as described above, the server responds with an HTTP Response code 202 and an empty body. The tracking task (which is the same task as all legacy API operations use) is linked via the URI provided in the <code>Location</code> header.<br/> All API calls can choose to service a request asynchronously or synchronously as determined by the server upon interpreting the request. Operations that choose to exhibit this dual behavior will have both options documented by specifying both response code(s) below. The caller must be prepared to handle responses to such API calls by inspecting the HTTP Response code. <h5>Error Conditions</h5> <b>All</b> operations report errors using the following error reporting rules: <ul>   <li>400: Bad Request - In event of bad request due to incorrect data or other user error</li>   <li>401: Bad Request - If user is unauthenticated or their session has expired</li>   <li>403: Forbidden - If the user is not authorized or the entity does not exist</li> </ul> <h4>OpenAPI Design Concepts and Principles</h4> <ul>   <li>IDs are full Uniform Resource Names (URNs).</li>   <li>OpenAPI's <code>Content-Type</code> is always <code>application/json</code></li>   <li>REST links are in the Link header.</li>   <ul>     <li>Multiple relationships for any link are represented by multiple values in a space-separated list.</li>     <li>Links have a custom VMware Cloud Director-specific &quot;model&quot; attribute that hints at the applicable data         type for the links.</li>     <li>title + rel + model attributes evaluates to a unique link.</li>     <li>Links follow Hypermedia as the Engine of Application State (HATEOAS) principles. Links are present if         certain operations are present and permitted for the user&quot;s current role and the state of the         referred entities.</li>   </ul>   <li>APIs follow a flat structure relying on cross-referencing other entities instead of the navigational style       used by the legacy VMware Cloud Director APIs.</li>   <li>Most endpoints that return a list support filtering and sorting similar to the query service in the legacy       VMware Cloud Director APIs.</li>   <li>Accept header must be included to specify the API version for the request similar to calls to existing legacy       VMware Cloud Director APIs.</li>   <li>Each feature has a version in the path element present in its URL.<br/>       <b>Note</b> API URL's without a version in their paths must be considered experimental.</li> </ul>
+ * VMware Cloud Director OpenAPI is a new API that is defined using the OpenAPI standards.<br/> This ReSTful API borrows some elements of the legacy VMware Cloud Director API and establishes new patterns for use as described below. <h4>Authentication</h4> Authentication and Authorization schemes are the same as those for the legacy APIs. You can authenticate using the JWT token via the <code>Authorization</code> header or specifying a session using <code>x-vcloud-authorization</code> (The latter form is deprecated). <h4>Operation Patterns</h4> This API follows the following general guidelines to establish a consistent CRUD pattern: <table> <tr>   <th>Operation</th><th>Description</th><th>Response Code</th><th>Response Content</th> </tr><tr>   <td>GET /items<td>Returns a paginated list of items<td>200<td>Response will include Navigational links to the items in the list. </tr><tr>   <td>POST /items<td>Returns newly created item<td>201<td>Content-Location header links to the newly created item </tr><tr>   <td>GET /items/urn<td>Returns an individual item<td>200<td>A single item using same data type as that included in list above </tr><tr>   <td>PUT /items/urn<td>Updates an individual item<td>200<td>Updated view of the item is returned </tr><tr>   <td>DELETE /items/urn<td>Deletes the item<td>204<td>No content is returned. </tr> </table> <h5>Asynchronous operations</h5> Asynchronous operations are determined by the server. In those cases, instead of responding as described above, the server responds with an HTTP Response code 202 and an empty body. The tracking task (which is the same task as all legacy API operations use) is linked via the URI provided in the <code>Location</code> header.<br/> All API calls can choose to service a request asynchronously or synchronously as determined by the server upon interpreting the request. Operations that choose to exhibit this dual behavior will have both options documented by specifying both response code(s) below. The caller must be prepared to handle responses to such API calls by inspecting the HTTP Response code. <h5>Error Conditions</h5> <b>All</b> operations report errors using the following error reporting rules: <ul>   <li>400: Bad Request - In event of bad request due to incorrect data or other user error</li>   <li>401: Bad Request - If user is unauthenticated or their session has expired</li>   <li>403: Forbidden - If the user is not authorized or the entity does not exist</li> </ul> <h4>OpenAPI Design Concepts and Principles</h4> <ul>   <li>IDs are full Uniform Resource Names (URNs).</li>   <li>OpenAPI's <code>Content-Type</code> is always <code>application/json</code></li>   <li>REST links are in the Link header.</li>   <ul>     <li>Multiple relationships for any link are represented by multiple values in a space-separated list.</li>     <li>Links have a custom VMware Cloud Director-specific &quot;model&quot; attribute that hints at the applicable data         type for the links.</li>     <li>title + rel + model attributes evaluates to a unique link.</li>     <li>Links follow Hypermedia as the Engine of Application State (HATEOAS) principles. Links are present if         certain operations are present and permitted for the user&quot;s current role and the state of the         referred entities.</li>   </ul>   <li>APIs follow a flat structure relying on cross-referencing other entities instead of the navigational style       used by the legacy VMware Cloud Director APIs.</li>   <li>Most endpoints that return a list support filtering and sorting similar to the query service in the legacy       VMware Cloud Director APIs.</li>   <li>Accept header must be included to specify the API version for the request similar to calls to existing legacy       VMware Cloud Director APIs.</li>   <li>Each feature has a version in the path element present in its URL.<br/>       <b>Note</b> API URL's without a version in their paths must be considered experimental.</li> </ul> 
  *
  * API version: 36.0
  * Contact: https://code.vmware.com/support
@@ -46,11 +51,87 @@ type APIClient struct {
 
 	// API Services
 
-	AccessControlsApiService *AccessControlsApiService
+	AccessControlsApi *AccessControlsApiService
+
+	AccessLevelsApi *AccessLevelsApiService
+
+	AdvisoryApi *AdvisoryApiService
+
+	ApplicationPortProfileApi *ApplicationPortProfileApiService
+
+	ApplicationPortProfilesApi *ApplicationPortProfilesApiService
+
+	AuditTrailApi *AuditTrailApiService
+
+	BrandingApi *BrandingApiService
+
+	CapabilitiesApi *CapabilitiesApiService
+
+	CellApi *CellApiService
 
 	CertificateLibraryApi *CertificateLibraryApiService
 
+	CloudApiBaseApi *CloudApiBaseApiService
+
+	CodegenPlaceholderApi *CodegenPlaceholderApiService
+
+	ConfigurationsApi *ConfigurationsApiService
+
+	CorsApi *CorsApiService
+
+	CrossVdcNetworkApi *CrossVdcNetworkApiService
+
+	CrossVdcNetworksApi *CrossVdcNetworksApiService
+
+	CustomEntitiesApi *CustomEntitiesApiService
+
+	DefinedEntityApi *DefinedEntityApiService
+
+	DefinedEntityTypeApi *DefinedEntityTypeApiService
+
+	DefinedInterfaceApi *DefinedInterfaceApiService
+
+	DefinedInterfaceBehaviorsApi *DefinedInterfaceBehaviorsApiService
+
+	DfwPoliciesApi *DfwPoliciesApiService
+
+	DfwPolicyApi *DfwPolicyApiService
+
+	DvpgPropertiesApi *DvpgPropertiesApiService
+
+	EdgeClusterApi *EdgeClusterApiService
+
+	EdgeClustersApi *EdgeClustersApiService
+
 	EdgeGatewayApi *EdgeGatewayApiService
+
+	EdgeGatewayBgpApi *EdgeGatewayBgpApiService
+
+	EdgeGatewayBgpNeighborApi *EdgeGatewayBgpNeighborApiService
+
+	EdgeGatewayBgpNeighborsApi *EdgeGatewayBgpNeighborsApiService
+
+	EdgeGatewayDhcpApi *EdgeGatewayDhcpApiService
+
+	EdgeGatewayDnsApi *EdgeGatewayDnsApiService
+
+	EdgeGatewayFirewallRuleApi *EdgeGatewayFirewallRuleApiService
+
+	EdgeGatewayFirewallRulesApi *EdgeGatewayFirewallRulesApiService
+
+	EdgeGatewayIpSecVpnTunnelApi *EdgeGatewayIpSecVpnTunnelApiService
+
+	EdgeGatewayIpSecVpnTunnelConnectionPropertiesApi *EdgeGatewayIpSecVpnTunnelConnectionPropertiesApiService
+
+	EdgeGatewayIpSecVpnTunnelsApi *EdgeGatewayIpSecVpnTunnelsApiService
+
+	EdgeGatewayL2VpnTunnelApi *EdgeGatewayL2VpnTunnelApiService
+
+	EdgeGatewayL2VpnTunnelsApi *EdgeGatewayL2VpnTunnelsApiService
+
+	EdgeGatewayLoadBalancerApi *EdgeGatewayLoadBalancerApiService
+
+	EdgeGatewayLoadBalancerAnalyticsApi *EdgeGatewayLoadBalancerAnalyticsApiService
 
 	EdgeGatewayLoadBalancerPoolApi *EdgeGatewayLoadBalancerPoolApiService
 
@@ -64,13 +145,205 @@ type APIClient struct {
 
 	EdgeGatewayNatRulesApi *EdgeGatewayNatRulesApiService
 
+	EdgeGatewayPrefixListApi *EdgeGatewayPrefixListApiService
+
+	EdgeGatewayPrefixListsApi *EdgeGatewayPrefixListsApiService
+
+	EdgeGatewayRouteAdvertisementApi *EdgeGatewayRouteAdvertisementApiService
+
+	EdgeGatewaySLAACProfileApi *EdgeGatewaySLAACProfileApiService
+
+	EdgeGatewaysApi *EdgeGatewaysApiService
+
+	EgressPointApi *EgressPointApiService
+
+	EgressPointsApi *EgressPointsApiService
+
+	EmailSettingsApi *EmailSettingsApiService
+
+	EntityApi *EntityApiService
+
+	EntityQuotasApi *EntityQuotasApiService
+
+	ExternalNetworkApi *ExternalNetworkApiService
+
+	ExternalNetworksApi *ExternalNetworksApiService
+
+	ExternalServiceApi *ExternalServiceApiService
+
+	FeatureFlagApi *FeatureFlagApiService
+
+	FeatureFlagsApi *FeatureFlagsApiService
+
+	FirewallGroupApi *FirewallGroupApiService
+
+	FirewallGroupsApi *FirewallGroupsApiService
+
+	GlobalRolesApi *GlobalRolesApiService
+
+	GroupApi *GroupApiService
+
+	K8sClusterApi *K8sClusterApiService
+
+	LDAPApi *LDAPApiService
+
+	LoadBalancerCloudApi *LoadBalancerCloudApiService
+
+	LoadBalancerCloudsApi *LoadBalancerCloudsApiService
+
+	LoadBalancerControllerApi *LoadBalancerControllerApiService
+
+	LoadBalancerControllersApi *LoadBalancerControllersApiService
+
+	LoadBalancerServiceEngineGroupApi *LoadBalancerServiceEngineGroupApiService
+
+	LoadBalancerServiceEngineGroupAssignmentApi *LoadBalancerServiceEngineGroupAssignmentApiService
+
 	LoadBalancerServiceEngineGroupAssignmentsApi *LoadBalancerServiceEngineGroupAssignmentsApiService
+
+	LoadBalancerServiceEngineGroupsApi *LoadBalancerServiceEngineGroupsApiService
+
+	LogicalVmGroupsApi *LogicalVmGroupsApiService
+
+	NetworkContextProfileApi *NetworkContextProfileApiService
+
+	NetworkContextProfileAttributesApi *NetworkContextProfileAttributesApiService
+
+	NetworkContextProfilesApi *NetworkContextProfilesApiService
+
+	NetworkPoolApi *NetworkPoolApiService
+
+	NetworkPoolsApi *NetworkPoolsApiService
+
+	NsxAlbResourcesApi *NsxAlbResourcesApiService
+
+	NsxTResourcesApi *NsxTResourcesApiService
+
+	NsxVResourcesApi *NsxVResourcesApiService
+
+	OrgApi *OrgApiService
 
 	OrgVdcNetworkApi *OrgVdcNetworkApiService
 
+	OrgVdcNetworkDhcpApi *OrgVdcNetworkDhcpApiService
+
 	OrgVdcNetworksApi *OrgVdcNetworksApiService
 
-	DefinedEntityApi *DefinedEntityApiService
+	OrgVdcStoragePolicyApi *OrgVdcStoragePolicyApiService
+
+	PreferencesApi *PreferencesApiService
+
+	ProviderVdcApi *ProviderVdcApiService
+
+	ProxyApi *ProxyApiService
+
+	ProxyConfigurationApi *ProxyConfigurationApiService
+
+	PvdcComputePoliciesApi *PvdcComputePoliciesApiService
+
+	PvdcComputePolicies2Api *PvdcComputePolicies2ApiService
+
+	PvdcStoragePolicyApi *PvdcStoragePolicyApiService
+
+	QuotaPoliciesApi *QuotaPoliciesApiService
+
+	QuotaPolicyAssignmentApi *QuotaPolicyAssignmentApiService
+
+	RightsApi *RightsApiService
+
+	RightsBundlesApi *RightsBundlesApiService
+
+	RightsCategoriesApi *RightsCategoriesApiService
+
+	RolesApi *RolesApiService
+
+	SddcProxyApi *SddcProxyApiService
+
+	SddcsApi *SddcsApiService
+
+	SecurityTagsApi *SecurityTagsApiService
+
+	ServiceAppApi *ServiceAppApiService
+
+	ServiceAppsApi *ServiceAppsApiService
+
+	ServicesApi *ServicesApiService
+
+	SessionsApi *SessionsApiService
+
+	SiteSettingsApi *SiteSettingsApiService
+
+	SslSettingsApi *SslSettingsApiService
+
+	StorageContainerApi *StorageContainerApiService
+
+	StoragePolicyApi *StoragePolicyApiService
+
+	TestConnectionApi *TestConnectionApiService
+
+	TokenApi *TokenApiService
+
+	TrustedCertificatesApi *TrustedCertificatesApiService
+
+	TypeAccessControlsApi *TypeAccessControlsApiService
+
+	UiPluginApi *UiPluginApiService
+
+	UiPluginResourceApi *UiPluginResourceApiService
+
+	UiPluginTenantsApi *UiPluginTenantsApiService
+
+	UiPluginsApi *UiPluginsApiService
+
+	UniversalRouterApi *UniversalRouterApiService
+
+	UniversalRouterDhcpApi *UniversalRouterDhcpApiService
+
+	UniversalRouterDnsApi *UniversalRouterDnsApiService
+
+	UniversalRouterHealthApi *UniversalRouterHealthApiService
+
+	UniversalRoutersApi *UniversalRoutersApiService
+
+	UniversalRoutingApi *UniversalRoutingApiService
+
+	UserApi *UserApiService
+
+	VCenterResourcesApi *VCenterResourcesApiService
+
+	VRealizeOrchestratorApi *VRealizeOrchestratorApiService
+
+	VRealizeOrchestratorsApi *VRealizeOrchestratorsApiService
+
+	VdcApi *VdcApiService
+
+	Vdc2Api *Vdc2ApiService
+
+	VdcComputePoliciesApi *VdcComputePoliciesApiService
+
+	VdcComputePolicies2Api *VdcComputePolicies2ApiService
+
+	VdcGroupApi *VdcGroupApiService
+
+	VdcGroupCandidatesApi *VdcGroupCandidatesApiService
+
+	VdcGroupsApi *VdcGroupsApiService
+
+	VdcGroupsSettingsApi *VdcGroupsSettingsApiService
+
+	VdcNetworkProfileApi *VdcNetworkProfileApiService
+
+	VirtualCenterApi *VirtualCenterApiService
+
+	VmcSddcsApi *VmcSddcsApiService
+
+	VrealizeBrowseApi *VrealizeBrowseApiService
+
+	VrealizeWorkflowsApi *VrealizeWorkflowsApiService
+
+	VroWorkflowExecutionApi *VroWorkflowExecutionApiService
+
+	VroWorkflowPresentationApi *VroWorkflowPresentationApiService
 }
 
 type service struct {
@@ -89,19 +362,153 @@ func NewAPIClient(cfg *Configuration) *APIClient {
 	c.common.client = c
 
 	// API Services
-	c.AccessControlsApiService = (*AccessControlsApiService)(&c.common)
+	c.AccessControlsApi = (*AccessControlsApiService)(&c.common)
+	c.AccessLevelsApi = (*AccessLevelsApiService)(&c.common)
+	c.AdvisoryApi = (*AdvisoryApiService)(&c.common)
+	c.ApplicationPortProfileApi = (*ApplicationPortProfileApiService)(&c.common)
+	c.ApplicationPortProfilesApi = (*ApplicationPortProfilesApiService)(&c.common)
+	c.AuditTrailApi = (*AuditTrailApiService)(&c.common)
+	c.BrandingApi = (*BrandingApiService)(&c.common)
+	c.CapabilitiesApi = (*CapabilitiesApiService)(&c.common)
+	c.CellApi = (*CellApiService)(&c.common)
 	c.CertificateLibraryApi = (*CertificateLibraryApiService)(&c.common)
+	c.CloudApiBaseApi = (*CloudApiBaseApiService)(&c.common)
+	c.CodegenPlaceholderApi = (*CodegenPlaceholderApiService)(&c.common)
+	c.ConfigurationsApi = (*ConfigurationsApiService)(&c.common)
+	c.CorsApi = (*CorsApiService)(&c.common)
+	c.CrossVdcNetworkApi = (*CrossVdcNetworkApiService)(&c.common)
+	c.CrossVdcNetworksApi = (*CrossVdcNetworksApiService)(&c.common)
+	c.CustomEntitiesApi = (*CustomEntitiesApiService)(&c.common)
+	c.DefinedEntityApi = (*DefinedEntityApiService)(&c.common)
+	c.DefinedEntityTypeApi = (*DefinedEntityTypeApiService)(&c.common)
+	c.DefinedInterfaceApi = (*DefinedInterfaceApiService)(&c.common)
+	c.DefinedInterfaceBehaviorsApi = (*DefinedInterfaceBehaviorsApiService)(&c.common)
+	c.DfwPoliciesApi = (*DfwPoliciesApiService)(&c.common)
+	c.DfwPolicyApi = (*DfwPolicyApiService)(&c.common)
+	c.DvpgPropertiesApi = (*DvpgPropertiesApiService)(&c.common)
+	c.EdgeClusterApi = (*EdgeClusterApiService)(&c.common)
+	c.EdgeClustersApi = (*EdgeClustersApiService)(&c.common)
 	c.EdgeGatewayApi = (*EdgeGatewayApiService)(&c.common)
+	c.EdgeGatewayBgpApi = (*EdgeGatewayBgpApiService)(&c.common)
+	c.EdgeGatewayBgpNeighborApi = (*EdgeGatewayBgpNeighborApiService)(&c.common)
+	c.EdgeGatewayBgpNeighborsApi = (*EdgeGatewayBgpNeighborsApiService)(&c.common)
+	c.EdgeGatewayDhcpApi = (*EdgeGatewayDhcpApiService)(&c.common)
+	c.EdgeGatewayDnsApi = (*EdgeGatewayDnsApiService)(&c.common)
+	c.EdgeGatewayFirewallRuleApi = (*EdgeGatewayFirewallRuleApiService)(&c.common)
+	c.EdgeGatewayFirewallRulesApi = (*EdgeGatewayFirewallRulesApiService)(&c.common)
+	c.EdgeGatewayIpSecVpnTunnelApi = (*EdgeGatewayIpSecVpnTunnelApiService)(&c.common)
+	c.EdgeGatewayIpSecVpnTunnelConnectionPropertiesApi = (*EdgeGatewayIpSecVpnTunnelConnectionPropertiesApiService)(&c.common)
+	c.EdgeGatewayIpSecVpnTunnelsApi = (*EdgeGatewayIpSecVpnTunnelsApiService)(&c.common)
+	c.EdgeGatewayL2VpnTunnelApi = (*EdgeGatewayL2VpnTunnelApiService)(&c.common)
+	c.EdgeGatewayL2VpnTunnelsApi = (*EdgeGatewayL2VpnTunnelsApiService)(&c.common)
+	c.EdgeGatewayLoadBalancerApi = (*EdgeGatewayLoadBalancerApiService)(&c.common)
+	c.EdgeGatewayLoadBalancerAnalyticsApi = (*EdgeGatewayLoadBalancerAnalyticsApiService)(&c.common)
 	c.EdgeGatewayLoadBalancerPoolApi = (*EdgeGatewayLoadBalancerPoolApiService)(&c.common)
 	c.EdgeGatewayLoadBalancerPoolsApi = (*EdgeGatewayLoadBalancerPoolsApiService)(&c.common)
 	c.EdgeGatewayLoadBalancerVirtualServiceApi = (*EdgeGatewayLoadBalancerVirtualServiceApiService)(&c.common)
 	c.EdgeGatewayLoadBalancerVirtualServicesApi = (*EdgeGatewayLoadBalancerVirtualServicesApiService)(&c.common)
 	c.EdgeGatewayNatRuleApi = (*EdgeGatewayNatRuleApiService)(&c.common)
 	c.EdgeGatewayNatRulesApi = (*EdgeGatewayNatRulesApiService)(&c.common)
+	c.EdgeGatewayPrefixListApi = (*EdgeGatewayPrefixListApiService)(&c.common)
+	c.EdgeGatewayPrefixListsApi = (*EdgeGatewayPrefixListsApiService)(&c.common)
+	c.EdgeGatewayRouteAdvertisementApi = (*EdgeGatewayRouteAdvertisementApiService)(&c.common)
+	c.EdgeGatewaySLAACProfileApi = (*EdgeGatewaySLAACProfileApiService)(&c.common)
+	c.EdgeGatewaysApi = (*EdgeGatewaysApiService)(&c.common)
+	c.EgressPointApi = (*EgressPointApiService)(&c.common)
+	c.EgressPointsApi = (*EgressPointsApiService)(&c.common)
+	c.EmailSettingsApi = (*EmailSettingsApiService)(&c.common)
+	c.EntityApi = (*EntityApiService)(&c.common)
+	c.EntityQuotasApi = (*EntityQuotasApiService)(&c.common)
+	c.ExternalNetworkApi = (*ExternalNetworkApiService)(&c.common)
+	c.ExternalNetworksApi = (*ExternalNetworksApiService)(&c.common)
+	c.ExternalServiceApi = (*ExternalServiceApiService)(&c.common)
+	c.FeatureFlagApi = (*FeatureFlagApiService)(&c.common)
+	c.FeatureFlagsApi = (*FeatureFlagsApiService)(&c.common)
+	c.FirewallGroupApi = (*FirewallGroupApiService)(&c.common)
+	c.FirewallGroupsApi = (*FirewallGroupsApiService)(&c.common)
+	c.GlobalRolesApi = (*GlobalRolesApiService)(&c.common)
+	c.GroupApi = (*GroupApiService)(&c.common)
+	c.K8sClusterApi = (*K8sClusterApiService)(&c.common)
+	c.LDAPApi = (*LDAPApiService)(&c.common)
+	c.LoadBalancerCloudApi = (*LoadBalancerCloudApiService)(&c.common)
+	c.LoadBalancerCloudsApi = (*LoadBalancerCloudsApiService)(&c.common)
+	c.LoadBalancerControllerApi = (*LoadBalancerControllerApiService)(&c.common)
+	c.LoadBalancerControllersApi = (*LoadBalancerControllersApiService)(&c.common)
+	c.LoadBalancerServiceEngineGroupApi = (*LoadBalancerServiceEngineGroupApiService)(&c.common)
+	c.LoadBalancerServiceEngineGroupAssignmentApi = (*LoadBalancerServiceEngineGroupAssignmentApiService)(&c.common)
 	c.LoadBalancerServiceEngineGroupAssignmentsApi = (*LoadBalancerServiceEngineGroupAssignmentsApiService)(&c.common)
+	c.LoadBalancerServiceEngineGroupsApi = (*LoadBalancerServiceEngineGroupsApiService)(&c.common)
+	c.LogicalVmGroupsApi = (*LogicalVmGroupsApiService)(&c.common)
+	c.NetworkContextProfileApi = (*NetworkContextProfileApiService)(&c.common)
+	c.NetworkContextProfileAttributesApi = (*NetworkContextProfileAttributesApiService)(&c.common)
+	c.NetworkContextProfilesApi = (*NetworkContextProfilesApiService)(&c.common)
+	c.NetworkPoolApi = (*NetworkPoolApiService)(&c.common)
+	c.NetworkPoolsApi = (*NetworkPoolsApiService)(&c.common)
+	c.NsxAlbResourcesApi = (*NsxAlbResourcesApiService)(&c.common)
+	c.NsxTResourcesApi = (*NsxTResourcesApiService)(&c.common)
+	c.NsxVResourcesApi = (*NsxVResourcesApiService)(&c.common)
+	c.OrgApi = (*OrgApiService)(&c.common)
 	c.OrgVdcNetworkApi = (*OrgVdcNetworkApiService)(&c.common)
+	c.OrgVdcNetworkDhcpApi = (*OrgVdcNetworkDhcpApiService)(&c.common)
 	c.OrgVdcNetworksApi = (*OrgVdcNetworksApiService)(&c.common)
-	c.DefinedEntityApi = (*DefinedEntityApiService)(&c.common)
+	c.OrgVdcStoragePolicyApi = (*OrgVdcStoragePolicyApiService)(&c.common)
+	c.PreferencesApi = (*PreferencesApiService)(&c.common)
+	c.ProviderVdcApi = (*ProviderVdcApiService)(&c.common)
+	c.ProxyApi = (*ProxyApiService)(&c.common)
+	c.ProxyConfigurationApi = (*ProxyConfigurationApiService)(&c.common)
+	c.PvdcComputePoliciesApi = (*PvdcComputePoliciesApiService)(&c.common)
+	c.PvdcComputePolicies2Api = (*PvdcComputePolicies2ApiService)(&c.common)
+	c.PvdcStoragePolicyApi = (*PvdcStoragePolicyApiService)(&c.common)
+	c.QuotaPoliciesApi = (*QuotaPoliciesApiService)(&c.common)
+	c.QuotaPolicyAssignmentApi = (*QuotaPolicyAssignmentApiService)(&c.common)
+	c.RightsApi = (*RightsApiService)(&c.common)
+	c.RightsBundlesApi = (*RightsBundlesApiService)(&c.common)
+	c.RightsCategoriesApi = (*RightsCategoriesApiService)(&c.common)
+	c.RolesApi = (*RolesApiService)(&c.common)
+	c.SddcProxyApi = (*SddcProxyApiService)(&c.common)
+	c.SddcsApi = (*SddcsApiService)(&c.common)
+	c.SecurityTagsApi = (*SecurityTagsApiService)(&c.common)
+	c.ServiceAppApi = (*ServiceAppApiService)(&c.common)
+	c.ServiceAppsApi = (*ServiceAppsApiService)(&c.common)
+	c.ServicesApi = (*ServicesApiService)(&c.common)
+	c.SessionsApi = (*SessionsApiService)(&c.common)
+	c.SiteSettingsApi = (*SiteSettingsApiService)(&c.common)
+	c.SslSettingsApi = (*SslSettingsApiService)(&c.common)
+	c.StorageContainerApi = (*StorageContainerApiService)(&c.common)
+	c.StoragePolicyApi = (*StoragePolicyApiService)(&c.common)
+	c.TestConnectionApi = (*TestConnectionApiService)(&c.common)
+	c.TokenApi = (*TokenApiService)(&c.common)
+	c.TrustedCertificatesApi = (*TrustedCertificatesApiService)(&c.common)
+	c.TypeAccessControlsApi = (*TypeAccessControlsApiService)(&c.common)
+	c.UiPluginApi = (*UiPluginApiService)(&c.common)
+	c.UiPluginResourceApi = (*UiPluginResourceApiService)(&c.common)
+	c.UiPluginTenantsApi = (*UiPluginTenantsApiService)(&c.common)
+	c.UiPluginsApi = (*UiPluginsApiService)(&c.common)
+	c.UniversalRouterApi = (*UniversalRouterApiService)(&c.common)
+	c.UniversalRouterDhcpApi = (*UniversalRouterDhcpApiService)(&c.common)
+	c.UniversalRouterDnsApi = (*UniversalRouterDnsApiService)(&c.common)
+	c.UniversalRouterHealthApi = (*UniversalRouterHealthApiService)(&c.common)
+	c.UniversalRoutersApi = (*UniversalRoutersApiService)(&c.common)
+	c.UniversalRoutingApi = (*UniversalRoutingApiService)(&c.common)
+	c.UserApi = (*UserApiService)(&c.common)
+	c.VCenterResourcesApi = (*VCenterResourcesApiService)(&c.common)
+	c.VRealizeOrchestratorApi = (*VRealizeOrchestratorApiService)(&c.common)
+	c.VRealizeOrchestratorsApi = (*VRealizeOrchestratorsApiService)(&c.common)
+	c.VdcApi = (*VdcApiService)(&c.common)
+	c.Vdc2Api = (*Vdc2ApiService)(&c.common)
+	c.VdcComputePoliciesApi = (*VdcComputePoliciesApiService)(&c.common)
+	c.VdcComputePolicies2Api = (*VdcComputePolicies2ApiService)(&c.common)
+	c.VdcGroupApi = (*VdcGroupApiService)(&c.common)
+	c.VdcGroupCandidatesApi = (*VdcGroupCandidatesApiService)(&c.common)
+	c.VdcGroupsApi = (*VdcGroupsApiService)(&c.common)
+	c.VdcGroupsSettingsApi = (*VdcGroupsSettingsApiService)(&c.common)
+	c.VdcNetworkProfileApi = (*VdcNetworkProfileApiService)(&c.common)
+	c.VirtualCenterApi = (*VirtualCenterApiService)(&c.common)
+	c.VmcSddcsApi = (*VmcSddcsApiService)(&c.common)
+	c.VrealizeBrowseApi = (*VrealizeBrowseApiService)(&c.common)
+	c.VrealizeWorkflowsApi = (*VrealizeWorkflowsApiService)(&c.common)
+	c.VroWorkflowExecutionApi = (*VroWorkflowExecutionApiService)(&c.common)
+	c.VroWorkflowPresentationApi = (*VroWorkflowPresentationApiService)(&c.common)
 
 	return c
 }
@@ -347,17 +754,17 @@ func (c *APIClient) prepareRequest(
 }
 
 func (c *APIClient) decode(v interface{}, b []byte, contentType string) (err error) {
-	if strings.Contains(contentType, "application/xml") {
-		if err = xml.Unmarshal(b, v); err != nil {
-			return err
+		if strings.Contains(contentType, "application/xml") {
+			if err = xml.Unmarshal(b, v); err != nil {
+				return err
+			}
+			return nil
+		} else if strings.Contains(contentType, "application/json") {
+			if err = json.Unmarshal(b, v); err != nil {
+				return err
+			}
+			return nil
 		}
-		return nil
-	} else if strings.Contains(contentType, "application/json") {
-		if err = json.Unmarshal(b, v); err != nil {
-			return err
-		}
-		return nil
-	}
 	return errors.New("undefined response type")
 }
 
