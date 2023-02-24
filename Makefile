@@ -156,7 +156,7 @@ build-within-docker:
 capi: generate fmt vet vendor
 	docker build -f Dockerfile . -t cluster-api-provider-cloud-director:$(version)
 	docker tag cluster-api-provider-cloud-director:$(version) $(IMG)
-	docker tag cluster-api-provider-cloud-director:$(version) $(IMG).$(GITCOMMIT)
+	docker tag cluster-api-provider-cloud-director:$(version) $(IMG)-$(GITCOMMIT)
 	docker push $(IMG)
 
 vendor: generate fmt vet
@@ -180,7 +180,8 @@ generate_conversions:  ## Runs Go related generate targets.
 		--go-header-file=./boilerplate.go.txt
 
 dev: capi dev-capvcd-artifacts
-	docker push $(IMG).$(GITCOMMIT)
+	# IMG Format: ${REGISTRY}/cluster-api-provider-cloud-director:${version}
+	docker push $(IMG)-$(GITCOMMIT)
 
 prod: capi prod-capvcd-artifacts
 
