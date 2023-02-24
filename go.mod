@@ -9,6 +9,7 @@ require (
 	github.com/go-logr/logr v1.2.2
 	github.com/google/uuid v1.3.0
 	github.com/onsi/ginkgo v1.16.5
+	github.com/onsi/ginkgo/v2 v2.1.3
 	github.com/onsi/gomega v1.19.0
 	github.com/pkg/errors v0.9.1
 	github.com/vmware/cloud-provider-for-cloud-director v0.0.0-20230223225414-a1a149d80f32

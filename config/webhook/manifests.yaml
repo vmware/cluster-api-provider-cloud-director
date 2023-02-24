@@ -8,15 +8,13 @@ metadata:
 webhooks:
 - admissionReviewVersions:
   - v1
-  - v1beta2
   clientConfig:
     service:
       name: webhook-service
       namespace: system
       path: /mutate-infrastructure-cluster-x-k8s-io-v1beta2-vcdcluster
   failurePolicy: Fail
-  matchPolicy: Equivalent
-  name: default.vcdcluster.infrastructure.cluster.x-k8s.io
+  name: mutation.vcdcluster.infrastructure.cluster.x-k8s.io
   rules:
   - apiGroups:
     - infrastructure.cluster.x-k8s.io
@@ -34,14 +32,14 @@ webhooks:
     service:
       name: webhook-service
       namespace: system
-      path: /mutate-infrastructure-cluster-x-k8s-io-v1beta1-vcdmachine
+      path: /mutate-infrastructure-cluster-x-k8s-io-v1beta2-vcdmachine
   failurePolicy: Fail
-  name: mvcdmachine.kb.io
+  name: mutation.vcdmachine.infrastructure.cluster.x-k8s.io
   rules:
   - apiGroups:
     - infrastructure.cluster.x-k8s.io
     apiVersions:
-    - v1beta1
+    - v1beta2
     operations:
     - CREATE
     - UPDATE
@@ -58,14 +56,12 @@ metadata:
 webhooks:
 - admissionReviewVersions:
   - v1
-  - v1beta2
   clientConfig:
     service:
       name: webhook-service
       namespace: system
       path: /validate-infrastructure-cluster-x-k8s-io-v1beta2-vcdcluster
   failurePolicy: Fail
-  matchPolicy: Equivalent
   name: validation.vcdcluster.infrastructure.cluster.x-k8s.io
   rules:
   - apiGroups:
@@ -75,7 +71,6 @@ webhooks:
     operations:
     - CREATE
     - UPDATE
-    - DELETE
     resources:
     - vcdclusters
   sideEffects: None
@@ -85,14 +80,14 @@ webhooks:
     service:
       name: webhook-service
       namespace: system
-      path: /validate-infrastructure-cluster-x-k8s-io-v1beta1-vcdmachine
+      path: /validate-infrastructure-cluster-x-k8s-io-v1beta2-vcdmachine
   failurePolicy: Fail
-  name: vvcdmachine.kb.io
+  name: validation.vcdmachine.infrastructure.cluster.x-k8s.io
   rules:
   - apiGroups:
     - infrastructure.cluster.x-k8s.io
     apiVersions:
-    - v1beta1
+    - v1beta2
     operations:
     - CREATE
     - UPDATE
