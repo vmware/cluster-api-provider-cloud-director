@@ -36,7 +36,7 @@ webhooks:
       namespace: system
       path: /mutate-infrastructure-cluster-x-k8s-io-v1beta1-vcdmachine
   failurePolicy: Fail
-  name: mvcdmachine.kb.io
+  name: mutation.vcdmachine.infrastructure.cluster.x-k8s.io
   rules:
   - apiGroups:
     - infrastructure.cluster.x-k8s.io
@@ -87,7 +87,7 @@ webhooks:
       namespace: system
       path: /validate-infrastructure-cluster-x-k8s-io-v1beta1-vcdmachine
   failurePolicy: Fail
-  name: vvcdmachine.kb.io
+  name: validation.vcdmachine.infrastructure.cluster.x-k8s.io
   rules:
   - apiGroups:
     - infrastructure.cluster.x-k8s.io
