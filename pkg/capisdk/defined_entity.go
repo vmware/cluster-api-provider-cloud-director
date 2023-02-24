@@ -11,7 +11,7 @@ import (
 	"github.com/vmware/cluster-api-provider-cloud-director/pkg/util"
 	"github.com/vmware/cluster-api-provider-cloud-director/pkg/vcdtypes/rde_type_1_0_0"
 	"github.com/vmware/cluster-api-provider-cloud-director/pkg/vcdtypes/rde_type_1_1_0"
-	rdeType "github.com/vmware/cluster-api-provider-cloud-director/pkg/vcdtypes/rde_type_1_2_0"
+	rdeType "github.com/vmware/cluster-api-provider-cloud-director/pkg/vcdtypes/rde_type_1_1_0"
 	"github.com/vmware/cluster-api-provider-cloud-director/release"
 	"k8s.io/klog"
 	"net/http"
