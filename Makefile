@@ -156,7 +156,7 @@ build-within-docker: vendor
 capi: generate fmt vet vendor
 	docker build -f Dockerfile . -t cluster-api-provider-cloud-director:$(version)
 	docker tag cluster-api-provider-cloud-director:$(version) $(IMG)
-	docker tag cluster-api-provider-cloud-director:$(version) $(IMG).$(GITCOMMIT)
+	docker tag cluster-api-provider-cloud-director:$(version) $(IMG)-$(GITCOMMIT)
 	docker push $(IMG)
 
 vendor:
@@ -180,16 +180,17 @@ generate-conversions: ## Runs Go related generate targets.
 		--go-header-file=./boilerplate.go.txt
 
 dev: capi dev-capvcd-artifacts
-	docker push $(IMG).$(GITCOMMIT)
+	# IMG Format: ${REGISTRY}/cluster-api-provider-cloud-director:${version}
+	docker push $(IMG)-$(GITCOMMIT)
 
 prod: capi prod-capvcd-artifacts
 
 dev-capvcd-artifacts:
 	sed -e "s/__GIT_COMMIT__/$(GITCOMMIT)/g" -e "s/__VERSION__/$(version)/g" config/manager/manager.yaml.template > config/manager/manager.yaml
 	make release-manifests
-	docker build -f ./artifacts/Dockerfile . -t capvcd-manifest-airgapped:$(GITCOMMIT)
-	docker tag capvcd-manifest-airgapped:$(GITCOMMIT) $(REGISTRY)/capvcd-manifest-airgapped:$(GITCOMMIT)
-	docker push $(REGISTRY)/capvcd-manifest-airgapped:$(GITCOMMIT)
+	docker build -f ./artifacts/Dockerfile . -t capvcd-manifest-airgapped:$(version)-$(GITCOMMIT)
+	docker tag capvcd-manifest-airgapped:$(version)-$(GITCOMMIT) $(REGISTRY)/capvcd-manifest-airgapped:$(version)-$(GITCOMMIT)
+	docker push $(REGISTRY)/capvcd-manifest-airgapped:$(version)-$(GITCOMMIT)
 
 prod-capvcd-artifacts:
 	sed -e "s/\.__GIT_COMMIT__//g" -e "s/__VERSION__/$(version)/g" config/manager/manager.yaml.template > config/manager/manager.yaml
