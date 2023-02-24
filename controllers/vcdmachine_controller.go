@@ -569,7 +569,10 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		// 	VCDResourceSet can get bloated with VMs if the cluster contains a large number of worker nodes
 	}
 
-	desiredNetworks := append([]string{vcdCluster.Spec.OvdcNetwork}, vcdMachine.Spec.ExtraOvdcNetworks...)
+	desiredNetworks := []string{vcdCluster.Spec.OvdcNetwork}
+	if vcdMachine.Spec.ExtraOvdcNetworks != nil {
+		desiredNetworks = append([]string{vcdCluster.Spec.OvdcNetwork}, *vcdMachine.Spec.ExtraOvdcNetworks...)
+	}
 	if err = r.reconcileVMNetworks(vdcManager, vApp, vm, desiredNetworks); err != nil {
 		log.Error(err, fmt.Sprintf("Error while attaching networks to vApp and VMs"))
 		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
