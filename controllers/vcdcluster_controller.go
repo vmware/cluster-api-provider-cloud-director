@@ -9,7 +9,7 @@ import (
 	"context"
 	_ "embed"
 	"fmt"
-	rdeType "github.com/vmware/cluster-api-provider-cloud-director/pkg/vcdtypes/rde_type_1_2_0"
+	rdeType "github.com/vmware/cluster-api-provider-cloud-director/pkg/vcdtypes/rde_type_1_1_0"
 	"net/http"
 	"os"
 	"reflect"
