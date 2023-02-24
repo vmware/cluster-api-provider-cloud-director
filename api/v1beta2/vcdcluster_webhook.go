@@ -32,26 +32,44 @@ func (r *VCDCluster) SetupWebhookWithManager(mgr ctrl.Manager) error {
 		Complete()
 }
 
-// +kubebuilder:webhook:verbs=create;update;delete,path=/validate-infrastructure-cluster-x-k8s-io-v1beta2-vcdcluster,mutating=false,failurePolicy=fail,matchPolicy=Equivalent,groups=infrastructure.cluster.x-k8s.io,resources=vcdclusters,versions=v1beta2,name=validation.vcdcluster.infrastructure.cluster.x-k8s.io,sideEffects=None,admissionReviewVersions=v1;v1beta2
-// +kubebuilder:webhook:verbs=create;update,path=/mutate-infrastructure-cluster-x-k8s-io-v1beta2-vcdcluster,mutating=true,failurePolicy=fail,matchPolicy=Equivalent,groups=infrastructure.cluster.x-k8s.io,resources=vcdclusters,versions=v1beta2,name=default.vcdcluster.infrastructure.cluster.x-k8s.io,sideEffects=None,admissionReviewVersions=v1;v1beta2
+// TODO(user): EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 
-var _ webhook.Validator = &VCDCluster{}
+//+kubebuilder:webhook:path=/mutate-infrastructure-cluster-x-k8s-io-v1beta2-vcdcluster,mutating=true,failurePolicy=fail,sideEffects=None,groups=infrastructure.cluster.x-k8s.io,resources=vcdclusters,verbs=create;update,versions=v1beta2,name=mvcdcluster.kb.io,admissionReviewVersions=v1
+
 var _ webhook.Defaulter = &VCDCluster{}
 
-// Default implements webhook.Defaulter so a webhook will be registered for the type.
-func (c *VCDCluster) Default() {
+// Default implements webhook.Defaulter so a webhook will be registered for the type
+func (r *VCDCluster) Default() {
+	vcdclusterlog.Info("default", "name", r.Name)
+
+	// TODO(user): fill in your defaulting logic.
 }
 
-// ValidateCreate implements webhook.Validator so a webhook will be registered for the type.
-func (c *VCDCluster) ValidateCreate() error {
+// TODO(user): change verbs to "verbs=create;update;delete" if you want to enable deletion validation.
+//+kubebuilder:webhook:path=/validate-infrastructure-cluster-x-k8s-io-v1beta2-vcdcluster,mutating=false,failurePolicy=fail,sideEffects=None,groups=infrastructure.cluster.x-k8s.io,resources=vcdclusters,verbs=create;update,versions=v1beta2,name=vvcdcluster.kb.io,admissionReviewVersions=v1
+
+var _ webhook.Validator = &VCDCluster{}
+
+// ValidateCreate implements webhook.Validator so a webhook will be registered for the type
+func (r *VCDCluster) ValidateCreate() error {
+	vcdclusterlog.Info("validate create", "name", r.Name)
+
+	// TODO(user): fill in your validation logic upon object creation.
 	return nil
 }
 
-func (c *VCDCluster) ValidateUpdate(oldRaw runtime.Object) error {
+// ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
+func (r *VCDCluster) ValidateUpdate(old runtime.Object) error {
+	vcdclusterlog.Info("validate update", "name", r.Name)
+
+	// TODO(user): fill in your validation logic upon object update.
 	return nil
 }
 
-// ValidateDelete implements webhook.Validator so a webhook will be registered for the type.
-func (c *VCDCluster) ValidateDelete() error {
+// ValidateDelete implements webhook.Validator so a webhook will be registered for the type
+func (r *VCDCluster) ValidateDelete() error {
+	vcdclusterlog.Info("validate delete", "name", r.Name)
+
+	// TODO(user): fill in your validation logic upon object deletion.
 	return nil
 }
