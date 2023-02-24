@@ -187,9 +187,9 @@ prod: capi prod-capvcd-artifacts
 dev-capvcd-artifacts:
 	sed -e "s/__GIT_COMMIT__/$(GITCOMMIT)/g" -e "s/__VERSION__/$(version)/g" config/manager/manager.yaml.template > config/manager/manager.yaml
 	make release-manifests
-	docker build -f ./artifacts/Dockerfile . -t capvcd-manifest-airgapped:$(GITCOMMIT)
-	docker tag capvcd-manifest-airgapped:$(GITCOMMIT) $(REGISTRY)/capvcd-manifest-airgapped:$(GITCOMMIT)
-	docker push $(REGISTRY)/capvcd-manifest-airgapped:$(GITCOMMIT)
+	docker build -f ./artifacts/Dockerfile . -t capvcd-manifest-airgapped:$(version)-$(GITCOMMIT)
+	docker tag capvcd-manifest-airgapped:$(version)-$(GITCOMMIT) $(REGISTRY)/capvcd-manifest-airgapped:$(version)-$(GITCOMMIT)
+	docker push $(REGISTRY)/capvcd-manifest-airgapped:$(version)-$(GITCOMMIT)
 
 prod-capvcd-artifacts:
 	sed -e "s/\.__GIT_COMMIT__//g" -e "s/__VERSION__/$(version)/g" config/manager/manager.yaml.template > config/manager/manager.yaml
