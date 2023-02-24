@@ -241,7 +241,11 @@ github.com/prometheus/procfs/internal/util
 github.com/spf13/pflag
 # github.com/stretchr/testify v1.7.2
 ## explicit; go 1.13
+<<<<<<< HEAD
 # github.com/vmware/cloud-provider-for-cloud-director v0.0.0-20221101175721-fc36adaf4dbb
+=======
+# github.com/vmware/cloud-provider-for-cloud-director v0.0.0-20230223225414-a1a149d80f32
+>>>>>>> 3c10715 ([CAFV-171] [common-core] sync with CPI common-core (a1a149d80f32) for "Add Ovdc check when getting ovdc network" (#399))
 ## explicit; go 1.17
 github.com/vmware/cloud-provider-for-cloud-director/pkg/util
 github.com/vmware/cloud-provider-for-cloud-director/pkg/vcdsdk
