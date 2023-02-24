@@ -149,7 +149,7 @@ rm -rf $$TMP_DIR ;\
 }
 endef
 
-build-within-docker:
+build-within-docker: vendor
 	mkdir -p /build/cluster-api-provider-cloud-director
 	go build -ldflags "-X github.com/vmware/cluster-api-provider-cloud-director/version.Version=$(version)" -o /build/vcloud/cluster-api-provider-cloud-director main.go
 
