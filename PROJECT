@@ -104,4 +104,12 @@ resources:
   webhooks:
     conversion: true
     webhookVersion: v1
+- api:
+    crdVersion: v1
+    namespaced: true
+  domain: cluster.x-k8s.io
+  group: infrastructure
+  kind: VCDClusterTemplate
+  path: github.com/vmware/cluster-api-provider-cloud-director/api/v1beta2
+  version: v1beta2
 version: "3"

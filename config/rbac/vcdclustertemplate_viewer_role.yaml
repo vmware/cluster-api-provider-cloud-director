@@ -1,0 +1,27 @@
+# permissions for end users to view vcdclustertemplates.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/name: clusterrole
+    app.kubernetes.io/instance: vcdclustertemplate-viewer-role
+    app.kubernetes.io/component: rbac
+    app.kubernetes.io/created-by: cluster-api-provider-cloud-director
+    app.kubernetes.io/part-of: cluster-api-provider-cloud-director
+    app.kubernetes.io/managed-by: kustomize
+  name: vcdclustertemplate-viewer-role
+rules:
+- apiGroups:
+  - infrastructure.cluster.x-k8s.io
+  resources:
+  - vcdclustertemplates
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - infrastructure.cluster.x-k8s.io
+  resources:
+  - vcdclustertemplates/status
+  verbs:
+  - get

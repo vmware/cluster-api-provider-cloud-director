@@ -433,7 +433,7 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		log.Error(err, "failed to remove VCDMachineError from RDE", "rdeID", vcdCluster.Status.InfraId)
 	}
 	// The vApp should have already been created, so this is more of a Get of the vApp
-	vAppName := cluster.Name
+	vAppName := vcdCluster.Name
 	vmName, err := getVMName(machine, vcdMachine, log)
 	if err != nil {
 		return ctrl.Result{}, err
@@ -1188,7 +1188,7 @@ func (r *VCDMachineReconciler) reconcileDelete(ctx context.Context, cluster *clu
 	}
 
 	// get the vApp
-	vAppName := cluster.Name
+	vAppName := vcdCluster.Name
 	vApp, err := vdcManager.Vdc.GetVAppByName(vAppName, true)
 	if err != nil {
 		if err == govcd.ErrorEntityNotFound {
