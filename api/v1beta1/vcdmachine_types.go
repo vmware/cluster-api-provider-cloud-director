@@ -72,17 +72,6 @@ type VCDMachineSpec struct {
 	// If true, then an appropriate placement policy should be set
 	// +optional
 	EnableNvidiaGPU bool `json:"enableNvidiaGPU,omitempty"`
-
-	// ExtraOvdcNetworks is the list of extra Ovdc Networks that are mounted to machines.
-	// VCDClusterSpec.OvdcNetwork is always attached regardless of this field.
-	// +optional
-	ExtraOvdcNetworks []string `json:"extraOvdcNetworks,omitempty"`
-
-	// VmNamingTemplate is go template to generate VM names based on Machine and VCDMachine CRs.
-	// Functions of Sprig library are supported. See https://github.com/Masterminds/sprig
-	// Immutable field. machine.Name is used as VM name when this field is empty.
-	// +optional
-	VmNamingTemplate string `json:"vmNamingTemplate,omitempty"`
 }
 
 // VCDMachineStatus defines the observed state of VCDMachine

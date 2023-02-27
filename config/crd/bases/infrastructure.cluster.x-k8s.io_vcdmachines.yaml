@@ -172,13 +172,6 @@ spec:
                   the relevant binaries installed If true, then an appropriate placement
                   policy should be set
                 type: boolean
-              extraOvdcNetworks:
-                description: ExtraOvdcNetworks is the list of extra Ovdc Networks
-                  that are mounted to machines. VCDClusterSpec.OvdcNetwork is always
-                  attached regardless of this field.
-                items:
-                  type: string
-                type: array
               placementPolicy:
                 description: PlacementPolicy is the placement policy to be used on
                   this machine.
@@ -199,12 +192,6 @@ spec:
               template:
                 description: TemplatePath is the path of the template OVA that is
                   to be used
-                type: string
-              vmNamingTemplate:
-                description: VmNamingTemplate is go template to generate VM names
-                  based on Machine and VCDMachine CRs. Functions of Sprig library
-                  are supported. See https://github.com/Masterminds/sprig Immutable
-                  field. machine.Name is used as VM name when this field is empty.
                 type: string
             type: object
           status:
