@@ -36,3 +36,7 @@ func Convert_v1beta2_VCDMachineStatus_To_v1alpha4_VCDMachineStatus(in *v1beta2.V
 func Convert_v1beta2_UserCredentialsContext_To_v1alpha4_UserCredentialsContext(in *v1beta2.UserCredentialsContext, out *UserCredentialsContext, s conversion.Scope) error {
 	return autoConvert_v1beta2_UserCredentialsContext_To_v1alpha4_UserCredentialsContext(in, out, s)
 }
+
+func Convert_v1beta2_VCDMachineTemplateResource_To_v1alpha4_VCDMachineTemplateResource(in *v1beta2.VCDMachineTemplateResource, out *VCDMachineTemplateResource, s conversion.Scope) error {
+	return autoConvert_v1beta2_VCDMachineTemplateResource_To_v1alpha4_VCDMachineTemplateResource(in, out, s)
+}

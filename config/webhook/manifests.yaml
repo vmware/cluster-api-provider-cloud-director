@@ -46,6 +46,7 @@ webhooks:
     resources:
     - vcdmachines
   sideEffects: None
+
 ---
 apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingWebhookConfiguration
