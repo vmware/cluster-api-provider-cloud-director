@@ -571,7 +571,7 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 
 	desiredNetworks := []string{vcdCluster.Spec.OvdcNetwork}
 	if vcdMachine.Spec.ExtraOvdcNetworks != nil {
-		desiredNetworks = append([]string{vcdCluster.Spec.OvdcNetwork}, *vcdMachine.Spec.ExtraOvdcNetworks...)
+		desiredNetworks = append([]string{vcdCluster.Spec.OvdcNetwork}, vcdMachine.Spec.ExtraOvdcNetworks...)
 	}
 	if err = r.reconcileVMNetworks(vdcManager, vApp, vm, desiredNetworks); err != nil {
 		log.Error(err, fmt.Sprintf("Error while attaching networks to vApp and VMs"))
