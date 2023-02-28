@@ -106,6 +106,13 @@ ETCD_IMAGE_TAG=$(yq e ".components.etcd[0].images.etcd.tag" tkr-bom-${K8S_VERSIO
 COREDNS_VERSION=$(yq e ".components.coredns[0].version" tkr-bom-${K8S_VERSION_RAW}.yaml | tr -s "+" "_")
 COREDNS_IMAGE_PATH="projects.registry.vmware.com/tkg/$(yq e ".components.coredns[0].images.coredns.imagePath" tkr-bom-${K8S_VERSION_RAW}.yaml)"
 COREDNS_IMAGE_TAG=$(yq e ".components.coredns[0].images.coredns.tag" tkr-bom-${K8S_VERSION_RAW}.yaml)
+
+echo "etcd version: ${ETCD_VERSION}"
+echo "etcd image path: ${ETCD_IMAGE_PATH}"
+echo "etcd image tag: ${ETCD_IMAGE_TAG}"
+echo "coredns version: ${COREDNS_VERSION}"
+echo "coredns image path: ${COREDNS_IMAGE_PATH}"
+echo "coredns image tag: ${COREDNS_IMAGE_TAG}"
 ```
 
 
