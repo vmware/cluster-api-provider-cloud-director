@@ -369,12 +369,8 @@ func (in *VCDMachineSpec) DeepCopyInto(out *VCDMachineSpec) {
 	out.DiskSize = in.DiskSize.DeepCopy()
 	if in.ExtraOvdcNetworks != nil {
 		in, out := &in.ExtraOvdcNetworks, &out.ExtraOvdcNetworks
-		*out = new([]string)
-		if **in != nil {
-			in, out := *in, *out
-			*out = make([]string, len(*in))
-			copy(*out, *in)
-		}
+		*out = make([]string, len(*in))
+		copy(*out, *in)
 	}
 }
 
