@@ -1601,7 +1601,7 @@ spec:
       - name: cert
         secret:
           defaultMode: 420
-          secretName: webhook-server-cert
+          secretName: capvcd-webhook-server-cert
 ---
 apiVersion: cert-manager.io/v1
 kind: Certificate
@@ -1617,7 +1617,7 @@ spec:
   issuerRef:
     kind: Issuer
     name: capvcd-selfsigned-issuer
-  secretName: webhook-server-cert
+  secretName: capvcd-webhook-server-cert
 ---
 apiVersion: cert-manager.io/v1
 kind: Issuer
