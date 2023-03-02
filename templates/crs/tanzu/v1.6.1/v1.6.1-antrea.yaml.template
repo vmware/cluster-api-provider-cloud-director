@@ -5060,7 +5060,7 @@ stringData:
     #@data/values
     #@overlay/match-child-defaults missing_ok=True
     ---
-    infraProvider: vsphere
+    infraProvider: cloud-director
     antrea:
       config:
         egress:
