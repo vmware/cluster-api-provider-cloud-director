@@ -28,7 +28,7 @@ providers:
 
 1. Fill out the values for the environment variables in `~/.cluster-api/clusterctl.yaml`. 
    - One of the variables is RefreshToken. Refer to [How to create refreshToken (or) API token in Cloud Director](https://docs.vmware.com/en/VMware-Cloud-Director/10.3/VMware-Cloud-Director-Tenant-Portal-Guide/GUID-A1B3B2FA-7B2C-4EE1-9D1B-188BE703EEDE.html).
-   - Refer to the [script to get Kubernetes, etcd, coredns versions from TKG OVA](#tkgm_bom) to fill in few variables. Note that you may skip filling
+   - Refer to the [script to get Kubernetes, etcd, coredns versions from TKG OVA](WORKLOAD_CLUSTER.md#tkgm_bom) to fill in few variables. Note that you may skip filling
      in few of these variables if you decide to use the existing [clusterctl template flavors](#template_flavors).
 2. Generate the CAPI manifest file.
    - `clusterctl generate cluster <clusterName> -f v1.21.8-crs > <clusterName>.yaml`.
