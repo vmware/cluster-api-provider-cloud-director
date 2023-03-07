@@ -25,7 +25,8 @@ publish:
   before_script:
     - docker login -u "$HARBOR_USER" -p "$HARBOR_AUTH" harbor-repo.vmware.com
   script:
-    - apk add --update make git
+    - apk add --update make git bash go curl
+    - make kustomize
     - make dev
   rules:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
