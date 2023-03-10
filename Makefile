@@ -187,6 +187,8 @@ prod: capi prod-capvcd-artifacts
 
 dev-capvcd-artifacts:
 	sed -e "s/__GIT_COMMIT__/$(GITCOMMIT)/g" -e "s/__VERSION__/$(version)/g" config/manager/manager.yaml.template > config/manager/manager.yaml
+	sed -e "s/__GIT_COMMIT__/$(GITCOMMIT)/g" -e "s/__VERSION__/$(version)/g" -e "s~__REGISTRY__~$(REGISTRY)~g" artifacts/bom.json.template > artifacts/bom.json
+	sed -e "s/__GIT_COMMIT__/$(GITCOMMIT)/g" -e "s/__VERSION__/$(version)/g" -e "s~__REGISTRY__~$(REGISTRY)~g" artifacts/dependencies.txt.template > artifacts/dependencies.txt
 	make release-manifests
 	docker build -f ./artifacts/Dockerfile . -t capvcd-manifest-airgapped:$(version)-$(GITCOMMIT)
 	docker tag capvcd-manifest-airgapped:$(version)-$(GITCOMMIT) $(REGISTRY)/capvcd-manifest-airgapped:$(version)-$(GITCOMMIT)
@@ -194,6 +196,8 @@ dev-capvcd-artifacts:
 
 prod-capvcd-artifacts:
 	sed -e "s/\.__GIT_COMMIT__//g" -e "s/__VERSION__/$(version)/g" config/manager/manager.yaml.template > config/manager/manager.yaml
+	sed -e "s/-__GIT_COMMIT__//g" -e "s/__VERSION__/$(version)/g" -e "s~__REGISTRY__~$(REGISTRY)~g" artifacts/bom.json.template > artifacts/bom.json
+	sed -e "s/-__GIT_COMMIT__//g" -e "s/__VERSION__/$(version)/g" -e "s~__REGISTRY__~$(REGISTRY)~g" artifacts/dependencies.txt.template > artifacts/dependencies.txt
 	make release-manifests
 	docker build -f ./artifacts/Dockerfile . -t capvcd-manifest-airgapped:$(version)
 	docker tag capvcd-manifest-airgapped:$(version) $(REGISTRY)/capvcd-manifest-airgapped:$(version)
