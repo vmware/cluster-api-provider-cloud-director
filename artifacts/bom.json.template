@@ -1,0 +1,23 @@
+{
+	"name":"capvcd-manifest-airgapped",
+	"version":"__VERSION__-__GIT_COMMIT__",
+	"components": {
+		"manifests":[
+			{
+				"name": "infrastructure-components.yaml",
+				"url": ""
+			},{
+				"name": "metadata.yaml",
+				"url": ""
+			}
+		],
+		"binaries": [],
+		"dependencies": [
+			{
+				"name":"cluster-api-provider-cloud-director",
+				"version":"__VERSION__-__GIT_COMMIT__",
+				"imageRepository":"__REGISTRY__"
+			}
+		]
+	}
+}
