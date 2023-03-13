@@ -64,6 +64,12 @@ type LoadBalancerConfig struct {
 	VipSubnet string `json:"vipSubnet,omitempty"`
 }
 
+type KubeVIPParams struct {
+	// +optional
+	// +kubebuilder:default=""
+	InternalIPAddress string `json:"internalIPAddress,omitempty"`
+}
+
 // VCDClusterSpec defines the desired state of VCDCluster
 type VCDClusterSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
@@ -88,6 +94,11 @@ type VCDClusterSpec struct {
 	// +optional
 	//+kubebuilder:default=false
 	UseAsManagementCluster bool `json:"useAsManagementCluster,omitempty"`
+	// +optional
+	//+kubebuilder:default=false
+	UseKubeVIP bool `json:"useKubeVIP,omitempty"`
+	// +optional
+	KubeVIPParams KubeVIPParams `json:"kubeVIPParams"`
 	// +optional
 	ProxyConfigSpec ProxyConfig `json:"proxyConfigSpec,omitempty"`
 	// +optional

@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"os"
 	"reflect"
+	kcpv1 "sigs.k8s.io/cluster-api/controlplane/kubeadm/api/v1beta1"
 	"strings"
 	"time"
 
@@ -33,7 +34,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/klog"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
-	kcpv1 "sigs.k8s.io/cluster-api/controlplane/kubeadm/api/v1beta1"
+	bootstrapv1beta1 "sigs.k8s.io/cluster-api/bootstrap/kubeadm/api/v1beta1"
 	"sigs.k8s.io/cluster-api/util"
 	"sigs.k8s.io/cluster-api/util/conditions"
 	kcfg "sigs.k8s.io/cluster-api/util/kubeconfig"
@@ -57,12 +58,19 @@ const (
 	NoRdePrefix     = `NO_RDE_`
 	VCDResourceVApp = "VApp"
 
-	TcpPort = 6443
+	KubeApiServerPort = 6443
 )
 
 var (
-	CAPVCDEntityTypeID = fmt.Sprintf("urn:vcloud:type:%s:%s:%s", capisdk.CAPVCDTypeVendor, capisdk.CAPVCDTypeNss, rdeType.CapvcdRDETypeVersion)
-	OneArmDefault      = vcdsdk.OneArm{
+	//go:embed kube-vip.yaml
+	kubeVipTemplate               string
+	kubeVipStaticManifestFileName = "/etc/kubernetes/manifests/kube-vip-static.yaml"
+)
+
+var (
+	CAPVCDEntityTypeID = fmt.Sprintf("urn:vcloud:type:%s:%s:%s",
+		capisdk.CAPVCDTypeVendor, capisdk.CAPVCDTypeNss, rdeType.CapvcdRDETypeVersion)
+	OneArmDefault = vcdsdk.OneArm{
 		StartIP: "192.168.8.2",
 		EndIP:   "192.168.8.100",
 	}
@@ -190,7 +198,7 @@ func addLBResourcesToVCDResourceSet(ctx context.Context, rdeManager *vcdsdk.RDEM
 // On VCDCluster reconciliation, we either create a new Infra ID or use an existing Infra ID from the VCDCluster object.
 // The values for infra ID is not expected to change. rdeVersionInUse is not expected to change too unless the CAPVCD is being upgraded and the new
 // CAPVCD version makes use of a higher RDE version.
-// Derived values for infraID and rdeVersionInUse are essentially the final computed values - i.e either created or picked from the VCDCluster object.
+// Derived values for infraID and rdeVersionInUse are essentially the final computed values - i.e. either created or picked from the VCDCluster object.
 // validateDerivedRDEProperties makes sure the infra ID and the RDE version in-use doesn't change to unexpected values over different reconciliations.
 func validateDerivedRDEProperties(vcdCluster *infrav1.VCDCluster, infraID string, rdeVersionInUse string) error {
 	// If the RDEVersionInUse is NO_RDE_ then there RDEVersionInUse cannot change
@@ -275,13 +283,13 @@ func (r *VCDClusterReconciler) constructCapvcdRDE(ctx context.Context, cluster *
 	}
 
 	orgList := []rdeType.Org{
-		rdeType.Org{
+		{
 			Name: vcdOrg.Name,
 			ID:   vcdOrg.ID,
 		},
 	}
 	ovdcList := []rdeType.Ovdc{
-		rdeType.Ovdc{
+		{
 			Name:        vdc.Name,
 			ID:          vdc.ID,
 			OvdcNetwork: vcdCluster.Spec.OvdcNetwork,
@@ -568,7 +576,7 @@ func (r *VCDClusterReconciler) reconcileRDE(ctx context.Context, cluster *cluste
 	}
 	controlPlanePort := vcdCluster.Spec.ControlPlaneEndpoint.Port
 	if controlPlanePort == 0 {
-		controlPlanePort = TcpPort
+		controlPlanePort = KubeApiServerPort
 	}
 	clusterApiStatus := rdeType.ClusterApiStatus{
 		Phase: clusterApiStatusPhase,
@@ -593,14 +601,14 @@ func (r *VCDClusterReconciler) reconcileRDE(ctx context.Context, cluster *cluste
 	}
 
 	ovdcList := []rdeType.Ovdc{
-		rdeType.Ovdc{
+		{
 			Name:        workloadVCDClient.VDC.Vdc.Name,
 			ID:          workloadVCDClient.VDC.Vdc.Name,
 			OvdcNetwork: vcdCluster.Spec.OvdcNetwork,
 		},
 	}
 	orgList := []rdeType.Org{
-		rdeType.Org{
+		{
 			Name: org.Org.Name,
 			ID:   org.Org.ID,
 		},
@@ -893,161 +901,252 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	vcdCluster.Status.ProxyConfig = vcdCluster.Spec.ProxyConfigSpec
 	vcdCluster.Status.LoadBalancerConfig = vcdCluster.Spec.LoadBalancerConfigSpec
 
-	// create load balancer for the cluster. Only one-arm load balancer is fully tested.
-	virtualServiceNamePrefix := capisdk.GetVirtualServiceNamePrefix(vcdCluster.Name, vcdCluster.Status.InfraId)
-	lbPoolNamePrefix := capisdk.GetLoadBalancerPoolNamePrefix(vcdCluster.Name, vcdCluster.Status.InfraId)
-
-	var oneArm *vcdsdk.OneArm = nil
-	if vcdCluster.Spec.LoadBalancerConfigSpec.UseOneArm {
-		oneArm = &OneArmDefault
-	}
-	var resourcesAllocated *vcdsdkutil.AllocatedResourcesMap
-	controlPlaneNodeIP, resourcesAllocated, err := gateway.GetLoadBalancer(ctx,
-		fmt.Sprintf("%s-tcp", virtualServiceNamePrefix), fmt.Sprintf("%s-tcp", lbPoolNamePrefix), oneArm)
-
+	// create load balancer for the cluster.
 	// TODO: ideally we should get this port from the GetLoadBalancer function
-	controlPlanePort := TcpPort
-
-	//TODO: Sahithi: Check if error is really because of missing virtual service.
-	// In any other error cases, force create the new load balancer with the original control plane endpoint
-	// (if already present). Do not overwrite the existing control plane endpoint with a new endpoint.
-	var virtualServiceHref string
-	if err != nil || controlPlaneNodeIP == "" {
-		if vsError, ok := err.(*vcdsdk.VirtualServicePendingError); ok {
-			log.Info("Error getting load balancer. Virtual Service is still pending",
-				"virtualServiceName", vsError.VirtualServiceName, "error", err)
-			return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
+	controlPlanePort := KubeApiServerPort
+	if vcdCluster.Spec.UseKubeVIP {
+		// add kube-vip yaml into the KCP
+		if vcdCluster.Spec.ControlPlaneEndpoint.Host == "" {
+			return ctrl.Result{}, fmt.Errorf(
+				"spec.ControlPlaneEndpoint is mandatory in vcdcluster object to use Kube-VIP")
+		}
+		controlPlanePort := vcdCluster.Spec.ControlPlaneEndpoint.Port
+		if controlPlanePort == 0 {
+			controlPlanePort = KubeApiServerPort
 		}
 
-		if vcdCluster.Spec.ControlPlaneEndpoint.Host != "" {
-			controlPlanePort := vcdCluster.Spec.ControlPlaneEndpoint.Port
-			log.Info("Creating load balancer for the cluster at user-specified endpoint",
-				"host", vcdCluster.Spec.ControlPlaneEndpoint.Host, "port", controlPlanePort)
-		} else {
-			log.Info("Creating load balancer for the cluster")
-		}
+		log.Info("Creating Kube-VIP load balancer for the cluster at user-specified endpoint",
+			"host", vcdCluster.Spec.ControlPlaneEndpoint.Host, "port", controlPlanePort)
 
-		resourcesAllocated = &vcdsdkutil.AllocatedResourcesMap{}
-		// here we set enableVirtualServiceSharedIP to ensure that we don't use a DNAT rule. The variable is possibly
-		// badly named. Though the user-facing name is good, the internal variable name could be better.
-		controlPlaneNodeIP, err = gateway.CreateLoadBalancer(ctx, virtualServiceNamePrefix, lbPoolNamePrefix,
-			[]string{}, []vcdsdk.PortDetails{
-				{
-					Protocol:     "TCP",
-					PortSuffix:   "tcp",
-					ExternalPort: int32(controlPlanePort),
-					InternalPort: int32(controlPlanePort),
-				},
-			}, oneArm, !vcdCluster.Spec.LoadBalancerConfigSpec.UseOneArm,
-			nil, vcdCluster.Spec.ControlPlaneEndpoint.Host, resourcesAllocated)
-		if err != nil {
-			updatedErr := capvcdRdeManager.AddToErrorSet(ctx, capisdk.LoadBalancerError, "", "",
-				fmt.Sprintf("failed to create load balancer for the cluster [%s(%s)]: [%v]",
-					vcdCluster.Name, vcdCluster.Status.InfraId, err))
-			if updatedErr != nil {
-				log.Error(updatedErr, "failed to add LoadBalancerError into RDE", "rdeID", vcdCluster.Status.InfraId)
+		useDNAT := false
+		if vcdCluster.Spec.KubeVIPParams.InternalIPAddress != "" {
+			useDNAT = true
+		}
+		if useDNAT {
+			// create DNAT rule from ControlPlaneEndpoint.Host to InternalIPAddress
+			log.Info("Creating DNAT rule",
+				"external-host", vcdCluster.Spec.ControlPlaneEndpoint.Host, "external-port", controlPlanePort,
+				"internal-host", vcdCluster.Spec.KubeVIPParams.InternalIPAddress, "internal-port", controlPlanePort)
+
+			dnatRuleName := fmt.Sprintf("%s-apiserver", vcdCluster.Spec.RDEId)
+			appPortProfileName := vcdsdk.GetAppPortProfileName(dnatRuleName)
+			appPortProfile, err := gateway.CreateAppPortProfile(appPortProfileName, int32(controlPlanePort))
+			if err != nil {
+				return ctrl.Result{}, fmt.Errorf("failed to create App Port Profile: [%v]", err)
 			}
-			return ctrl.Result{}, errors.Wrapf(err, "failed to create load balancer for the cluster [%s(%s)]: [%v]",
-				vcdCluster.Name, vcdCluster.Status.InfraId, err)
+			if appPortProfile == nil || appPortProfile.NsxtAppPortProfile == nil {
+				return ctrl.Result{}, fmt.Errorf("creation of app port profile succeeded but app port profile is empty")
+			}
+
+			// CreateDNATRule returns nil if there is a DNAT rule already, so it is idempotent
+			if err := gateway.CreateDNATRule(ctx, dnatRuleName, vcdCluster.Spec.ControlPlaneEndpoint.Host,
+				vcdCluster.Spec.KubeVIPParams.InternalIPAddress, int32(controlPlanePort), int32(controlPlanePort),
+				appPortProfile); err != nil {
+				return ctrl.Result{}, fmt.Errorf("failed to create dnat rule from [%s:%d] to [%s:%d]: [%v]",
+					vcdCluster.Spec.ControlPlaneEndpoint.Host, controlPlanePort,
+					vcdCluster.Spec.KubeVIPParams.InternalIPAddress, controlPlanePort, err)
+			}
+
+			log.Info("DNAT rule created successfully", "DNAT rule name", dnatRuleName)
 		}
 
-		// Update VCDResourceSet even if the creation has failed since we may have partially
-		// created set of resources
+		kcpList, err := getAllKubeadmControlPlaneForCluster(ctx, r.Client, *cluster)
+		if err != nil {
+			return ctrl.Result{}, fmt.Errorf(
+				"error getting KubeadmControlPlane objects for cluster [%s]: [%v]", vcdCluster.Name, err)
+		}
+		if kcpList == nil {
+			return ctrl.Result{}, fmt.Errorf(
+				"could not get any KubeadmControlPlane object for cluster [%s]", vcdCluster.Name)
+		}
+		if len(kcpList.Items) != 1 {
+			return ctrl.Result{}, fmt.Errorf(
+				"got unexpected number of KubeadmControlPlane objects for cluster [%s]: [%d]",
+				vcdCluster.Name, len(kcpList.Items))
+		}
+
+		kubeVipARPAddress := vcdCluster.Spec.ControlPlaneEndpoint.Host
+		if useDNAT {
+			kubeVipARPAddress = vcdCluster.Spec.KubeVIPParams.InternalIPAddress
+		}
+
+		// Add in an idempotent way
+		for _, kcp := range kcpList.Items {
+			found := false
+			for _, file := range kcp.Spec.KubeadmConfigSpec.Files {
+				if file.Path == kubeVipStaticManifestFileName {
+					found = true
+					break
+				}
+			}
+			if !found {
+				kcp.Spec.KubeadmConfigSpec.Files = append(kcp.Spec.KubeadmConfigSpec.Files,
+					bootstrapv1beta1.File{
+						Path:        kubeVipStaticManifestFileName,
+						Owner:       "root",
+						Permissions: "0640",
+						Content:     fmt.Sprintf(kubeVipTemplate, controlPlanePort, kubeVipARPAddress), // maybe we should use a template here
+					})
+			}
+
+			if err := r.Client.Update(ctx, &kcp); err != nil {
+				log.Error(fmt.Errorf("unable to update kcp [%#v]: [%v]", kcp, err), "")
+			}
+		}
+
+		log.Info("Set up KCP with kube-vip content")
+	} else {
+		virtualServiceNamePrefix := capisdk.GetVirtualServiceNamePrefix(vcdCluster.Name, vcdCluster.Status.InfraId)
+		lbPoolNamePrefix := capisdk.GetLoadBalancerPoolNamePrefix(vcdCluster.Name, vcdCluster.Status.InfraId)
+
+		var oneArm *vcdsdk.OneArm = nil
+		if vcdCluster.Spec.LoadBalancerConfigSpec.UseOneArm {
+			oneArm = &OneArmDefault
+		}
+		var resourcesAllocated *vcdsdkutil.AllocatedResourcesMap
+		controlPlaneNodeIP, resourcesAllocated, err := gateway.GetLoadBalancer(ctx,
+			fmt.Sprintf("%s-tcp", virtualServiceNamePrefix), fmt.Sprintf("%s-tcp", lbPoolNamePrefix), oneArm)
+
+		//TODO: Sahithi: Check if error is really because of missing virtual service.
+		// In any other error cases, force create the new load balancer with the original control plane endpoint
+		// (if already present). Do not overwrite the existing control plane endpoint with a new endpoint.
+		var virtualServiceHref string
+		if err != nil || controlPlaneNodeIP == "" {
+			if vsError, ok := err.(*vcdsdk.VirtualServicePendingError); ok {
+				log.Info("Error getting load balancer. Virtual Service is still pending",
+					"virtualServiceName", vsError.VirtualServiceName, "error", err)
+				return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
+			}
+
+			if vcdCluster.Spec.ControlPlaneEndpoint.Host != "" {
+				controlPlanePort := vcdCluster.Spec.ControlPlaneEndpoint.Port
+				log.Info("Creating load balancer for the cluster at user-specified endpoint",
+					"host", vcdCluster.Spec.ControlPlaneEndpoint.Host, "port", controlPlanePort)
+			} else {
+				log.Info("Creating load balancer for the cluster")
+			}
+
+			resourcesAllocated = &vcdsdkutil.AllocatedResourcesMap{}
+			// here we set enableVirtualServiceSharedIP to ensure that we don't use a DNAT rule. The variable is possibly
+			// badly named. Though the user-facing name is good, the internal variable name could be better.
+			controlPlaneNodeIP, err = gateway.CreateLoadBalancer(ctx, virtualServiceNamePrefix, lbPoolNamePrefix,
+				[]string{}, []vcdsdk.PortDetails{
+					{
+						Protocol:     "TCP",
+						PortSuffix:   "tcp",
+						ExternalPort: int32(controlPlanePort),
+						InternalPort: int32(controlPlanePort),
+					},
+				}, oneArm, !vcdCluster.Spec.LoadBalancerConfigSpec.UseOneArm,
+				nil, vcdCluster.Spec.ControlPlaneEndpoint.Host, resourcesAllocated)
+			if err != nil {
+				updatedErr := capvcdRdeManager.AddToErrorSet(ctx, capisdk.LoadBalancerError, "", "",
+					fmt.Sprintf("failed to create load balancer for the cluster [%s(%s)]: [%v]",
+						vcdCluster.Name, vcdCluster.Status.InfraId, err))
+				if updatedErr != nil {
+					log.Error(updatedErr, "failed to add LoadBalancerError into RDE", "rdeID", vcdCluster.Status.InfraId)
+				}
+				return ctrl.Result{}, errors.Wrapf(err, "failed to create load balancer for the cluster [%s(%s)]: [%v]",
+					vcdCluster.Name, vcdCluster.Status.InfraId, err)
+			}
+
+			// Update VCDResourceSet even if the creation has failed since we may have partially
+			// created set of resources
+			if err = addLBResourcesToVCDResourceSet(ctx, rdeManager, resourcesAllocated, controlPlaneNodeIP); err != nil {
+				updatedErr := capvcdRdeManager.AddToErrorSet(ctx, capisdk.RdeError, "", vcdCluster.Name,
+					fmt.Sprintf("failed to add VCD Resource [%s] of type [%s] from VCDResourceSet of RDE [%s]: [%v]",
+						vcdCluster.Name, VcdResourceTypeVM, vcdCluster.Status.InfraId, err))
+				if updatedErr != nil {
+					log.Error(updatedErr, "failed to add RdeError into RDE", "rdeID", vcdCluster.Status.InfraId)
+				}
+				return ctrl.Result{}, errors.Wrapf(err, "failed to add load balancer resources to RDE [%s]", infraID)
+			}
+			if err = capvcdRdeManager.RdeManager.RemoveErrorByNameOrIdFromErrorSet(ctx, vcdsdk.ComponentCAPVCD, capisdk.RdeError, "", ""); err != nil {
+				log.Error(err, "failed to remove RdeError ", "rdeID", infraID)
+			}
+
+			if len(resourcesAllocated.Get(vcdsdk.VcdResourceVirtualService)) > 0 {
+				virtualServiceHref = resourcesAllocated.Get(vcdsdk.VcdResourceVirtualService)[0].Id
+			}
+
+			if err != nil {
+				if vsError, ok := err.(*vcdsdk.VirtualServicePendingError); ok {
+					log.Info("Error creating load balancer for cluster. Virtual Service is still pending",
+						"virtualServiceName", vsError.VirtualServiceName, "error", err)
+					err1 := capvcdRdeManager.AddToErrorSet(ctx, capisdk.LoadBalancerPending, virtualServiceHref, "", fmt.Sprintf("Error creating load balancer: [%v]", err))
+					if err1 != nil {
+						log.Error(err1, "failed to add LoadBalancerPending into RDE", "rdeID", infraID)
+					}
+					return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
+				}
+				if err = capvcdRdeManager.RdeManager.RemoveErrorByNameOrIdFromErrorSet(ctx, vcdsdk.ComponentCAPVCD, capisdk.LoadBalancerError, "", ""); err != nil {
+					log.Error(err, "failed to remove LoadBalancerError ", "rdeID", infraID)
+				}
+				return ctrl.Result{}, errors.Wrapf(err,
+					"Error creating create load balancer [%s] for the cluster [%s]: [%v]",
+					virtualServiceNamePrefix, vcdCluster.Name, err)
+			}
+			log.Info("Resources Allocated in creation of load balancer",
+				"resourcesAllocated", resourcesAllocated)
+		}
+
 		if err = addLBResourcesToVCDResourceSet(ctx, rdeManager, resourcesAllocated, controlPlaneNodeIP); err != nil {
 			updatedErr := capvcdRdeManager.AddToErrorSet(ctx, capisdk.RdeError, "", vcdCluster.Name,
 				fmt.Sprintf("failed to add VCD Resource [%s] of type [%s] from VCDResourceSet of RDE [%s]: [%v]",
 					vcdCluster.Name, VcdResourceTypeVM, vcdCluster.Status.InfraId, err))
 			if updatedErr != nil {
-				log.Error(updatedErr, "failed to add RdeError into RDE", "rdeID", vcdCluster.Status.InfraId)
+				log.Error(updatedErr, "failed to add RdeError (LBResources) into RDE", "rdeID", vcdCluster.Status.InfraId)
 			}
 			return ctrl.Result{}, errors.Wrapf(err, "failed to add load balancer resources to RDE [%s]", infraID)
 		}
 		if err = capvcdRdeManager.RdeManager.RemoveErrorByNameOrIdFromErrorSet(ctx, vcdsdk.ComponentCAPVCD, capisdk.RdeError, "", ""); err != nil {
-			log.Error(err, "failed to remove RdeError ", "rdeID", infraID)
+			log.Error(err, "failed to remove RdeError from RDE", "rdeID", infraID)
 		}
 
 		if len(resourcesAllocated.Get(vcdsdk.VcdResourceVirtualService)) > 0 {
 			virtualServiceHref = resourcesAllocated.Get(vcdsdk.VcdResourceVirtualService)[0].Id
 		}
+		vcdCluster.Spec.ControlPlaneEndpoint = infrav1.APIEndpoint{
+			Host: controlPlaneNodeIP,
+			Port: controlPlanePort,
+		}
+		log.Info(fmt.Sprintf("Control plane endpoint for the cluster is [%s]", controlPlaneNodeIP))
 
+		err = capvcdRdeManager.AddToEventSet(ctx, capisdk.LoadBalancerAvailable, virtualServiceHref, "", "", skipRDEEventUpdates)
 		if err != nil {
-			if vsError, ok := err.(*vcdsdk.VirtualServicePendingError); ok {
-				log.Info("Error creating load balancer for cluster. Virtual Service is still pending",
-					"virtualServiceName", vsError.VirtualServiceName, "error", err)
-				err1 := capvcdRdeManager.AddToErrorSet(ctx, capisdk.LoadBalancerPending, virtualServiceHref, "", fmt.Sprintf("Error creating load balancer: [%v]", err))
-				if err1 != nil {
-					log.Error(err1, "failed to add LoadBalancerPending into RDE", "rdeID", infraID)
+			log.Error(err, "failed to add LoadBalancerAvailable event into RDE", "rdeID", infraID)
+		}
+		err = capvcdRdeManager.RdeManager.RemoveErrorByNameOrIdFromErrorSet(ctx, vcdsdk.ComponentCAPVCD, capisdk.LoadBalancerPending, "", "")
+		if err != nil {
+			log.Error(err, "failed to remove LoadBalancerPending error (RDE upgraded successfully) ", "rdeID", infraID)
+		}
+
+		if !strings.HasPrefix(vcdCluster.Status.InfraId, NoRdePrefix) {
+			org, err := workloadVCDClient.VCDClient.GetOrgByName(workloadVCDClient.ClusterOrgName)
+			if err != nil {
+				return ctrl.Result{}, errors.Wrapf(errors.New("failed to get org by name"), "error getting org by name for org [%s]: [%v]", workloadVCDClient.ClusterOrgName, err)
+			}
+			if org == nil || org.Org == nil {
+				return ctrl.Result{}, errors.Wrapf(errors.New("invalid org ref obtained"),
+					"obtained nil org when getting org by name [%s]", workloadVCDClient.ClusterOrgName)
+			}
+			_, resp, _, err := workloadVCDClient.APIClient.DefinedEntityApi.GetDefinedEntity(ctx, vcdCluster.Status.InfraId, org.Org.ID)
+			if err == nil && resp != nil && resp.StatusCode == http.StatusOK {
+				if err = r.reconcileRDE(ctx, cluster, vcdCluster, workloadVCDClient, "", false); err != nil {
+					log.Error(err, "Error occurred during RDE reconciliation",
+						"InfraId", vcdCluster.Status.InfraId)
 				}
-				return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
-			}
-			if err = capvcdRdeManager.RdeManager.RemoveErrorByNameOrIdFromErrorSet(ctx, vcdsdk.ComponentCAPVCD, capisdk.LoadBalancerError, "", ""); err != nil {
-				log.Error(err, "failed to remove LoadBalancerError ", "rdeID", infraID)
-			}
-			return ctrl.Result{}, errors.Wrapf(err,
-				"Error creating create load balancer [%s] for the cluster [%s]: [%v]",
-				virtualServiceNamePrefix, vcdCluster.Name, err)
-		}
-		log.Info("Resources Allocated in creation of load balancer",
-			"resourcesAllocated", resourcesAllocated)
-	}
-
-	if err = addLBResourcesToVCDResourceSet(ctx, rdeManager, resourcesAllocated, controlPlaneNodeIP); err != nil {
-		updatedErr := capvcdRdeManager.AddToErrorSet(ctx, capisdk.RdeError, "", vcdCluster.Name,
-			fmt.Sprintf("failed to add VCD Resource [%s] of type [%s] from VCDResourceSet of RDE [%s]: [%v]",
-				vcdCluster.Name, VcdResourceTypeVM, vcdCluster.Status.InfraId, err))
-		if updatedErr != nil {
-			log.Error(updatedErr, "failed to add RdeError (LBResources) into RDE", "rdeID", vcdCluster.Status.InfraId)
-		}
-		return ctrl.Result{}, errors.Wrapf(err, "failed to add load balancer resources to RDE [%s]", infraID)
-	}
-	if err = capvcdRdeManager.RdeManager.RemoveErrorByNameOrIdFromErrorSet(ctx, vcdsdk.ComponentCAPVCD, capisdk.RdeError, "", ""); err != nil {
-		log.Error(err, "failed to remove RdeError from RDE", "rdeID", infraID)
-	}
-
-	if len(resourcesAllocated.Get(vcdsdk.VcdResourceVirtualService)) > 0 {
-		virtualServiceHref = resourcesAllocated.Get(vcdsdk.VcdResourceVirtualService)[0].Id
-	}
-
-	vcdCluster.Spec.ControlPlaneEndpoint = infrav1.APIEndpoint{
-		Host: controlPlaneNodeIP,
-		Port: controlPlanePort,
-	}
-	log.Info(fmt.Sprintf("Control plane endpoint for the cluster is [%s]", controlPlaneNodeIP))
-
-	err = capvcdRdeManager.AddToEventSet(ctx, capisdk.LoadBalancerAvailable, virtualServiceHref, "", "", skipRDEEventUpdates)
-	if err != nil {
-		log.Error(err, "failed to add LoadBalancerAvailable event into RDE", "rdeID", infraID)
-	}
-	err = capvcdRdeManager.RdeManager.RemoveErrorByNameOrIdFromErrorSet(ctx, vcdsdk.ComponentCAPVCD, capisdk.LoadBalancerPending, "", "")
-	if err != nil {
-		log.Error(err, "failed to remove LoadBalancerPending error (RDE upgraded successfully) ", "rdeID", infraID)
-	}
-
-	if !strings.HasPrefix(vcdCluster.Status.InfraId, NoRdePrefix) {
-		org, err := workloadVCDClient.VCDClient.GetOrgByName(workloadVCDClient.ClusterOrgName)
-		if err != nil {
-			return ctrl.Result{}, errors.Wrapf(errors.New("failed to get org by name"), "error getting org by name for org [%s]: [%v]", workloadVCDClient.ClusterOrgName, err)
-		}
-		if org == nil || org.Org == nil {
-			return ctrl.Result{}, errors.Wrapf(errors.New("invalid org ref obtained"),
-				"obtained nil org when getting org by name [%s]", workloadVCDClient.ClusterOrgName)
-		}
-		_, resp, _, err := workloadVCDClient.APIClient.DefinedEntityApi.GetDefinedEntity(ctx, vcdCluster.Status.InfraId, org.Org.ID)
-		if err == nil && resp != nil && resp.StatusCode == http.StatusOK {
-			if err = r.reconcileRDE(ctx, cluster, vcdCluster, workloadVCDClient, "", false); err != nil {
-				log.Error(err, "Error occurred during RDE reconciliation",
+			} else {
+				log.Error(err, "Unexpected error retrieving RDE for the cluster from VCD",
 					"InfraId", vcdCluster.Status.InfraId)
-			}
-		} else {
-			log.Error(err, "Unexpected error retrieving RDE for the cluster from VCD",
-				"InfraId", vcdCluster.Status.InfraId)
-			// Some additional checks to log non-sensitive content safely.
-			if resp == nil {
-				log.Error(nil, "Error retrieving RDE for the cluster from VCD; obtained an empty response",
-					"InfraId", vcdCluster.Status.InfraId)
-			} else if resp.StatusCode != http.StatusOK {
-				log.Error(nil, "Error retrieving RDE for the cluster from VCD",
-					"InfraId", vcdCluster.Status.InfraId)
+				// Some additional checks to log non-sensitive content safely.
+				if resp == nil {
+					log.Error(nil, "Error retrieving RDE for the cluster from VCD; obtained an empty response",
+						"InfraId", vcdCluster.Status.InfraId)
+				} else if resp.StatusCode != http.StatusOK {
+					log.Error(nil, "Error retrieving RDE for the cluster from VCD",
+						"InfraId", vcdCluster.Status.InfraId)
+				}
 			}
 		}
 	}
@@ -1192,46 +1291,72 @@ func (r *VCDClusterReconciler) reconcileDelete(ctx context.Context,
 		log.Error(err, "failed to remove VCDClusterError from RDE")
 	}
 
-	// Delete the load balancer components
-	virtualServiceNamePrefix := capisdk.GetVirtualServiceNamePrefix(vcdCluster.Name, vcdCluster.Status.InfraId)
-	lbPoolNamePrefix := capisdk.GetVirtualServiceNamePrefix(vcdCluster.Name, vcdCluster.Status.InfraId)
-
-	controlPlanePort := vcdCluster.Spec.ControlPlaneEndpoint.Port
-	if controlPlanePort == 0 {
-		controlPlanePort = TcpPort
-	}
-	var oneArm *vcdsdk.OneArm = nil
-	if vcdCluster.Spec.LoadBalancerConfigSpec.UseOneArm {
-		oneArm = &OneArmDefault
-	}
-	resourcesAllocated := &vcdsdkutil.AllocatedResourcesMap{}
-	_, err = gateway.DeleteLoadBalancer(ctx, virtualServiceNamePrefix, lbPoolNamePrefix,
-		[]vcdsdk.PortDetails{
-			{
-				Protocol:     "TCP",
-				PortSuffix:   "tcp",
-				ExternalPort: int32(controlPlanePort),
-				InternalPort: int32(controlPlanePort),
-			},
-		}, oneArm, resourcesAllocated)
-	if err != nil {
-		err1 := capvcdRdeManager.AddToErrorSet(ctx, capisdk.LoadBalancerError, "", virtualServiceNamePrefix, fmt.Sprintf("%v", err))
-		if err1 != nil {
-			log.Error(err1, "failed to add LoadBalancerError into RDE", "rdeID", vcdCluster.Status.InfraId)
+	if vcdCluster.Spec.UseKubeVIP {
+		if vcdCluster.Spec.ControlPlaneEndpoint.Host != vcdCluster.Spec.KubeVIPParams.InternalIPAddress {
+			log.Info("No LB components to delete since Kube-VIP was used and DNAT rule was NOT created.")
+		} else {
+			// This implies that there was a DNAT rule created provided in the happy case.
+			// Ideally we need a stronger way of determining this. Or an admission webhook to ensure that the above
+			// rule is always enforced.
+			errs := make([]error, 0)
+			dnatRuleName := fmt.Sprintf("%s-apiserver", vcdCluster.Status.InfraId)
+			if err := gateway.DeleteDNATRule(ctx, dnatRuleName, false); err != nil {
+				errs = append(errs, fmt.Errorf("unable to delete DNAT rule [%s]: [%v]", dnatRuleName, err))
+			}
+			appPortProfileName := vcdsdk.GetAppPortProfileName(dnatRuleName)
+			if err := gateway.DeleteAppPortProfile(appPortProfileName, false); err != nil {
+				errs = append(errs, fmt.Errorf("unable to delete app-port-profile [%s]: [%v]",
+					appPortProfileName, err))
+			}
+			if len(errs) != 0 {
+				return ctrl.Result{},
+					fmt.Errorf("unable to delete some of the network resources used for kube-vip: [%v]", errs)
+			}
+			log.Info("All network resources used for kube-vip deleted successfully")
 		}
-		return ctrl.Result{}, errors.Wrapf(err,
-			"Error occurred during cluster [%s] deletion; unable to delete the load balancer [%s]: [%v]",
-			vcdCluster.Name, virtualServiceNamePrefix, err)
-	}
-	log.Info("Deleted the load balancer components (virtual service, lb pool, dnat rule) of the cluster",
-		"virtual service", virtualServiceNamePrefix, "lb pool", lbPoolNamePrefix)
-	err = capvcdRdeManager.AddToEventSet(ctx, capisdk.LoadbalancerDeleted, virtualServiceNamePrefix, "", "", true)
-	if err != nil {
-		log.Error(err, "failed to add LoadBalancerDeleted event into RDE", "rdeID", vcdCluster.Status.InfraId)
-	}
-	err = capvcdRdeManager.RdeManager.RemoveErrorByNameOrIdFromErrorSet(ctx, vcdsdk.ComponentCAPVCD, capisdk.LoadBalancerError, "", "")
-	if err != nil {
-		log.Error(err, "failed to remove LoadBalancerError from RDE", "rdeID", vcdCluster.Status.InfraId)
+	} else {
+		// Delete the load balancer components
+		virtualServiceNamePrefix := capisdk.GetVirtualServiceNamePrefix(vcdCluster.Name, vcdCluster.Status.InfraId)
+		lbPoolNamePrefix := capisdk.GetVirtualServiceNamePrefix(vcdCluster.Name, vcdCluster.Status.InfraId)
+
+		controlPlanePort := vcdCluster.Spec.ControlPlaneEndpoint.Port
+		if controlPlanePort == 0 {
+			controlPlanePort = KubeApiServerPort
+		}
+		var oneArm *vcdsdk.OneArm = nil
+		if vcdCluster.Spec.LoadBalancerConfigSpec.UseOneArm {
+			oneArm = &OneArmDefault
+		}
+		resourcesAllocated := &vcdsdkutil.AllocatedResourcesMap{}
+		_, err = gateway.DeleteLoadBalancer(ctx, virtualServiceNamePrefix, lbPoolNamePrefix,
+			[]vcdsdk.PortDetails{
+				{
+					Protocol:     "TCP",
+					PortSuffix:   "tcp",
+					ExternalPort: int32(controlPlanePort),
+					InternalPort: int32(controlPlanePort),
+				},
+			}, oneArm, resourcesAllocated)
+		if err != nil {
+			err1 := capvcdRdeManager.AddToErrorSet(ctx, capisdk.LoadBalancerError, "", virtualServiceNamePrefix, fmt.Sprintf("%v", err))
+			if err1 != nil {
+				log.Error(err1, "failed to add LoadBalancerError into RDE", "rdeID", vcdCluster.Status.InfraId)
+			}
+			return ctrl.Result{}, errors.Wrapf(err,
+				"Error occurred during cluster [%s] deletion; unable to delete the load balancer [%s]: [%v]",
+				vcdCluster.Name, virtualServiceNamePrefix, err)
+		}
+		log.Info("Deleted the load balancer components (virtual service, lb pool, dnat rule) of the cluster",
+			"virtual service", virtualServiceNamePrefix, "lb pool", lbPoolNamePrefix)
+
+		err = capvcdRdeManager.AddToEventSet(ctx, capisdk.LoadbalancerDeleted, virtualServiceNamePrefix, "", "", true)
+		if err != nil {
+			log.Error(err, "failed to add LoadBalancerDeleted event into RDE", "rdeID", vcdCluster.Status.InfraId)
+		}
+		err = capvcdRdeManager.RdeManager.RemoveErrorByNameOrIdFromErrorSet(ctx, vcdsdk.ComponentCAPVCD, capisdk.LoadBalancerError, "", "")
+		if err != nil {
+			log.Error(err, "failed to remove LoadBalancerError from RDE", "rdeID", vcdCluster.Status.InfraId)
+		}
 	}
 
 	vdcManager, err := vcdsdk.NewVDCManager(workloadVCDClient, workloadVCDClient.ClusterOrgName,

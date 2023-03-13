@@ -627,67 +627,71 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		return ctrl.Result{}, errors.Wrapf(err, "failed to create gateway manager object while reconciling machine [%s]", vcdMachine.Name)
 	}
 
-	// Update loadbalancer pool with the IP of the control plane node as a new member.
-	// Note that this must be done before booting on the VM!
-	if util.IsControlPlaneMachine(machine) {
-		virtualServiceName := capisdk.GetVirtualServiceNameUsingPrefix(
-			capisdk.GetVirtualServiceNamePrefix(vcdCluster.Name, vcdCluster.Status.InfraId), "tcp")
-		lbPoolName := capisdk.GetLoadBalancerPoolNameUsingPrefix(
-			capisdk.GetLoadBalancerPoolNamePrefix(vcdCluster.Name, vcdCluster.Status.InfraId), "tcp")
-		lbPoolRef, err := gateway.GetLoadBalancerPool(ctx, lbPoolName)
-		if err != nil {
-			updatedErr := capvcdRdeManager.AddToErrorSet(ctx, capisdk.LoadBalancerError, "", machine.Name, fmt.Sprintf("Error retrieving/updating load balancer pool [%s]: %v", lbPoolName, err))
-			if updatedErr != nil {
-				log.Error(updatedErr, "failed to add LoadBalancerError into RDE", "rdeID", vcdCluster.Status.InfraId)
-			}
-			return ctrl.Result{}, errors.Wrapf(err, "Error retrieving/updating load balancer pool [%s] for the "+
-				"control plane machine [%s] of the cluster [%s]", lbPoolName, machine.Name, vcdCluster.Name)
-		}
-		controlPlaneIPs, err := gateway.GetLoadBalancerPoolMemberIPs(ctx, lbPoolRef)
-		if err != nil {
-			updatedErr := capvcdRdeManager.AddToErrorSet(ctx, capisdk.LoadBalancerError, "", machine.Name, fmt.Sprintf("Error retrieving/updating lpool members [%s]: %v", lbPoolName, err))
-			if updatedErr != nil {
-				log.Error(updatedErr, "failed to add LoadBalancerError into RDE", "rdeID", vcdCluster.Status.InfraId)
-			}
-			return ctrl.Result{}, errors.Wrapf(err,
-				"Error retrieving/updating load balancer pool members [%s] for the "+
+	if vcdCluster.Spec.UseKubeVIP {
+		log.Info("Will not add machine to Avi LB since this is a Kube-VIP based cluster")
+	} else {
+		// Update loadbalancer pool with the IP of the control plane node as a new member.
+		// Note that this must be done before booting on the VM!
+		if util.IsControlPlaneMachine(machine) {
+			virtualServiceName := capisdk.GetVirtualServiceNameUsingPrefix(
+				capisdk.GetVirtualServiceNamePrefix(vcdCluster.Name, vcdCluster.Status.InfraId), "tcp")
+			lbPoolName := capisdk.GetLoadBalancerPoolNameUsingPrefix(
+				capisdk.GetLoadBalancerPoolNamePrefix(vcdCluster.Name, vcdCluster.Status.InfraId), "tcp")
+			lbPoolRef, err := gateway.GetLoadBalancerPool(ctx, lbPoolName)
+			if err != nil {
+				updatedErr := capvcdRdeManager.AddToErrorSet(ctx, capisdk.LoadBalancerError, "", machine.Name, fmt.Sprintf("Error retrieving/updating load balancer pool [%s]: %v", lbPoolName, err))
+				if updatedErr != nil {
+					log.Error(updatedErr, "failed to add LoadBalancerError into RDE", "rdeID", vcdCluster.Status.InfraId)
+				}
+				return ctrl.Result{}, errors.Wrapf(err, "Error retrieving/updating load balancer pool [%s] for the "+
 					"control plane machine [%s] of the cluster [%s]", lbPoolName, machine.Name, vcdCluster.Name)
-		}
-
-		err = capvcdRdeManager.RdeManager.RemoveErrorByNameOrIdFromErrorSet(ctx, vcdsdk.ComponentCAPVCD, capisdk.LoadBalancerError, "", "")
-		if err != nil {
-			log.Error(err, "failed to remove LoadBalancerError from RDE", "rdeID", vcdCluster.Status.InfraId)
-		}
-
-		updatedIPs := append(controlPlaneIPs, machineAddress)
-		updatedUniqueIPs := cpiutil.NewSet(updatedIPs).GetElements()
-		resourcesAllocated := &cpiutil.AllocatedResourcesMap{}
-		var oneArm *vcdsdk.OneArm = nil
-		if vcdCluster.Spec.LoadBalancerConfigSpec.UseOneArm {
-			oneArm = &OneArmDefault
-		}
-
-		// At this point the vcdCluster.Spec.ControlPlaneEndpoint should have been set correctly.
-		// We are not using externalIp=vcdCluster.Spec.ControlPlaneEndpoint.Host because of a possible race between which controller picks ups according to the spec.
-		// 1. If vcdcluster controller picks up vcdCluster.Spec.ControlPlaneEndpoint.Host, there is no issue as it will retrieve it from existing VCD VirtualService.
-		// 2. If vcdmachine controller picks up first, then it would update the LB according to vcdCluster.Spec.ControlPlaneEndpoint.Host.
-		// We are deciding to pass externalIp="" in this case, as UpdateVirtualService() would see it's an empty string, so it would just update the VS Object with what's already present.
-		// Users should not be updating control plane IP after it has been created, so this is not a valid use case.
-		// TODO: CAFV-143 In the the future, ideally we should add ControlPlaneEndpoint.Host, ControlPlaneEndpoint.Port into VCDClusterStatus, and pass externalIp=vcdCluster.Status.ControlPlaneEndpoint.Host instead
-		_, err = gateway.UpdateLoadBalancer(ctx, lbPoolName, virtualServiceName, updatedUniqueIPs,
-			"", int32(vcdCluster.Spec.ControlPlaneEndpoint.Port), int32(vcdCluster.Spec.ControlPlaneEndpoint.Port),
-			oneArm, !vcdCluster.Spec.LoadBalancerConfigSpec.UseOneArm, "TCP", resourcesAllocated)
-		if err != nil {
-			updatedErr := capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDMachineCreationError, "", machine.Name, fmt.Sprintf("%v", err))
-			if updatedErr != nil {
-				log.Error(updatedErr, "failed to add VCDMachineCreationError into RDE", "rdeID", vcdCluster.Status.InfraId)
 			}
-			return ctrl.Result{}, errors.Wrapf(err,
-				"Error updating the load balancer pool [%s] for the "+
-					"control plane machine [%s] of the cluster [%s]", lbPoolName, machine.Name, vcdCluster.Name)
+			controlPlaneIPs, err := gateway.GetLoadBalancerPoolMemberIPs(ctx, lbPoolRef)
+			if err != nil {
+				updatedErr := capvcdRdeManager.AddToErrorSet(ctx, capisdk.LoadBalancerError, "", machine.Name, fmt.Sprintf("Error retrieving/updating lpool members [%s]: %v", lbPoolName, err))
+				if updatedErr != nil {
+					log.Error(updatedErr, "failed to add LoadBalancerError into RDE", "rdeID", vcdCluster.Status.InfraId)
+				}
+				return ctrl.Result{}, errors.Wrapf(err,
+					"Error retrieving/updating load balancer pool members [%s] for the "+
+						"control plane machine [%s] of the cluster [%s]", lbPoolName, machine.Name, vcdCluster.Name)
+			}
+
+			err = capvcdRdeManager.RdeManager.RemoveErrorByNameOrIdFromErrorSet(ctx, vcdsdk.ComponentCAPVCD, capisdk.LoadBalancerError, "", "")
+			if err != nil {
+				log.Error(err, "failed to remove LoadBalancerError from RDE", "rdeID", vcdCluster.Status.InfraId)
+			}
+
+			updatedIPs := append(controlPlaneIPs, machineAddress)
+			updatedUniqueIPs := cpiutil.NewSet(updatedIPs).GetElements()
+			resourcesAllocated := &cpiutil.AllocatedResourcesMap{}
+			var oneArm *vcdsdk.OneArm = nil
+			if vcdCluster.Spec.LoadBalancerConfigSpec.UseOneArm {
+				oneArm = &OneArmDefault
+			}
+
+			// At this point the vcdCluster.Spec.ControlPlaneEndpoint should have been set correctly.
+			// We are not using externalIp=vcdCluster.Spec.ControlPlaneEndpoint.Host because of a possible race between which controller picks ups according to the spec.
+			// 1. If vcdcluster controller picks up vcdCluster.Spec.ControlPlaneEndpoint.Host, there is no issue as it will retrieve it from existing VCD VirtualService.
+			// 2. If vcdmachine controller picks up first, then it would update the LB according to vcdCluster.Spec.ControlPlaneEndpoint.Host.
+			// We are deciding to pass externalIp="" in this case, as UpdateVirtualService() would see it's an empty string, so it would just update the VS Object with what's already present.
+			// Users should not be updating control plane IP after it has been created, so this is not a valid use case.
+			// TODO: CAFV-143 In the the future, ideally we should add ControlPlaneEndpoint.Host, ControlPlaneEndpoint.Port into VCDClusterStatus, and pass externalIp=vcdCluster.Status.ControlPlaneEndpoint.Host instead
+			_, err = gateway.UpdateLoadBalancer(ctx, lbPoolName, virtualServiceName, updatedUniqueIPs,
+				"", int32(vcdCluster.Spec.ControlPlaneEndpoint.Port), int32(vcdCluster.Spec.ControlPlaneEndpoint.Port),
+				oneArm, !vcdCluster.Spec.LoadBalancerConfigSpec.UseOneArm, "TCP", resourcesAllocated)
+			if err != nil {
+				updatedErr := capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDMachineCreationError, "", machine.Name, fmt.Sprintf("%v", err))
+				if updatedErr != nil {
+					log.Error(updatedErr, "failed to add VCDMachineCreationError into RDE", "rdeID", vcdCluster.Status.InfraId)
+				}
+				return ctrl.Result{}, errors.Wrapf(err,
+					"Error updating the load balancer pool [%s] for the "+
+						"control plane machine [%s] of the cluster [%s]", lbPoolName, machine.Name, vcdCluster.Name)
+			}
+			log.Info("Updated the load balancer pool with the control plane machine IP",
+				"lbpool", lbPoolName)
 		}
-		log.Info("Updated the load balancer pool with the control plane machine IP",
-			"lbpool", lbPoolName)
 	}
 
 	// only resize hard disk if the user has requested so by specifying such in the VCDMachineTemplate spec
@@ -1101,7 +1105,8 @@ func (r *VCDMachineReconciler) reconcileDelete(ctx context.Context, cluster *clu
 		return ctrl.Result{}, errors.Wrapf(err, "failed to create gateway manager object while reconciling machine [%s]", vcdMachine.Name)
 	}
 
-	if util.IsControlPlaneMachine(machine) {
+	// if not KubeVIP, clean up LoadBalancer
+	if util.IsControlPlaneMachine(machine) && !vcdCluster.Spec.UseKubeVIP {
 		// remove the address from the lbpool
 		log.Info("Deleting the control plane IP from the load balancer pool")
 		lbPoolName := capisdk.GetLoadBalancerPoolNameUsingPrefix(

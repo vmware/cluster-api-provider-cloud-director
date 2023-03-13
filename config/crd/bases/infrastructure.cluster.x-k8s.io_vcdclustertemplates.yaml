@@ -58,6 +58,12 @@ spec:
                         - host
                         - port
                         type: object
+                      kubeVIPParams:
+                        properties:
+                          internalIPAddress:
+                            default: ""
+                            type: string
+                        type: object
                       loadBalancerConfigSpec:
                         description: LoadBalancerConfig defines load-balancer configuration
                           for the Cluster both for the control plane nodes and for
@@ -94,6 +100,9 @@ spec:
                       site:
                         type: string
                       useAsManagementCluster:
+                        default: false
+                        type: boolean
+                      useKubeVIP:
                         default: false
                         type: boolean
                       userContext:
