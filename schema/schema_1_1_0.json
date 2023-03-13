@@ -308,7 +308,7 @@
     },
     "apiVersion": {
       "type": "string",
-      "default": "capvcd.vmware.com/v1.0",
+      "default": "capvcd.vmware.com/v1.1",
       "description": "The version of the payload format"
     }
   }
