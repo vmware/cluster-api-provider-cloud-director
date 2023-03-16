@@ -2,17 +2,17 @@
 
 ## Upgrades
 
-### Steps to Create New APIs with Version `v1beta2`
+### Steps to Create New APIs with Version `v1beta1`
 
-1. Create new API files with the desired version (e.g., `v1beta2`) in the `api` directory of your project. 
+1. Create new API files with the desired version (e.g., `v1beta1`) in the `api` directory of your project. 
    1.1. Run `kubebuilder init --domain cluster.x-k8s.io` command (optional) 
    1.2. Run `kubebuilder create api --group infrastructure --version v1beta1 --kind VCDMachine` command 
    1.3. Run `kubebuilder create api --group infrastructure --version v1beta1 --kind VCDCluster` command 
    1.4. Run `kubebuilder create api --group infrastructure --version v1beta1 --kind VCDMachineTemplate` command 
-2. Copy these files to `./api/v1beta2/*`.
-3. Add the `+kubebuilder:storageversion` comment to each file in the `v1beta2` folder (e.g., `VCDMachine`, `VCDCluster`, `VCDMachineTemplate`).
+2. Copy these files to `./api/v1beta1/*`.
+3. Add the `+kubebuilder:storageversion` comment to each file in the `v1beta1` folder (e.g., `VCDMachine`, `VCDCluster`, `VCDMachineTemplate`).
 
-This will create a new API version `v1beta2` with your desired objects defined in the API files and mark it as the storage version for the CRD for conversion.
+This will create a new API version `v1beta1` with your desired objects defined in the API files and mark it as the storage version for the CRD for conversion.
 
 ### Steps to enable clusterctl upgrade command
 1. Update [metadata.yaml](https://github.com/vmware/cluster-api-provider-cloud-director/blob/main/metadata.yaml) with the core capi contract of the new CAPVCD
@@ -23,7 +23,7 @@ CAPVCD upgrade can now be executed using the command -
 
 ### Steps to enable CAPVCD handle other supported versions
 
-1. To enable conversion between different versions of the custom resource definition (CRD), we need to define a way to convert between the versions. This is done by following the Hub and Spokes model, where the stored version (e.g., v1beta2) is marked as the Hub and all other versions (e.g., v1alpha4, v1beta1) are marked as Spokes.
+1. To enable conversion between different versions of the custom resource definition (CRD), we need to define a way to convert between the versions. This is done by following the Hub and Spokes model, where the stored version (e.g., v1beta1) is marked as the Hub and all other versions (e.g., v1alpha4, v1beta1) are marked as Spokes.
 2. To mark the `v1beta1` types as Hub, go to the api/v1beta1 directory and create a vcdcluster_conversion.go file next to vcdcluster_types.go for each type. In each conversion file, add the empty method func (*VCDCluster) Hub() {} to serve as the Hub marker.
 3. To mark the `v1alpha4` and any other older versions as Spokes, go to the api/v1alpha4 directory and create a vcdcluster_conversion.go file next to vcdcluster_types.go for each type. Implement the convertible interface and provide the conversion methods:
 
@@ -52,18 +52,18 @@ These methods handle the conversion of the VCDCluster type from the v1alpha4 Spo
 ### Steps to enable conversion webhooks in CAPVCD
 The kubebuilder create webhook command generates the scaffolding for a webhook in your Kubernetes operator project, including the conversion logic for the specified CRD.
 When running the following command:
-`kubebuilder create webhook --group infrastructure --version v1beta2 --kind VCDCluster --conversion`
-CAPVCD will create a file named `VCDCluster_webhook.go` in the `/api/v1beta2/` directory. This file will contain the conversion logic for the VCDCluster resource, which is defined in the infrastructure/v1beta1 API group and version.
+`kubebuilder create webhook --group infrastructure --version v1beta1 --kind VCDCluster --conversion`
+CAPVCD will create a file named `VCDCluster_webhook.go` in the `/api/v1beta1/` directory. This file will contain the conversion logic for the VCDCluster resource, which is defined in the infrastructure/v1beta1 API group and version.
 
 ### Steps to enable validation and mutation webhooks in CAPVCD 
 
 (This step may be needed if any new fields being introduced require default values or validation)
 
-1. The following commands will create validation and mutation webhooks for the `VCDCluster` and `VCDMachine` resources, respectively, in the `infrastructure/v1beta2` API group and version:
+1. The following commands will create validation and mutation webhooks for the `VCDCluster` and `VCDMachine` resources, respectively, in the `infrastructure/v1beta1` API group and version:
 
 ```
-kubebuilder create webhook --group infrastructure --version v1beta2 --kind VCDCluster --defaulting --programmatic-validation
-kubebuilder create webhook --group infrastructure --version v1beta2 --kind VCDMachine --defaulting --programmatic-validation
+kubebuilder create webhook --group infrastructure --version v1beta1 --kind VCDCluster --defaulting --programmatic-validation
+kubebuilder create webhook --group infrastructure --version v1beta1 --kind VCDMachine --defaulting --programmatic-validation
 ```
 
 2. If the webhooks already exist but need to be re-created, you can use the `--force` flag with the above commands.
@@ -134,8 +134,8 @@ commonLabels:
 Stored version of the API object should be added as an annotation when older version of the API object is requested.
 Please refer to Github issue [#355](Github issue: https://github.com/vmware/cluster-api-provider-cloud-director/issues/355) for information.
 
-## Dev setup
-
+### RDE Upgradde
+We strongly recommend that developers evaluate upgrades for RDE and CAPVCD APIs every time a minor version of CAPVCD is released.
 
 ## RDE management
 RDEs offer persistence in VCD for otherwise CSE's K8S clusters. It contains two parts:
