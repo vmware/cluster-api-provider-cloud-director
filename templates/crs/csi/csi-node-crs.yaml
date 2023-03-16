@@ -47,7 +47,7 @@ spec:
       dnsPolicy: Default
       containers:
         - name: node-driver-registrar
-          image: k8s.gcr.io/sig-storage/csi-node-driver-registrar:v2.2.0
+          image: registry.k8s.io/sig-storage/csi-node-driver-registrar:v2.2.0
           imagePullPolicy: "IfNotPresent"
           args:
             - "--v=5"
@@ -56,7 +56,12 @@ spec:
           lifecycle:
             preStop:
               exec:
-                command: ["/bin/sh", "-c", "rm -rf /registration/named-disk.csi.cloud-director.vmware.com /registration/named-disk.csi.cloud-director.vmware.com-reg.sock"]
+                command:
+                  [
+                    "/bin/sh",
+                    "-c",
+                    "rm -rf /registration/named-disk.csi.cloud-director.vmware.com /registration/named-disk.csi.cloud-director.vmware.com-reg.sock",
+                  ]
           env:
             - name: ADDRESS
               value: /csi/csi.sock
@@ -79,7 +84,7 @@ spec:
             allowPrivilegeEscalation: true
           image: harbor-repo.vmware.com/vcloud/cloud-director-named-disk-csi-driver:main-branch.6e69474
           imagePullPolicy: IfNotPresent
-          command :
+          command:
             - /opt/vcloud/bin/cloud-director-named-disk-csi-driver
             - --nodeid=$(NODE_ID)
             - --endpoint=$(CSI_ENDPOINT)
