@@ -1,7 +1,7 @@
 # CAPVCD Developer guide
 
-## Upgrades
-
+## API Upgrade
+This section lists all the steps that need to be performed for every CAPVCD upgrade and API version bump up.
 ### Steps to Create New APIs with Version `v1beta1`
 
 1. Create new API files with the desired version (e.g., `v1beta1`) in the `api` directory of your project. 
@@ -152,14 +152,14 @@ RDE Upgrade Steps:
 - Update the srcCapvcdEntity.entityType to the latest RDE version in use.
 - Call the API update call to update CAPVCD entity and persist data into VCD.
 
-Core CAPI and Clusterctl matrix
-* 
+## Core CAPI and Clusterctl matrix
 
-Pre-release check-list
-*
 
-Post-release check-list
-*
+## Pre-release check-list
+
+
+## Post-release check-list
+
 
 
 
