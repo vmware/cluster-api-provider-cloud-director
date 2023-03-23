@@ -96,7 +96,7 @@ spec:
         httpsProxy: ${HTTPS_PROXY}
         noProxy: ${NO_PROXY}
 ---
-apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta2
 kind: VCDMachineTemplate
 metadata:
   name: ${CLUSTER_CLASS_NAME}-control-plane-template
@@ -173,7 +173,7 @@ spec:
             eviction-hard: nodefs.available<0%,nodefs.inodesFree<0%,imagefs.available<0%
             cloud-provider: external
 ---
-apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta2
 kind: VCDMachineTemplate
 metadata:
   name: ${CLUSTER_CLASS_NAME}-worker-template
