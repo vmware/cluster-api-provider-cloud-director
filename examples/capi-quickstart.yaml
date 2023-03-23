@@ -20,7 +20,7 @@ spec:
     name: capi-cluster-control-plane # name of the KubeadmControlPlane object associated with the cluster.
     namespace: default # kubernetes namespace in which the KubeadmControlPlane object reside. Should be the same namespace as that of the Cluster object
   infrastructureRef:
-    apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+    apiVersion: infrastructure.cluster.x-k8s.io/v1beta2
     kind: VCDCluster
     name: capi-cluster # name of the VCDCluster object associated with the cluster.
     namespace: default # kubernetes namespace in which the VCDCluster object resides. Should be the same namespace as that of the Cluster object
