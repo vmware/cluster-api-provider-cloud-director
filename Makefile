@@ -159,11 +159,14 @@ conversion: tools-dir ## Download controller-gen locally if necessary.
 
 KUSTOMIZE = $(GITROOT)/tools/kustomize
 kustomize: tools-dir ## Download kustomize locally if necessary.
-	wget "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh"
-	chmod +x ./install_kustomize.sh
-	if [ ! -f $(KUSTOMIZE) ]; then ./install_kustomize.sh 3.8.7 $(GITROOT)/tools/; fi
-	rm -f ./install_kustomize.sh
-
+	@if [ ! -f $(KUSTOMIZE) ]; then \
+		wget "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh"; \
+		chmod +x ./install_kustomize.sh; \
+		./install_kustomize.sh 3.8.7 $(GITROOT)/tools/; \
+		rm -f ./install_kustomize.sh; \
+	else \
+		echo "kustomize already installed."; \
+	fi
 
 # Add a target to download and build conversion-gen; and then run it with the below params
 generate-conversions: ## Runs Go related generate targets.
