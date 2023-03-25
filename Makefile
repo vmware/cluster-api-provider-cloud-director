@@ -1,3 +1,5 @@
+BUILD_TYPE ?= dev
+
 # Produce CRDs that work back to Kubernetes 1.11 (no version conversion)
 CRD_OPTIONS ?= "crd"
 
@@ -11,11 +13,6 @@ endif
 GITCOMMIT := $(shell git rev-parse --short HEAD 2>/dev/null)
 GITROOT := $(shell git rev-parse --show-toplevel)
 GO_CODE := $(shell ls go.mod go.sum **/*.go)
-version := $(shell cat ${GITROOT}/release/version)
-
-REGISTRY ?= harbor-repo.vmware.com/vcloud
-# Image URL to use all building/pushing image targets
-IMG ?= ${REGISTRY}/cluster-api-provider-cloud-director:${version}
 
 # Setting SHELL to bash allows bash commands to be executed by recipes.
 # This is a requirement for 'setup-envtest.sh' in the test target.
@@ -24,9 +21,46 @@ SHELL = /usr/bin/env bash -o pipefail
 .SHELLFLAGS = -ec
 MANIFEST_DIR = templates
 
-.PHONY: vendor
+REGISTRY ?= harbor-repo.vmware.com/vcloud
+VERSION ?= $(shell cat ${GITROOT}/release/version)
+CAPVCD_IMG := cluster-api-provider-cloud-director
+CAPVCD_ARTIFACT_IMG := capvcd-manifest-airgapped
 
-all: build
+# go-get-tool will 'go get' any package $2 and install it to $1.
+PROJECT_DIR := $(shell dirname $(abspath $(lastword $(MAKEFILE_LIST))))
+define go-get-tool
+@[ -f $(1) ] || { \
+set -e ;\
+TMP_DIR=$$(mktemp -d) ;\
+cd $$TMP_DIR ;\
+go mod init tmp ;\
+echo "Downloading $(2)" ;\
+GOBIN=$(PROJECT_DIR)/bin go get $(2) ;\
+rm -rf $$TMP_DIR ;\
+}
+endef
+
+# go-install-tool will 'go get' any package $2 and install it to $1.
+define go-install-tool
+@[ -f $(1) ] || { \
+set -e ;\
+TMP_DIR=$$(mktemp -d) ;\
+cd $$TMP_DIR ;\
+go mod init tmp ;\
+echo "Downloading $(2)" ;\
+GOBIN=$(GITROOT)/tools go install $(2) ;\
+rm -rf $$TMP_DIR ;\
+}
+endef
+
+
+_SET_DEV_BUILD:
+	$(eval VERSION=$(VERSION)-$(GITCOMMIT))
+
+_SET_PROD_BUILD:
+	$(eval BUILD_TYPE=prod)
+
+.PHONY: vendor
 
 ##@ General
 
@@ -58,6 +92,12 @@ fmt: ## Run go fmt against code.
 vet: ## Run go vet against code.
 	go vet ./...
 
+vendor: ## Run go mod vendor
+	go mod edit -go=1.17
+	go mod tidy -compat=1.17
+	go mod vendor
+
+
 ENVTEST_ASSETS_DIR=$(shell pwd)/testbin
 test: manifests generate fmt vet ## Run tests.
 	mkdir -p ${ENVTEST_ASSETS_DIR}
@@ -66,17 +106,27 @@ test: manifests generate fmt vet ## Run tests.
 
 ##@ Build
 
-build: generate fmt vet ## Build manager binary.
-	go build -o bin/manager main.go
+build-within-docker: vendor
+	mkdir -p /build/cluster-api-provider-cloud-director
+	go build -ldflags "-X github.com/vmware/$(CAPVCD_IMG)/version.Version=${VERSION}" -o /build/vcloud/cluster-api-provider-cloud-director main.go
 
-run: manifests generate fmt vet ## Run a controller from your host.
-	go run ./main.go
+generate-capvcd-image: generate fmt vet vendor 
+	docker build -f Dockerfile . -t $(CAPVCD_IMG):$(VERSION) --build-arg VERSION=$(VERSION)
+	docker tag $(CAPVCD_IMG):$(VERSION) $(REGISTRY)/$(CAPVCD_IMG):$(VERSION)
+	docker push $(REGISTRY)/$(CAPVCD_IMG):$(VERSION)
 
-docker-build: # test ## Build docker image with the manager.
-	docker build -t ${IMG} .
+generate-capvcd-artifact-image:
+	sed -e "s/__VERSION__/$(VERSION)/g" config/manager/manager.yaml.template > config/manager/manager.yaml
+	sed -e "s/__VERSION__/$(VERSION)/g" -e "s~__REGISTRY__~$(REGISTRY)~g" artifacts/bom.json.template > artifacts/bom.json
+	sed -e "s/__VERSION__/$(VERSION)/g" -e "s~__REGISTRY__~$(REGISTRY)~g" artifacts/dependencies.txt.template > artifacts/dependencies.txt
+	make release-manifests
+	docker build -f ./artifacts/Dockerfile . -t $(CAPVCD_ARTIFACT_IMG):$(VERSION)
+	docker tag $(CAPVCD_ARTIFACT_IMG):$(VERSION) $(REGISTRY)/$(CAPVCD_ARTIFACT_IMG):$(VERSION)
+	docker push $(REGISTRY)/$(CAPVCD_ARTIFACT_IMG):$(VERSION)
 
-docker-push: ## Push docker image with the manager.
-	docker push ${IMG}
+dev: _SET_DEV_BUILD generate-capvcd-image generate-capvcd-artifact-image ## Build and push dev image
+
+prod: _SET_PROD_BUILD generate-capvcd-image generate-capvcd-artifact-image ## Build and push release image
 
 ##@ Deployment
 
@@ -87,7 +137,7 @@ uninstall: manifests kustomize ## Uninstall CRDs from the K8s cluster specified 
 	$(KUSTOMIZE) build config/crd | kubectl delete -f -
 
 deploy: manifests kustomize ## Deploy controller to the K8s cluster specified in ~/.kube/config.
-	cd config/manager && $(KUSTOMIZE) edit set image controller=${IMG}
+	cd config/manager && $(KUSTOMIZE) edit set image controller=$(REGISTRY)/$(CAPVCD_IMG):$(VERSION)
 	$(KUSTOMIZE) build config/default | kubectl apply -f -
 
 undeploy: ## Undeploy controller from the K8s cluster specified in ~/.kube/config.
@@ -113,62 +163,11 @@ conversion: tools-dir ## Download controller-gen locally if necessary.
 
 KUSTOMIZE = $(GITROOT)/tools/kustomize
 kustomize: tools-dir ## Download kustomize locally if necessary.
-	CURR_DIR=$(pwd)
-	cd $(GITROOT)/bin
 	wget "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh"
 	chmod +x ./install_kustomize.sh
-	./install_kustomize.sh 3.8.7 $(GITROOT)/tools/
-	\rm -f ./install_kustomize.sh
-	cd $(CURR_DIR)
+	if [ ! -f $(KUSTOMIZE) ]; then ./install_kustomize.sh 3.8.7 $(GITROOT)/tools/; fi
+	rm -f ./install_kustomize.sh
 
-
-# go-get-tool will 'go get' any package $2 and install it to $1.
-PROJECT_DIR := $(shell dirname $(abspath $(lastword $(MAKEFILE_LIST))))
-define go-get-tool
-@[ -f $(1) ] || { \
-set -e ;\
-TMP_DIR=$$(mktemp -d) ;\
-cd $$TMP_DIR ;\
-go mod init tmp ;\
-echo "Downloading $(2)" ;\
-GOBIN=$(PROJECT_DIR)/bin go get $(2) ;\
-rm -rf $$TMP_DIR ;\
-}
-endef
-
-# go-install-tool will 'go get' any package $2 and install it to $1.
-define go-install-tool
-@[ -f $(1) ] || { \
-set -e ;\
-TMP_DIR=$$(mktemp -d) ;\
-cd $$TMP_DIR ;\
-go mod init tmp ;\
-echo "Downloading $(2)" ;\
-GOBIN=$(GITROOT)/tools go install $(2) ;\
-rm -rf $$TMP_DIR ;\
-}
-endef
-
-build-within-docker: vendor
-	mkdir -p /build/cluster-api-provider-cloud-director
-	go build -ldflags "-X github.com/vmware/cluster-api-provider-cloud-director/version.Version=$(version)" -o /build/vcloud/cluster-api-provider-cloud-director main.go
-
-capi: generate fmt vet vendor
-	docker build -f Dockerfile . -t cluster-api-provider-cloud-director:$(version)
-	docker tag cluster-api-provider-cloud-director:$(version) $(IMG)
-	docker tag cluster-api-provider-cloud-director:$(version) $(IMG)-$(GITCOMMIT)
-	docker push $(IMG)
-
-vendor:
-	go mod edit -go=1.17
-	go mod tidy -compat=1.17
-	go mod vendor
-
-release-manifests: $(KUSTOMIZE)
-	mkdir -p $(MANIFEST_DIR)
-	$(KUSTOMIZE) build config/default > $(MANIFEST_DIR)/infrastructure-components.yaml
-
-autogen-files: manifests generate generate-conversions release-manifests
 
 # Add a target to download and build conversion-gen; and then run it with the below params
 generate-conversions: ## Runs Go related generate targets.
@@ -179,26 +178,8 @@ generate-conversions: ## Runs Go related generate targets.
 		--output-file-base=zz_generated.conversion \
 		--go-header-file=./boilerplate.go.txt
 
-dev: capi dev-capvcd-artifacts
-	# IMG Format: ${REGISTRY}/cluster-api-provider-cloud-director:${version}
-	docker push $(IMG)-$(GITCOMMIT)
+release-manifests: kustomize
+	mkdir -p $(MANIFEST_DIR)
+	$(KUSTOMIZE) build config/default > $(MANIFEST_DIR)/infrastructure-components.yaml
 
-prod: capi prod-capvcd-artifacts
-
-dev-capvcd-artifacts:
-	sed -e "s/__GIT_COMMIT__/$(GITCOMMIT)/g" -e "s/__VERSION__/$(version)/g" config/manager/manager.yaml.template > config/manager/manager.yaml
-	sed -e "s/__GIT_COMMIT__/$(GITCOMMIT)/g" -e "s/__VERSION__/$(version)/g" -e "s~__REGISTRY__~$(REGISTRY)~g" artifacts/bom.json.template > artifacts/bom.json
-	sed -e "s/__GIT_COMMIT__/$(GITCOMMIT)/g" -e "s/__VERSION__/$(version)/g" -e "s~__REGISTRY__~$(REGISTRY)~g" artifacts/dependencies.txt.template > artifacts/dependencies.txt
-	make release-manifests
-	docker build -f ./artifacts/Dockerfile . -t capvcd-manifest-airgapped:$(version)-$(GITCOMMIT)
-	docker tag capvcd-manifest-airgapped:$(version)-$(GITCOMMIT) $(REGISTRY)/capvcd-manifest-airgapped:$(version)-$(GITCOMMIT)
-	docker push $(REGISTRY)/capvcd-manifest-airgapped:$(version)-$(GITCOMMIT)
-
-prod-capvcd-artifacts:
-	sed -e "s/\.__GIT_COMMIT__//g" -e "s/__VERSION__/$(version)/g" config/manager/manager.yaml.template > config/manager/manager.yaml
-	sed -e "s/-__GIT_COMMIT__//g" -e "s/__VERSION__/$(version)/g" -e "s~__REGISTRY__~$(REGISTRY)~g" artifacts/bom.json.template > artifacts/bom.json
-	sed -e "s/-__GIT_COMMIT__//g" -e "s/__VERSION__/$(version)/g" -e "s~__REGISTRY__~$(REGISTRY)~g" artifacts/dependencies.txt.template > artifacts/dependencies.txt
-	make release-manifests
-	docker build -f ./artifacts/Dockerfile . -t capvcd-manifest-airgapped:$(version)
-	docker tag capvcd-manifest-airgapped:$(version) $(REGISTRY)/capvcd-manifest-airgapped:$(version)
-	docker push $(REGISTRY)/capvcd-manifest-airgapped:$(version)
+autogen-files: manifests generate generate-conversions release-manifests
