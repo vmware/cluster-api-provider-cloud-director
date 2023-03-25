@@ -1,5 +1,3 @@
-BUILD_TYPE ?= dev
-
 # Produce CRDs that work back to Kubernetes 1.11 (no version conversion)
 CRD_OPTIONS ?= "crd"
 
@@ -57,8 +55,6 @@ endef
 _SET_DEV_BUILD:
 	$(eval VERSION=$(VERSION)-$(GITCOMMIT))
 
-_SET_PROD_BUILD:
-	$(eval BUILD_TYPE=prod)
 
 .PHONY: vendor
 
@@ -126,7 +122,7 @@ generate-capvcd-artifact-image:
 
 dev: _SET_DEV_BUILD generate-capvcd-image generate-capvcd-artifact-image ## Build and push dev image
 
-prod: _SET_PROD_BUILD generate-capvcd-image generate-capvcd-artifact-image ## Build and push release image
+prod: generate-capvcd-image generate-capvcd-artifact-image ## Build and push release image
 
 ##@ Deployment
 
