@@ -109,6 +109,8 @@ build-within-docker: vendor
 generate-capvcd-image: generate fmt vet vendor 
 	docker build -f Dockerfile . -t $(CAPVCD_IMG):$(VERSION) --build-arg VERSION=$(VERSION)
 	docker tag $(CAPVCD_IMG):$(VERSION) $(REGISTRY)/$(CAPVCD_IMG):$(VERSION)
+
+push-capvcd-image:
 	docker push $(REGISTRY)/$(CAPVCD_IMG):$(VERSION)
 
 generate-capvcd-artifact-image:
@@ -118,11 +120,13 @@ generate-capvcd-artifact-image:
 	make release-manifests
 	docker build -f ./artifacts/Dockerfile . -t $(CAPVCD_ARTIFACT_IMG):$(VERSION)
 	docker tag $(CAPVCD_ARTIFACT_IMG):$(VERSION) $(REGISTRY)/$(CAPVCD_ARTIFACT_IMG):$(VERSION)
+
+push-capvcd-artifact-image:
 	docker push $(REGISTRY)/$(CAPVCD_ARTIFACT_IMG):$(VERSION)
 
-dev: _SET_DEV_BUILD generate-capvcd-image generate-capvcd-artifact-image ## Build and push dev image
+dev: _SET_DEV_BUILD prod ## Build and push dev image
 
-prod: generate-capvcd-image generate-capvcd-artifact-image ## Build and push release image
+prod: generate-capvcd-image generate-capvcd-artifact-image push-capvcd-image push-capvcd-artifact-image ## Build and push release image
 
 ##@ Deployment
 
