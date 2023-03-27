@@ -22,7 +22,7 @@ spec:
     name: ${CLUSTER_NAME}-control-plane # name of the KubeadmControlPlane object associated with the cluster.
     namespace: ${TARGET_NAMESPACE} # kubernetes namespace in which the KubeadmControlPlane object reside. Should be the same namespace as that of the Cluster object
   infrastructureRef:
-    apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+    apiVersion: infrastructure.cluster.x-k8s.io/v1beta2
     kind: VCDCluster
     name: ${CLUSTER_NAME} # name of the VCDCluster object associated with the cluster.
     namespace: ${TARGET_NAMESPACE} # kubernetes namespace in which the VCDCluster object resides. Should be the same namespace as that of the Cluster object
@@ -38,7 +38,7 @@ data:
   password: "${VCD_PASSWORD_B64}" # B64 encoded password associated with the user creating the cluster
   refreshToken: "${VCD_REFRESH_TOKEN_B64}" # B64 encoded refresh token of the client registered with VCD for creating clusters. password can be left blank if refresh token is provided
 ---
-apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta2
 kind: VCDCluster
 metadata:
   name: ${CLUSTER_NAME}
@@ -56,7 +56,7 @@ spec:
   loadBalancerConfigSpec:
     vipSubnet: "" # Virtual IP CIDR for the external network
 ---
-apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta2
 kind: VCDMachineTemplate
 metadata:
   name: ${CLUSTER_NAME}-control-plane
@@ -113,14 +113,14 @@ spec:
           cloud-provider: external
   machineTemplate:
     infrastructureRef:
-      apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+      apiVersion: infrastructure.cluster.x-k8s.io/v1beta2
       kind: VCDMachineTemplate
       name: ${CLUSTER_NAME}-control-plane # name of the VCDMachineTemplate object used to deploy control plane VMs. Should be the same name as that of KubeadmControlPlane object
       namespace: ${TARGET_NAMESPACE} # kubernetes namespace of the VCDMachineTemplate object. Should be the same namespace as that of the Cluster object
   replicas: ${CONTROL_PLANE_MACHINE_COUNT} # desired number of control plane nodes for the cluster
   version: v1.21.8+vmware.1 # Kubernetes version to be used to create (or) upgrade the control plane nodes. Default version for this flavor is v1.21.8+vmware.1-tkg.2
 ---
-apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta2
 kind: VCDMachineTemplate
 metadata:
   name: ${CLUSTER_NAME}-md-0
@@ -175,7 +175,7 @@ spec:
           namespace: ${TARGET_NAMESPACE} # kubernetes namespace of the KubeadmConfigTemplate object. Should be the same namespace as that of the Cluster object
       clusterName: ${CLUSTER_NAME} # name of the Cluster object
       infrastructureRef:
-        apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+        apiVersion: infrastructure.cluster.x-k8s.io/v1beta2
         kind: VCDMachineTemplate
         name: ${CLUSTER_NAME}-md-0 # name of the VCDMachineTemplate object used to deploy worker nodes
         namespace: ${TARGET_NAMESPACE} # kubernetes namespace of the VCDMachineTemplate object used to deploy worker nodes
