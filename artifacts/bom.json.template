@@ -1,6 +1,6 @@
 {
 	"name":"capvcd-manifest-airgapped",
-	"version":"__VERSION__-__GIT_COMMIT__",
+	"version":"__VERSION__",
 	"components": {
 		"manifests":[
 			{
@@ -15,7 +15,7 @@
 		"dependencies": [
 			{
 				"name":"cluster-api-provider-cloud-director",
-				"version":"__VERSION__-__GIT_COMMIT__",
+				"version":"__VERSION__",
 				"imageRepository":"__REGISTRY__"
 			}
 		]

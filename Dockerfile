@@ -11,7 +11,8 @@ ADD . /go/src/github.com/vmware/cluster-api-provider-cloud-director
 WORKDIR /go/src/github.com/vmware/cluster-api-provider-cloud-director
 
 ENV GOPATH /go
-RUN ["make", "build-within-docker"]
+ARG VERSION
+RUN make build-within-docker VERSION=$VERSION
 
 ########################################################
 
