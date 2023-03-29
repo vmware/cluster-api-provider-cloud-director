@@ -24,6 +24,7 @@ providers:
 
 
 EXP_CLUSTER_RESOURCE_SET: true
+# CLUSTER_TOPOLOGY: true # Enable/Disable the feature gate for ClusterClass support.
 
 # Mandatory VCD specific properties
 VCD_SITE: "https://VCD_FQDN"
@@ -49,6 +50,7 @@ VCD_VIP_CIDR: ""
 
 # Kubernetes cluster properties
 CLUSTER_NAME: "myCluster"
+CLUSTER_CLASS_NAME: "myClusterClass"
 TARGET_NAMESPACE: default
 CONTROL_PLANE_MACHINE_COUNT: 1
 WORKER_MACHINE_COUNT: 1

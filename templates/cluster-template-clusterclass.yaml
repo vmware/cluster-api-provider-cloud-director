@@ -1,30 +1,4 @@
 apiVersion: cluster.x-k8s.io/v1beta1
-kind: Cluster
-metadata:
-  labels:
-    cni: antrea
-  name: ${CLUSTER_NAME}
-  namespace: ${TARGET_NAMESPACE}
-spec:
-  clusterNetwork:
-    pods:
-      cidrBlocks:
-      - ${POD_CIDR} # pod CIDR for the cluster
-    services:
-      cidrBlocks:
-      - ${SERVICE_CIDR} # service CIDR for the cluster
-  topology:
-    class: ${CLUSTER_CLASS_NAME}
-    controlPlane:
-      replicas: ${CONTROL_PLANE_MACHINE_COUNT}
-    version: ${KUBERNETES_VERSION}
-    workers:
-      machineDeployments:
-      - class: default-worker
-        name: worker
-        replicas: ${WORKER_MACHINE_COUNT}
----
-apiVersion: cluster.x-k8s.io/v1beta1
 kind: ClusterClass
 metadata:
   name: ${CLUSTER_CLASS_NAME}
@@ -59,6 +33,32 @@ spec:
               apiVersion: infrastructure.cluster.x-k8s.io/v1beta2
               kind: VCDMachineTemplate
               name: ${CLUSTER_CLASS_NAME}-worker-template
+---
+apiVersion: cluster.x-k8s.io/v1beta1
+kind: Cluster
+metadata:
+  labels:
+    cni: antrea
+  name: ${CLUSTER_NAME}
+  namespace: ${TARGET_NAMESPACE}
+spec:
+  clusterNetwork:
+    pods:
+      cidrBlocks:
+        - ${POD_CIDR} # pod CIDR for the cluster
+    services:
+      cidrBlocks:
+        - ${SERVICE_CIDR} # service CIDR for the cluster
+  topology:
+    class: ${CLUSTER_CLASS_NAME}
+    controlPlane:
+      replicas: ${CONTROL_PLANE_MACHINE_COUNT}
+    version: ${KUBERNETES_VERSION}
+    workers:
+      machineDeployments:
+        - class: default-worker
+          name: worker
+          replicas: ${WORKER_MACHINE_COUNT}
 ---
 apiVersion: v1
 kind: Secret
