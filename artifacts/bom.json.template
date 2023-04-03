@@ -16,7 +16,7 @@
 			{
 				"name":"cluster-api-provider-cloud-director",
 				"version":"__VERSION__",
-				"imageRepository":"__REGISTRY__"
+				"imageRepository":"projects.registry.vmware.com/vmware-cloud-director"
 			}
 		]
 	}
