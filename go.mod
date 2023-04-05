@@ -9,9 +9,10 @@ require (
 	github.com/onsi/ginkgo v1.16.5
 	github.com/onsi/gomega v1.19.0
 	github.com/pkg/errors v0.9.1
-	github.com/vmware/cloud-provider-for-cloud-director v0.0.0-20221101175721-fc36adaf4dbb
+	github.com/vmware/cloud-provider-for-cloud-director v0.0.0-20230330213336-8b9428f86815
 	github.com/vmware/go-vcloud-director/v2 v2.15.0
 	go.uber.org/zap v1.19.1
+	golang.org/x/oauth2 v0.0.0-20220411215720-9780585627b5
 	gopkg.in/yaml.v2 v2.4.0
 	k8s.io/api v0.24.1
 	k8s.io/apimachinery v0.24.1
@@ -39,7 +40,7 @@ require (
 	github.com/coredns/corefile-migration v1.0.14 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/docker/distribution v2.8.1+incompatible // indirect
-	github.com/emicklei/go-restful v2.9.5+incompatible // indirect
+	github.com/emicklei/go-restful v2.16.0+incompatible // indirect
 	github.com/evanphx/json-patch v4.12.0+incompatible // indirect
 	github.com/evanphx/json-patch/v5 v5.6.0 // indirect
 	github.com/fsnotify/fsnotify v1.5.1 // indirect
@@ -81,11 +82,10 @@ require (
 	go.uber.org/atomic v1.7.0 // indirect
 	go.uber.org/multierr v1.6.0 // indirect
 	golang.org/x/crypto v0.0.0-20220315160706-3147a52a75dd // indirect
-	golang.org/x/net v0.0.0-20220225172249-27dd8689420f // indirect
-	golang.org/x/oauth2 v0.0.0-20220411215720-9780585627b5 // indirect
-	golang.org/x/sys v0.0.0-20220209214540-3681064d5158 // indirect
-	golang.org/x/term v0.0.0-20210927222741-03fcf44c2211 // indirect
-	golang.org/x/text v0.3.7 // indirect
+	golang.org/x/net v0.7.0 // indirect
+	golang.org/x/sys v0.5.0 // indirect
+	golang.org/x/term v0.5.0 // indirect
+	golang.org/x/text v0.7.0 // indirect
 	golang.org/x/time v0.0.0-20220210224613-90d013bbcef8 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.2.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
