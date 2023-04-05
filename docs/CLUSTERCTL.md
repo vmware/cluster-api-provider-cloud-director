@@ -3,24 +3,24 @@
 <a name="clusterctl_set_up"></a>
 ## Set up
 Install [Clusterctl v1.1.3](https://cluster-api.sigs.k8s.io/user/quick-start.html#install-clusterctl)
-Currently, the below manual steps are required to enable clusterctl for CAPVCD 1.0.0.
+Currently, the below manual steps are required to enable clusterctl for CAPVCD 1.1.0.
 
-1. Create a folder structure `~/infrastructure-vcd/v1.0.0/`.
-2. Copy the contents from [templates directory](https://github.com/vmware/cluster-api-provider-cloud-director/tree/main/templates) to `~/infrastructure-vcd/v1.0.0/`
-3. Copy [metadata.yaml](https://github.com/vmware/cluster-api-provider-cloud-director/blob/main/metadata.yaml) to `~/infrastructure-vcd/v1.0.0/`
-4. Copy the `~/infrastructure-vcd/v1.0.0/clusterctl.yaml` to `~/.cluster-api/clusterctl.yaml`
-5. Update the `providers.url` in `~/.cluster-api/clusterctl.yaml` to `~/infrastructure-vcd/v1.0.0/infrastructure-components.yaml`
+1. Create a folder structure `~/infrastructure-vcd/v1.1.0/`.
+2. Copy the contents from [templates directory](https://github.com/vmware/cluster-api-provider-cloud-director/tree/1.1.z/templates) to `~/infrastructure-vcd/v1.1.0/`
+3. Copy [metadata.yaml](https://github.com/vmware/cluster-api-provider-cloud-director/blob/1.1.z/metadata.yaml) to `~/infrastructure-vcd/v1.1.0/`
+4. Copy the `~/infrastructure-vcd/v1.1.0/clusterctl.yaml` to `~/.cluster-api/clusterctl.yaml`
+5. Update the `providers.url` in `~/.cluster-api/clusterctl.yaml` to `~/infrastructure-vcd/v1.1.0/infrastructure-components.yaml`
 ```yaml
 providers:
   - name: "vcd"
-    url: "~/infrastructure-vcd/v1.0.0/infrastructure-components.yaml"
+    url: "~/infrastructure-vcd/v1.1.0/infrastructure-components.yaml"
     type: "InfrastructureProvider"
 ```
 
 <a name="init_management_cluster"></a>
 ## Initialize Management cluster
 1. Run the below command to initialize the management cluster with the Cluster API and the associated provider for VMware Cloud Director
-`clusterctl init --core cluster-api:v1.1.3 -b kubeadm:v1.1.3 -c kubeadm:v1.1.3 -i vcd:v1.0.0`
+`clusterctl init --core cluster-api:v1.1.3 -b kubeadm:v1.1.3 -c kubeadm:v1.1.3 -i vcd:v1.1.0`
 2. Apply [CRS definitions](CRS.md#apply_crs) to ensure CNI, CPI and CSI are automatically installed on the workload clusters.   
 
 <a name="generate_cluster_manifest"></a>
@@ -42,7 +42,7 @@ providers:
 
 - All of the templates to generate the cluster manifests are located at `templates` directory under the root of the github repository.
 - All the flavors listed support only v1beta1 API versions of CAPVCD and Core CAPI.  
-- Currently, we have v1.20.8, v1.21.8, v1.22.9 as template flavors, and they each have their own etcd/dns versions pre-populated. 
+- Currently, we have v1.20.8, v1.21.8, v1.22.9, v1.23.10 as template flavors, and they each have their own etcd/dns versions pre-populated. 
 Please ensure your `~/.cluster-api/clusterctl.yaml` has `VCD_TEMPLATE_NAME` matching the correct versions of Kubernetes. 
 For example, if `VCD_TEMPLATE_NAME=Ubuntu 20.04 and Kubernetes v1.21.8+vmware.1` then use `v1.21.8-crs` flavor.
 - It is strongly recommended to use `v1.y.z-crs` flavors to ensure CNI, CPI and CSI are automatically installed on the 
