@@ -349,6 +349,12 @@ spec:
                 - host
                 - port
                 type: object
+              kubeVIPParams:
+                properties:
+                  internalIPAddress:
+                    default: ""
+                    type: string
+                type: object
               loadBalancerConfigSpec:
                 description: LoadBalancerConfig defines load-balancer configuration for the Cluster both for the control plane nodes and for the CPI
                 properties:
@@ -381,6 +387,9 @@ spec:
               site:
                 type: string
               useAsManagementCluster:
+                default: false
+                type: boolean
+              useKubeVIP:
                 default: false
                 type: boolean
               userContext:
@@ -564,6 +573,12 @@ spec:
                         - host
                         - port
                         type: object
+                      kubeVIPParams:
+                        properties:
+                          internalIPAddress:
+                            default: ""
+                            type: string
+                        type: object
                       loadBalancerConfigSpec:
                         description: LoadBalancerConfig defines load-balancer configuration for the Cluster both for the control plane nodes and for the CPI
                         properties:
@@ -596,6 +611,9 @@ spec:
                       site:
                         type: string
                       useAsManagementCluster:
+                        default: false
+                        type: boolean
+                      useKubeVIP:
                         default: false
                         type: boolean
                       userContext:
@@ -1560,7 +1578,7 @@ spec:
       containers:
       - command:
         - /opt/vcloud/bin/cluster-api-provider-cloud-director
-        image: harbor-repo.vmware.com/vcloud/cluster-api-provider-cloud-director:main-branch.6409b2b
+        image: harbor-repo.vmware.com/vcloud/cluster-api-provider-cloud-director:kube-vip-35e9352
         livenessProbe:
           httpGet:
             path: /healthz
