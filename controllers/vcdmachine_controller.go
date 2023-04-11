@@ -213,17 +213,11 @@ const (
 	PostCustomizationScriptFailureReason   = "guestinfo.post_customization_script_execution_failure_reason"
 )
 
-var controlPlanePostCustPhases = []string{
+var postCustPhases = []string{
 	NetworkConfiguration,
 	MeteringConfiguration,
 	ProxyConfiguration,
-	KubeadmInit,
-}
-
-var joinPostCustPhases = []string{
-	NetworkConfiguration,
-	MeteringConfiguration,
-	KubeadmNodeJoin,
+	NvidiaRuntimeInstall,
 }
 
 func removeFromSlice(remove string, arr []string) []string {
@@ -824,16 +818,23 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	if err != nil {
 		log.Error(err, "failed to remove VCDMachineCreationError from RDE", "rdeID", vcdCluster.Status.InfraId)
 	}
-	//Todo: add remove here
-	// wait for each vm phase
-	phases := controlPlanePostCustPhases
-	if !useControlPlaneScript {
-		if vcdMachine.Spec.EnableNvidiaGPU {
-			phases = []string{joinPostCustPhases[0], joinPostCustPhases[1], NvidiaRuntimeInstall}
-		} else {
-			phases = joinPostCustPhases
-		}
+
+	phases := postCustPhases
+	if useControlPlaneScript {
+		phases = append(phases, KubeadmInit)
+	} else {
+		phases = append(phases, KubeadmNodeJoin)
 	}
+
+	if !vcdMachine.Spec.EnableNvidiaGPU {
+		phases = removeFromSlice(NvidiaRuntimeInstall, phases)
+	}
+
+	if vcdCluster.Spec.ProxyConfigSpec.HTTPSProxy == "" &&
+		vcdCluster.Spec.ProxyConfigSpec.HTTPProxy == "" {
+		phases = removeFromSlice(ProxyConfiguration, phases)
+	}
+
 	for _, phase := range phases {
 		if err = vApp.Refresh(); err != nil {
 			err1 := capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDMachineScriptExecutionError, "", machine.Name, fmt.Sprintf("%v", err))
