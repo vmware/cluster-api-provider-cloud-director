@@ -102,7 +102,7 @@ write_files:
 
     vmtoolsd --cmd "info-set guestinfo.metering.status in_progress"
     systemctl enable --now metering
-    vmtoolsd --cmd "info-set guestinfo.metering.status successful"
+    vmtoolsd --cmd "info-set guestinfo.metering.status successful" {{- if or .HTTPProxy .HTTPSProxy }}
 
     vmtoolsd --cmd "info-set guestinfo.postcustomization.proxy.setting.status in_progress"
     export HTTP_PROXY="{{.HTTPProxy}}"
@@ -122,7 +122,7 @@ write_files:
     END
     systemctl daemon-reload
     systemctl restart containerd
-    vmtoolsd --cmd "info-set guestinfo.postcustomization.proxy.setting.status successful" {{- if .NvidiaGPU }}
+    vmtoolsd --cmd "info-set guestinfo.postcustomization.proxy.setting.status successful" {{- end }} {{- if .NvidiaGPU }}
 
     vmtoolsd --cmd "info-set guestinfo.postcustomization.nvidia.runtime.install.status in_progress"
     distribution=$(. /etc/os-release;echo $ID$VERSION_ID)
