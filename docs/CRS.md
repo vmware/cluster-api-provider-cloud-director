@@ -7,18 +7,18 @@ Initialize the management cluster via [clusterctl](CLUSTERCTL.md)
 
 <a name="apply_crs"></a>
 ## Apply CRS definitions on the (parent) management cluster
-To install CRS components on the management cluster, in CAPVCD repo, copy the contents of  [templates](https://github.com/vmware/cluster-api-provider-cloud-director/tree/main/templates/crs) 
-to the management cluster at `~/infrastructure-vcd/v1.0.0/`
+To install CRS components on the management cluster, in CAPVCD repo, copy the contents of  [templates](https://github.com/vmware/cluster-api-provider-cloud-director/tree/1.1.z/templates/crs) 
+to the management cluster at `~/infrastructure-vcd/v1.1.0/`
 1. Apply CNI (Antrea) CRS definitions:
-   - Run `cd ~/infrastructure-vcd/v1.0.0/crs/cni`
+   - Run `cd ~/infrastructure-vcd/v1.1.0/crs/cni`
    - kubectl create configmap antrea-crs-cm --from-file=antrea.yaml
    - kubectl apply -f antrea-crs.yaml
 2. Apply CPI CRS definitions:
-   - Run `cd ~/infrastructure-vcd/v1.0.0/crs/cpi`
+   - Run `cd ~/infrastructure-vcd/v1.1.0/crs/cpi`
    - kubectl create configmap cloud-director-crs-cm --from-file=cloud-director-ccm.yaml
    - kubectl apply -f cloud-director-crs.yaml
 3. Apply CSI CRS definitions:
-   - Run `cd ~/infrastructure-vcd/v1.0.0/crs/csi`
+   - Run `cd ~/infrastructure-vcd/v1.1.0/crs/csi`
    - kubectl create configmap csi-controller-crs-cm --from-file=csi-controller-crs.yaml
    - kubectl create configmap csi-node-crs-cm --from-file=csi-node-crs.yaml
    - kubectl create configmap csi-driver-crs-cm --from-file=csi-driver.yaml
