@@ -30,7 +30,7 @@ TKG versions:
 
 |                          | TKG versions        |
 |--------------------------|---------------------| 
-| CAPVCD v1beta1  (main)   | 1.5.4, 1.4.3        | 
+| CAPVCD v1beta1  (main)   | 1.6.1, 1.5.4, 1.4.3 | 
 | CAPVCD v1beta1  (v1.0.1) | 1.6.1, 1.5.4, 1.4.3 |
 | CAPVCD v1beta1  (v1.0.0) | 1.5.4, 1.4.3        | 
 | CAPVCD v1alpha4 (v0.5)   | 1.4.0, 1.3.1        |
