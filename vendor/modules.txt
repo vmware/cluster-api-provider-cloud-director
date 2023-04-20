@@ -277,7 +277,7 @@ github.com/spf13/cast
 github.com/spf13/pflag
 # github.com/stretchr/testify v1.7.2
 ## explicit; go 1.13
-# github.com/vmware/cloud-provider-for-cloud-director v0.0.0-20230316164812-df9d4ddc9292
+# github.com/vmware/cloud-provider-for-cloud-director v0.0.0-20230420174123-f285168de9e5
 ## explicit; go 1.17
 github.com/vmware/cloud-provider-for-cloud-director/pkg/util
 github.com/vmware/cloud-provider-for-cloud-director/pkg/vcdsdk
