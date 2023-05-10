@@ -4,8 +4,10 @@ import (
 	"context"
 	"fmt"
 	"github.com/pkg/errors"
+	"github.com/vmware/cloud-provider-for-cloud-director/pkg/vcdsdk"
 	infrav1 "github.com/vmware/cluster-api-provider-cloud-director/api/v1beta2"
 	rdeType "github.com/vmware/cluster-api-provider-cloud-director/pkg/vcdtypes/rde_type_1_1_0"
+	"github.com/vmware/go-vcloud-director/v2/govcd"
 	"gopkg.in/yaml.v2"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -122,6 +124,37 @@ func getK8sObjectStatus(obj interface{}) (string, error) {
 		return "", fmt.Errorf("failed to marshal modified object: [%v]", err)
 	}
 	return string(output), nil
+}
+
+// indicateEntityNotFound checks if the provided error corresponds to an "Entity not found" error and returns a boolean.
+func indicateEntityNotFound(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	return strings.Contains(err.Error(), govcd.ErrorEntityNotFound.Error())
+}
+
+func getOrgFromClusterByOrgName(client *vcdsdk.Client, orgName string) (*govcd.Org, error) {
+	org, err := client.VCDClient.GetOrgByName(orgName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get org by name [%s]", orgName)
+	}
+	if org == nil || org.Org == nil {
+		return nil, fmt.Errorf("found nil org when getting org by name [%s]", orgName)
+	}
+	return org, nil
+}
+
+func getOrgFromClusterByOrgID(client *vcdsdk.Client, orgID string) (*govcd.Org, error) {
+	org, err := client.VCDClient.GetOrgById(orgID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get org by ID [%s]", orgID)
+	}
+	if org == nil || org.Org == nil {
+		return nil, fmt.Errorf("found nil org when getting org by ID [%s]", orgID)
+	}
+	return org, nil
 }
 
 func getAllMachineDeploymentsForCluster(ctx context.Context, cli client.Client, c clusterv1.Cluster) (*clusterv1.MachineDeploymentList, error) {

@@ -243,6 +243,46 @@ func validateDerivedRDEProperties(vcdCluster *infrav1.VCDCluster, infraID string
 		vcdCluster.Name, vcdCluster.Status.RdeVersionInUse, rdeVersionInUse)
 }
 
+// On VCDCluster reconciliation, we use fallback mechanism to retrieve the new ovdc name. Return the correct vcdClient if succeeded.
+// Step1: if the vcdcluster.status.VcdResourceSet is not presented, return the error
+// step2: Get the org and then get ovdc via VCD API Call
+// step3: Compare the old ovdc name and new ovdc name
+// step4: update vcdcluster.spec.ovdc to the new ovdc name. No need to make changes on vcdcluster.status.ovdc
+// step5: update the vcdcluster.status.vcdResourceSet. (The kep step of fallback mechanism)
+func synchronizeNewOvdc(vcdCluster *infrav1.VCDCluster, username string, userPassword string, userRefreshToken string) (*vcdsdk.Client, error) {
+	if vcdCluster.Status.VcdResourceSet == nil || len(vcdCluster.Status.VcdResourceSet) < 2 {
+		return nil, fmt.Errorf("the stored org/ovdc empty; fail to do the fallback mechanism and update the latest org or ovdc")
+	}
+	orgID := vcdCluster.Status.VcdResourceSet[0].ID
+
+	ovdcID := vcdCluster.Status.VcdResourceSet[1].ID
+	oldOvdcName := vcdCluster.Status.VcdResourceSet[1].Name
+	workloadVCDClient, err := vcdsdk.NewVCDClientFromSecrets(vcdCluster.Spec.Site, vcdCluster.Spec.Org,
+		vcdCluster.Spec.Ovdc, vcdCluster.Spec.Org, username, userPassword, userRefreshToken, true, false)
+	if err != nil {
+		return nil, fmt.Errorf("error occurred during the fallback process as the vcdClient could not be obtained without the ovdcName parameter being provided: %v", err)
+	}
+	// oldOrgName is not trusted inside synchronizeOvdc() function. CAPVCD prefers orgID  as orgID can not be edited by the VCD users.
+	org, err := getOrgFromClusterByOrgID(workloadVCDClient, orgID)
+	if err != nil {
+		return nil, fmt.Errorf("error occurred during the fallback process as the org could not be obtained: %v", err)
+	}
+	workloadVCDClient.VDC, err = org.GetVDCById(ovdcID, true)
+	if err != nil {
+		return nil, fmt.Errorf("error occurred while getting OVDC by Id %s: %v", ovdcID, err)
+	}
+	if workloadVCDClient.VDC == nil || workloadVCDClient.VDC.Vdc == nil {
+		return nil, fmt.Errorf("error occurred during the fallback process as the VDC is nil")
+	}
+	newOvdcName := workloadVCDClient.VDC.Vdc.Name
+	if newOvdcName == oldOvdcName {
+		return nil, fmt.Errorf("error occurred during the fallback process due to the ovdcName remaining unchanged. Please investigate the CAPVCD log to determine the root cause")
+	}
+	vcdCluster.Status.VcdResourceSet[1].Name = newOvdcName
+	vcdCluster.Spec.Ovdc = newOvdcName
+	return workloadVCDClient, nil
+}
+
 // TODO: Remove uncommented code when decision to only keep capi.yaml as part of RDE spec is finalized
 func (r *VCDClusterReconciler) constructCapvcdRDE(ctx context.Context, cluster *clusterv1.Cluster,
 	vcdCluster *infrav1.VCDCluster, vdc *types.Vdc, vcdOrg *types.Org) (*swagger.DefinedEntity, error) {
@@ -356,12 +396,9 @@ func (r *VCDClusterReconciler) constructCapvcdRDE(ctx context.Context, cluster *
 func (r *VCDClusterReconciler) constructAndCreateRDEFromCluster(ctx context.Context, workloadVCDClient *vcdsdk.Client, cluster *clusterv1.Cluster, vcdCluster *infrav1.VCDCluster) (string, error) {
 	log := ctrl.LoggerFrom(ctx)
 
-	org, err := workloadVCDClient.VCDClient.GetOrgByName(vcdCluster.Spec.Org)
+	org, err := getOrgFromClusterByOrgName(workloadVCDClient, vcdCluster.Spec.Org)
 	if err != nil {
-		return "", fmt.Errorf("failed to get org by name [%s]", vcdCluster.Spec.Org)
-	}
-	if org == nil || org.Org == nil {
-		return "", fmt.Errorf("found nil org when getting org by name [%s]", vcdCluster.Spec.Org)
+		return "", fmt.Errorf("error occurred while constructing RDE from cluster [%s]", vcdCluster.Status.InfraId)
 	}
 	rde, err := r.constructCapvcdRDE(ctx, cluster, vcdCluster, workloadVCDClient.VDC.Vdc, org.Org)
 	if err != nil {
@@ -667,8 +704,38 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	workloadVCDClient, err := vcdsdk.NewVCDClientFromSecrets(vcdCluster.Spec.Site, vcdCluster.Spec.Org,
 		vcdCluster.Spec.Ovdc, vcdCluster.Spec.Org, userCreds.Username, userCreds.Password, userCreds.RefreshToken, true, true)
 	if err != nil {
+		// indicateEntityNotFound() only captures the ovdc name change error
+		if indicateEntityNotFound(err) {
+			vcdClient, err := synchronizeNewOvdc(vcdCluster, userCreds.Username, userCreds.Password, userCreds.RefreshToken)
+			if err != nil || vcdCluster == nil {
+				return ctrl.Result{}, errors.Wrapf(err, "Error updating the ovdc resource name to reconcile Cluster [%s] infrastructure", vcdCluster.Name)
+			}
+			workloadVCDClient = vcdClient
+			log.Info("The correct workloadClient was obtained and the operation was able to proceed after updating the ovdc name in the vcdCluster")
+		}
 		return ctrl.Result{}, errors.Wrapf(err, "Error creating VCD client to reconcile Cluster [%s] infrastructure", vcdCluster.Name)
 	}
+
+	if vcdCluster.Status.VcdResourceSet == nil || len(vcdCluster.Status.VcdResourceSet) == 0 {
+		org, err := getOrgFromClusterByOrgName(workloadVCDClient, vcdCluster.Spec.Org)
+		if err != nil {
+			return ctrl.Result{}, errors.Wrapf(err, "Error updating org Namd and ID into vcdcluster to reconcile Cluster [%s] infrastructure", vcdCluster.Name)
+		}
+		if workloadVCDClient.VDC == nil || workloadVCDClient.VDC.Vdc == nil {
+			return ctrl.Result{}, errors.Wrapf(err, "Error getting ovdc to reconcile Cluster [%s] infrastructure", vcdCluster.Name)
+		}
+		vcdCluster.Status.VcdResourceSet = []infrav1.VCDResource{
+			{
+				ID:   org.Org.ID,
+				Name: org.Org.Name,
+			},
+			{
+				ID:   workloadVCDClient.VDC.Vdc.ID,
+				Name: workloadVCDClient.VDC.Vdc.Name,
+			},
+		}
+	}
+
 	// General note on RDE operations, always ensure CAPVCD cluster reconciliation progress
 	//is not affected by any RDE operation failures.
 	infraID := vcdCluster.Status.InfraId
@@ -1174,6 +1241,15 @@ func (r *VCDClusterReconciler) reconcileDelete(ctx context.Context,
 	workloadVCDClient, err := vcdsdk.NewVCDClientFromSecrets(vcdCluster.Spec.Site, vcdCluster.Spec.Org,
 		vcdCluster.Spec.Ovdc, vcdCluster.Spec.Org, userCreds.Username, userCreds.Password, userCreds.RefreshToken, true, true)
 	if err != nil {
+		//Todo: Validate the error
+		if indicateEntityNotFound(err) {
+			vcdClient, err := synchronizeNewOvdc(vcdCluster, userCreds.Username, userCreds.Password, userCreds.RefreshToken)
+			if err != nil || vcdCluster == nil {
+				return ctrl.Result{}, errors.Wrapf(err, "Error updating the ovdc resource name to reconcile Cluster [%s] infrastructure", vcdCluster.Name)
+			}
+			workloadVCDClient = vcdClient
+			log.Info("The correct workloadClient was obtained and the operation was able to proceed after updating the ovdc name in the vcdCluster")
+		}
 		return ctrl.Result{}, errors.Wrapf(err,
 			"Error occurred during cluster deletion; unable to create client for the workload cluster [%s]",
 			vcdCluster.Name)

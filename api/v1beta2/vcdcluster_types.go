@@ -43,6 +43,14 @@ type UserCredentialsContext struct {
 	SecretRef    *v1.SecretReference `json:"secretRef,omitempty"`
 }
 
+// VCDResource restores the data structure for some VCD Resources
+// to avoid any issues caused by importing the vcdsdk library, I am manually creating a data structure that matches its structure.
+type VCDResource struct {
+	Type string `json:"type,omitempty"`
+	ID   string `json:"id,omitempty"`
+	Name string `json:"name,omitempty"`
+}
+
 // ProxyConfig defines HTTP proxy environment variables for containerd
 type ProxyConfig struct {
 	HTTPProxy  string `json:"httpProxy,omitempty"`
@@ -117,6 +125,9 @@ type VCDClusterStatus struct {
 
 	// optional
 	Site string `json:"site,omitempty"`
+
+	//optional
+	VcdResourceSet []VCDResource `json:"vcdResourceSet,omitempty"`
 
 	// optional
 	Org string `json:"org,omitempty"`
