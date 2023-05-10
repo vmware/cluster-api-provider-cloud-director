@@ -89,8 +89,8 @@ vet: ## Run go vet against code.
 	go vet ./...
 
 vendor: ## Run go mod vendor
-	go mod edit -go=1.17
-	go mod tidy -compat=1.17
+	go mod edit -go=1.19
+	go mod tidy -compat=1.19
 	go mod vendor
 
 
