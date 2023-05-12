@@ -184,21 +184,23 @@ func getOvdcByName(client *vcdsdk.Client, orgName string, ovdcName string) (*gov
 	return ovdc, nil
 }
 
-//	func insertVcdResourceIntoVcdCluster(vcdCluster *infrav1.VCDCluster, vcdResourceType string, resourceID string, resourceName string) error {
-//		resourceList, ok := vcdCluster.Status.VcdResourceMap[vcdResourceType]
-//		if !ok {
-//			return fmt.Errorf("the key [%s] is not found in vcdcluster.status.vcdResourceMap", vcdResourceType)
-//		}
-//		vcdCluster.Status.VcdResourceMap[vcdResourceType] = append(resourceList, infrav1.VCDResource{Name: resourceName, ID: resourceID})
-//		return nil
-//	}
-//
-// // Todo: Implement this function in the future
-//
-//	func getVcdResourceFromVcdCluster(vcdCluster *infrav1.VCDCluster, vcdResourceType string) ([]infrav1.VCDResource, error) {
-//		return nil, nil
-//	}
+// Todo: Yan - Implement this function in the future
+// Insert vcdResource into vcdcluster.status.VcdResourceMap.
+// It should be the uniform function for all the types - org, ovdc, catalog, etc
+func insertVcdResourceIntoVcdCluster(vcdCluster *infrav1.VCDCluster, vcdResourceType string, resourceID string, resourceName string) error {
+	return nil
+}
 
+// Todo: Yan - Implement this function in the future
+// Insert vcdResource into vcdcluster.status.VcdResourceMap
+// It should be the uniform function for all the types - org, ovdc, catalog, etc
+func getVcdResourceFromVcdCluster(vcdCluster *infrav1.VCDCluster, vcdResourceType string) ([]infrav1.VCDResource, error) {
+	return nil, nil
+}
+
+// Todo: Yan - Implement this function in the future
+// Update the existing vcdResource into vcdcluster.status.VcdResourceMap.
+// It should be the uniform function for all the types - org, ovdc, catalog, etc
 func updateVcdResourceToVcdCluster(vcdCluster *infrav1.VCDCluster, vcdResourceType string, resourceID string, resourceName string) error {
 	resourceList, ok := vcdCluster.Status.VcdResourceMap[vcdResourceType]
 	if !ok {
@@ -212,6 +214,9 @@ func updateVcdResourceToVcdCluster(vcdCluster *infrav1.VCDCluster, vcdResourceTy
 	return nil
 }
 
+// Todo: Yan - Implement this function in the future
+// Remove vcdResource from vcdcluster.status.VcdResourceMap.
+// It should be the uniform function for all the types - org, ovdc, catalog, etc
 func removeVcdResourceFromVcdCluster(vcdCluster *infrav1.VCDCluster, vcdResourceType string, resourceID string, resourceName string) error {
 	resourceList, ok := vcdCluster.Status.VcdResourceMap[vcdResourceType]
 	if !ok {
@@ -226,6 +231,11 @@ func removeVcdResourceFromVcdCluster(vcdCluster *infrav1.VCDCluster, vcdResource
 	return nil
 }
 
+// checkIfOvdcNameChange is used to check if ovdc name is changed during the CAPVCD provisioning process.
+// Check vcdcluster.status.VcdResourceMap. Find the ovdc Object and fetch the ovdcID.
+// Use the ovdcID to execute VCD API Call to get the ovdc in VCD.
+// compare the oldOvdcName and newOvdcName.
+// Return changed, vdc object, error.
 func checkIfOvdcNameChange(vcdCluster *infrav1.VCDCluster, client *vcdsdk.Client) (bool, *govcd.Vdc, error) {
 	orgName := vcdCluster.Spec.Org
 	ovdcName := vcdCluster.Spec.Ovdc

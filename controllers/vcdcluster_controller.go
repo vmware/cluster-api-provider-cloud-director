@@ -243,24 +243,27 @@ func validateDerivedRDEProperties(vcdCluster *infrav1.VCDCluster, infraID string
 		vcdCluster.Name, vcdCluster.Status.RdeVersionInUse, rdeVersionInUse)
 }
 
+// updateClientWithVDC is to add the latest VDC into vcdClient.
+// Reminder: Although vcdcluster provides array for vcdResourceMap[ovdc], vcdcluster should use use only one OVDC in CAPVCD 1.1
 func updateClientWithVDC(vcdCluster *infrav1.VCDCluster, client *vcdsdk.Client) error {
 	orgName := vcdCluster.Spec.Org
 	ovdcName := vcdCluster.Spec.Ovdc
 	if _, ok := vcdCluster.Status.VcdResourceMap[ResourceTypeOvdc]; ok {
-		NameChanged, newOvdc, err := checkIfOvdcNameChange(vcdCluster, client)
-		if err != nil {
-			return fmt.Errorf("error occurred while updating the client with VDC: [%v]", err)
+		if vcdCluster.Status.VcdResourceMap[ResourceTypeOvdc] != nil || len(vcdCluster.Status.VcdResourceMap[ResourceTypeOvdc]) > 0 {
+			NameChanged, newOvdc, err := checkIfOvdcNameChange(vcdCluster, client)
+			if err != nil {
+				return fmt.Errorf("error occurred while updating the client with VDC: [%v]", err)
+			}
+			if newOvdc == nil {
+				return fmt.Errorf("error occurred while updating the client with VDC as the new ovdc is empty")
+			}
+			if NameChanged {
+				ovdcName = newOvdc.Vdc.Name
+			}
+			// update vcdcluster.status.VCDResourceSet.Ovdc
+			updateVcdResourceToVcdCluster(vcdCluster, ResourceTypeOvdc, newOvdc.Vdc.ID, newOvdc.Vdc.Name)
+			vcdCluster.Spec.Ovdc = newOvdc.Vdc.Name
 		}
-		if newOvdc == nil {
-			return fmt.Errorf("error occurred while updating the client with VDC as the new ovdc is empty")
-		}
-		if NameChanged {
-			ovdcName = newOvdc.Vdc.Name
-		}
-		// update vcdcluster.status.VCDResourceSet.Ovdc
-		updateVcdResourceToVcdCluster(vcdCluster, ResourceTypeOvdc, newOvdc.Vdc.ID, newOvdc.Vdc.Name)
-		vcdCluster.Spec.Ovdc = newOvdc.Vdc.Name
-
 	}
 	newOvdc, err := getOvdcByName(client, orgName, ovdcName)
 	if err != nil {
