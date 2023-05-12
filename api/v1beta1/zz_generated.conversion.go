@@ -505,7 +505,7 @@ func autoConvert_v1beta2_VCDClusterStatus_To_v1beta1_VCDClusterStatus(in *v1beta
 	out.VAppMetadataUpdated = in.VAppMetadataUpdated
 	out.Conditions = *(*apiv1beta1.Conditions)(unsafe.Pointer(&in.Conditions))
 	out.Site = in.Site
-	// WARNING: in.VcdResourceSet requires manual conversion: does not exist in peer-type
+	// WARNING: in.VcdResourceMap requires manual conversion: does not exist in peer-type
 	out.Org = in.Org
 	out.Ovdc = in.Ovdc
 	out.OvdcNetwork = in.OvdcNetwork

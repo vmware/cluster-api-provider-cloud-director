@@ -52,7 +52,7 @@ func filterTypeMetaAndObjectMetaFromK8sObjectMap(objMap map[string]interface{}) 
 			return fmt.Errorf("failed to convert objectmeta [%v] to map[interface{}]interface{}", objMap["objectmeta"])
 		}
 		// remove all keys from objectMetaMap except for name and namespace.
-		for k, _ := range objectMetaMap {
+		for k := range objectMetaMap {
 			if k.(string) != "name" && k.(string) != "namespace" {
 				delete(objectMetaMap, k)
 			}
@@ -126,19 +126,10 @@ func getK8sObjectStatus(obj interface{}) (string, error) {
 	return string(output), nil
 }
 
-// indicateEntityNotFound checks if the provided error corresponds to an "Entity not found" error and returns a boolean.
-func indicateEntityNotFound(err error) bool {
-	if err == nil {
-		return false
-	}
-
-	return strings.Contains(err.Error(), govcd.ErrorEntityNotFound.Error())
-}
-
-func getOrgFromClusterByOrgName(client *vcdsdk.Client, orgName string) (*govcd.Org, error) {
+func getOrgByName(client *vcdsdk.Client, orgName string) (*govcd.Org, error) {
 	org, err := client.VCDClient.GetOrgByName(orgName)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get org by name [%s]", orgName)
+		return nil, fmt.Errorf("failed to get org by name [%s]: [%v]", orgName, err)
 	}
 	if org == nil || org.Org == nil {
 		return nil, fmt.Errorf("found nil org when getting org by name [%s]", orgName)
@@ -146,15 +137,124 @@ func getOrgFromClusterByOrgName(client *vcdsdk.Client, orgName string) (*govcd.O
 	return org, nil
 }
 
-func getOrgFromClusterByOrgID(client *vcdsdk.Client, orgID string) (*govcd.Org, error) {
+func getOrgByID(client *vcdsdk.Client, orgID string) (*govcd.Org, error) {
 	org, err := client.VCDClient.GetOrgById(orgID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get org by ID [%s]", orgID)
+		return nil, fmt.Errorf("failed to get org by ID [%s]: [%v]", orgID, err)
 	}
 	if org == nil || org.Org == nil {
 		return nil, fmt.Errorf("found nil org when getting org by ID [%s]", orgID)
 	}
 	return org, nil
+}
+
+func getOvdcByID(client *vcdsdk.Client, orgName string, ovdcID string) (*govcd.Vdc, error) {
+	org, err := getOrgByName(client, orgName)
+	if err != nil {
+		return nil, fmt.Errorf("error occurred when getting ovdc by ID [%s]: [%v]", ovdcID, err)
+	}
+	ovdc, err := org.GetVDCById(ovdcID, true)
+	if err != nil {
+		if err == govcd.ErrorEntityNotFound {
+			return nil, err
+		}
+		return nil, fmt.Errorf("fail to get ovdc by ID [%s]: [%v]", ovdcID, err)
+	}
+	if ovdc == nil || ovdc.Vdc == nil {
+		return nil, fmt.Errorf("found nil ovdc when getting org by ID [%s]", ovdcID)
+	}
+	return ovdc, nil
+}
+
+func getOvdcByName(client *vcdsdk.Client, orgName string, ovdcName string) (*govcd.Vdc, error) {
+	org, err := getOrgByName(client, orgName)
+	if err != nil {
+		return nil, fmt.Errorf("error occurred when getting ovdc by Name [%s]: [%v]", ovdcName, err)
+	}
+	ovdc, err := org.GetVDCByName(ovdcName, true)
+	if err != nil {
+		if err == govcd.ErrorEntityNotFound {
+			return nil, err
+		}
+		return nil, fmt.Errorf("fail to get ovdc by Name [%s]: [%v]", ovdcName, err)
+	}
+	if ovdc == nil || ovdc.Vdc == nil {
+		return nil, fmt.Errorf("found nil ovdc when getting org by Name [%s]", ovdcName)
+	}
+	return ovdc, nil
+}
+
+//	func insertVcdResourceIntoVcdCluster(vcdCluster *infrav1.VCDCluster, vcdResourceType string, resourceID string, resourceName string) error {
+//		resourceList, ok := vcdCluster.Status.VcdResourceMap[vcdResourceType]
+//		if !ok {
+//			return fmt.Errorf("the key [%s] is not found in vcdcluster.status.vcdResourceMap", vcdResourceType)
+//		}
+//		vcdCluster.Status.VcdResourceMap[vcdResourceType] = append(resourceList, infrav1.VCDResource{Name: resourceName, ID: resourceID})
+//		return nil
+//	}
+//
+// // Todo: Implement this function in the future
+//
+//	func getVcdResourceFromVcdCluster(vcdCluster *infrav1.VCDCluster, vcdResourceType string) ([]infrav1.VCDResource, error) {
+//		return nil, nil
+//	}
+
+func updateVcdResourceToVcdCluster(vcdCluster *infrav1.VCDCluster, vcdResourceType string, resourceID string, resourceName string) error {
+	resourceList, ok := vcdCluster.Status.VcdResourceMap[vcdResourceType]
+	if !ok {
+		return fmt.Errorf("the key [%s] is not found in vcdcluster.status.vcdResourceMap", vcdResourceType)
+	}
+	for i := 0; i < len(resourceList); i++ {
+		if resourceList[i].ID == resourceID {
+			resourceList[i].Name = resourceName
+		}
+	}
+	return nil
+}
+
+func removeVcdResourceFromVcdCluster(vcdCluster *infrav1.VCDCluster, vcdResourceType string, resourceID string, resourceName string) error {
+	resourceList, ok := vcdCluster.Status.VcdResourceMap[vcdResourceType]
+	if !ok {
+		return fmt.Errorf("the key [%s] is not found in vcdcluster.status.vcdResourceMap", vcdResourceType)
+	}
+	for i := 0; i < len(resourceList); i++ {
+		if resourceList[i].ID == resourceID && resourceList[i].Name == resourceName {
+			resourceList = append(resourceList[:i], resourceList[i+1:]...)
+			break
+		}
+	}
+	return nil
+}
+
+func checkIfOvdcNameChange(vcdCluster *infrav1.VCDCluster, client *vcdsdk.Client) (bool, *govcd.Vdc, error) {
+	orgName := vcdCluster.Spec.Org
+	ovdcName := vcdCluster.Spec.Ovdc
+	ovdcId := ""
+	ovdcListIf, ovdcListFound := vcdCluster.Status.VcdResourceMap["ovdc"]
+	if !ovdcListFound {
+		return false, nil, fmt.Errorf("ovdc record is not found in vcdcluster.status.vcdResourceSet")
+	}
+	for _, ovdc := range ovdcListIf {
+		if ovdc.Name == ovdcName {
+			ovdcId = ovdc.ID
+		}
+	}
+	// if ovdcID is not found in the vcdcluster.status.resourceSet, return error
+	if ovdcId == "" {
+		return false, nil, fmt.Errorf("ovdcName [%s] not found in vcdcluster.status; please ensure the vcdcluster.status.vcdResourceSet is not corrupted", ovdcName)
+	}
+	// get ovdcId according to the ovdcName
+	ovdc, err := getOvdcByID(client, orgName, ovdcId)
+	if err != nil {
+		if err == govcd.ErrorEntityNotFound {
+			if removeErr := removeVcdResourceFromVcdCluster(vcdCluster, ResourceTypeOvdc, ovdcId, ovdcName); removeErr != nil {
+				return false, nil, fmt.Errorf("error occurred while removing vcdResource from vcdcluster.status.vcdResourceMap: [%v]", removeErr)
+			}
+			return false, nil, fmt.Errorf("error occurred while checking if ovdcName has changed; failed to get ovdc by ID [%s]: [%v]", ovdcId, err)
+		}
+		return false, nil, fmt.Errorf("error occurred while checking if ovdcName has changed: [%v]", err)
+	}
+	return ovdc.Vdc.Name != ovdcName, ovdc, nil
 }
 
 func getAllMachineDeploymentsForCluster(ctx context.Context, cli client.Client, c clusterv1.Cluster) (*clusterv1.MachineDeploymentList, error) {

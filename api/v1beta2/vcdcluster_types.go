@@ -43,8 +43,10 @@ type UserCredentialsContext struct {
 	SecretRef    *v1.SecretReference `json:"secretRef,omitempty"`
 }
 
+// VCDResources provide records of the latest ID and name of some VCD Resources.
+type VCDResources []VCDResource
+
 // VCDResource restores the data structure for some VCD Resources
-// to avoid any issues caused by importing the vcdsdk library, I am manually creating a data structure that matches its structure.
 type VCDResource struct {
 	Type string `json:"type,omitempty"`
 	ID   string `json:"id,omitempty"`
@@ -127,7 +129,7 @@ type VCDClusterStatus struct {
 	Site string `json:"site,omitempty"`
 
 	//optional
-	VcdResourceSet []VCDResource `json:"vcdResourceSet,omitempty"`
+	VcdResourceMap map[string]VCDResources `json:"vcdResourceMap,omitempty"`
 
 	// optional
 	Org string `json:"org,omitempty"`

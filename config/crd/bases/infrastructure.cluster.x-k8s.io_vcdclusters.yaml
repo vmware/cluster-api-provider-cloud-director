@@ -551,6 +551,24 @@ spec:
                 description: MetadataUpdated denotes that the metadata of Vapp is
                   updated.
                 type: boolean
+              vcdResourceMap:
+                additionalProperties:
+                  description: VCDResources provide records of the latest ID and name
+                    of some VCD Resources.
+                  items:
+                    description: VCDResource restores the data structure for some
+                      VCD Resources
+                    properties:
+                      id:
+                        type: string
+                      name:
+                        type: string
+                      type:
+                        type: string
+                    type: object
+                  type: array
+                description: optional
+                type: object
             required:
             - rdeVersionInUse
             - ready

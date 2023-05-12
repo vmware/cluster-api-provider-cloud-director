@@ -344,37 +344,29 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		return ctrl.Result{}, errors.Wrapf(err, "Error getting client credentials to reconcile Cluster [%s] infrastructure", vcdCluster.Name)
 	}
 	workloadVCDClient, err := vcdsdk.NewVCDClientFromSecrets(vcdCluster.Spec.Site, vcdCluster.Spec.Org,
-		vcdCluster.Spec.Ovdc, vcdCluster.Spec.Org, userCreds.Username, userCreds.Password, userCreds.RefreshToken, true, true)
+		vcdCluster.Spec.Ovdc, vcdCluster.Spec.Org, userCreds.Username, userCreds.Password, userCreds.RefreshToken, true, false)
 	if err != nil {
-		// indicateEntityNotFound() only captures the ovdc name change error
-		if indicateEntityNotFound(err) {
-			vcdClient, err := synchronizeNewOvdc(vcdCluster, userCreds.Username, userCreds.Password, userCreds.RefreshToken)
-			if err != nil || vcdCluster == nil {
-				return ctrl.Result{}, errors.Wrapf(err, "Error updating the ovdc resource name to reconcile Cluster [%s] infrastructure", vcdCluster.Name)
-			}
-			workloadVCDClient = vcdClient
-			log.Info("The correct workloadClient was obtained and the operation was able to proceed after updating the ovdc name in the vcdCluster")
-		}
 		return ctrl.Result{}, errors.Wrapf(err, "Unable to create VCD client to reconcile infrastructure for the Machine [%s]", machine.Name)
 	}
-	if vcdCluster.Status.VcdResourceSet == nil || len(vcdCluster.Status.VcdResourceSet) == 0 {
-		org, err := getOrgFromClusterByOrgName(workloadVCDClient, vcdCluster.Spec.Org)
+	err = updateClientWithVDC(vcdCluster, workloadVCDClient)
+	if err != nil {
+		return ctrl.Result{}, errors.Wrapf(err, "Error updating VCD client with VDC to reconcile Cluster [%s] infrastructure", vcdCluster.Name)
+	}
+	if vcdCluster.Status.VcdResourceMap == nil || len(vcdCluster.Status.VcdResourceMap) == 0 {
+		vcdCluster.Status.VcdResourceMap = make(map[string]infrav1.VCDResources)
 		if err != nil {
 			return ctrl.Result{}, errors.Wrapf(err, "Error updating org Namd and ID into vcdcluster to reconcile Cluster [%s] infrastructure", vcdCluster.Name)
 		}
 		if workloadVCDClient.VDC == nil || workloadVCDClient.VDC.Vdc == nil {
 			return ctrl.Result{}, errors.Wrapf(err, "Error getting ovdc to reconcile Cluster [%s] infrastructure", vcdCluster.Name)
 		}
-		vcdCluster.Status.VcdResourceSet = []infrav1.VCDResource{
-			{
-				ID:   org.Org.ID,
-				Name: org.Org.Name,
-			},
+		vcdCluster.Status.VcdResourceMap[ResourceTypeOvdc] = []infrav1.VCDResource{
 			{
 				ID:   workloadVCDClient.VDC.Vdc.ID,
 				Name: workloadVCDClient.VDC.Vdc.Name,
 			},
 		}
+		log.Info("updating vcdCluster with the following data", "vcdCluster.Status.VcdResourceMap[ovdc].ID", workloadVCDClient.VDC.Vdc.ID, "vcdCluster.Status.VcdResourceMap[ovdc].Name", workloadVCDClient.VDC.Vdc.Name)
 	}
 	capvcdRdeManager := capisdk.NewCapvcdRdeManager(workloadVCDClient, vcdCluster.Status.InfraId)
 	if conditions.IsFalse(machine, clusterv1.MachineHealthCheckSucceededCondition) {
@@ -1114,19 +1106,14 @@ func (r *VCDMachineReconciler) reconcileDelete(ctx context.Context, cluster *clu
 		return ctrl.Result{}, errors.Wrapf(err, "Error getting client credentials to reconcile Cluster [%s] infrastructure", vcdCluster.Name)
 	}
 	workloadVCDClient, err := vcdsdk.NewVCDClientFromSecrets(vcdCluster.Spec.Site, vcdCluster.Spec.Org,
-		vcdCluster.Spec.Ovdc, vcdCluster.Spec.Org, userCreds.Username, userCreds.Password, userCreds.RefreshToken, true, true)
+		vcdCluster.Spec.Ovdc, vcdCluster.Spec.Org, userCreds.Username, userCreds.Password, userCreds.RefreshToken, true, false)
 	capvcdRdeManager := capisdk.NewCapvcdRdeManager(workloadVCDClient, vcdCluster.Status.InfraId)
 	if err != nil {
-		// indicateEntityNotFound() only captures the ovdc name change error
-		if indicateEntityNotFound(err) {
-			vcdClient, err := synchronizeNewOvdc(vcdCluster, userCreds.Username, userCreds.Password, userCreds.RefreshToken)
-			if err != nil || vcdCluster == nil {
-				return ctrl.Result{}, errors.Wrapf(err, "Error updating the ovdc resource name to reconcile Cluster [%s] infrastructure", vcdCluster.Name)
-			}
-			workloadVCDClient = vcdClient
-			log.Info("The correct workloadClient was obtained and the operation was able to proceed after updating the ovdc name in the vcdCluster")
-		}
 		return ctrl.Result{}, errors.Wrapf(err, "Unable to create VCD client to reconcile infrastructure for the Machine [%s]", machine.Name)
+	}
+	err = updateClientWithVDC(vcdCluster, workloadVCDClient)
+	if err != nil {
+		return ctrl.Result{}, errors.Wrapf(err, "Error updating VCD client with VDC to reconcile Cluster [%s] infrastructure", vcdCluster.Name)
 	}
 
 	gateway, err := vcdsdk.NewGatewayManager(ctx, workloadVCDClient, vcdCluster.Spec.OvdcNetwork, vcdCluster.Spec.LoadBalancerConfigSpec.VipSubnet, vcdCluster.Spec.Ovdc)
