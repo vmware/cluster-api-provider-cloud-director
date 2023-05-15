@@ -17,11 +17,13 @@ RUN make build-within-docker VERSION=$VERSION && \
 
 ########################################################
 
-FROM photon:4.0-20210910
+FROM scratch
 
 WORKDIR /opt/vcloud/bin
 
 COPY --from=builder /build/vcloud/cluster-api-provider-cloud-director .
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 
-USER nobody
-ENTRYPOINT ["/bin/bash", "-l", "-c"]
+# nobody user ID
+USER 65534
+ENTRYPOINT ["/opt/vcloud/bin/cluster-api-provider-cloud-director"]
