@@ -259,10 +259,10 @@ func updateClientWithVDC(vcdCluster *infrav1.VCDCluster, client *vcdsdk.Client) 
 			}
 			if NameChanged {
 				ovdcName = newOvdc.Vdc.Name
+				// update vcdcluster.status.VCDResourceSet.Ovdc
+				updateVcdResourceToVcdCluster(vcdCluster, ResourceTypeOvdc, newOvdc.Vdc.ID, newOvdc.Vdc.Name)
+				vcdCluster.Spec.Ovdc = newOvdc.Vdc.Name
 			}
-			// update vcdcluster.status.VCDResourceSet.Ovdc
-			updateVcdResourceToVcdCluster(vcdCluster, ResourceTypeOvdc, newOvdc.Vdc.ID, newOvdc.Vdc.Name)
-			vcdCluster.Spec.Ovdc = newOvdc.Vdc.Name
 		}
 	}
 	newOvdc, err := getOvdcByName(client, orgName, ovdcName)
