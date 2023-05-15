@@ -104,7 +104,7 @@ test: manifests generate fmt vet ## Run tests.
 
 build-within-docker: vendor
 	mkdir -p /build/cluster-api-provider-cloud-director
-	go build -ldflags "-X github.com/vmware/$(CAPVCD_IMG)/version.Version=${VERSION}" -o /build/vcloud/cluster-api-provider-cloud-director main.go
+	CGO_ENABLED=0 go build -ldflags "-s -w -X github.com/vmware/$(CAPVCD_IMG)/version.Version=${VERSION}" -o /build/vcloud/cluster-api-provider-cloud-director main.go
 
 generate-capvcd-image: generate fmt vet vendor 
 	docker build -f Dockerfile . -t $(CAPVCD_IMG):$(VERSION) --build-arg VERSION=$(VERSION)
