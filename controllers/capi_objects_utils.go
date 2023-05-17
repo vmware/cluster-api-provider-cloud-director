@@ -201,15 +201,16 @@ func getVcdResourceFromVcdCluster(vcdCluster *infrav1.VCDCluster, vcdResourceTyp
 // Todo: Yan - Implement this function in the future
 // Update the existing vcdResource into vcdcluster.status.VcdResourceMap.
 // It should be the uniform function for all the types - org, ovdc, catalog, etc
-func updateVcdResourceToVcdCluster(vcdCluster *infrav1.VCDCluster, vcdResourceType string, resourceID string, resourceName string) error {
-	resourceList, ok := vcdCluster.Status.VcdResourceMap[vcdResourceType]
-	if !ok {
-		return fmt.Errorf("the key [%s] is not found in vcdcluster.status.vcdResourceMap", vcdResourceType)
-	}
-	for i := 0; i < len(resourceList); i++ {
-		if resourceList[i].ID == resourceID {
-			resourceList[i].Name = resourceName
+func updateVcdResourceToVcdCluster(resourceList *infrav1.VCDResources, vcdResourceType string, resourceID string, newName string) error {
+	switch vcdResourceType {
+	case ResourceTypeOvdc:
+		for i := 0; i < len(*resourceList); i++ {
+			if (*resourceList)[i].ID == resourceID {
+				(*resourceList)[i].Name = newName
+			}
 		}
+	default:
+		return fmt.Errorf("unsupported VCD resource type: %s", vcdResourceType)
 	}
 	return nil
 }
@@ -217,18 +218,21 @@ func updateVcdResourceToVcdCluster(vcdCluster *infrav1.VCDCluster, vcdResourceTy
 // Todo: Yan - Implement this function in the future
 // Remove vcdResource from vcdcluster.status.VcdResourceMap.
 // It should be the uniform function for all the types - org, ovdc, catalog, etc
-func removeVcdResourceFromVcdCluster(vcdCluster *infrav1.VCDCluster, vcdResourceType string, resourceID string, resourceName string) error {
-	resourceList, ok := vcdCluster.Status.VcdResourceMap[vcdResourceType]
-	if !ok {
-		return fmt.Errorf("the key [%s] is not found in vcdcluster.status.vcdResourceMap", vcdResourceType)
-	}
-	for i := 0; i < len(resourceList); i++ {
-		if resourceList[i].ID == resourceID && resourceList[i].Name == resourceName {
-			resourceList = append(resourceList[:i], resourceList[i+1:]...)
-			break
+func removeVcdResourceFromVcdCluster(vcdCluster *infrav1.VCDCluster, vcdResourceType string, resourceID string) error {
+	switch vcdResourceType {
+	case ResourceTypeOvdc:
+		resourceList := vcdCluster.Status.VcdResourceMap.Ovdcs
+		for i, resource := range resourceList {
+			if resource.ID == resourceID {
+				resourceList = append(resourceList[:i], resourceList[i+1:]...)
+				vcdCluster.Status.VcdResourceMap.Ovdcs = resourceList
+				return nil
+			}
 		}
+	default:
+		return fmt.Errorf("unsupported VCD resource type: %s", vcdResourceType)
 	}
-	return nil
+	return fmt.Errorf("resource with ID %s not found in VCD cluster", resourceID)
 }
 
 // checkIfOvdcNameChange is used to check if ovdc name is changed during the CAPVCD provisioning process.
@@ -238,33 +242,48 @@ func removeVcdResourceFromVcdCluster(vcdCluster *infrav1.VCDCluster, vcdResource
 // Return changed, vdc object, error.
 func checkIfOvdcNameChange(vcdCluster *infrav1.VCDCluster, client *vcdsdk.Client) (bool, *govcd.Vdc, error) {
 	orgName := vcdCluster.Spec.Org
-	ovdcName := vcdCluster.Spec.Ovdc
-	ovdcId := ""
-	ovdcListIf, ovdcListFound := vcdCluster.Status.VcdResourceMap["ovdc"]
-	if !ovdcListFound {
-		return false, nil, fmt.Errorf("ovdc record is not found in vcdcluster.status.vcdResourceSet")
+	ovdcSpecName := vcdCluster.Spec.Ovdc
+
+	ovdcStatusName := vcdCluster.Status.Ovdc
+	if ovdcStatusName == "" {
+		ovdcStatusName = ovdcSpecName
 	}
-	for _, ovdc := range ovdcListIf {
-		if ovdc.Name == ovdcName {
-			ovdcId = ovdc.ID
-		}
-	}
-	// if ovdcID is not found in the vcdcluster.status.resourceSet, return error
-	if ovdcId == "" {
-		return false, nil, fmt.Errorf("ovdcName [%s] not found in vcdcluster.status; please ensure the vcdcluster.status.vcdResourceSet is not corrupted", ovdcName)
-	}
-	// get ovdcId according to the ovdcName
-	ovdc, err := getOvdcByID(client, orgName, ovdcId)
-	if err != nil {
-		if err == govcd.ErrorEntityNotFound {
-			if removeErr := removeVcdResourceFromVcdCluster(vcdCluster, ResourceTypeOvdc, ovdcId, ovdcName); removeErr != nil {
-				return false, nil, fmt.Errorf("error occurred while removing vcdResource from vcdcluster.status.vcdResourceMap: [%v]", removeErr)
+
+	ovdcID := ""
+	nameChanged := false
+	var ovdc *govcd.Vdc
+	var err error
+
+	if vcdCluster.Status.VcdResourceMap.Ovdcs != nil && len(vcdCluster.Status.VcdResourceMap.Ovdcs) > 0 {
+		for _, ovdc := range vcdCluster.Status.VcdResourceMap.Ovdcs {
+			if ovdc.Name == ovdcStatusName {
+				ovdcID = ovdc.ID
 			}
-			return false, nil, fmt.Errorf("error occurred while checking if ovdcName has changed; failed to get ovdc by ID [%s]: [%v]", ovdcId, err)
 		}
-		return false, nil, fmt.Errorf("error occurred while checking if ovdcName has changed: [%v]", err)
 	}
-	return ovdc.Vdc.Name != ovdcName, ovdc, nil
+
+	// if ovdcID is not found in the vcdcluster.status.resourceSet, use ovdcStatusName instead to get the OVDC.
+	if ovdcID == "" {
+		ovdc, err = getOvdcByName(client, orgName, ovdcStatusName)
+		if err != nil {
+			return nameChanged, nil, fmt.Errorf("error occurred while checking if ovdcSpecName has changed; failed to get ovdc by Name [%s]: [%v]", ovdcStatusName, err)
+		}
+		//ovdcID is empty, which means we must add ovdc.Id and ovdc.Name to the resourceMap.ovdcs
+		nameChanged = true
+	} else {
+		ovdc, err = getOvdcByID(client, orgName, ovdcID)
+		if err != nil {
+			if err == govcd.ErrorEntityNotFound {
+				if removeErr := removeVcdResourceFromVcdCluster(vcdCluster, ResourceTypeOvdc, ovdcID); removeErr != nil {
+					return false, nil, fmt.Errorf("error occurred while removing resource [%s] vcdResource from vcdcluster.status.vcdResourceMap: [%v]", ovdcID, removeErr)
+				}
+				return nameChanged, nil, fmt.Errorf("error occurred while checking if ovdcSpecName has changed; failed to get ovdc by ID [%s]: [%v]", ovdcID, err)
+			}
+			return nameChanged, nil, fmt.Errorf("error occurred while checking if ovdcSpecName has changed: [%v]", err)
+		}
+		nameChanged = ovdc.Vdc.Name != ovdcSpecName
+	}
+	return nameChanged, ovdc, nil
 }
 
 func getAllMachineDeploymentsForCluster(ctx context.Context, cli client.Client, c clusterv1.Cluster) (*clusterv1.MachineDeploymentList, error) {
