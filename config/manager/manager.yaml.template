@@ -22,7 +22,7 @@ spec:
       containers:
       - command:
         - /opt/vcloud/bin/cluster-api-provider-cloud-director
-        image: projects.registry.vmware.com/vmware-cloud-director/cluster-api-provider-cloud-director:__VERSION__
+        image: projects-stg.registry.vmware.com/vmware-cloud-director/cluster-api-provider-cloud-director:__VERSION__
         name: manager
         securityContext:
           allowPrivilegeEscalation: false
