@@ -10,6 +10,8 @@ Check out our [Cluster API quick start guide](docs/QUICKSTART.md) to create a Ku
 ## Support Policy
 The version of Cluster API Provider Cloud Director and Installation that are compatible for a given CAPVCD container image are described in the following compatibility matrix:
 
+Note: The Kubernetes versions mentioned are what we have qualified with.
+
 |                                  CAPVCD Version                                   | VMware Cloud Director API |                              VMware Cloud Director Installation                              |                       CoreCAPI/Clusterctl CLI version                       | Kubernetes Versions                                                        | CSI Versions                                                                                                                   | CPI Versions                                                                                                                                                                                              | 
 |:---------------------------------------------------------------------------------:|:-------------------------:|:--------------------------------------------------------------------------------------------:|:---------------------------------------------------------------------------:|:---------------------------------------------------------------------------|:-------------------------------------------------------------------------------------------------------------------------------|:----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 |  [main](https://github.com/vmware/cluster-api-provider-cloud-director/tree/main)  |           36.0+           | 10.3.1+ <br/>(10.3.1 needs hot-patch to prevent VCD cell crashes in multi-cell environments) | [1.1.3](https://github.com/kubernetes-sigs/cluster-api/releases/tag/v1.1.3) | <ul><li>1.24</li><li>1.23</li><li>1.22</li><li>1.21</li><li>1.20</li></ul> | <ul><li>[1.3.1](https://github.com/vmware/cloud-director-named-disk-csi-driver/releases/tag/1.3.1)</li><li>[1.3.0](https://github.com/vmware/cloud-director-named-disk-csi-driver/releases/tag/1.3.0)</li></ul> | <ul><li>[1.3.0](https://github.com/vmware/cloud-provider-for-cloud-director/releases/tag/1.3.0)</li><li>[1.2.0](https://github.com/vmware/cloud-provider-for-cloud-director/releases/tag/1.2.0)</li></ul> |
@@ -32,6 +34,7 @@ TKG versions:
 |                          | TKG versions        |
 |--------------------------|---------------------| 
 | CAPVCD v1beta1  (main)   | 1.6.1, 1.5.4, 1.4.3 |
+| CAPVCD v1beta1  (v1.0.2) | 1.6.1, 1.5.4, 1.4.3 |
 | CAPVCD v1beta1  (v1.0.1) | 1.6.1, 1.5.4, 1.4.3 |
 | CAPVCD v1beta1  (v1.0.0) | 1.5.4, 1.4.3        | 
 | CAPVCD v1alpha4 (v0.5.x) | 1.4.0, 1.3.1        |
