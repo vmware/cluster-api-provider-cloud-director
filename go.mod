@@ -1,6 +1,6 @@
 module github.com/vmware/cluster-api-provider-cloud-director
 
-go 1.17
+go 1.19
 
 require (
 	github.com/Masterminds/sprig/v3 v3.2.2
@@ -12,7 +12,7 @@ require (
 	github.com/onsi/ginkgo/v2 v2.1.3
 	github.com/onsi/gomega v1.19.0
 	github.com/pkg/errors v0.9.1
-	github.com/vmware/cloud-provider-for-cloud-director v0.0.0-20230330213336-8b9428f86815
+	github.com/vmware/cloud-provider-for-cloud-director v0.0.0-20230420174123-f285168de9e5
 	github.com/vmware/go-vcloud-director/v2 v2.15.0
 	go.uber.org/zap v1.19.1
 	gopkg.in/yaml.v2 v2.4.0
@@ -43,7 +43,7 @@ require (
 	github.com/coredns/caddy v1.1.0 // indirect
 	github.com/coredns/corefile-migration v1.0.14 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
-	github.com/docker/distribution v2.8.1+incompatible // indirect
+	github.com/docker/distribution v2.8.2+incompatible // indirect
 	github.com/emicklei/go-restful v2.16.0+incompatible // indirect
 	github.com/evanphx/json-patch v4.12.0+incompatible // indirect
 	github.com/evanphx/json-patch/v5 v5.6.0 // indirect

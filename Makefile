@@ -19,7 +19,7 @@ SHELL = /usr/bin/env bash -o pipefail
 .SHELLFLAGS = -ec
 MANIFEST_DIR = templates
 
-REGISTRY ?= harbor-repo.vmware.com/vcloud
+REGISTRY ?= "projects-stg.registry.vmware.com/vmware-cloud-director"
 VERSION ?= $(shell cat ${GITROOT}/release/version)
 CAPVCD_IMG := cluster-api-provider-cloud-director
 CAPVCD_ARTIFACT_IMG := capvcd-manifest-airgapped
@@ -89,8 +89,8 @@ vet: ## Run go vet against code.
 	go vet ./...
 
 vendor: ## Run go mod vendor
-	go mod edit -go=1.17
-	go mod tidy -compat=1.17
+	go mod edit -go=1.19
+	go mod tidy -compat=1.19
 	go mod vendor
 
 
