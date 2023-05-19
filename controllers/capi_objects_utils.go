@@ -201,14 +201,28 @@ func getVcdResourceFromVcdCluster(vcdCluster *infrav1.VCDCluster, vcdResourceTyp
 // Todo: Yan - Implement this function in the future
 // Update the existing vcdResource into vcdcluster.status.VcdResourceMap.
 // It should be the uniform function for all the types - org, ovdc, catalog, etc
-func updateVcdResourceToVcdCluster(resourceList *infrav1.VCDResources, vcdResourceType string, resourceID string, newName string) error {
+func updateVcdResourceToVcdCluster(vcdCluster *infrav1.VCDCluster, vcdResourceType string, resourceID string, resourceName string) error {
 	switch vcdResourceType {
 	case ResourceTypeOvdc:
-		for i := 0; i < len(*resourceList); i++ {
-			if (*resourceList)[i].ID == resourceID {
-				(*resourceList)[i].Name = newName
+		resourceList := vcdCluster.Status.VcdResourceMap.Ovdcs
+		if resourceList == nil {
+			resourceList = []infrav1.VCDResource{}
+		}
+		for i, resource := range resourceList {
+			if resource.ID == resourceID {
+				if resource.Name != resourceName {
+					resourceList[i].Name = resourceName
+					vcdCluster.Status.VcdResourceMap.Ovdcs = resourceList
+					return nil
+				}
+				return nil // Resource already exists with the same ID and name, no need for further action
 			}
 		}
+		// Resource not found, add it to the list
+		vcdCluster.Status.VcdResourceMap.Ovdcs = append(resourceList, infrav1.VCDResource{
+			ID:   resourceID,
+			Name: resourceName,
+		})
 	default:
 		return fmt.Errorf("unsupported VCD resource type: %s", vcdResourceType)
 	}
