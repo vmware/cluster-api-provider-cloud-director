@@ -3,8 +3,8 @@
 #
 # Below are the sample commands
 # clusterctl init --infrastructure vcd
-# clusterctl generate cluster demo -i vcd:v1.0.1
-# clusterctl generate cluster demo -i vcd:v1.0.1 -f v1.20.8
+# clusterctl generate cluster demo -i vcd:v1.0.2
+# clusterctl generate cluster demo -i vcd:v1.0.2 -f v1.20.8
 
 LatestRelease:
   URL: https://github.com/kubernetes-sigs/cluster-api/releases/tag/v1.0.2
@@ -12,14 +12,14 @@ LatestRelease:
 cert-manager:
   url: "https://github.com/cert-manager/cert-manager/releases/latest/cert-manager.yaml"
 providers:
-# provider name must correspond with provider url, as clusterctl follows semantic "path/infrastructure-${name}/v1.0.1/infrastructure-components.yaml"
-# example url for name "vcdInfra" would be: /basepath/infrastructure-vcdInfra/v1.0.1/infrastructure-components.yaml"
-# if "v1.0.1" or "infrastructure-" prefix is omitted, there will be an error thrown expecting path format: {basepath}/{provider-name or provider-label}/{version}/{components.yaml}
+# provider name must correspond with provider url, as clusterctl follows semantic "path/infrastructure-${name}/v1.0.2/infrastructure-components.yaml"
+# example url for name "vcdInfra" would be: /basepath/infrastructure-vcdInfra/v1.0.2/infrastructure-components.yaml"
+# if "v1.0.2" or "infrastructure-" prefix is omitted, there will be an error thrown expecting path format: {basepath}/{provider-name or provider-label}/{version}/{components.yaml}
 # after the following path has been created, paste all cluster-templates inside the path specified provider url
 # a fully functional folder will look similar to below:
-# {basepath}/infrastructure-vcd/v1.0.1/infrastructure-components.yaml, clusterctl-template.yaml, clusterctl-template-v1.20.8.yaml
+# {basepath}/infrastructure-vcd/v1.0.2/infrastructure-components.yaml, clusterctl-template.yaml, clusterctl-template-v1.20.8.yaml
   - name: "vcd"
-    url: "~/go/cluster-api-provider-cloud-director/infrastructure-vcd/v1.0.1/infrastructure-components.yaml"
+    url: "~/go/cluster-api-provider-cloud-director/infrastructure-vcd/v1.0.2/infrastructure-components.yaml"
     type: "InfrastructureProvider"
 
 
