@@ -344,18 +344,13 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		return ctrl.Result{}, errors.Wrapf(err, "Error creating VCD client to reconcile Cluster [%s] infrastructure", vcdCluster.Name)
 	}
 
-	if vcdCluster.Status.VcdResourceMap.Ovdcs == nil || len(vcdCluster.Status.VcdResourceMap.Ovdcs) == 0 {
-		//vcdCluster.Status.VcdResourceMap = make(map[string]infrav1.VCDResources)
-		if workloadVCDClient.VDC == nil || workloadVCDClient.VDC.Vdc == nil {
-			return ctrl.Result{}, errors.Wrapf(err, "Error getting ovdc to reconcile Cluster [%s] infrastructure", vcdCluster.Name)
-		}
-		vcdCluster.Status.VcdResourceMap.Ovdcs = []infrav1.VCDResource{
-			{
-				ID:   workloadVCDClient.VDC.Vdc.ID,
-				Name: workloadVCDClient.VDC.Vdc.Name,
-			},
-		}
-		log.Info("updating vcdCluster with the following data", "vcdCluster.Status.VcdResourceMap[ovdc].ID", workloadVCDClient.VDC.Vdc.ID, "vcdCluster.Status.VcdResourceMap[ovdc].Name", workloadVCDClient.VDC.Vdc.Name)
+	if workloadVCDClient.VDC == nil || workloadVCDClient.VDC.Vdc == nil {
+		return ctrl.Result{}, errors.Wrapf(err, "failed to get the Organization VDC (OVDC) from the VCD client for reconciling infrastructure of Cluster [%s]", vcdCluster.Name)
+	}
+
+	err = updateVcdResourceToVcdCluster(vcdCluster, ResourceTypeOvdc, workloadVCDClient.VDC.Vdc.ID, workloadVCDClient.VDC.Vdc.Name)
+	if err != nil {
+		return ctrl.Result{}, errors.Wrapf(err, "Error updating vcdResource into vcdcluster.status to reconcile Cluster [%s] infrastructure", vcdCluster.Name)
 	}
 
 	capvcdRdeManager := capisdk.NewCapvcdRdeManager(workloadVCDClient, vcdCluster.Status.InfraId)
@@ -1094,6 +1089,15 @@ func (r *VCDMachineReconciler) reconcileDelete(ctx context.Context, cluster *clu
 	workloadVCDClient, err := createVCDClientFromSecrets(ctx, r.Client, vcdCluster)
 	if err != nil {
 		return ctrl.Result{}, errors.Wrapf(err, "Error creating VCD client to reconcile Cluster [%s] infrastructure", vcdCluster.Name)
+	}
+
+	if workloadVCDClient.VDC == nil || workloadVCDClient.VDC.Vdc == nil {
+		return ctrl.Result{}, errors.Wrapf(err, "failed to get the Organization VDC (OVDC) from the VCD client for reconciling infrastructure of Cluster [%s]", vcdCluster.Name)
+	}
+
+	err = updateVcdResourceToVcdCluster(vcdCluster, ResourceTypeOvdc, workloadVCDClient.VDC.Vdc.ID, workloadVCDClient.VDC.Vdc.Name)
+	if err != nil {
+		return ctrl.Result{}, errors.Wrapf(err, "Error updating vcdResource into vcdcluster.status to reconcile Cluster [%s] infrastructure", vcdCluster.Name)
 	}
 
 	capvcdRdeManager := capisdk.NewCapvcdRdeManager(workloadVCDClient, vcdCluster.Status.InfraId)
