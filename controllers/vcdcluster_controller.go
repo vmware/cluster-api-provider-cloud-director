@@ -806,42 +806,52 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 			}
 		}
 
-		// upgrade RDE if necessary
+		//1. If infraID indicates that there is no RDE (Resource Definition Entity), skip the RDE upgrade process.
+		//2. If vcdCluster.Status.RdeVersionInUse is empty, skip the RDE upgrade process.
+		//3. If version outdated is detected, proceed with the RDE upgrade process.
 		if !strings.Contains(infraID, NoRdePrefix) && vcdCluster.Status.RdeVersionInUse != "" &&
 			vcdCluster.Status.RdeVersionInUse != rdeType.CapvcdRDETypeVersion {
 			capvcdRdeManager := capisdk.NewCapvcdRdeManager(workloadVCDClient, infraID)
-			log.Info("Upgrading RDE", "rdeID", infraID,
-				"targetRDEVersion", rdeType.CapvcdRDETypeVersion)
-			_, err = capvcdRdeManager.ConvertToLatestRDEVersionFormat(ctx, infraID)
+			isVCDKECluster, err := capvcdRdeManager.IsVCDKECluster(ctx, infraID)
 			if err != nil {
-				log.Error(err, "failed to upgrade RDE", "rdeID", infraID,
-					"sourceVersion", vcdCluster.Status.RdeVersionInUse,
-					"targetVersion", rdeType.CapvcdRDETypeVersion)
-				err1 := capvcdRdeManager.AddToErrorSet(ctx, capisdk.RdeError, "", vcdCluster.Name, fmt.Sprintf("RDE upgrade failed: [%v]", err))
-				if err1 != nil {
-					log.Error(err1, "failed to add RdeError (RDE upgrade failed) ", "rdeID", infraID)
+				return ctrl.Result{}, errors.Wrapf(err, "error occurred when checking whether the RDE is vcdKE Cluster [%s]", infraID)
+			}
+			// 4. Skip the RDE upgrade process if the VCDKECluster flag is set to true
+			//    and current_rde_version < standard_rde_version
+			if !isVCDKECluster && capisdk.CheckIfRdeVersionNeedsUpgraded(vcdCluster.Status.RdeVersionInUse, rdeType.CapvcdRDETypeVersion) {
+				log.Info("Upgrading RDE", "rdeID", infraID,
+					"targetRDEVersion", rdeType.CapvcdRDETypeVersion)
+				_, err = capvcdRdeManager.ConvertToLatestRDEVersionFormat(ctx, infraID)
+				if err != nil {
+					log.Error(err, "failed to upgrade RDE", "rdeID", infraID,
+						"sourceVersion", vcdCluster.Status.RdeVersionInUse,
+						"targetVersion", rdeType.CapvcdRDETypeVersion)
+					err1 := capvcdRdeManager.AddToErrorSet(ctx, capisdk.RdeError, "", vcdCluster.Name, fmt.Sprintf("RDE upgrade failed: [%v]", err))
+					if err1 != nil {
+						log.Error(err1, "failed to add RdeError (RDE upgrade failed) ", "rdeID", infraID)
+					}
+					return ctrl.Result{}, errors.Wrapf(err, "failed to upgrade RDE [%s]", infraID)
 				}
-				return ctrl.Result{}, errors.Wrapf(err, "failed to upgrade RDE [%s]", infraID)
-			}
-			// calling reconcileRDE here to avoid delay in updating the RDE contents
-			if err = r.reconcileRDE(ctx, cluster, vcdCluster, workloadVCDClient, "", false); err != nil {
-				// TODO: can we recover the RDE to a proper state if RDE fails to reconcile?
-				log.Error(err, "failed to reconcile RDE after upgrading RDE", "rdeID", infraID)
-				err1 := capvcdRdeManager.AddToErrorSet(ctx, capisdk.RdeError, "", vcdCluster.Name, fmt.Sprintf("failed to reconcile RDE after upgrading RDE: [%v]", err))
-				if err1 != nil {
-					log.Error(err1, "failed to add RdeError (RDE upgrade failed) ", "rdeID", infraID)
+				// calling reconcileRDE here to avoid delay in updating the RDE contents
+				if err = r.reconcileRDE(ctx, cluster, vcdCluster, workloadVCDClient, "", false); err != nil {
+					// TODO: can we recover the RDE to a proper state if RDE fails to reconcile?
+					log.Error(err, "failed to reconcile RDE after upgrading RDE", "rdeID", infraID)
+					err1 := capvcdRdeManager.AddToErrorSet(ctx, capisdk.RdeError, "", vcdCluster.Name, fmt.Sprintf("failed to reconcile RDE after upgrading RDE: [%v]", err))
+					if err1 != nil {
+						log.Error(err1, "failed to add RdeError (RDE upgrade failed) ", "rdeID", infraID)
+					}
+					return ctrl.Result{}, errors.Wrapf(err, "failed to reconcile RDE after upgrading RDE [%s]", infraID)
 				}
-				return ctrl.Result{}, errors.Wrapf(err, "failed to reconcile RDE after upgrading RDE [%s]", infraID)
+				err = capvcdRdeManager.AddToEventSet(ctx, capisdk.RdeUpgraded, infraID, "", "", skipRDEEventUpdates)
+				if err != nil {
+					log.Error(err, "failed to add RDE-upgrade event (RDE upgraded successfully) ", "rdeID", infraID)
+				}
+				err = capvcdRdeManager.RdeManager.RemoveErrorByNameOrIdFromErrorSet(ctx, vcdsdk.ComponentCAPVCD, capisdk.RdeError, "", "")
+				if err != nil {
+					log.Error(err, "failed to remove RdeError (RDE upgraded successfully) ", "rdeID", infraID)
+				}
+				rdeVersionInUse = rdeType.CapvcdRDETypeVersion
 			}
-			err = capvcdRdeManager.AddToEventSet(ctx, capisdk.RdeUpgraded, infraID, "", "", skipRDEEventUpdates)
-			if err != nil {
-				log.Error(err, "failed to add RDE-upgrade event (RDE upgraded successfully) ", "rdeID", infraID)
-			}
-			err = capvcdRdeManager.RdeManager.RemoveErrorByNameOrIdFromErrorSet(ctx, vcdsdk.ComponentCAPVCD, capisdk.RdeError, "", "")
-			if err != nil {
-				log.Error(err, "failed to remove RdeError (RDE upgraded successfully) ", "rdeID", infraID)
-			}
-			rdeVersionInUse = rdeType.CapvcdRDETypeVersion
 		}
 	}
 

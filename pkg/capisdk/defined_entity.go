@@ -125,6 +125,18 @@ func convertToMap(obj interface{}) (map[string]interface{}, error) {
 	return parsedMap, nil
 }
 
+func CheckIfRdeVersionNeedsUpgraded(srcRdeTypeVersion string, tgtRdeTypeVersion string) bool {
+	entityTypeSemVer, err := semver.New(srcRdeTypeVersion)
+	if err != nil {
+		klog.Errorf("fail to convert [%s] into a standard version: [%v]", srcRdeTypeVersion, err)
+	}
+	tgtRdeTypeVersionSemVer, err := semver.New(tgtRdeTypeVersion)
+	if err != nil {
+		klog.Errorf("fail to convert [%s] into a standard version: [%v]", srcRdeTypeVersion, err)
+	}
+	return entityTypeSemVer.LT(*tgtRdeTypeVersionSemVer)
+}
+
 func patchObject(inputObj interface{}, patchMap map[string]interface{}) (map[string]interface{}, error) {
 	for k, v := range patchMap {
 		fields := strings.Split(k, ".")
@@ -320,6 +332,59 @@ func (capvcdRdeManager *CapvcdRdeManager) GetRDEVersion(ctx context.Context, rde
 	entiyTypeSplitArr := strings.Split(definedEntity.EntityType, ":")
 	// last item of the array will be the version string
 	return &definedEntity, entiyTypeSplitArr[len(entiyTypeSplitArr)-1], nil
+}
+
+func (capvcdRdeManager *CapvcdRdeManager) IsVCDKECluster(ctx context.Context, rdeID string) (bool, error) {
+	client := capvcdRdeManager.Client
+	org, err := client.VCDClient.GetOrgByName(client.ClusterOrgName)
+	if err != nil {
+		return false, fmt.Errorf("error getting org by name for org [%s]: [%v]", client.ClusterOrgName, err)
+	}
+
+	if org == nil || org.Org == nil {
+		return false, fmt.Errorf("obtained nil org when getting org by name [%s]", client.ClusterOrgName)
+	}
+
+	rde, resp, _, err := client.APIClient.DefinedEntityApi.GetDefinedEntity(ctx, rdeID, org.Org.ID)
+	if err != nil {
+		return false, fmt.Errorf("failed to get defined entity with ID [%s]: [%v]", rdeID, err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return false, fmt.Errorf("error getting defined entity with ID [%s]: [%v]", rdeID, err)
+	}
+
+	specEntry, ok := rde.Entity["spec"]
+	if !ok {
+		return false, fmt.Errorf("could not find 'spec' entry in defined entity")
+	}
+
+	specMap, ok := specEntry.(map[string]interface{})
+	if !ok {
+		return false, nil
+	}
+
+	vcdKESpecEntry, ok := specMap["vcdKe"]
+	if !ok {
+		return false, nil
+	}
+
+	vcdKESpecMap, ok := vcdKESpecEntry.(map[string]interface{})
+	if !ok {
+		return false, fmt.Errorf("unable to convert [%T] to map", vcdKESpecEntry)
+	}
+
+	isVCDKECluster, ok := vcdKESpecMap["isVCDKECluster"]
+	if !ok {
+		return false, fmt.Errorf("key 'isVCDKECluster' is missing in the defined entity")
+	}
+
+	isVCDKEClusterValue, ok := isVCDKECluster.(bool)
+	if !ok {
+		return false, fmt.Errorf("unable to convert [%T] to boolean value", isVCDKECluster)
+	}
+
+	return isVCDKEClusterValue, nil
 }
 
 // EntityType contains only the required properties in get entity type response
