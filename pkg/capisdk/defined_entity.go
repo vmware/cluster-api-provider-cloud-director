@@ -129,10 +129,12 @@ func CheckIfRdeVersionNeedsUpgraded(srcRdeTypeVersion string, tgtRdeTypeVersion 
 	entityTypeSemVer, err := semver.New(srcRdeTypeVersion)
 	if err != nil {
 		klog.Errorf("fail to convert [%s] into a standard version: [%v]", srcRdeTypeVersion, err)
+		return false
 	}
 	tgtRdeTypeVersionSemVer, err := semver.New(tgtRdeTypeVersion)
 	if err != nil {
 		klog.Errorf("fail to convert [%s] into a standard version: [%v]", srcRdeTypeVersion, err)
+		return false
 	}
 	return entityTypeSemVer.LT(*tgtRdeTypeVersionSemVer)
 }
@@ -334,57 +336,68 @@ func (capvcdRdeManager *CapvcdRdeManager) GetRDEVersion(ctx context.Context, rde
 	return &definedEntity, entiyTypeSplitArr[len(entiyTypeSplitArr)-1], nil
 }
 
-func (capvcdRdeManager *CapvcdRdeManager) IsVCDKECluster(ctx context.Context, rdeID string) (bool, error) {
+// IsVCDKECluster only returns true/false, not return error.
+// all the errors showing inside the function are all checked in the previous code.
+func (capvcdRdeManager *CapvcdRdeManager) IsVCDKECluster(ctx context.Context, rdeID string) bool {
 	client := capvcdRdeManager.Client
 	org, err := client.VCDClient.GetOrgByName(client.ClusterOrgName)
 	if err != nil {
-		return false, fmt.Errorf("error getting org by name for org [%s]: [%v]", client.ClusterOrgName, err)
+		klog.Errorf("error getting org by name for org [%s] in the defined entity [%s]: [%v]", client.ClusterOrgName, rdeID, err)
+		return false
 	}
 
 	if org == nil || org.Org == nil {
-		return false, fmt.Errorf("obtained nil org when getting org by name [%s]", client.ClusterOrgName)
+		klog.Errorf("obtained nil org when getting org by name [%s] in the defined entity [%s]", client.ClusterOrgName, rdeID, err)
+		return false
 	}
 
 	rde, resp, _, err := client.APIClient.DefinedEntityApi.GetDefinedEntity(ctx, rdeID, org.Org.ID)
 	if err != nil {
-		return false, fmt.Errorf("failed to get defined entity with ID [%s]: [%v]", rdeID, err)
+		klog.Errorf("failed to get defined entity with ID [%s]: [%v]", rdeID, err)
+		return false
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return false, fmt.Errorf("error getting defined entity with ID [%s]: [%v]", rdeID, err)
+		klog.Errorf("error getting defined entity with ID [%s]: [%v]", rdeID, err)
+		return false
 	}
 
 	specEntry, ok := rde.Entity["spec"]
 	if !ok {
-		return false, fmt.Errorf("could not find 'spec' entry in defined entity")
+		klog.Errorf("could not find 'spec' entry in the defined entity [%s]", rdeID)
+		return false
 	}
 
 	specMap, ok := specEntry.(map[string]interface{})
 	if !ok {
-		return false, nil
+		klog.Errorf("unable to convert [%T] to map in the defined entity [%s]", specMap, rdeID)
+		return false
 	}
 
 	vcdKESpecEntry, ok := specMap["vcdKe"]
 	if !ok {
-		return false, nil
+		return false
 	}
 
 	vcdKESpecMap, ok := vcdKESpecEntry.(map[string]interface{})
 	if !ok {
-		return false, fmt.Errorf("unable to convert [%T] to map", vcdKESpecEntry)
+		klog.Errorf("unable to convert [%T] to map in the defined entity [%s]", vcdKESpecEntry, rdeID)
+		return false
 	}
 
 	isVCDKECluster, ok := vcdKESpecMap["isVCDKECluster"]
 	if !ok {
-		return false, fmt.Errorf("key 'isVCDKECluster' is missing in the defined entity")
+		klog.Errorf("key 'isVCDKECluster' is missing in the defined entity [%s]", rdeID)
+		return false
 	}
 
 	isVCDKEClusterValue, ok := isVCDKECluster.(bool)
 	if !ok {
-		return false, fmt.Errorf("unable to convert [%T] to boolean value", isVCDKECluster)
+		klog.Errorf("unable to convert [%T] to boolean value", isVCDKECluster)
+		return false
 	}
 
-	return isVCDKEClusterValue, nil
+	return isVCDKEClusterValue
 }
 
 // EntityType contains only the required properties in get entity type response

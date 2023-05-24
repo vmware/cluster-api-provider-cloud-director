@@ -806,16 +806,13 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 			}
 		}
 
-		//1. If infraID indicates that there is no RDE (Resource Definition Entity), skip the RDE upgrade process.
+		//1. If infraID indicates that there is no RDE (Runtime Defined Entity), skip the RDE upgrade process.
 		//2. If vcdCluster.Status.RdeVersionInUse is empty, skip the RDE upgrade process.
 		//3. If version outdated is detected, proceed with the RDE upgrade process.
 		if !strings.Contains(infraID, NoRdePrefix) && vcdCluster.Status.RdeVersionInUse != "" &&
 			vcdCluster.Status.RdeVersionInUse != rdeType.CapvcdRDETypeVersion {
 			capvcdRdeManager := capisdk.NewCapvcdRdeManager(workloadVCDClient, infraID)
-			isVCDKECluster, err := capvcdRdeManager.IsVCDKECluster(ctx, infraID)
-			if err != nil {
-				return ctrl.Result{}, errors.Wrapf(err, "error occurred when checking whether the RDE is vcdKE Cluster [%s]", infraID)
-			}
+			isVCDKECluster := capvcdRdeManager.IsVCDKECluster(ctx, infraID)
 			// 4. Skip the RDE upgrade process if the VCDKECluster flag is set to true
 			//    and current_rde_version < standard_rde_version
 			if !isVCDKECluster && capisdk.CheckIfRdeVersionNeedsUpgraded(vcdCluster.Status.RdeVersionInUse, rdeType.CapvcdRDETypeVersion) {
