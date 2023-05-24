@@ -812,10 +812,9 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		if !strings.Contains(infraID, NoRdePrefix) && vcdCluster.Status.RdeVersionInUse != "" &&
 			vcdCluster.Status.RdeVersionInUse != rdeType.CapvcdRDETypeVersion {
 			capvcdRdeManager := capisdk.NewCapvcdRdeManager(workloadVCDClient, infraID)
-			isVCDKECluster := capvcdRdeManager.IsVCDKECluster(ctx, infraID)
 			// 4. Skip the RDE upgrade process if the VCDKECluster flag is set to true
 			//    and current_rde_version < standard_rde_version
-			if !isVCDKECluster && capisdk.CheckIfRdeVersionNeedsUpgraded(vcdCluster.Status.RdeVersionInUse, rdeType.CapvcdRDETypeVersion) {
+			if !capvcdRdeManager.IsVCDKECluster(ctx, infraID) && capisdk.CheckIfRdeVersionNeedsUpgraded(vcdCluster.Status.RdeVersionInUse, rdeType.CapvcdRDETypeVersion) {
 				log.Info("Upgrading RDE", "rdeID", infraID,
 					"targetRDEVersion", rdeType.CapvcdRDETypeVersion)
 				_, err = capvcdRdeManager.ConvertToLatestRDEVersionFormat(ctx, infraID)

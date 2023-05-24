@@ -347,7 +347,7 @@ func (capvcdRdeManager *CapvcdRdeManager) IsVCDKECluster(ctx context.Context, rd
 	}
 
 	if org == nil || org.Org == nil {
-		klog.Errorf("obtained nil org when getting org by name [%s] in the defined entity [%s]", client.ClusterOrgName, rdeID, err)
+		klog.Errorf("obtained nil org when getting org by name [%s] in the defined entity [%s]", client.ClusterOrgName, rdeID)
 		return false
 	}
 
@@ -358,7 +358,7 @@ func (capvcdRdeManager *CapvcdRdeManager) IsVCDKECluster(ctx context.Context, rd
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		klog.Errorf("error getting defined entity with ID [%s]: [%v]", rdeID, err)
+		klog.Errorf("obtained unexpected http status [%d] when getting the defined entity with ID [%s]", resp.StatusCode, rdeID)
 		return false
 	}
 
@@ -373,7 +373,7 @@ func (capvcdRdeManager *CapvcdRdeManager) IsVCDKECluster(ctx context.Context, rd
 		klog.Errorf("unable to convert [%T] to map in the defined entity [%s]", specMap, rdeID)
 		return false
 	}
-
+	// if the vcdKeSpec section is present, then the cluster is not managed by CSE
 	vcdKESpecEntry, ok := specMap["vcdKe"]
 	if !ok {
 		return false
