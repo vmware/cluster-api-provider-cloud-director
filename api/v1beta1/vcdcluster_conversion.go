@@ -17,6 +17,7 @@ func (src *VCDCluster) ConvertTo(dstRaw conversion.Hub) error {
 	if ok, err := utilconversion.UnmarshalData(src, restored); err != nil || !ok {
 		return err
 	}
+	dst.Status.VcdResourceMap = restored.Status.VcdResourceMap
 	return nil
 }
 
@@ -26,7 +27,6 @@ func (dst *VCDCluster) ConvertFrom(srcRaw conversion.Hub) error {
 	if err := Convert_v1beta2_VCDCluster_To_v1beta1_VCDCluster(src, dst, nil); err != nil {
 		return err
 	}
-
 	return utilconversion.MarshalData(src, dst)
 }
 

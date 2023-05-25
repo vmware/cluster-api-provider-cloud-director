@@ -359,6 +359,7 @@ func autoConvert_v1beta2_VCDClusterStatus_To_v1alpha4_VCDClusterStatus(in *v1bet
 	// WARNING: in.VAppMetadataUpdated requires manual conversion: does not exist in peer-type
 	out.Conditions = *(*apiv1alpha4.Conditions)(unsafe.Pointer(&in.Conditions))
 	// WARNING: in.Site requires manual conversion: does not exist in peer-type
+	// WARNING: in.VcdResourceMap requires manual conversion: does not exist in peer-type
 	// WARNING: in.Org requires manual conversion: does not exist in peer-type
 	// WARNING: in.Ovdc requires manual conversion: does not exist in peer-type
 	// WARNING: in.OvdcNetwork requires manual conversion: does not exist in peer-type
