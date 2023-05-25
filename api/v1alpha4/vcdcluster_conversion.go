@@ -43,6 +43,7 @@ func (src *VCDCluster) ConvertTo(dstRaw conversion.Hub) error {
 	dst.Status.RdeVersionInUse = restored.Status.RdeVersionInUse
 	dst.Spec.LoadBalancerConfigSpec.UseOneArm = restored.Spec.LoadBalancerConfigSpec.UseOneArm
 	dst.Spec.LoadBalancerConfigSpec.VipSubnet = restored.Spec.LoadBalancerConfigSpec.VipSubnet
+	dst.Status.VcdResourceMap = restored.Status.VcdResourceMap
 	return nil
 }
 
