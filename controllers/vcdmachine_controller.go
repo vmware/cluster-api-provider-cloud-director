@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"math"
 	"reflect"
+	"sigs.k8s.io/yaml"
 	"strconv"
 	"strings"
 	"text/template"
@@ -29,7 +30,6 @@ import (
 	"github.com/vmware/cluster-api-provider-cloud-director/release"
 	"github.com/vmware/go-vcloud-director/v2/govcd"
 	"github.com/vmware/go-vcloud-director/v2/types/v56"
-	"gopkg.in/yaml.v2"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/klog"
@@ -114,7 +114,7 @@ func (r *VCDMachineReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		return ctrl.Result{}, err
 	}
 	if cluster == nil {
-		log.Info("Please associate this machine with a cluster using the label", "label", clusterv1.ClusterLabelName)
+		log.Info("Please associate this machine with a cluster using the label", "label", clusterv1.ClusterNameLabel)
 		return ctrl.Result{}, nil
 	}
 
@@ -1389,7 +1389,7 @@ func (r *VCDMachineReconciler) VCDClusterToVCDMachines(o client.Object) []ctrl.R
 		return result
 	}
 
-	labels := map[string]string{clusterv1.ClusterLabelName: cluster.Name}
+	labels := map[string]string{clusterv1.ClusterNameLabel: cluster.Name}
 	machineList := &clusterv1.MachineList{}
 	if err := r.Client.List(context.TODO(), machineList, client.InNamespace(c.Namespace),
 		client.MatchingLabels(labels)); err != nil {

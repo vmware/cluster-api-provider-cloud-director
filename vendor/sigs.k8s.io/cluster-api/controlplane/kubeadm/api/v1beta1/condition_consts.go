@@ -27,7 +27,7 @@ const (
 
 const (
 	// CertificatesAvailableCondition documents that cluster certificates were generated as part of the
-	// processing of a a KubeadmControlPlane object.
+	// processing of a KubeadmControlPlane object.
 	CertificatesAvailableCondition clusterv1.ConditionType = "CertificatesAvailable"
 
 	// CertificatesGenerationFailedReason (Severity=Warning) documents a KubeadmControlPlane controller detecting
@@ -48,7 +48,7 @@ const (
 
 const (
 	// MachinesSpecUpToDateCondition documents that the spec of the machines controlled by the KubeadmControlPlane
-	// is up to date. Whe this condition is false, the KubeadmControlPlane is executing a rolling upgrade.
+	// is up to date. When this condition is false, the KubeadmControlPlane is executing a rolling upgrade.
 	MachinesSpecUpToDateCondition clusterv1.ConditionType = "MachinesSpecUpToDate"
 
 	// RollingUpdateInProgressReason (Severity=Warning) documents a KubeadmControlPlane object executing a

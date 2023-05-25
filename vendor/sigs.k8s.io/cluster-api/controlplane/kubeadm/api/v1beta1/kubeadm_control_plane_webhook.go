@@ -33,6 +33,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	bootstrapv1 "sigs.k8s.io/cluster-api/bootstrap/kubeadm/api/v1beta1"
+	"sigs.k8s.io/cluster-api/internal/util/kubeadm"
 	"sigs.k8s.io/cluster-api/util/container"
 	"sigs.k8s.io/cluster-api/util/version"
 )
@@ -68,6 +69,8 @@ func defaultKubeadmControlPlaneSpec(s *KubeadmControlPlaneSpec, namespace string
 		s.Version = "v" + s.Version
 	}
 
+	bootstrapv1.DefaultKubeadmConfigSpec(&s.KubeadmConfigSpec)
+
 	s.RolloutStrategy = defaultRolloutStrategy(s.RolloutStrategy)
 }
 
@@ -99,7 +102,7 @@ func (in *KubeadmControlPlane) ValidateCreate() error {
 	spec := in.Spec
 	allErrs := validateKubeadmControlPlaneSpec(spec, in.Namespace, field.NewPath("spec"))
 	allErrs = append(allErrs, validateClusterConfiguration(spec.KubeadmConfigSpec.ClusterConfiguration, nil, field.NewPath("spec", "kubeadmConfigSpec", "clusterConfiguration"))...)
-	allErrs = append(allErrs, in.Spec.KubeadmConfigSpec.Validate()...)
+	allErrs = append(allErrs, spec.KubeadmConfigSpec.Validate(field.NewPath("spec", "kubeadmConfigSpec"))...)
 	if len(allErrs) > 0 {
 		return apierrors.NewInvalid(GroupVersion.WithKind("KubeadmControlPlane").GroupKind(), in.Name, allErrs)
 	}
@@ -113,6 +116,9 @@ const (
 	initConfiguration    = "initConfiguration"
 	joinConfiguration    = "joinConfiguration"
 	nodeRegistration     = "nodeRegistration"
+	skipPhases           = "skipPhases"
+	patches              = "patches"
+	directory            = "directory"
 	preKubeadmCommands   = "preKubeadmCommands"
 	postKubeadmCommands  = "postKubeadmCommands"
 	files                = "files"
@@ -122,7 +128,10 @@ const (
 	scheduler            = "scheduler"
 	ntp                  = "ntp"
 	ignition             = "ignition"
+	diskSetup            = "diskSetup"
 )
+
+const minimumCertificatesExpiryDays = 7
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type.
 func (in *KubeadmControlPlane) ValidateUpdate(old runtime.Object) error {
@@ -132,29 +141,54 @@ func (in *KubeadmControlPlane) ValidateUpdate(old runtime.Object) error {
 		{"metadata", "*"},
 		{spec, kubeadmConfigSpec, clusterConfiguration, "etcd", "local", "imageRepository"},
 		{spec, kubeadmConfigSpec, clusterConfiguration, "etcd", "local", "imageTag"},
+		{spec, kubeadmConfigSpec, clusterConfiguration, "etcd", "local", "extraArgs"},
 		{spec, kubeadmConfigSpec, clusterConfiguration, "etcd", "local", "extraArgs", "*"},
 		{spec, kubeadmConfigSpec, clusterConfiguration, "dns", "imageRepository"},
 		{spec, kubeadmConfigSpec, clusterConfiguration, "dns", "imageTag"},
 		{spec, kubeadmConfigSpec, clusterConfiguration, "imageRepository"},
+		{spec, kubeadmConfigSpec, clusterConfiguration, apiServer},
 		{spec, kubeadmConfigSpec, clusterConfiguration, apiServer, "*"},
+		{spec, kubeadmConfigSpec, clusterConfiguration, controllerManager},
 		{spec, kubeadmConfigSpec, clusterConfiguration, controllerManager, "*"},
+		{spec, kubeadmConfigSpec, clusterConfiguration, scheduler},
 		{spec, kubeadmConfigSpec, clusterConfiguration, scheduler, "*"},
+		{spec, kubeadmConfigSpec, initConfiguration, nodeRegistration},
 		{spec, kubeadmConfigSpec, initConfiguration, nodeRegistration, "*"},
+		{spec, kubeadmConfigSpec, initConfiguration, patches, directory},
+		{spec, kubeadmConfigSpec, initConfiguration, skipPhases},
+		{spec, kubeadmConfigSpec, joinConfiguration, nodeRegistration},
 		{spec, kubeadmConfigSpec, joinConfiguration, nodeRegistration, "*"},
+		{spec, kubeadmConfigSpec, joinConfiguration, patches, directory},
+		{spec, kubeadmConfigSpec, joinConfiguration, skipPhases},
 		{spec, kubeadmConfigSpec, preKubeadmCommands},
 		{spec, kubeadmConfigSpec, postKubeadmCommands},
 		{spec, kubeadmConfigSpec, files},
 		{spec, kubeadmConfigSpec, "verbosity"},
 		{spec, kubeadmConfigSpec, users},
+		{spec, kubeadmConfigSpec, ntp},
 		{spec, kubeadmConfigSpec, ntp, "*"},
+		{spec, kubeadmConfigSpec, ignition},
 		{spec, kubeadmConfigSpec, ignition, "*"},
+		{spec, kubeadmConfigSpec, diskSetup},
+		{spec, kubeadmConfigSpec, diskSetup, "*"},
+		{spec, kubeadmConfigSpec, "format"},
+		{spec, kubeadmConfigSpec, "mounts"},
+		{spec, "machineTemplate", "metadata"},
 		{spec, "machineTemplate", "metadata", "*"},
 		{spec, "machineTemplate", "infrastructureRef", "apiVersion"},
 		{spec, "machineTemplate", "infrastructureRef", "name"},
+		{spec, "machineTemplate", "infrastructureRef", "kind"},
 		{spec, "machineTemplate", "nodeDrainTimeout"},
+		{spec, "machineTemplate", "nodeVolumeDetachTimeout"},
+		{spec, "machineTemplate", "nodeDeletionTimeout"},
 		{spec, "replicas"},
 		{spec, "version"},
+		{spec, "remediationStrategy"},
+		{spec, "remediationStrategy", "*"},
 		{spec, "rolloutAfter"},
+		{spec, "rolloutBefore"},
+		{spec, "rolloutBefore", "*"},
+		{spec, "rolloutStrategy"},
 		{spec, "rolloutStrategy", "*"},
 	}
 
@@ -163,12 +197,6 @@ func (in *KubeadmControlPlane) ValidateUpdate(old runtime.Object) error {
 	prev, ok := old.(*KubeadmControlPlane)
 	if !ok {
 		return apierrors.NewBadRequest(fmt.Sprintf("expecting KubeadmControlPlane but got a %T", old))
-	}
-
-	// NOTE: Defaulting for the format field has been added in v1.1.0 after implementing ignition support.
-	// This allows existing KCP objects to pick up the new default.
-	if prev.Spec.KubeadmConfigSpec.Format == "" && in.Spec.KubeadmConfigSpec.Format == bootstrapv1.CloudConfig {
-		allowedPaths = append(allowedPaths, []string{spec, kubeadmConfigSpec, "format"})
 	}
 
 	originalJSON, err := json.Marshal(prev)
@@ -208,7 +236,7 @@ func (in *KubeadmControlPlane) ValidateUpdate(old runtime.Object) error {
 	allErrs = append(allErrs, in.validateVersion(prev.Spec.Version)...)
 	allErrs = append(allErrs, validateClusterConfiguration(in.Spec.KubeadmConfigSpec.ClusterConfiguration, prev.Spec.KubeadmConfigSpec.ClusterConfiguration, field.NewPath("spec", "kubeadmConfigSpec", "clusterConfiguration"))...)
 	allErrs = append(allErrs, in.validateCoreDNSVersion(prev)...)
-	allErrs = append(allErrs, in.Spec.KubeadmConfigSpec.Validate()...)
+	allErrs = append(allErrs, in.Spec.KubeadmConfigSpec.Validate(field.NewPath("spec", "kubeadmConfigSpec"))...)
 
 	if len(allErrs) > 0 {
 		return apierrors.NewInvalid(GroupVersion.WithKind("KubeadmControlPlane").GroupKind(), in.Name, allErrs)
@@ -305,7 +333,24 @@ func validateKubeadmControlPlaneSpec(s KubeadmControlPlaneSpec, namespace string
 		allErrs = append(allErrs, field.Invalid(pathPrefix.Child("version"), s.Version, "must be a valid semantic version"))
 	}
 
+	allErrs = append(allErrs, validateRolloutBefore(s.RolloutBefore, pathPrefix.Child("rolloutBefore"))...)
 	allErrs = append(allErrs, validateRolloutStrategy(s.RolloutStrategy, s.Replicas, pathPrefix.Child("rolloutStrategy"))...)
+
+	return allErrs
+}
+
+func validateRolloutBefore(rolloutBefore *RolloutBefore, pathPrefix *field.Path) field.ErrorList {
+	allErrs := field.ErrorList{}
+
+	if rolloutBefore == nil {
+		return allErrs
+	}
+
+	if rolloutBefore.CertificatesExpiryDays != nil {
+		if *rolloutBefore.CertificatesExpiryDays < minimumCertificatesExpiryDays {
+			allErrs = append(allErrs, field.Invalid(pathPrefix.Child("certificatesExpiryDays"), *rolloutBefore.CertificatesExpiryDays, fmt.Sprintf("must be greater than or equal to %v", minimumCertificatesExpiryDays)))
+		}
+	}
 
 	return allErrs
 }
@@ -330,7 +375,7 @@ func validateRolloutStrategy(rolloutStrategy *RolloutStrategy, replicas *int32, 
 	ios1 := intstr.FromInt(1)
 	ios0 := intstr.FromInt(0)
 
-	if *rolloutStrategy.RollingUpdate.MaxSurge == ios0 && (replicas != nil && *replicas < int32(3)) {
+	if rolloutStrategy.RollingUpdate.MaxSurge.IntValue() == ios0.IntValue() && (replicas != nil && *replicas < int32(3)) {
 		allErrs = append(
 			allErrs,
 			field.Required(
@@ -340,7 +385,7 @@ func validateRolloutStrategy(rolloutStrategy *RolloutStrategy, replicas *int32, 
 		)
 	}
 
-	if *rolloutStrategy.RollingUpdate.MaxSurge != ios1 && *rolloutStrategy.RollingUpdate.MaxSurge != ios0 {
+	if rolloutStrategy.RollingUpdate.MaxSurge.IntValue() != ios1.IntValue() && rolloutStrategy.RollingUpdate.MaxSurge.IntValue() != ios0.IntValue() {
 		allErrs = append(
 			allErrs,
 			field.Required(
@@ -369,6 +414,18 @@ func validateClusterConfiguration(newClusterConfiguration, oldClusterConfigurati
 				fmt.Sprintf("tag %s is invalid", newClusterConfiguration.DNS.ImageTag),
 			),
 		)
+	}
+
+	if newClusterConfiguration.DNS.ImageTag != "" {
+		if _, err := version.ParseMajorMinorPatchTolerant(newClusterConfiguration.DNS.ImageTag); err != nil {
+			allErrs = append(allErrs,
+				field.Invalid(
+					field.NewPath("dns", "imageTag"),
+					newClusterConfiguration.DNS.ImageTag,
+					fmt.Sprintf("failed to parse CoreDNS version: %v", err),
+				),
+			)
+		}
 	}
 
 	// TODO: Remove when kubeadm types include OpenAPI validation
@@ -481,9 +538,10 @@ func (in *KubeadmControlPlane) validateCoreDNSVersion(prev *KubeadmControlPlane)
 	fromVersion, err := version.ParseMajorMinorPatchTolerant(prev.Spec.KubeadmConfigSpec.ClusterConfiguration.DNS.ImageTag)
 	if err != nil {
 		allErrs = append(allErrs,
-			field.InternalError(
+			field.Invalid(
 				field.NewPath("spec", "kubeadmConfigSpec", "clusterConfiguration", "dns", "imageTag"),
-				fmt.Errorf("failed to parse CoreDNS current version: %v", prev.Spec.KubeadmConfigSpec.ClusterConfiguration.DNS.ImageTag),
+				prev.Spec.KubeadmConfigSpec.ClusterConfiguration.DNS.ImageTag,
+				fmt.Sprintf("failed to parse current CoreDNS version: %v", err),
 			),
 		)
 		return allErrs
@@ -495,7 +553,7 @@ func (in *KubeadmControlPlane) validateCoreDNSVersion(prev *KubeadmControlPlane)
 			field.Invalid(
 				field.NewPath("spec", "kubeadmConfigSpec", "clusterConfiguration", "dns", "imageTag"),
 				targetDNS.ImageTag,
-				fmt.Sprintf("failed to parse CoreDNS target version: %v", targetDNS.ImageTag),
+				fmt.Sprintf("failed to parse target CoreDNS version: %v", err),
 			),
 		)
 		return allErrs
@@ -554,7 +612,10 @@ func (in *KubeadmControlPlane) validateVersion(previousVersion string) (allErrs 
 		return allErrs
 	}
 
-	// Since upgrades to the next minor version are allowed, irrespective of the patch version.
+	// Validate that the update is upgrading at most one minor version.
+	// Note: Skipping a minor version is not allowed.
+	// Note: Checking against this ceilVersion allows upgrading to the next minor
+	// version irrespective of the patch version.
 	ceilVersion := semver.Version{
 		Major: fromVersion.Major,
 		Minor: fromVersion.Minor + 2,
@@ -565,6 +626,31 @@ func (in *KubeadmControlPlane) validateVersion(previousVersion string) (allErrs 
 			field.Forbidden(
 				field.NewPath("spec", "version"),
 				fmt.Sprintf("cannot update Kubernetes version from %s to %s", previousVersion, in.Spec.Version),
+			),
+		)
+	}
+
+	// The Kubernetes ecosystem has been requested to move users to the new registry due to cost issues.
+	// This validation enforces the move to the new registry by forcing users to upgrade to kubeadm versions
+	// with the new registry.
+	// NOTE: This only affects users relying on the community maintained registry.
+	// NOTE: Pinning to the upstream registry is not recommended because it could lead to issues
+	// given how the migration has been implemented in kubeadm.
+	//
+	// Block if imageRepository is not set (i.e. the default registry should be used),
+	if (in.Spec.KubeadmConfigSpec.ClusterConfiguration == nil ||
+		in.Spec.KubeadmConfigSpec.ClusterConfiguration.ImageRepository == "") &&
+		// the version changed (i.e. we have an upgrade),
+		toVersion.NE(fromVersion) &&
+		// the version is >= v1.22.0 and < v1.26.0
+		toVersion.GTE(kubeadm.MinKubernetesVersionImageRegistryMigration) &&
+		toVersion.LT(kubeadm.NextKubernetesVersionImageRegistryMigration) &&
+		// and the default registry of the new Kubernetes/kubeadm version is the old default registry.
+		kubeadm.GetDefaultRegistry(toVersion) == kubeadm.OldDefaultImageRepository {
+		allErrs = append(allErrs,
+			field.Forbidden(
+				field.NewPath("spec", "version"),
+				"cannot upgrade to a Kubernetes/kubeadm version which is using the old default registry. Please use a newer Kubernetes patch release which is using the new default registry (>= v1.22.17, >= v1.23.15, >= v1.24.9)",
 			),
 		)
 	}
