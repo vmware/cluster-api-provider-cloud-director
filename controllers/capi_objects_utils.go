@@ -125,7 +125,7 @@ func getK8sObjectStatus(obj interface{}) (string, error) {
 }
 
 func getAllMachineDeploymentsForCluster(ctx context.Context, cli client.Client, c clusterv1.Cluster) (*clusterv1.MachineDeploymentList, error) {
-	mdListLabels := map[string]string{clusterv1.ClusterLabelName: c.Name}
+	mdListLabels := map[string]string{clusterv1.ClusterNameLabel: c.Name}
 	mdList := &clusterv1.MachineDeploymentList{}
 	if err := cli.List(ctx, mdList, client.InNamespace(c.Namespace), client.MatchingLabels(mdListLabels)); err != nil {
 		return nil, errors.Wrapf(err, "error getting machine deployments for the cluster [%s]", c.Name)
@@ -134,7 +134,7 @@ func getAllMachineDeploymentsForCluster(ctx context.Context, cli client.Client, 
 }
 
 func getAllKubeadmControlPlaneForCluster(ctx context.Context, cli client.Client, c clusterv1.Cluster) (*kcpv1.KubeadmControlPlaneList, error) {
-	kcpListLabels := map[string]string{clusterv1.ClusterLabelName: c.Name}
+	kcpListLabels := map[string]string{clusterv1.ClusterNameLabel: c.Name}
 	kcpList := &kcpv1.KubeadmControlPlaneList{}
 
 	if err := cli.List(ctx, kcpList, client.InNamespace(c.Namespace), client.MatchingLabels(kcpListLabels)); err != nil {
@@ -184,7 +184,7 @@ func getVCDMachineTemplateFromMachineDeployment(ctx context.Context, cli client.
 }
 
 func getMachineListFromCluster(ctx context.Context, cli client.Client, cluster clusterv1.Cluster) (*clusterv1.MachineList, error) {
-	machineListLabels := map[string]string{clusterv1.ClusterLabelName: cluster.Name}
+	machineListLabels := map[string]string{clusterv1.ClusterNameLabel: cluster.Name}
 	machineList := &clusterv1.MachineList{}
 	if err := cli.List(ctx, machineList, client.InNamespace(cluster.Namespace), client.MatchingLabels(machineListLabels)); err != nil {
 		return nil, errors.Wrapf(err, "error getting machine list for the cluster [%s]", cluster.Name)
@@ -219,7 +219,7 @@ func getKubeadmConfigTemplateByObjRef(ctx context.Context, cli client.Client, ob
 }
 
 func getAllMachinesInMachineDeployment(ctx context.Context, cli client.Client, machineDeployment clusterv1.MachineDeployment) (*clusterv1.MachineList, error) {
-	machineListLabels := map[string]string{clusterv1.MachineDeploymentLabelName: machineDeployment.Name}
+	machineListLabels := map[string]string{clusterv1.MachineDeploymentNameLabel: machineDeployment.Name}
 	machineList := &clusterv1.MachineList{}
 	if err := cli.List(ctx, machineList, client.InNamespace(machineDeployment.Namespace), client.MatchingLabels(machineListLabels)); err != nil {
 		return nil, errors.Wrapf(err, "error getting machine list for the cluster [%s]", machineDeployment.Name)
@@ -228,7 +228,7 @@ func getAllMachinesInMachineDeployment(ctx context.Context, cli client.Client, m
 }
 
 func getAllMachinesInKCP(ctx context.Context, cli client.Client, kcp kcpv1.KubeadmControlPlane, clusterName string) ([]clusterv1.Machine, error) {
-	machineListLabels := map[string]string{clusterv1.ClusterLabelName: clusterName}
+	machineListLabels := map[string]string{clusterv1.ClusterNameLabel: clusterName}
 	machineList := &clusterv1.MachineList{}
 	if err := cli.List(ctx, machineList, client.InNamespace(kcp.Namespace), client.MatchingLabels(machineListLabels)); err != nil {
 		return nil, errors.Wrapf(err, "error getting machine list associated with KCP [%s]: [%v]", kcp.Name, err)
