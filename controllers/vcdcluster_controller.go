@@ -697,7 +697,8 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	// 2. Clusters which are newly created should check for CAPVCD_SKIP_RDE environment variable to determine if an RDE should be created for the cluster
 
 	// NOTE: If CAPVCD_SKIP_RDE is not set, CAPVCD will error out if there is any error in RDE creation
-	rdeVersionInUse := vcdCluster.Status.RdeVersionInUse
+	// rdeVersionInUseByCluster - rdeVersionInUseByCluster
+	rdeVersionInUseByCluster := vcdCluster.Status.RdeVersionInUse
 	if infraID == "" {
 		// Create RDE for the cluster or generate a NO_RDE infra ID for the cluster.
 		if !SkipRDE {
@@ -776,21 +777,21 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 					infraID = definedEntities.Values[0].Id
 				}
 			}
-			rdeVersionInUse = rdeType.CapvcdRDETypeVersion
+			rdeVersionInUseByCluster = rdeType.CapvcdRDETypeVersion
 		} else {
 			// If there is no RDE ID specified (or) created for any reason, self-generate one and use.
 			// We need UUIDs to single-instance cleanly in the Virtual Services etc.
 			noRDEID := NoRdePrefix + uuid.New().String()
 			log.Info("Error retrieving InfraId. Hence using a self-generated UUID", "UUID", noRDEID)
 			infraID = noRDEID
-			rdeVersionInUse = NoRdePrefix
+			rdeVersionInUseByCluster = NoRdePrefix
 		}
 
 	} else {
 		log.V(3).Info("Reusing already available InfraID", "infraID", infraID)
 		if strings.HasPrefix(infraID, NoRdePrefix) {
 			log.V(3).Info("Infra ID has NO_RDE_ prefix. Using RdeVersionInUse -", "RdeVersionInUse", NoRdePrefix)
-			rdeVersionInUse = NoRdePrefix
+			rdeVersionInUseByCluster = NoRdePrefix
 		} else {
 			_, rdeVersion, err := capvcdRdeManager.GetRDEVersion(ctx, infraID)
 			if err != nil {
@@ -798,7 +799,7 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 					"\"Unexpected error retrieving RDE [%s] for the cluster [%s]", infraID, vcdCluster.Name)
 			}
 			// update the RdeVersionInUse with the entity type version of the rde.
-			rdeVersionInUse = rdeVersion
+			rdeVersionInUseByCluster = rdeVersion
 
 			// update the createdByVersion if not present already
 			if err := capvcdRdeManager.CheckForEmptyRDEAndUpdateCreatedByVersions(ctx, infraID); err != nil {
@@ -813,8 +814,8 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 			vcdCluster.Status.RdeVersionInUse != rdeType.CapvcdRDETypeVersion {
 			capvcdRdeManager := capisdk.NewCapvcdRdeManager(workloadVCDClient, infraID)
 			// 4. Skip the RDE upgrade process if the VCDKECluster flag is set to true
-			//    and current_rde_version < standard_rde_version
-			if !capvcdRdeManager.IsVCDKECluster(ctx, infraID) && capisdk.CheckIfRdeVersionNeedsUpgraded(vcdCluster.Status.RdeVersionInUse, rdeType.CapvcdRDETypeVersion) {
+			//    and current_rde_version < RDE should should be in use for a given CAPVCD version- rdeType.CapvcdRDETypeVersion always be the latest RDE version
+			if !capvcdRdeManager.IsVCDKECluster(ctx, infraID) && capisdk.CheckIfClusterRdeNeedsUpgrade(rdeVersionInUseByCluster, rdeType.CapvcdRDETypeVersion) {
 				log.Info("Upgrading RDE", "rdeID", infraID,
 					"targetRDEVersion", rdeType.CapvcdRDETypeVersion)
 				_, err = capvcdRdeManager.ConvertToLatestRDEVersionFormat(ctx, infraID)
@@ -846,7 +847,7 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 				if err != nil {
 					log.Error(err, "failed to remove RdeError (RDE upgraded successfully) ", "rdeID", infraID)
 				}
-				rdeVersionInUse = rdeType.CapvcdRDETypeVersion
+				rdeVersionInUseByCluster = rdeType.CapvcdRDETypeVersion
 			}
 		}
 	}
@@ -856,18 +857,18 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		log.Error(err, "failed to add RdeAvailable event", "rdeID", infraID)
 	}
 
-	if err := validateDerivedRDEProperties(vcdCluster, infraID, rdeVersionInUse); err != nil {
+	if err := validateDerivedRDEProperties(vcdCluster, infraID, rdeVersionInUseByCluster); err != nil {
 		log.Error(err, "Error validating derived infraID and RDE version")
 		return ctrl.Result{}, errors.Wrapf(err, "error validating derived infraID and RDE version with VCDCluster status")
 	}
 
-	if vcdCluster.Status.InfraId == "" || vcdCluster.Status.RdeVersionInUse != rdeVersionInUse {
+	if vcdCluster.Status.InfraId == "" || vcdCluster.Status.RdeVersionInUse != rdeVersionInUseByCluster {
 		// update the status
-		log.Info("updating vcdCluster with the following data", "vcdCluster.Status.InfraId", infraID, "vcdCluster.Status.RdeVersionInUse", rdeVersionInUse)
+		log.Info("updating vcdCluster with the following data", "vcdCluster.Status.InfraId", infraID, "vcdCluster.Status.RdeVersionInUse", rdeVersionInUseByCluster)
 
 		oldVCDCluster := vcdCluster.DeepCopy()
 		vcdCluster.Status.InfraId = infraID
-		vcdCluster.Status.RdeVersionInUse = rdeVersionInUse
+		vcdCluster.Status.RdeVersionInUse = rdeVersionInUseByCluster
 		if err := r.Status().Patch(ctx, vcdCluster, client.MergeFrom(oldVCDCluster)); err != nil {
 			updatedErr := capvcdRdeManager.AddToErrorSet(ctx, capisdk.CAPVCDObjectPatchError, "", vcdCluster.Name, fmt.Sprintf("failed to patch vcdcluster: [%v]", err))
 			if updatedErr != nil {

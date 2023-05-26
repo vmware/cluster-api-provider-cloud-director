@@ -125,15 +125,15 @@ func convertToMap(obj interface{}) (map[string]interface{}, error) {
 	return parsedMap, nil
 }
 
-func CheckIfRdeVersionNeedsUpgraded(srcRdeTypeVersion string, tgtRdeTypeVersion string) bool {
+func CheckIfClusterRdeNeedsUpgrade(srcRdeTypeVersion string, tgtRdeTypeVersion string) bool {
 	entityTypeSemVer, err := semver.New(srcRdeTypeVersion)
 	if err != nil {
-		klog.Errorf("fail to convert [%s] into a standard version: [%v]", srcRdeTypeVersion, err)
+		klog.Errorf("fail to convert [%s] into a semantic version: [%v]", srcRdeTypeVersion, err)
 		return false
 	}
 	tgtRdeTypeVersionSemVer, err := semver.New(tgtRdeTypeVersion)
 	if err != nil {
-		klog.Errorf("fail to convert [%s] into a standard version: [%v]", srcRdeTypeVersion, err)
+		klog.Errorf("fail to convert [%s] into a semantic version: [%v]", srcRdeTypeVersion, err)
 		return false
 	}
 	return entityTypeSemVer.LT(*tgtRdeTypeVersionSemVer)
@@ -373,7 +373,7 @@ func (capvcdRdeManager *CapvcdRdeManager) IsVCDKECluster(ctx context.Context, rd
 		klog.Errorf("unable to convert [%T] to map in the defined entity [%s]", specMap, rdeID)
 		return false
 	}
-	// if the vcdKeSpec section is present, then the cluster is not managed by CSE
+	// if the vcdKeSpec section is present, then the cluster is not managed by standalone CAPVCD.
 	vcdKESpecEntry, ok := specMap["vcdKe"]
 	if !ok {
 		return false
