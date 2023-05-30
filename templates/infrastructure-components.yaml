@@ -1580,7 +1580,7 @@ spec:
       containers:
       - command:
         - /opt/vcloud/bin/cluster-api-provider-cloud-director
-        image: projects-stg.registry.vmware.com/vmware-cloud-director/cluster-api-provider-cloud-director:main-branch-05911c8
+        image: projects-stg.registry.vmware.com/vmware-cloud-director/cluster-api-provider-cloud-director:v1.1.0
         livenessProbe:
           httpGet:
             path: /healthz
