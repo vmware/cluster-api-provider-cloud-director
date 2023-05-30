@@ -125,6 +125,20 @@ func convertToMap(obj interface{}) (map[string]interface{}, error) {
 	return parsedMap, nil
 }
 
+func CheckIfClusterRdeNeedsUpgrade(srcRdeTypeVersion string, tgtRdeTypeVersion string) bool {
+	entityTypeSemVer, err := semver.New(srcRdeTypeVersion)
+	if err != nil {
+		klog.Errorf("fail to convert [%s] into a semantic version: [%v]", srcRdeTypeVersion, err)
+		return false
+	}
+	tgtRdeTypeVersionSemVer, err := semver.New(tgtRdeTypeVersion)
+	if err != nil {
+		klog.Errorf("fail to convert [%s] into a semantic version: [%v]", srcRdeTypeVersion, err)
+		return false
+	}
+	return entityTypeSemVer.LT(*tgtRdeTypeVersionSemVer)
+}
+
 func patchObject(inputObj interface{}, patchMap map[string]interface{}) (map[string]interface{}, error) {
 	for k, v := range patchMap {
 		fields := strings.Split(k, ".")
@@ -320,6 +334,70 @@ func (capvcdRdeManager *CapvcdRdeManager) GetRDEVersion(ctx context.Context, rde
 	entiyTypeSplitArr := strings.Split(definedEntity.EntityType, ":")
 	// last item of the array will be the version string
 	return &definedEntity, entiyTypeSplitArr[len(entiyTypeSplitArr)-1], nil
+}
+
+// IsVCDKECluster only returns true/false, not return error.
+// all the errors showing inside the function are all checked in the previous code.
+func (capvcdRdeManager *CapvcdRdeManager) IsVCDKECluster(ctx context.Context, rdeID string) bool {
+	client := capvcdRdeManager.Client
+	org, err := client.VCDClient.GetOrgByName(client.ClusterOrgName)
+	if err != nil {
+		klog.Errorf("error getting org by name for org [%s] in the defined entity [%s]: [%v]", client.ClusterOrgName, rdeID, err)
+		return false
+	}
+
+	if org == nil || org.Org == nil {
+		klog.Errorf("obtained nil org when getting org by name [%s] in the defined entity [%s]", client.ClusterOrgName, rdeID)
+		return false
+	}
+
+	rde, resp, _, err := client.APIClient.DefinedEntityApi.GetDefinedEntity(ctx, rdeID, org.Org.ID)
+	if err != nil {
+		klog.Errorf("failed to get defined entity with ID [%s]: [%v]", rdeID, err)
+		return false
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		klog.Errorf("obtained unexpected http status [%d] when getting the defined entity with ID [%s]", resp.StatusCode, rdeID)
+		return false
+	}
+
+	specEntry, ok := rde.Entity["spec"]
+	if !ok {
+		klog.Errorf("could not find 'spec' entry in the defined entity [%s]", rdeID)
+		return false
+	}
+
+	specMap, ok := specEntry.(map[string]interface{})
+	if !ok {
+		klog.Errorf("unable to convert [%T] to map in the defined entity [%s]", specMap, rdeID)
+		return false
+	}
+	// if the vcdKeSpec section is present, then the cluster is not managed by standalone CAPVCD.
+	vcdKESpecEntry, ok := specMap["vcdKe"]
+	if !ok {
+		return false
+	}
+
+	vcdKESpecMap, ok := vcdKESpecEntry.(map[string]interface{})
+	if !ok {
+		klog.Errorf("unable to convert [%T] to map in the defined entity [%s]", vcdKESpecEntry, rdeID)
+		return false
+	}
+
+	isVCDKECluster, ok := vcdKESpecMap["isVCDKECluster"]
+	if !ok {
+		klog.Errorf("key 'isVCDKECluster' is missing in the defined entity [%s]", rdeID)
+		return false
+	}
+
+	isVCDKEClusterValue, ok := isVCDKECluster.(bool)
+	if !ok {
+		klog.Errorf("unable to convert [%T] to boolean value", isVCDKECluster)
+		return false
+	}
+
+	return isVCDKEClusterValue
 }
 
 // EntityType contains only the required properties in get entity type response
