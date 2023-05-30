@@ -1,0 +1,24 @@
+name: Test
+on:
+  push:
+    branches:
+      - d2iq/*
+  pull_request:
+    branches:
+      - d2iq/*
+
+jobs:
+  test:
+    name: Test
+    runs-on: 
+      - self-hosted
+      - small
+    steps:
+      - uses: actions/checkout@v3
+      - name: Setup Go
+        uses: actions/setup-go@v3
+        with:
+          go-version-file: go.mod
+          cache: true # cache go action in github actions cache store.
+      - name: make test
+        run: make test
