@@ -3,63 +3,6 @@ users:
   - name: root
     lock_passwd: false
 write_files:
-- path: /etc/cloud/cloud.cfg.d/cse.cfg
-  owner: root
-  content: |
-     ssh_deletekeys: false {{- if .NvidiaGPU }}
-- path: /etc/containerd/config.toml
-  owner: root
-  content: |
-    version = 2
-
-    [plugins]
-      [plugins."io.containerd.grpc.v1.cri"]
-        sandbox_image = "projects.registry.vmware.com/tkg/pause:3.4.1"
-
-        [plugins."io.containerd.grpc.v1.cri".containerd]
-          default_runtime_name = "nvidia"
-
-          [plugins."io.containerd.grpc.v1.cri".containerd.runtimes]
-            [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.nvidia]
-              privileged_without_host_devices = false
-              runtime_engine = ""
-              runtime_root = ""
-              runtime_type = "io.containerd.runc.v2"
-
-              [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.nvidia.options]
-                BinaryName = "/usr/bin/nvidia-container-runtime"
-
-        [plugins."io.containerd.grpc.v1.cri".registry]
-          [plugins."io.containerd.grpc.v1.cri".registry.mirrors]
-            [plugins."io.containerd.grpc.v1.cri".registry.mirrors."docker.io"]
-              endpoint = ["https://registry-1.docker.io"] {{- end }}
-- path: /opt/vmware/cloud-director/metering.sh
-  owner: root
-  content: |
-     #!/usr/bin/env bash
-     vmtoolsd --cmd "info-set guestinfo.metering.vcd_site_id $VCD_SITE_ID"
-     vmtoolsd --cmd "info-set guestinfo.metering.cluster_id $CLUSTER_ID"
-     vmtoolsd --cmd "info-set guestinfo.metering.tkg_version $TKG_VERSION"
-     vmtoolsd --cmd "info-set guestinfo.metering.machine_type $MACHINE_TYPE"
-     vmtoolsd --cmd "info-set guestinfo.metering.mgmt $MGMT"
-- path: /etc/vcloud/metering
-  owner: root
-  content: |
-    VCD_SITE_ID={{ .VcdHostFormatted }}
-    CLUSTER_ID={{ .ClusterID }}
-    TKG_VERSION={{ .TKGVersion }}
-    MACHINE_TYPE={{- if or .ControlPlane .ResizedControlPlane -}} control_plane {{- else -}} worker {{- end }}
-    MGMT=true
-- path: /etc/systemd/system/metering.service
-  owner: root
-  content: |
-    [Service]
-    Type=simple
-    EnvironmentFile=/etc/vcloud/metering
-    ExecStart=/bin/bash /opt/vmware/cloud-director/metering.sh
-
-    [Install]
-    WantedBy=multi-user.target
 - path: /root/ {{- if .ControlPlane -}} control_plane {{- else -}} node {{- end -}} .sh
   owner: root
   content: |
@@ -74,13 +17,6 @@ write_files:
         ERROR_MESSAGE="$ERROR_MESSAGE $KUBEADM_FAILURE"
       fi
       vmtoolsd --cmd "info-set guestinfo.post_customization_script_execution_failure_reason $ERROR_MESSAGE"
-
-      CLOUD_INIT_OUTPUT=""
-      if [[ -f /var/log/cloud-init-output.log ]]
-      then
-        CLOUD_INIT_OUTPUT=$(</var/log/cloud-init-output.log)
-      fi
-      vmtoolsd --cmd "info-set guestinfo.post_customization_cloud_init_output $CLOUD_INIT_OUTPUT"
     }
     mkdir -p /var/log/capvcd/customization
     trap 'catch $? $LINENO' ERR EXIT
@@ -97,60 +33,21 @@ write_files:
     CSI_NODE_PATH=/root/csi-node.yaml {{- end }}
 
     vmtoolsd --cmd "info-set guestinfo.postcustomization.networkconfiguration.status in_progress"
-    echo 'net.ipv6.conf.all.disable_ipv6 = 1' >> /etc/sysctl.conf
-    echo 'net.ipv6.conf.default.disable_ipv6 = 1' >> /etc/sysctl.conf
-    echo 'net.ipv6.conf.lo.disable_ipv6 = 1' >> /etc/sysctl.conf
-    sudo sysctl -p
-    # also remove ipv6 localhost entry from /etc/hosts
-    sed -i 's/::1/127.0.0.1/g' /etc/hosts || true
+    hostname "{{ .MachineName }}"
+    echo "::1         ipv6-localhost ipv6-loopback" >/etc/hosts
+    echo "127.0.0.1   localhost" >>/etc/hosts
+    echo "{{ .MachineName }}" >/etc/hostname
+    echo "127.0.0.1" `hostname` >>/etc/hosts
     vmtoolsd --cmd "info-set guestinfo.postcustomization.networkconfiguration.status successful"
 
     vmtoolsd --cmd "info-set guestinfo.metering.status in_progress"
-    systemctl enable --now metering
-    vmtoolsd --cmd "info-set guestinfo.metering.status successful" {{- if or .HTTPProxy .HTTPSProxy }}
+    vmtoolsd --cmd "info-set guestinfo.metering.status successful"
 
     vmtoolsd --cmd "info-set guestinfo.postcustomization.proxy.setting.status in_progress"
-    export HTTP_PROXY="{{.HTTPProxy}}"
-    export HTTPS_PROXY="{{.HTTPSProxy}}"
-    export http_proxy="{{.HTTPProxy}}"
-    export https_proxy="{{.HTTPSProxy}}"
-    export NO_PROXY="{{.NoProxy}}"
-    export no_proxy="{{.NoProxy}}"
-    cat <<END > /etc/systemd/system/containerd.service.d/http-proxy.conf
-    [Service]
-    Environment="HTTP_PROXY={{.HTTPProxy}}"
-    Environment="HTTPS_PROXY={{.HTTPSProxy}}"
-    Environment="http_proxy={{.HTTPProxy}}"
-    Environment="https_proxy={{.HTTPSProxy}}"
-    Environment="no_proxy={{.NoProxy}}"
-    Environment="NO_PROXY={{.NoProxy}}"
-    END
-    systemctl daemon-reload
-    systemctl restart containerd
-    vmtoolsd --cmd "info-set guestinfo.postcustomization.proxy.setting.status successful" {{- end }} {{- if .NvidiaGPU }}
-
-    vmtoolsd --cmd "info-set guestinfo.postcustomization.nvidia.runtime.install.status in_progress"
-    distribution=$(. /etc/os-release;echo $ID$VERSION_ID)
-    curl -s -L https://nvidia.github.io/libnvidia-container/gpgkey | sudo apt-key add -
-    curl -s -L https://nvidia.github.io/libnvidia-container/$distribution/libnvidia-container.list | sudo tee /etc/apt/sources.list.d/libnvidia-container.list
-
-    sudo apt-get update && sudo apt-get install -y nvidia-container-toolkit
-
-    vmtoolsd --cmd "info-set guestinfo.postcustomization.nvidia.runtime.install.status successful" {{- end }}
+    vmtoolsd --cmd "info-set guestinfo.postcustomization.proxy.setting.status successful"
 
     vmtoolsd --cmd "info-set {{ if .ControlPlane -}} guestinfo.postcustomization.kubeinit.status {{- else -}} guestinfo.postcustomization.kubeadm.node.join.status {{- end }} in_progress"
-    for IMAGE in "coredns" "etcd" "kube-proxy" "kube-apiserver" "kube-controller-manager" "kube-scheduler"
-    do
-      IMAGE_REF=$(ctr -n=k8s.io image list | cut -d" " -f1 | grep $IMAGE)
-      REF_PATH=$(echo $IMAGE_REF | sed 's/:.*//')
-      NEW_TAG_VERSION=$(echo $IMAGE_REF | sed 's/.*://' | sed 's/_/-/')
-      ctr -n=k8s.io image tag $IMAGE_REF $REF_PATH:$NEW_TAG_VERSION
-    done
-    set +x
-    {
-      {{ .BootstrapRunCmd }}
-    } 2> /root/kubeadm.err
-    set -x
+    {{ .BootstrapRunCmd }}
     if [[ ! -f /run/cluster-api/bootstrap-success.complete ]]
     then
       echo "file /run/cluster-api/bootstrap-success.complete not found" &>> /var/log/capvcd/customization/error.log
@@ -161,11 +58,12 @@ write_files:
     echo "$(date) post customization script execution completed" &>> /var/log/capvcd/customization/status.log
     exit 0
 runcmd:
-- 'cloud-init clean'
-- '[ ! -f /opt/vmware/cloud-director/metering.sh ] && sudo reboot'
-- '[ ! -f /etc/cloud/cloud.cfg.d/cse.cfg ] && sudo reboot'
-- '[ ! -f /etc/vcloud/metering ] && sudo reboot'
+- 'sudo cloud-init clean --seed --logs'
+- 'sudo cat /dev/null > /var/log/cloud-init-output.log'
 {{ if .ControlPlane }}
+- '[ ! -f /run/kubeadm/konvoy-set-kube-proxy-configuration.sh] && sudo reboot'
+- '[ ! -f /run/konvoy/containerd-apply-patches.sh] && sudo reboot'
+- '[ ! -f /run/konvoy/restart-containerd-and-wait.sh] && sudo reboot'
 - '[ ! -f /root/control_plane.sh ] && sudo reboot'
 - '[ ! -f /run/kubeadm/kubeadm.yaml ] && sudo reboot'
 - bash /root/control_plane.sh
@@ -176,6 +74,9 @@ runcmd:
 {{ end }}
 timezone: UTC
 disable_root: false
+disable_vmware_customization: true
+network:
+  config: disabled
 preserve_hostname: false
 hostname: "{{ .MachineName }}"
 final_message: "The system is ready after $UPTIME seconds"
