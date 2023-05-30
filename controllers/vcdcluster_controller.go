@@ -697,7 +697,8 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	// 2. Clusters which are newly created should check for CAPVCD_SKIP_RDE environment variable to determine if an RDE should be created for the cluster
 
 	// NOTE: If CAPVCD_SKIP_RDE is not set, CAPVCD will error out if there is any error in RDE creation
-	// rdeVersionInUseByCluster - rdeVersionInUseByCluster
+	// rdeVersionInUseByCluster is the current version of the RDE associated with the cluster. Note that this version can be different from the latest RDE version used by the CAPVCD product.
+	// In such cases, RDE version of the cluster will be upgraded to the latest RDE version used by CAPVCD.
 	rdeVersionInUseByCluster := vcdCluster.Status.RdeVersionInUse
 	if infraID == "" {
 		// Create RDE for the cluster or generate a NO_RDE infra ID for the cluster.
@@ -771,13 +772,15 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 						return ctrl.Result{}, errors.Wrapf(err, "error creating RDE for the cluster %s", vcdCluster.Name)
 					}
 					infraID = rdeID
+					rdeVersionInUseByCluster = rdeType.CapvcdRDETypeVersion
 				} else {
 					log.Info("RDE for the cluster is already present; skipping RDE creation", "InfraId",
 						definedEntities.Values[0].Id)
 					infraID = definedEntities.Values[0].Id
+					entityTypeArr := strings.Split(definedEntities.Values[0].EntityType, ":")
+					rdeVersionInUseByCluster = entityTypeArr[len(entityTypeArr)-1]
 				}
 			}
-			rdeVersionInUseByCluster = rdeType.CapvcdRDETypeVersion
 		} else {
 			// If there is no RDE ID specified (or) created for any reason, self-generate one and use.
 			// We need UUIDs to single-instance cleanly in the Virtual Services etc.
