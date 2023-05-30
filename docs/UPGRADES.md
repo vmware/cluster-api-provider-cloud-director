@@ -17,3 +17,4 @@
 ## Upgrades from CAPVCD 1.0.0 to 1.1.0
 1. Configure [clusterctl](CLUSTERCTL.md#clusterctl_set_up) to refer to local CAPVCD 1.1.0 manifests.
 2. Run `clusterctl upgrade apply -i capvcd-system/vcd:v1.1.0`
+

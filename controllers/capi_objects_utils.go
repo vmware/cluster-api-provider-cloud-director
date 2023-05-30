@@ -4,8 +4,10 @@ import (
 	"context"
 	"fmt"
 	"github.com/pkg/errors"
+	"github.com/vmware/cloud-provider-for-cloud-director/pkg/vcdsdk"
 	infrav1 "github.com/vmware/cluster-api-provider-cloud-director/api/v1beta2"
 	rdeType "github.com/vmware/cluster-api-provider-cloud-director/pkg/vcdtypes/rde_type_1_1_0"
+	"github.com/vmware/go-vcloud-director/v2/govcd"
 	"gopkg.in/yaml.v2"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -50,7 +52,7 @@ func filterTypeMetaAndObjectMetaFromK8sObjectMap(objMap map[string]interface{}) 
 			return fmt.Errorf("failed to convert objectmeta [%v] to map[interface{}]interface{}", objMap["objectmeta"])
 		}
 		// remove all keys from objectMetaMap except for name and namespace.
-		for k, _ := range objectMetaMap {
+		for k := range objectMetaMap {
 			if k.(string) != "name" && k.(string) != "namespace" {
 				delete(objectMetaMap, k)
 			}
@@ -124,8 +126,182 @@ func getK8sObjectStatus(obj interface{}) (string, error) {
 	return string(output), nil
 }
 
+func getOrgByName(client *vcdsdk.Client, orgName string) (*govcd.Org, error) {
+	org, err := client.VCDClient.GetOrgByName(orgName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get org by name [%s]: [%v]", orgName, err)
+	}
+	if org == nil || org.Org == nil {
+		return nil, fmt.Errorf("found nil org when getting org by name [%s]", orgName)
+	}
+	return org, nil
+}
+
+func getOrgByID(client *vcdsdk.Client, orgID string) (*govcd.Org, error) {
+	org, err := client.VCDClient.GetOrgById(orgID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get org by ID [%s]: [%v]", orgID, err)
+	}
+	if org == nil || org.Org == nil {
+		return nil, fmt.Errorf("found nil org when getting org by ID [%s]", orgID)
+	}
+	return org, nil
+}
+
+func getOvdcByID(client *vcdsdk.Client, orgName string, ovdcID string) (*govcd.Vdc, error) {
+	org, err := getOrgByName(client, orgName)
+	if err != nil {
+		return nil, fmt.Errorf("error occurred when getting ovdc by ID [%s]: [%v]", ovdcID, err)
+	}
+	ovdc, err := org.GetVDCById(ovdcID, true)
+	if err != nil {
+		if err == govcd.ErrorEntityNotFound {
+			return nil, err
+		}
+		return nil, fmt.Errorf("fail to get ovdc by ID [%s]: [%v]", ovdcID, err)
+	}
+	if ovdc == nil || ovdc.Vdc == nil {
+		return nil, fmt.Errorf("found nil ovdc when getting org by ID [%s]", ovdcID)
+	}
+	return ovdc, nil
+}
+
+func getOvdcByName(client *vcdsdk.Client, orgName string, ovdcName string) (*govcd.Vdc, error) {
+	org, err := getOrgByName(client, orgName)
+	if err != nil {
+		return nil, fmt.Errorf("error occurred when getting ovdc by Name [%s]: [%v]", ovdcName, err)
+	}
+	ovdc, err := org.GetVDCByName(ovdcName, true)
+	if err != nil {
+		if err == govcd.ErrorEntityNotFound {
+			return nil, err
+		}
+		return nil, fmt.Errorf("fail to get ovdc by Name [%s]: [%v]", ovdcName, err)
+	}
+	if ovdc == nil || ovdc.Vdc == nil {
+		return nil, fmt.Errorf("found nil ovdc when getting org by Name [%s]", ovdcName)
+	}
+	return ovdc, nil
+}
+
+// Todo: Yan - Implement this function in the future
+// Insert vcdResource into vcdcluster.status.VcdResourceMap.
+// It should be the uniform function for all the types - org, ovdc, catalog, etc
+func insertVcdResourceIntoVcdCluster(vcdCluster *infrav1.VCDCluster, vcdResourceType string, resourceID string, resourceName string) error {
+	return nil
+}
+
+// Todo: Yan - Implement this function in the future
+// Insert vcdResource into vcdcluster.status.VcdResourceMap
+// It should be the uniform function for all the types - org, ovdc, catalog, etc
+func getVcdResourceFromVcdCluster(vcdCluster *infrav1.VCDCluster, vcdResourceType string) ([]infrav1.VCDResource, error) {
+	return nil, nil
+}
+
+// Todo: Yan - Implement this function in the future
+// Update the existing vcdResource into vcdcluster.status.VcdResourceMap.
+// It should be the uniform function for all the types - org, ovdc, catalog, etc
+func updateVcdResourceToVcdCluster(vcdCluster *infrav1.VCDCluster, vcdResourceType string, resourceID string, resourceName string) error {
+	switch vcdResourceType {
+	case ResourceTypeOvdc:
+		resourceList := vcdCluster.Status.VcdResourceMap.Ovdcs
+		if resourceList == nil {
+			resourceList = []infrav1.VCDResource{}
+		}
+		for i, resource := range resourceList {
+			if resource.ID == resourceID {
+				if resource.Name != resourceName {
+					resourceList[i].Name = resourceName
+					vcdCluster.Status.VcdResourceMap.Ovdcs = resourceList
+					return nil
+				}
+				return nil // Resource already exists with the same ID and name, no need for further action
+			}
+		}
+		// Resource not found, add it to the list
+		vcdCluster.Status.VcdResourceMap.Ovdcs = append(resourceList, infrav1.VCDResource{
+			ID:   resourceID,
+			Name: resourceName,
+		})
+	default:
+		return fmt.Errorf("unsupported VCD resource type: %s", vcdResourceType)
+	}
+	return nil
+}
+
+// Todo: Yan - Implement this function in the future
+// Remove vcdResource from vcdcluster.status.VcdResourceMap.
+// It should be the uniform function for all the types - org, ovdc, catalog, etc
+func removeVcdResourceFromVcdCluster(vcdCluster *infrav1.VCDCluster, vcdResourceType string, resourceID string) error {
+	switch vcdResourceType {
+	case ResourceTypeOvdc:
+		resourceList := vcdCluster.Status.VcdResourceMap.Ovdcs
+		for i, resource := range resourceList {
+			if resource.ID == resourceID {
+				resourceList = append(resourceList[:i], resourceList[i+1:]...)
+				vcdCluster.Status.VcdResourceMap.Ovdcs = resourceList
+				return nil
+			}
+		}
+	default:
+		return fmt.Errorf("unsupported VCD resource type: %s", vcdResourceType)
+	}
+	return fmt.Errorf("resource with ID %s not found in VCD cluster", resourceID)
+}
+
+// checkIfOvdcNameChange is used to check if ovdc name is changed during the CAPVCD provisioning process.
+// Check vcdcluster.status.VcdResourceMap. Find the ovdc Object and fetch the ovdcID.
+// Use the ovdcID to execute VCD API Call to get the ovdc in VCD.
+// compare the oldOvdcName and newOvdcName.
+// Return changed, vdc object, error.
+func checkIfOvdcNameChange(vcdCluster *infrav1.VCDCluster, client *vcdsdk.Client) (bool, *govcd.Vdc, error) {
+	orgName := vcdCluster.Spec.Org
+	ovdcSpecName := vcdCluster.Spec.Ovdc
+
+	ovdcStatusName := vcdCluster.Status.Ovdc
+	if ovdcStatusName == "" {
+		ovdcStatusName = ovdcSpecName
+	}
+
+	ovdcID := ""
+	nameChanged := false
+	var ovdc *govcd.Vdc
+	var err error
+
+	if vcdCluster.Status.VcdResourceMap.Ovdcs != nil && len(vcdCluster.Status.VcdResourceMap.Ovdcs) > 0 {
+		for _, ovdc := range vcdCluster.Status.VcdResourceMap.Ovdcs {
+			if ovdc.Name == ovdcStatusName {
+				ovdcID = ovdc.ID
+			}
+		}
+	}
+
+	// if ovdcID is not found in the vcdcluster.status.resourceSet, use ovdcStatusName instead to get the OVDC.
+	if ovdcID == "" {
+		ovdc, err = getOvdcByName(client, orgName, ovdcStatusName)
+		if err != nil {
+			return nameChanged, nil, fmt.Errorf("error occurred while checking if ovdcSpecName has changed; failed to get ovdc by Name [%s]: [%v]", ovdcStatusName, err)
+		}
+		//ovdcID is empty, which means we must add ovdc.Id and ovdc.Name to the resourceMap.ovdcs
+		nameChanged = true
+	} else {
+		ovdc, err = getOvdcByID(client, orgName, ovdcID)
+		if err != nil {
+			if err == govcd.ErrorEntityNotFound {
+				if removeErr := removeVcdResourceFromVcdCluster(vcdCluster, ResourceTypeOvdc, ovdcID); removeErr != nil {
+					return false, nil, fmt.Errorf("error occurred while removing resource [%s] vcdResource from vcdcluster.status.vcdResourceMap: [%v]", ovdcID, removeErr)
+				}
+				return nameChanged, nil, fmt.Errorf("error occurred while checking if ovdcSpecName has changed; failed to get ovdc by ID [%s]: [%v]", ovdcID, err)
+			}
+			return nameChanged, nil, fmt.Errorf("error occurred while checking if ovdcSpecName has changed: [%v]", err)
+		}
+		nameChanged = ovdc.Vdc.Name != ovdcSpecName
+	}
+	return nameChanged, ovdc, nil
+}
+
 func getAllMachineDeploymentsForCluster(ctx context.Context, cli client.Client, c clusterv1.Cluster) (*clusterv1.MachineDeploymentList, error) {
-	mdListLabels := map[string]string{clusterv1.ClusterLabelName: c.Name}
+	mdListLabels := map[string]string{clusterv1.ClusterNameLabel: c.Name}
 	mdList := &clusterv1.MachineDeploymentList{}
 	if err := cli.List(ctx, mdList, client.InNamespace(c.Namespace), client.MatchingLabels(mdListLabels)); err != nil {
 		return nil, errors.Wrapf(err, "error getting machine deployments for the cluster [%s]", c.Name)
@@ -134,7 +310,7 @@ func getAllMachineDeploymentsForCluster(ctx context.Context, cli client.Client, 
 }
 
 func getAllKubeadmControlPlaneForCluster(ctx context.Context, cli client.Client, c clusterv1.Cluster) (*kcpv1.KubeadmControlPlaneList, error) {
-	kcpListLabels := map[string]string{clusterv1.ClusterLabelName: c.Name}
+	kcpListLabels := map[string]string{clusterv1.ClusterNameLabel: c.Name}
 	kcpList := &kcpv1.KubeadmControlPlaneList{}
 
 	if err := cli.List(ctx, kcpList, client.InNamespace(c.Namespace), client.MatchingLabels(kcpListLabels)); err != nil {
@@ -184,7 +360,7 @@ func getVCDMachineTemplateFromMachineDeployment(ctx context.Context, cli client.
 }
 
 func getMachineListFromCluster(ctx context.Context, cli client.Client, cluster clusterv1.Cluster) (*clusterv1.MachineList, error) {
-	machineListLabels := map[string]string{clusterv1.ClusterLabelName: cluster.Name}
+	machineListLabels := map[string]string{clusterv1.ClusterNameLabel: cluster.Name}
 	machineList := &clusterv1.MachineList{}
 	if err := cli.List(ctx, machineList, client.InNamespace(cluster.Namespace), client.MatchingLabels(machineListLabels)); err != nil {
 		return nil, errors.Wrapf(err, "error getting machine list for the cluster [%s]", cluster.Name)
@@ -219,7 +395,7 @@ func getKubeadmConfigTemplateByObjRef(ctx context.Context, cli client.Client, ob
 }
 
 func getAllMachinesInMachineDeployment(ctx context.Context, cli client.Client, machineDeployment clusterv1.MachineDeployment) (*clusterv1.MachineList, error) {
-	machineListLabels := map[string]string{clusterv1.MachineDeploymentLabelName: machineDeployment.Name}
+	machineListLabels := map[string]string{clusterv1.MachineDeploymentNameLabel: machineDeployment.Name}
 	machineList := &clusterv1.MachineList{}
 	if err := cli.List(ctx, machineList, client.InNamespace(machineDeployment.Namespace), client.MatchingLabels(machineListLabels)); err != nil {
 		return nil, errors.Wrapf(err, "error getting machine list for the cluster [%s]", machineDeployment.Name)
@@ -228,7 +404,7 @@ func getAllMachinesInMachineDeployment(ctx context.Context, cli client.Client, m
 }
 
 func getAllMachinesInKCP(ctx context.Context, cli client.Client, kcp kcpv1.KubeadmControlPlane, clusterName string) ([]clusterv1.Machine, error) {
-	machineListLabels := map[string]string{clusterv1.ClusterLabelName: clusterName}
+	machineListLabels := map[string]string{clusterv1.ClusterNameLabel: clusterName}
 	machineList := &clusterv1.MachineList{}
 	if err := cli.List(ctx, machineList, client.InNamespace(kcp.Namespace), client.MatchingLabels(machineListLabels)); err != nil {
 		return nil, errors.Wrapf(err, "error getting machine list associated with KCP [%s]: [%v]", kcp.Name, err)
