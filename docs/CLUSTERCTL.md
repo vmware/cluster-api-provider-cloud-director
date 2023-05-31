@@ -2,7 +2,7 @@
 
 <a name="clusterctl_set_up"></a>
 ## Set up
-Install [Clusterctl v1.1.3](https://cluster-api.sigs.k8s.io/user/quick-start.html#install-clusterctl)
+Install [Clusterctl v1.4.0](https://cluster-api.sigs.k8s.io/user/quick-start.html#install-clusterctl)
 Currently, the below manual steps are required to enable clusterctl for CAPVCD 1.0.0.
 
 1. Create a folder structure `~/infrastructure-vcd/v1.0.0/`.
@@ -20,7 +20,7 @@ providers:
 <a name="init_management_cluster"></a>
 ## Initialize Management cluster
 1. Run the below command to initialize the management cluster with the Cluster API and the associated provider for VMware Cloud Director
-`clusterctl init --core cluster-api:v1.1.3 -b kubeadm:v1.1.3 -c kubeadm:v1.1.3 -i vcd:v1.0.0`
+`clusterctl init --core cluster-api:v1.4.0 -b kubeadm:v1.4.0 -c kubeadm:v1.4.0~~~~ -i vcd:v1.0.0`
 2. Apply [CRS definitions](CRS.md#apply_crs) to ensure CNI, CPI and CSI are automatically installed on the workload clusters.   
 
 <a name="generate_cluster_manifest"></a>
