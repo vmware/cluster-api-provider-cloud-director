@@ -1,8 +1,8 @@
 # Clusterctl 
 
 <a name="clusterctl_set_up"></a>
-## Set up
-Install [Clusterctl v1.4.0](https://cluster-api.sigs.k8s.io/user/quick-start.html#install-clusterctl)
+## Set up for CAPVCD 1.0.x
+Install [Clusterctl v1.1.3](https://cluster-api.sigs.k8s.io/user/quick-start.html#install-clusterctl)
 Currently, the below manual steps are required to enable clusterctl for CAPVCD 1.0.0.
 
 1. Create a folder structure `~/infrastructure-vcd/v1.0.0/`.
@@ -18,10 +18,32 @@ providers:
 ```
 
 <a name="init_management_cluster"></a>
-## Initialize Management cluster
+## Initialize Management cluster for CAPVCD 1.0.x
 1. Run the below command to initialize the management cluster with the Cluster API and the associated provider for VMware Cloud Director
-`clusterctl init --core cluster-api:v1.4.0 -b kubeadm:v1.4.0 -c kubeadm:v1.4.0 -i vcd:v1.0.0`
+`clusterctl init --core cluster-api:v1.1.3 -b kubeadm:v1.1.3 -c kubeadm:v1.1.3 -i vcd:v1.0.0`
 2. Apply [CRS definitions](CRS.md#apply_crs) to ensure CNI, CPI and CSI are automatically installed on the workload clusters.   
+
+## Setup for CAPVCD `main` branch
+Install [Clusterctl v1.4.0](https://cluster-api.sigs.k8s.io/user/quick-start.html#install-clusterctl)
+Currently, the below manual steps are required to enable clusterctl for CAPVCD `main` branch
+
+1. Create a folder structure `~/infrastructure-vcd/v1.1.0/`.
+2. Copy the contents from [templates directory](https://github.com/vmware/cluster-api-provider-cloud-director/tree/main/templates) to `~/infrastructure-vcd/v1.1.0/`
+3. Copy [metadata.yaml](https://github.com/vmware/cluster-api-provider-cloud-director/blob/main/metadata.yaml) to `~/infrastructure-vcd/v1.1.0/`
+4. Copy the `~/infrastructure-vcd/v1.1.0/clusterctl.yaml` to `~/.cluster-api/clusterctl.yaml`
+5. Update the `providers.url` in `~/.cluster-api/clusterctl.yaml` to `~/infrastructure-vcd/v1.1.0/infrastructure-components.yaml`
+```yaml
+providers:
+  - name: "vcd"
+    url: "~/infrastructure-vcd/v1.1.0/infrastructure-components.yaml"
+    type: "InfrastructureProvider"
+```
+
+## Initialize Management cluster for `main` branch
+1. Run the below command to initialize the management cluster with the Cluster API and the associated provider for VMware Cloud Director
+   `clusterctl init --core cluster-api:v1.4.0 -b kubeadm:v1.4.0 -c kubeadm:v1.4.0 -i vcd:v1.1.0`
+2. Apply [CRS definitions](CRS.md#apply_crs) to ensure CNI, CPI and CSI are automatically installed on the workload clusters.
+
 
 <a name="generate_cluster_manifest"></a>
 ## Generate cluster manifests for workload cluster
