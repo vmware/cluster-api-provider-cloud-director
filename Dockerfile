@@ -12,17 +12,18 @@ WORKDIR /go/src/github.com/vmware/cluster-api-provider-cloud-director
 
 ENV GOPATH /go
 ARG VERSION
-RUN make build-within-docker VERSION=$VERSION
+RUN make build-within-docker VERSION=$VERSION && \
+    chmod +x /build/vcloud/cluster-api-provider-cloud-director
 
 ########################################################
 
-FROM photon:4.0-20210910
+FROM scratch
 
 WORKDIR /opt/vcloud/bin
 
 COPY --from=builder /build/vcloud/cluster-api-provider-cloud-director .
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 
-RUN chmod +x /opt/vcloud/bin/cluster-api-provider-cloud-director
-
-USER nobody
-ENTRYPOINT ["/bin/bash", "-l", "-c"]
+# nobody user ID
+USER 65534
+ENTRYPOINT ["/opt/vcloud/bin/cluster-api-provider-cloud-director"]
