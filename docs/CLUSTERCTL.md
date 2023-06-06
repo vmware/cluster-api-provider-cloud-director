@@ -15,7 +15,7 @@ Install [clusterctl](https://cluster-api.sigs.k8s.io/user/quick-start.html#insta
 
 The below manual steps are required to enable clusterctl for CAPVCD `1.0.2`.
 
-1. Create a folder structure for CAPVCD 1.0.2 `~/infrastructure-vcd/v1.0.2/`
+1. Create a folder structure `~/infrastructure-vcd/v1.0.2/`
 2. Copy the contents of [templates directory](https://github.com/vmware/cluster-api-provider-cloud-director/tree/1.0.2/templates) to `~/infrastructure-vcd/v1.0.2/`
 3. Copy [metadata.yaml](https://github.com/vmware/cluster-api-provider-cloud-director/tree/1.0.2/metadata.yaml) to `~/infrastructure-vcd/v1.0.2/`
 4. Copy [clusterctl.yaml](https://github.com/vmware/cluster-api-provider-cloud-director/blob/1.0.2/templates/clusterctl.yaml) to `~/.cluster-api/clusterctl.yaml`
