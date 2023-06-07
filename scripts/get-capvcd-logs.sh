@@ -1,7 +1,11 @@
 #!/bin/bash -e
 
 # user input
-MANAGEMENT_KUBECONFIG="management-kubeconfig.conf"
+if [ "$#" -lt 1 ]; then
+    echo "ERROR: path to management cluster kubeconfig is not provided. Usage is ./get-capvcd-logs.sh [path-to-management-cluster-kubeconfig]"
+fi
+
+MANAGEMENT_KUBECONFIG="$1"
 
 function logger() {
     echo "-------- START LOG $2" >> "${LOGDIR}/$1"
