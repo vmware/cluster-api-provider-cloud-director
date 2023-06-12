@@ -29,9 +29,19 @@ func (src *VCDMachine) ConvertTo(dstRaw conversion.Hub) error {
 	// restore all the fields, even those which were derived using the src object, using the "cluster.x-k8s.io/conversion-data" annotation
 	// Also note that dst and restored are of the same type
 	dst.Spec.SizingPolicy = restored.Spec.SizingPolicy
+	dst.Spec.PlacementPolicy = restored.Spec.PlacementPolicy
 	dst.Spec.StorageProfile = restored.Spec.StorageProfile
+	dst.Spec.DiskSize = restored.Spec.DiskSize
+	dst.Spec.EnableNvidiaGPU = restored.Spec.EnableNvidiaGPU
+	dst.Spec.ExtraOvdcNetworks = restored.Spec.ExtraOvdcNetworks
+	dst.Spec.VmNamingTemplate = restored.Spec.VmNamingTemplate
+
 	dst.Status.Template = restored.Status.Template
-	dst.Status.ProviderID = restored.Spec.ProviderID
+	dst.Status.ProviderID = restored.Status.ProviderID
+	dst.Status.SizingPolicy = restored.Status.SizingPolicy
+	dst.Status.PlacementPolicy = restored.Status.PlacementPolicy
+	dst.Status.NvidiaGPUEnabled = restored.Status.NvidiaGPUEnabled
+	dst.Status.DiskSize = restored.Status.DiskSize
 	return nil
 }
 
