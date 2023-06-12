@@ -18,6 +18,8 @@ func (src *VCDMachine) ConvertTo(dstRaw conversion.Hub) error {
 		return err
 	}
 
+	dst.Spec.ExtraOvdcNetworks = restored.Spec.ExtraOvdcNetworks
+	dst.Spec.VmNamingTemplate = restored.Spec.VmNamingTemplate
 	return nil
 }
 
