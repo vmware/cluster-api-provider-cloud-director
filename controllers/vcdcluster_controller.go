@@ -685,7 +685,7 @@ func (r *VCDClusterReconciler) reconcileRDE(ctx context.Context, cluster *cluste
 		if err != nil {
 			return fmt.Errorf("failed to resolve defined entity with ID [%s] for cluster [%s]", vcdCluster.Status.InfraId, vcdCluster.Name)
 		}
-		if resp.StatusCode != http.StatusOK {
+		if resp != nil && resp.StatusCode != http.StatusOK {
 			return fmt.Errorf("error while resolving defined entity with ID [%s] for cluster [%s] with message: [%s]", vcdCluster.Status.InfraId, vcdCluster.Name, entityState.Message)
 		}
 		if entityState.State != RDEStatusResolved {
@@ -1403,7 +1403,7 @@ func (r *VCDClusterReconciler) reconcileDelete(ctx context.Context,
 				"obtained nil org when getting org by name [%s]", workloadVCDClient.ClusterOrgName)
 		}
 		definedEntities, resp, err := workloadVCDClient.APIClient.DefinedEntityApi.GetDefinedEntitiesByEntityType(ctx,
-			capisdk.CAPVCDTypeVendor, capisdk.CAPVCDTypeNss, rdeType.CapvcdRDETypeVersion, org.Org.ID, 1, 25,
+			capisdk.CAPVCDTypeVendor, capisdk.CAPVCDTypeNss, capisdk.CAPVCDEntityTypeDefaultMajorVersion, org.Org.ID, 1, 25,
 			&swagger.DefinedEntityApiGetDefinedEntitiesByEntityTypeOpts{
 				Filter: optional.NewString(fmt.Sprintf("id==%s", vcdCluster.Status.InfraId)),
 			})
@@ -1414,7 +1414,7 @@ func (r *VCDClusterReconciler) reconcileDelete(ctx context.Context,
 			}
 			return ctrl.Result{}, errors.Wrapf(err, "Error occurred during RDE deletion; failed to fetch defined entities by entity type [%s] and ID [%s] for cluster [%s]", CAPVCDEntityTypeID, vcdCluster.Status.InfraId, vcdCluster.Name)
 		}
-		if resp.StatusCode != http.StatusOK {
+		if resp != nil && resp.StatusCode != http.StatusOK {
 			err1 := capvcdRdeManager.AddToErrorSet(ctx, capisdk.RdeError, "", "", fmt.Sprintf("Got wrong status code while fetching RDE [%s]: %v", vcdCluster.Status.InfraId, err))
 			if err1 != nil {
 				log.Error(err1, "failed to add RdeError into RDE", "rdeID", vcdCluster.Status.InfraId)
