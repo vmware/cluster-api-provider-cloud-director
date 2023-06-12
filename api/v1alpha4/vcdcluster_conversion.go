@@ -36,14 +36,28 @@ func (src *VCDCluster) ConvertTo(dstRaw conversion.Hub) error {
 	// restore all the fields, even those which were derived using the src object, using the "cluster.x-k8s.io/conversion-data" annotation
 	// Also note that dst and restored are of the same type
 	dst.Spec.RDEId = restored.Spec.RDEId
-	dst.Status.RdeVersionInUse = restored.Status.RdeVersionInUse
 	dst.Spec.ProxyConfigSpec = restored.Spec.ProxyConfigSpec
 	dst.Spec.ParentUID = restored.Spec.ParentUID
 	dst.Spec.UseAsManagementCluster = restored.Spec.UseAsManagementCluster // defaults to false
-	dst.Status.RdeVersionInUse = restored.Status.RdeVersionInUse
 	dst.Spec.LoadBalancerConfigSpec.UseOneArm = restored.Spec.LoadBalancerConfigSpec.UseOneArm
 	dst.Spec.LoadBalancerConfigSpec.VipSubnet = restored.Spec.LoadBalancerConfigSpec.VipSubnet
+	dst.Spec.UserCredentialsContext.SecretRef = restored.Spec.UserCredentialsContext.SecretRef
+
 	dst.Status.VcdResourceMap = restored.Status.VcdResourceMap
+	dst.Status.RdeVersionInUse = restored.Status.RdeVersionInUse
+	dst.Status.VAppMetadataUpdated = restored.Status.VAppMetadataUpdated
+	dst.Status.Site = restored.Status.Site
+	dst.Status.Org = restored.Status.Org
+	dst.Status.Ovdc = restored.Status.Ovdc
+	dst.Status.OvdcNetwork = restored.Status.OvdcNetwork
+	dst.Status.ParentUID = restored.Status.ParentUID
+	dst.Status.UseAsManagementCluster = restored.Status.UseAsManagementCluster
+	dst.Status.ProxyConfig.NoProxy = restored.Status.ProxyConfig.NoProxy
+	dst.Status.ProxyConfig.HTTPProxy = restored.Status.ProxyConfig.HTTPProxy
+	dst.Status.ProxyConfig.HTTPSProxy = restored.Status.ProxyConfig.HTTPSProxy
+	dst.Status.LoadBalancerConfig.UseOneArm = restored.Status.LoadBalancerConfig.UseOneArm
+	dst.Status.LoadBalancerConfig.VipSubnet = restored.Status.LoadBalancerConfig.VipSubnet
+
 	return nil
 }
 
