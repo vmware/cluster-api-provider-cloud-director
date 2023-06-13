@@ -1,19 +1,24 @@
 package utils
 
-import "github.com/vmware/cloud-provider-for-cloud-director/pkg/testingsdk"
+import (
+	"fmt"
+	"github.com/vmware/cloud-provider-for-cloud-director/pkg/testingsdk"
+	"strings"
+)
 
 const (
-	timeoutMinutes          = 40
-	pollIntervalSeconds     = 120
-	machinePhaseProvisioned = "Provisioned"
-	machinePhaseRunning     = "Running"
-	VCDCluster              = "VCDCluster"
-	Cluster                 = "Cluster"
-	SECRET                  = "Secret"
-	KubeadmControlPlane     = "KubeadmControlPlane"
-	VCDMachineTemplate      = "VCDMachineTemplate"
-	KubeadmConfigTemplate   = "KubeadmConfigTemplate"
-	MachineDeployment       = "MachineDeployment"
+	timeoutMinutes           = 40
+	pollIntervalSeconds      = 120
+	machinePhaseProvisioned  = "Provisioned"
+	machinePhaseProvisioning = "Provisioning"
+	machinePhaseRunning      = "Running"
+	VCDCluster               = "VCDCluster"
+	Cluster                  = "Cluster"
+	SECRET                   = "Secret"
+	KubeadmControlPlane      = "KubeadmControlPlane"
+	VCDMachineTemplate       = "VCDMachineTemplate"
+	KubeadmConfigTemplate    = "KubeadmConfigTemplate"
+	MachineDeployment        = "MachineDeployment"
 )
 
 type patchStringValue struct {
@@ -33,4 +38,18 @@ func NewTestClient(host, org, userOrg, vdcName, username, token, clusterId strin
 		GetVdcClient: getVdcClient,
 	}
 	return testingsdk.NewTestClient(vcdAuthParams, clusterId)
+}
+
+// injectValues replaces placeholders in the provided data map with the corresponding values from the replacements map.
+func injectValues(data map[string]string, replacements map[string]string) map[string]string {
+	injectedData := make(map[string]string)
+	for key, value := range data {
+		injectedValue := value
+		for placeholder, replacement := range replacements {
+			placeholderKey := fmt.Sprintf("{{%s}}", placeholder)
+			injectedValue = strings.ReplaceAll(injectedValue, placeholderKey, replacement)
+		}
+		injectedData[key] = injectedValue
+	}
+	return injectedData
 }

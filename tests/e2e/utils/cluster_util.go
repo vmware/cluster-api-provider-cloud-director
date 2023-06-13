@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"github.com/vmware/cloud-provider-for-cloud-director/pkg/testingsdk"
 	"io"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -14,31 +15,31 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 )
 
-func ValidateKubeConfig(ctx context.Context, kubeConfigBytes []byte) error {
+func ValidateKubeConfig(ctx context.Context, kubeConfigBytes []byte) (*kubernetes.Clientset, error) {
 	workloadRestConfig, err := clientcmd.RESTConfigFromKubeConfig(kubeConfigBytes)
 	workloadRestConfig, csConfig, err := CreateClientConfig(kubeConfigBytes)
 	if err != nil {
-		return fmt.Errorf("failed to create client configuration: %w", err)
+		return nil, fmt.Errorf("failed to create client configuration: %w", err)
 	}
 
 	if workloadRestConfig == nil {
-		return fmt.Errorf("failed to create REST configuration from kubeconfig")
+		return nil, fmt.Errorf("failed to create REST configuration from kubeconfig")
 	}
 
 	if csConfig == nil {
-		return fmt.Errorf("failed to create clientset from REST configuration")
+		return nil, fmt.Errorf("failed to create clientset from REST configuration")
 	}
 
 	podList, err := csConfig.CoreV1().Pods("").List(ctx, metav1.ListOptions{})
 	if err != nil {
-		return fmt.Errorf("failed to list pods: %w", err)
+		return csConfig, fmt.Errorf("failed to list pods: %w", err)
 	}
 
 	if podList == nil || len(podList.Items) == 0 {
-		return fmt.Errorf("kubeConfig is invalid as the workload cluster should have more than 1 pod")
+		return csConfig, fmt.Errorf("kubeConfig is invalid as the workload cluster should have more than 1 pod")
 	}
 
-	return nil
+	return csConfig, nil
 }
 
 func CreateClientConfig(kubeConfigBytes []byte) (*rest.Config, *kubernetes.Clientset, error) {
@@ -102,4 +103,37 @@ func GetClusterNameANDNamespaceFromCAPIYaml(yamlContent []byte) (string, string,
 		}
 	}
 	return resourceName, namespace, nil
+}
+
+func ConstructCAPVCDTestClient(cs *kubernetes.Clientset, host, org, userOrg, vdcName, username, token, clusterId string, getVdcClient bool) (*testingsdk.TestClient, error) {
+	testClient, err := NewTestClient(host, org, userOrg, vdcName, username, token, clusterId, getVdcClient)
+	if err != nil {
+		return nil, fmt.Errorf("failed to construct testing client: [%v]", err)
+	}
+	testClient.Cs = cs
+	return testClient, nil
+}
+
+func CreateWorkloadClusterResources(ctx context.Context, workloadClientSet *kubernetes.Clientset, kubeNameSpace, rdeID, refreshToken, host, org, ovdc, ovdcNetwork, clusterName string) error {
+	err := CreateClusterIDSecret(ctx, workloadClientSet, kubeNameSpace, rdeID)
+	if err != nil {
+		return fmt.Errorf("failed to create cluster ID secret: %w", err)
+	}
+
+	err = CreateAuthSecret(ctx, workloadClientSet, kubeNameSpace, refreshToken)
+	if err != nil {
+		return fmt.Errorf("failed to create auth secret: %w", err)
+	}
+
+	err = CreateCCMConfigMap(ctx, workloadClientSet, kubeNameSpace, host, org, ovdc, rdeID, clusterName, ovdcNetwork)
+	if err != nil {
+		return fmt.Errorf("failed to create CCM config map: %w", err)
+	}
+
+	err = CreateCSIConfigMap(ctx, workloadClientSet, kubeNameSpace, host, org, ovdc, rdeID, clusterName)
+	if err != nil {
+		return fmt.Errorf("failed to create CSI config map: %w", err)
+	}
+
+	return nil
 }

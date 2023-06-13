@@ -7,12 +7,14 @@ import (
 	"fmt"
 	"github.com/vmware/cloud-provider-for-cloud-director/pkg/testingsdk"
 	"io"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/wait"
 	k8syaml "k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/client-go/kubernetes"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	runtimeclient "sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"time"
 )
 
@@ -102,4 +104,64 @@ func MonitorK8sNodePools(
 		fmt.Println("done checking")
 		return true, nil
 	})
+}
+
+func WaitForClusterReady(ctx context.Context, client runtimeclient.Client, cluster *clusterv1.Cluster) error {
+	timeout := timeoutMinutes * time.Minute
+	pollInterval := pollIntervalSeconds * time.Second
+
+	// Check the cluster readiness using wait.PollImmediate
+	if err := wait.PollImmediate(pollInterval, timeout, func() (bool, error) {
+		if err := client.Get(ctx, runtimeclient.ObjectKeyFromObject(cluster), cluster); err != nil {
+			return false, fmt.Errorf("failed to get cluster: %w", err)
+		}
+		return cluster.Status.InfrastructureReady, nil
+	}); err != nil {
+		return fmt.Errorf("cluster readiness check failed: %w", err)
+	}
+
+	// Check the readiness of all machines
+	machineList := &clusterv1.MachineList{}
+	if err := client.List(ctx, machineList, runtimeclient.InNamespace(cluster.Namespace), runtimeclient.MatchingLabels{
+		clusterv1.ClusterNameLabel: cluster.Name,
+	}); err != nil {
+		return fmt.Errorf("failed to list machines: %w", err)
+	}
+
+	if err := wait.PollImmediate(pollInterval, timeout, func() (bool, error) {
+		for _, machine := range machineList.Items {
+			if !controllerutil.ContainsFinalizer(&machine, clusterv1.MachineFinalizer) {
+				// Machine is being deleted, so skip it
+				continue
+			}
+
+			if machine.Status.NodeRef == nil || machine.Status.Phase == machinePhaseProvisioning {
+				return false, nil
+			}
+		}
+		return true, nil
+	}); err != nil {
+		return fmt.Errorf("machine readiness check failed: %w", err)
+	}
+
+	return nil
+}
+
+func WaitForClusterDelete(ctx context.Context, client runtimeclient.Client, cluster *clusterv1.Cluster) error {
+	timeout := timeoutMinutes * time.Minute
+	pollInterval := pollIntervalSeconds * time.Second
+
+	// Check the cluster deletion using wait.PollImmediate
+	if err := wait.PollImmediate(pollInterval, timeout, func() (bool, error) {
+		err := client.Get(ctx, runtimeclient.ObjectKeyFromObject(cluster), cluster)
+		if err != nil && errors.IsNotFound(err) {
+			// Cluster is deleted
+			return true, nil
+		}
+		return false, err
+	}); err != nil {
+		return fmt.Errorf("cluster deletion check failed: %w", err)
+	}
+
+	return nil
 }
