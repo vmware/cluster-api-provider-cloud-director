@@ -16,7 +16,6 @@ import (
 )
 
 func ValidateKubeConfig(ctx context.Context, kubeConfigBytes []byte) (*kubernetes.Clientset, error) {
-	workloadRestConfig, err := clientcmd.RESTConfigFromKubeConfig(kubeConfigBytes)
 	workloadRestConfig, csConfig, err := CreateClientConfig(kubeConfigBytes)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create client configuration: %w", err)

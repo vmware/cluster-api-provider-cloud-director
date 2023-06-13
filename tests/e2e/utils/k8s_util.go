@@ -166,7 +166,10 @@ func patchMachineDeployment(ctx context.Context, cs *kubernetes.Clientset, patch
 		Body(emptyPayloadBytes).
 		DoRaw(ctx)
 
-	return err
+	if err != nil {
+		return fmt.Errorf("failed to patch machine deployment: %v", err)
+	}
+	return nil
 }
 
 func CreateOrGetNameSpace(ctx context.Context, cs *kubernetes.Clientset, namespace string) error {
@@ -191,7 +194,6 @@ func CreateOrGetNameSpace(ctx context.Context, cs *kubernetes.Clientset, namespa
 
 func CreateAuthSecret(ctx context.Context, cs *kubernetes.Clientset, namespace string, refreshToken string) error {
 	secretName := "vcloud-basic-auth"
-	//refreshToken := "your-refresh-token" // Replace with the actual refresh token
 	username := ""
 	password := ""
 
@@ -318,7 +320,10 @@ func createCluster(ctx context.Context, cs *kubernetes.Clientset, cluster *clust
 		AbsPath(fmt.Sprintf("/apis/cluster.x-k8s.io/v1beta1/namespaces/%s/clusters", namespace)).
 		Body(body).
 		DoRaw(ctx)
-	return err
+	if err != nil {
+		return fmt.Errorf("failed to create cluster: %v", err)
+	}
+	return nil
 }
 
 func deleteCluster(ctx context.Context, cs *kubernetes.Clientset, namespace string, name string) error {
@@ -378,7 +383,10 @@ func createVCDCluster(ctx context.Context, cs *kubernetes.Clientset, vcdCluster 
 		Body(body).
 		DoRaw(ctx)
 
-	return err
+	if err != nil {
+		return fmt.Errorf("failed to create vcdcluster: %v", err)
+	}
+	return nil
 }
 
 func deleteVCDCluster(ctx context.Context, cs *kubernetes.Clientset, namespace string, name string) error {
@@ -420,14 +428,17 @@ func getVCDCluster(ctx context.Context, cs *kubernetes.Clientset, namespace stri
 func createConfigMap(ctx context.Context, cs *kubernetes.Clientset, configMap *corev1.ConfigMap, namespace string) error {
 	_, err := cs.CoreV1().ConfigMaps(namespace).Create(ctx, configMap, metav1.CreateOptions{})
 	if err != nil {
-		return fmt.Errorf("Failed to create ConfigMap: %v\n", err)
+		return fmt.Errorf("failed to create ConfigMap: %v", err)
 	}
 	return nil
 }
 
 func createSecret(ctx context.Context, cs *kubernetes.Clientset, secret *corev1.Secret, namespace string) error {
 	_, err := cs.CoreV1().Secrets(namespace).Create(ctx, secret, metav1.CreateOptions{})
-	return err
+	if err != nil {
+		return fmt.Errorf("failed to create secret: %v", err)
+	}
+	return nil
 }
 
 func deleteSecret(ctx context.Context, cs *kubernetes.Clientset, namespace string, name string) error {
@@ -451,7 +462,10 @@ func createVCDMachineTemplate(ctx context.Context, cs *kubernetes.Clientset, vcd
 		Body(body).
 		DoRaw(ctx)
 
-	return err
+	if err != nil {
+		return fmt.Errorf("failed to create vcdmachine templace: %v", err)
+	}
+	return nil
 }
 
 func getVCDMachineTemplate(ctx context.Context, cs *kubernetes.Clientset, namespace string, name string) (*infrav2.VCDMachineTemplate, error) {
@@ -467,7 +481,7 @@ func getVCDMachineTemplate(ctx context.Context, cs *kubernetes.Clientset, namesp
 	}
 	yamlDecoder := k8syaml.NewYAMLOrJSONDecoder(bytes.NewReader(resp), hundredKB)
 	if err = yamlDecoder.Decode(vcdMachineTemplate); err != nil {
-		return vcdMachineTemplate, fmt.Errorf("error occurred when decoding VCDMachineTemplate: %w", err)
+		return vcdMachineTemplate, fmt.Errorf("error occurred when decoding VCDMachineTemplate: %v", err)
 	}
 	return vcdMachineTemplate, nil
 }
@@ -479,13 +493,13 @@ func deleteVCDMachineTemplate(ctx context.Context, cs *kubernetes.Clientset, nam
 			fmt.Printf("VCDMachineTemplate not found: %s/%s, skip the delete operation\n", namespace, name)
 			return nil
 		}
-		return fmt.Errorf("failed to get VCDMachineTemplate: %w", err)
+		return fmt.Errorf("failed to get VCDMachineTemplate: %v", err)
 	}
 
 	err = cs.RESTClient().Delete().AbsPath("/apis/infrastructure.cluster.x-k8s.io/v1beta2").Resource("vcdmachinetemplates").
 		Namespace(namespace).Name(name).Do(ctx).Error()
 	if err != nil {
-		return fmt.Errorf("failed to delete VCDMachineTemplate: %w", err)
+		return fmt.Errorf("failed to delete VCDMachineTemplate: %v", err)
 	}
 	return nil
 }
@@ -559,7 +573,10 @@ func createKubeadmConfigTemplate(ctx context.Context, cs *kubernetes.Clientset, 
 		Body(body).
 		DoRaw(ctx)
 
-	return err
+	if err != nil {
+		return fmt.Errorf("failed to create kubeadm Config Templace: %v", err)
+	}
+	return nil
 }
 
 func getKubeadmConfigTemplate(ctx context.Context, cs *kubernetes.Clientset, namespace string, name string) (*bootstrapv1.KubeadmConfigTemplate, error) {
@@ -613,7 +630,10 @@ func createMachineDeployment(ctx context.Context, cs *kubernetes.Clientset, mach
 		Body(body).
 		DoRaw(ctx)
 
-	return err
+	if err != nil {
+		return fmt.Errorf("failed to create machineDeployment: %v", err)
+	}
+	return nil
 }
 
 func getMachineDeployment(ctx context.Context, cs *kubernetes.Clientset, namespace string, name string) (*clusterv1.MachineDeployment, error) {
