@@ -1,22 +1,13 @@
 # Build the manager binary
-FROM golang:1.19 as builder
+FROM alpine:3.18 as builder
 
-RUN apt-get update && \
-    apt-get -y install \
-        bash \
-        git  \
-        make
+WORKDIR /build/vcloud/
 
-ADD . /go/src/github.com/vmware/cluster-api-provider-cloud-director
-WORKDIR /go/src/github.com/vmware/cluster-api-provider-cloud-director
+ARG CAPVCD_BUILD_DIR
+ADD ${CAPVCD_BUILD_DIR}/cluster-api-provider-cloud-director .
 
-ENV GOPATH /go
-ARG VERSION
-RUN make build-within-docker VERSION=$VERSION && \
-    chmod +x /build/vcloud/cluster-api-provider-cloud-director
-
+RUN chmod +x /build/vcloud/cluster-api-provider-cloud-director
 ########################################################
-
 FROM scratch
 
 WORKDIR /opt/vcloud/bin
