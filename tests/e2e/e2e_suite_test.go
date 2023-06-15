@@ -35,18 +35,18 @@ func init() {
 
 var _ = BeforeSuite(func() {
 
-	Expect(kubeCfgPath).NotTo(BeZero(), "Please make sure --kubeCfgPath WaitFor set correctly.")
-	Expect(capiYamlPath).NotTo(BeZero(), "Please make sure --capiYamlPath WaitFor set correctly.")
-	Expect(host).NotTo(BeZero(), "Please make sure --host WaitFor set correctly.")
-	Expect(org).NotTo(BeZero(), "Please make sure --org WaitFor set correctly.")
-	Expect(userOrg).NotTo(BeZero(), "Please make sure --userOrg WaitFor set correctly.")
-	Expect(ovdc).NotTo(BeZero(), "Please make sure --ovdc WaitFor set correctly.")
-	Expect(ovdcNetwork).NotTo(BeZero(), "Please make sure --ovdcNetwork WaitFor set correctly.")
-	Expect(userName).NotTo(BeZero(), "Please make sure --userName WaitFor set correctly.")
-	Expect(refreshToken).NotTo(BeZero(), "Please make sure --refreshToken WaitFor set correctly.")
+	Expect(kubeCfgPath).NotTo(BeZero(), "Please make sure --kubeCfgPath is set correctly.")
+	Expect(capiYamlPath).NotTo(BeZero(), "Please make sure --capiYamlPath is set correctly.")
+	Expect(host).NotTo(BeZero(), "Please make sure --host is set correctly.")
+	Expect(org).NotTo(BeZero(), "Please make sure --org is set correctly.")
+	Expect(userOrg).NotTo(BeZero(), "Please make sure --userOrg is set correctly.")
+	Expect(ovdc).NotTo(BeZero(), "Please make sure --ovdc is set correctly.")
+	Expect(ovdcNetwork).NotTo(BeZero(), "Please make sure --ovdcNetwork is set correctly.")
+	Expect(userName).NotTo(BeZero(), "Please make sure --userName is set correctly.")
+	Expect(refreshToken).NotTo(BeZero(), "Please make sure --refreshToken is set correctly.")
 })
 
 func TestCSIAutomation(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "CSI Testing Suite")
+	RunSpecs(t, "CAPVCD Testing Suite")
 }
