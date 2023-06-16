@@ -359,7 +359,7 @@ func (r *VCDClusterReconciler) constructCapvcdRDE(ctx context.Context, cluster *
 					ApiEndpoints: []rdeType.ApiEndpoints{},
 				},
 				NodePool:               nil,
-				CapvcdVersion:          release.CAPVCDVersion,
+				CapvcdVersion:          release.Version,
 				UseAsManagementCluster: vcdCluster.Spec.UseAsManagementCluster,
 				K8sNetwork: rdeType.K8sNetwork{
 					Pods: rdeType.Pods{
@@ -377,7 +377,7 @@ func (r *VCDClusterReconciler) constructCapvcdRDE(ctx context.Context, cluster *
 				},
 				CapiStatusYaml:             "",
 				ClusterResourceSetBindings: nil,
-				CreatedByVersion:           release.CAPVCDVersion,
+				CreatedByVersion:           release.Version,
 				Upgrade: rdeType.Upgrade{
 					Current: &rdeType.K8sInfo{
 						K8sVersion: kubernetesVersion,
@@ -670,8 +670,8 @@ func (r *VCDClusterReconciler) reconcileRDE(ctx context.Context, cluster *cluste
 			capvcdStatusPatch["Private.KubeConfig"] = string(kubeConfigBytes)
 		}
 	}
-	if release.CAPVCDVersion != capvcdStatus.CapvcdVersion {
-		capvcdStatusPatch["CapvcdVersion"] = release.CAPVCDVersion
+	if release.Version != capvcdStatus.CapvcdVersion {
+		capvcdStatusPatch["CapvcdVersion"] = release.Version
 	}
 
 	updatedRDE, err := capvcdRdeManager.PatchRDE(ctx, specPatch, metadataPatch, capvcdStatusPatch, vcdCluster.Status.InfraId, vappID, updateExternalID)
@@ -936,7 +936,7 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	vcdCluster.Spec.RDEId = infraID
 
 	rdeManager := vcdsdk.NewRDEManager(workloadVCDClient, vcdCluster.Status.InfraId,
-		capisdk.StatusComponentNameCAPVCD, release.CAPVCDVersion)
+		capisdk.StatusComponentNameCAPVCD, release.Version)
 	// After InfraId has been set, we can update site, org, ovdcNetwork, parentUid, useAsManagementCluster
 	// proxyConfigSpec loadBalancerConfigSpec for vcdCluster status
 	vcdCluster.Status.Site = vcdCluster.Spec.Site
@@ -1366,7 +1366,7 @@ func (r *VCDClusterReconciler) reconcileDelete(ctx context.Context,
 	}
 	// Remove vapp from VCDResourceSet in the RDE
 	rdeManager := vcdsdk.NewRDEManager(workloadVCDClient, vcdCluster.Status.InfraId,
-		capisdk.StatusComponentNameCAPVCD, release.CAPVCDVersion)
+		capisdk.StatusComponentNameCAPVCD, release.Version)
 	err = rdeManager.RemoveFromVCDResourceSet(ctx, vcdsdk.ComponentCAPVCD, VCDResourceVApp, vcdCluster.Name)
 	if err != nil {
 		updatedErr := capvcdRdeManager.AddToErrorSet(ctx, capisdk.RdeError, "", vcdCluster.Name,
