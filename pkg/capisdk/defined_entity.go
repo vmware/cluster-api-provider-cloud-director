@@ -107,7 +107,7 @@ func NewCapvcdRdeManager(client *vcdsdk.Client, clusterID string) *CapvcdRdeMana
 		RdeManager: &vcdsdk.RDEManager{
 			Client:                 client,
 			StatusComponentName:    StatusComponentNameCAPVCD,
-			StatusComponentVersion: release.CAPVCDVersion,
+			StatusComponentVersion: release.Version,
 			ClusterID:              clusterID,
 		},
 	}
@@ -698,7 +698,7 @@ func (capvcdRdeManager *CapvcdRdeManager) ConvertToLatestRDEVersionFormat(ctx co
 func (capvcdRdeManager *CapvcdRdeManager) CheckForEmptyRDEAndUpdateCreatedByVersions(ctx context.Context, infraId string) error {
 
 	if capvcdRdeManager.RdeManager == nil {
-		return fmt.Errorf("nil rdeManager found while updating RDE [%s] with createdBy version [%s]", infraId, release.CAPVCDVersion)
+		return fmt.Errorf("nil rdeManager found while updating RDE [%s] with createdBy version [%s]", infraId, release.Version)
 	}
 
 	client := capvcdRdeManager.Client
@@ -733,12 +733,12 @@ func (capvcdRdeManager *CapvcdRdeManager) CheckForEmptyRDEAndUpdateCreatedByVers
 		}
 	}
 	capvcdStatusPatch := make(map[string]interface{})
-	capvcdStatusPatch["CreatedByVersion"] = release.CAPVCDVersion
+	capvcdStatusPatch["CreatedByVersion"] = release.Version
 	_, err = capvcdRdeManager.PatchRDE(ctx, nil, nil, capvcdStatusPatch, infraId, "", false)
 	if err != nil {
-		return fmt.Errorf("failed to update CAPVCD status with created by version [%s] for RDE [%s]", release.CAPVCDVersion, infraId)
+		return fmt.Errorf("failed to update CAPVCD status with created by version [%s] for RDE [%s]", release.Version, infraId)
 	}
-	klog.V(4).Infof("successfully updated CAPVCD status with created by version [%s] for RDE [%s]", release.CAPVCDVersion, infraId)
+	klog.V(4).Infof("successfully updated CAPVCD status with created by version [%s] for RDE [%s]", release.Version, infraId)
 	return nil
 }
 

@@ -9,6 +9,8 @@ import (
 	"context"
 	_ "embed"
 	"flag"
+	"fmt"
+	"github.com/vmware/cluster-api-provider-cloud-director/release"
 	"os"
 	"time"
 
@@ -35,9 +37,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
-
-//go:embed release/version
-var capVCDVersion string
 
 var (
 	myscheme = runtime.NewScheme()
@@ -87,6 +86,10 @@ func main() {
 	flag.Parse()
 
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
+	if release.Version == "" {
+		setupLog.Error(fmt.Errorf("release.Version variable should not be empty"), "")
+	}
+	setupLog.Info("CAPVCD version", "version", release.Version)
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme:                 myscheme,
