@@ -1,4 +1,3 @@
-# Build the manager binary
 FROM alpine:3.18 as builder
 
 WORKDIR /build/vcloud/
