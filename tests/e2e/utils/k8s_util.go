@@ -21,6 +21,11 @@ import (
 	kcpv1 "sigs.k8s.io/cluster-api/controlplane/kubeadm/api/v1beta1"
 )
 
+const (
+	CAPIObjectVersion   = "v1beta1"
+	CAPVCDObjectVersion = "v1beta2"
+)
+
 func ApplyCAPIYaml(ctx context.Context, cs *kubernetes.Clientset, yamlContent []byte) (*clusterv1.Cluster, error) {
 	yamlReader := k8syaml.NewYAMLReader(bufio.NewReader(bytes.NewReader(yamlContent)))
 	hundredKB := 100 * 1024
@@ -41,20 +46,17 @@ func ApplyCAPIYaml(ctx context.Context, cs *kubernetes.Clientset, yamlContent []
 			fmt.Println(err)
 			continue
 		}
-
 		kind := unstructuredObj.GetKind()
 		namespace := unstructuredObj.GetNamespace()
 
 		switch kind {
 		case "Cluster":
-			clusterObj := &clusterv1.Cluster{}
 			yamlDecoder := k8syaml.NewYAMLOrJSONDecoder(bytes.NewReader(yamlBytes), hundredKB)
 			if err = yamlDecoder.Decode(&cluster); err != nil {
 				fmt.Println(err)
 				continue
 			}
-			cluster = clusterObj
-			err = createCluster(ctx, cs, clusterObj, namespace)
+			err = createCluster(ctx, cs, cluster, namespace)
 		case "VCDCluster":
 			vcdCluster := &infrav2.VCDCluster{}
 			yamlDecoder := k8syaml.NewYAMLOrJSONDecoder(bytes.NewReader(yamlBytes), hundredKB)
@@ -108,7 +110,7 @@ func ApplyCAPIYaml(ctx context.Context, cs *kubernetes.Clientset, yamlContent []
 		}
 
 		if err != nil {
-			fmt.Println(err)
+			return cluster, err
 		}
 	}
 
@@ -162,7 +164,7 @@ func patchMachineDeployment(ctx context.Context, cs *kubernetes.Clientset, patch
 
 	_, err := cs.RESTClient().
 		Patch(k8stypes.JSONPatchType).
-		AbsPath("/apis/cluster.x-k8s.io/v1beta1/").Namespace(namespace).Resource("machinedeployments").Name(resourceName).
+		AbsPath(fmt.Sprintf("/apis/cluster.x-k8s.io/%s", CAPIObjectVersion)).Namespace(namespace).Resource("machinedeployments").Name(resourceName).
 		Body(emptyPayloadBytes).
 		DoRaw(ctx)
 
@@ -317,7 +319,9 @@ func createCluster(ctx context.Context, cs *kubernetes.Clientset, cluster *clust
 	}
 	_, err = cs.RESTClient().
 		Post().
-		AbsPath(fmt.Sprintf("/apis/cluster.x-k8s.io/v1beta1/namespaces/%s/clusters", namespace)).
+		AbsPath(fmt.Sprintf("/apis/cluster.x-k8s.io/%s", CAPIObjectVersion)).
+		Resource("clusters").
+		Namespace(namespace).
 		Body(body).
 		DoRaw(ctx)
 	if err != nil {
@@ -337,7 +341,7 @@ func deleteCluster(ctx context.Context, cs *kubernetes.Clientset, namespace stri
 	}
 
 	err = cs.RESTClient().Delete().
-		AbsPath("/apis/cluster.x-k8s.io/v1beta1").
+		AbsPath(fmt.Sprintf("/apis/cluster.x-k8s.io/%s", CAPIObjectVersion)).
 		Resource("clusters").
 		Namespace(namespace).
 		Name(name).
@@ -354,8 +358,12 @@ func deleteCluster(ctx context.Context, cs *kubernetes.Clientset, namespace stri
 func getCluster(ctx context.Context, cs *kubernetes.Clientset, namespace string, name string) (*clusterv1.Cluster, error) {
 	hundredKB := 100 * 1024
 	cluster := &clusterv1.Cluster{}
-	resp, err := cs.RESTClient().Get().AbsPath("/apis/cluster.x-k8s.io/v1beta1").Resource("clusters").
-		Namespace(namespace).Name(name).DoRaw(ctx)
+	resp, err := cs.RESTClient().Get().AbsPath(fmt.Sprintf("/apis/cluster.x-k8s.io/%s", CAPIObjectVersion)).
+		Resource("clusters").
+		Namespace(namespace).
+		Name(name).
+		DoRaw(ctx)
+
 	errors.IsNotFound(err)
 	if err != nil {
 		if errors.IsNotFound(err) {
@@ -379,7 +387,9 @@ func createVCDCluster(ctx context.Context, cs *kubernetes.Clientset, vcdCluster 
 
 	_, err = cs.RESTClient().
 		Post().
-		AbsPath(fmt.Sprintf("/apis/infrastructure.cluster.x-k8s.io/v1beta2/namespaces/%s/vcdclusters", namespace)).
+		AbsPath(fmt.Sprintf("/apis/infrastructure.cluster.x-k8s.io/%s", CAPVCDObjectVersion)).
+		Resource("vcdclusters").
+		Namespace(namespace).
 		Body(body).
 		DoRaw(ctx)
 
@@ -399,8 +409,13 @@ func deleteVCDCluster(ctx context.Context, cs *kubernetes.Clientset, namespace s
 		return fmt.Errorf("failed to get VCDCluster: %w", err)
 	}
 
-	err = cs.RESTClient().Delete().AbsPath("/apis/infrastructure.cluster.x-k8s.io/v1beta2").Resource("vcdclusters").
-		Namespace(namespace).Name(name).Do(ctx).Error()
+	err = cs.RESTClient().
+		Delete().
+		AbsPath(fmt.Sprintf("/apis/infrastructure.cluster.x-k8s.io/%s", CAPVCDObjectVersion)).
+		Resource("vcdclusters").
+		Namespace(namespace).
+		Name(name).
+		Do(ctx).Error()
 	if err != nil {
 		return fmt.Errorf("failed to delete VCDCluster: %w", err)
 	}
@@ -410,8 +425,13 @@ func deleteVCDCluster(ctx context.Context, cs *kubernetes.Clientset, namespace s
 func getVCDCluster(ctx context.Context, cs *kubernetes.Clientset, namespace string, name string) (*infrav2.VCDCluster, error) {
 	hundredKB := 100 * 1024
 	vcdCluster := &infrav2.VCDCluster{}
-	resp, err := cs.RESTClient().Get().AbsPath("/apis/infrastructure.cluster.x-k8s.io/v1beta2").Resource("vcdclusters").
-		Namespace(namespace).Name(name).DoRaw(ctx)
+	resp, err := cs.RESTClient().Get().
+		AbsPath(fmt.Sprintf("/apis/infrastructure.cluster.x-k8s.io/%s", CAPVCDObjectVersion)).
+		Resource("vcdclusters").
+		Namespace(namespace).
+		Name(name).
+		DoRaw(ctx)
+
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return nil, err
@@ -458,7 +478,9 @@ func createVCDMachineTemplate(ctx context.Context, cs *kubernetes.Clientset, vcd
 
 	_, err = cs.RESTClient().
 		Post().
-		AbsPath(fmt.Sprintf("/apis/infrastructure.cluster.x-k8s.io/v1beta2/namespaces/%s/vcdmachinetemplates", namespace)).
+		AbsPath(fmt.Sprintf("/apis/infrastructure.cluster.x-k8s.io/%s", CAPVCDObjectVersion)).
+		Resource("vcdmachinetemplates").
+		Namespace(namespace).
 		Body(body).
 		DoRaw(ctx)
 
@@ -471,8 +493,13 @@ func createVCDMachineTemplate(ctx context.Context, cs *kubernetes.Clientset, vcd
 func getVCDMachineTemplate(ctx context.Context, cs *kubernetes.Clientset, namespace string, name string) (*infrav2.VCDMachineTemplate, error) {
 	hundredKB := 100 * 1024
 	vcdMachineTemplate := &infrav2.VCDMachineTemplate{}
-	resp, err := cs.RESTClient().Get().AbsPath("/apis/infrastructure.cluster.x-k8s.io/v1beta2").Resource("vcdmachinetemplates").
-		Namespace(namespace).Name(name).DoRaw(ctx)
+	resp, err := cs.RESTClient().
+		Get().
+		AbsPath(fmt.Sprintf("/apis/infrastructure.cluster.x-k8s.io/%s", CAPVCDObjectVersion)).
+		Resource("vcdmachinetemplates").
+		Namespace(namespace).
+		Name(name).
+		DoRaw(ctx)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return nil, err
@@ -495,9 +522,14 @@ func deleteVCDMachineTemplate(ctx context.Context, cs *kubernetes.Clientset, nam
 		}
 		return fmt.Errorf("failed to get VCDMachineTemplate: %v", err)
 	}
+	err = cs.RESTClient().
+		Delete().
+		AbsPath(fmt.Sprintf("/apis/infrastructure.cluster.x-k8s.io/%s", CAPVCDObjectVersion)).
+		Resource("vcdmachinetemplates").
+		Namespace(namespace).
+		Name(name).
+		Do(ctx).Error()
 
-	err = cs.RESTClient().Delete().AbsPath("/apis/infrastructure.cluster.x-k8s.io/v1beta2").Resource("vcdmachinetemplates").
-		Namespace(namespace).Name(name).Do(ctx).Error()
 	if err != nil {
 		return fmt.Errorf("failed to delete VCDMachineTemplate: %v", err)
 	}
@@ -513,7 +545,9 @@ func createKubeadmControlPlane(ctx context.Context, cs *kubernetes.Clientset, kc
 
 	_, err = cs.RESTClient().
 		Post().
-		AbsPath(fmt.Sprintf("/apis/controlplane.cluster.x-k8s.io/v1beta1/namespaces/%s/kubeadmcontrolplanes", namespace)).
+		AbsPath(fmt.Sprintf("/apis/controlplane.cluster.x-k8s.io/%s", CAPIObjectVersion)).
+		Resource("kubeadmcontrolplanes").
+		Namespace(namespace).
 		Body(body).
 		DoRaw(ctx)
 
@@ -526,8 +560,13 @@ func createKubeadmControlPlane(ctx context.Context, cs *kubernetes.Clientset, kc
 func getKubeadmControlPlane(ctx context.Context, cs *kubernetes.Clientset, namespace string, name string) (*kcpv1.KubeadmControlPlane, error) {
 	hundredKB := 100 * 1024
 	kubeadmControlPlane := &kcpv1.KubeadmControlPlane{}
-	resp, err := cs.RESTClient().Get().AbsPath("/apis/controlplane.cluster.x-k8s.io/v1beta1").Resource("kubeadmcontrolplanes").
-		Namespace(namespace).Name(name).DoRaw(ctx)
+	resp, err := cs.RESTClient().
+		Get().
+		AbsPath(fmt.Sprintf("/apis/controlplane.cluster.x-k8s.io/%s", CAPIObjectVersion)).
+		Resource("kubeadmcontrolplanes").
+		Namespace(namespace).
+		Name(name).
+		DoRaw(ctx)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return nil, err
@@ -551,8 +590,12 @@ func deleteKubeadmControlPlane(ctx context.Context, cs *kubernetes.Clientset, na
 		return fmt.Errorf("failed to get VCDMachineTemplate: %w", err)
 	}
 	if _, err := getKubeadmControlPlane(ctx, cs, namespace, name); err == nil {
-		_, err := cs.RESTClient().Delete().AbsPath("/apis/controlplane.cluster.x-k8s.io/v1beta1").Resource("kubeadmcontrolplanes").
-			Namespace(namespace).Name(name).DoRaw(ctx)
+		_, err := cs.RESTClient().Delete().
+			AbsPath(fmt.Sprintf("/apis/controlplane.cluster.x-k8s.io/%s", CAPIObjectVersion)).
+			Resource("kubeadmcontrolplanes").
+			Namespace(namespace).
+			Name(name).
+			DoRaw(ctx)
 		if err != nil {
 			return fmt.Errorf("failed to delete KubeadmControlPlane: %w", err)
 		}
@@ -569,7 +612,9 @@ func createKubeadmConfigTemplate(ctx context.Context, cs *kubernetes.Clientset, 
 
 	_, err = cs.RESTClient().
 		Post().
-		AbsPath(fmt.Sprintf("/apis/bootstrap.cluster.x-k8s.io/v1beta1/namespaces/%s/kubeadmconfigtemplates", namespace)).
+		AbsPath(fmt.Sprintf("/apis/bootstrap.cluster.x-k8s.io/%s", CAPIObjectVersion)).
+		Resource("kubeadmconfigtemplates").
+		Namespace(namespace).
 		Body(body).
 		DoRaw(ctx)
 
@@ -583,8 +628,11 @@ func getKubeadmConfigTemplate(ctx context.Context, cs *kubernetes.Clientset, nam
 	hundredKB := 100 * 1024
 	kubeadmConfigTemplate := &bootstrapv1.KubeadmConfigTemplate{}
 	resp, err := cs.RESTClient().
-		Get().AbsPath("/apis/bootstrap.cluster.x-k8s.io/v1beta1").Resource("kubeadmconfigtemplates").
-		Namespace(namespace).Name(name).DoRaw(ctx)
+		Get().AbsPath(fmt.Sprintf("/apis/bootstrap.cluster.x-k8s.io/%s", CAPIObjectVersion)).
+		Resource("kubeadmconfigtemplates").
+		Namespace(namespace).
+		Name(name).
+		DoRaw(ctx)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return nil, err
@@ -609,8 +657,12 @@ func deleteKubeadmConfigTemplate(ctx context.Context, cs *kubernetes.Clientset, 
 	}
 
 	_, err = cs.RESTClient().
-		Delete().AbsPath("/apis/bootstrap.cluster.x-k8s.io/v1beta1").Resource("kubeadmconfigtemplates").
-		Namespace(namespace).Name(name).DoRaw(ctx)
+		Delete().
+		AbsPath(fmt.Sprintf("/apis/bootstrap.cluster.x-k8s.io/%s", CAPIObjectVersion)).
+		Resource("kubeadmconfigtemplates").
+		Namespace(namespace).
+		Name(name).
+		DoRaw(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to delete KubeadmConfigTemplate: %v", err)
 	}
@@ -639,8 +691,11 @@ func createMachineDeployment(ctx context.Context, cs *kubernetes.Clientset, mach
 func getMachineDeployment(ctx context.Context, cs *kubernetes.Clientset, namespace string, name string) (*clusterv1.MachineDeployment, error) {
 	hundredKB := 100 * 1024
 	machineDeployment := &clusterv1.MachineDeployment{}
-	resp, err := cs.RESTClient().Get().AbsPath("/apis/cluster.x-k8s.io/v1beta1").Resource("machinedeployments").
-		Namespace(namespace).Name(name).DoRaw(ctx)
+	resp, err := cs.RESTClient().Get().AbsPath(fmt.Sprintf("/apis/cluster.x-k8s.io/%s", CAPIObjectVersion)).
+		Namespace(namespace).
+		Resource("machinedeployments").
+		Name(name).
+		DoRaw(ctx)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return nil, err
@@ -667,8 +722,12 @@ func deleteMachineDeployment(ctx context.Context, cs *kubernetes.Clientset, name
 	}
 
 	_, err = cs.RESTClient().
-		Delete().AbsPath("/apis/cluster.x-k8s.io/v1beta1").Resource("machinedeployments").
-		Namespace(namespace).Name(name).DoRaw(ctx)
+		Delete().
+		AbsPath(fmt.Sprintf("/apis/cluster.x-k8s.io/%s", CAPIObjectVersion)).
+		Namespace(namespace).
+		Resource("machinedeployments").
+		Name(name).
+		DoRaw(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to delete MachineDeployment: %v", err)
 	}

@@ -106,7 +106,7 @@ func MonitorK8sNodePools(
 	})
 }
 
-func WaitForClusterReady(ctx context.Context, client runtimeclient.Client, cluster *clusterv1.Cluster) error {
+func WaitForClusterProvisioned(ctx context.Context, client runtimeclient.Client, cluster *clusterv1.Cluster) error {
 	timeout := timeoutMinutes * time.Minute
 	pollInterval := pollIntervalSeconds * time.Second
 
@@ -122,6 +122,7 @@ func WaitForClusterReady(ctx context.Context, client runtimeclient.Client, clust
 
 	// Check the readiness of all machines
 	machineList := &clusterv1.MachineList{}
+
 	if err := client.List(ctx, machineList, runtimeclient.InNamespace(cluster.Namespace), runtimeclient.MatchingLabels{
 		clusterv1.ClusterNameLabel: cluster.Name,
 	}); err != nil {
@@ -136,6 +137,36 @@ func WaitForClusterReady(ctx context.Context, client runtimeclient.Client, clust
 			}
 
 			if machine.Status.NodeRef == nil || machine.Status.Phase == machinePhaseProvisioning {
+				return false, nil
+			}
+		}
+		return true, nil
+	}); err != nil {
+		return fmt.Errorf("machine readiness check failed: %w", err)
+	}
+
+	return nil
+}
+
+func WaitForMachinesRunning(ctx context.Context, client runtimeclient.Client, cluster *clusterv1.Cluster) error {
+	timeout := timeoutMinutes * time.Minute
+	pollInterval := pollIntervalSeconds * time.Second
+	machineList := &clusterv1.MachineList{}
+
+	if err := client.List(ctx, machineList, runtimeclient.InNamespace(cluster.Namespace), runtimeclient.MatchingLabels{
+		clusterv1.ClusterNameLabel: cluster.Name,
+	}); err != nil {
+		return fmt.Errorf("failed to list machines: %w", err)
+	}
+
+	if err := wait.PollImmediate(pollInterval, timeout, func() (bool, error) {
+		for _, machine := range machineList.Items {
+			if !controllerutil.ContainsFinalizer(&machine, clusterv1.MachineFinalizer) {
+				// Machine is being deleted, so skip it
+				continue
+			}
+
+			if machine.Status.NodeRef == nil || machine.Status.Phase != machinePhaseRunning {
 				return false, nil
 			}
 		}

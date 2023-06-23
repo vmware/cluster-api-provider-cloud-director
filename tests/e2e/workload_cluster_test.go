@@ -6,6 +6,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/vmware/cloud-provider-for-cloud-director/pkg/testingsdk"
+	infrav2 "github.com/vmware/cluster-api-provider-cloud-director/api/v1beta2"
 	"github.com/vmware/cluster-api-provider-cloud-director/tests/e2e/utils"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -18,7 +19,7 @@ import (
 	runtimeclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-var _ = Describe("Workload Cluster CRUD based the completed management Cluster", func() {
+var _ = Describe("Workload Cluster Life cycle management", func() {
 	When("create, resize and delete the workload cluster", func() {
 		var (
 			runtimeClient          runtimeclient.Client
@@ -27,9 +28,12 @@ var _ = Describe("Workload Cluster CRUD based the completed management Cluster",
 			kubeConfig             []byte
 			capiYaml               []byte
 			cs                     *kubernetes.Clientset
+			workloadClientSet      *kubernetes.Clientset
 			desiredWorkerNodeCount int64
 			clusterName            string
 			clusterNameSpace       string
+			cluster                *clusterv1beta1.Cluster
+			vcdCluster             *infrav2.VCDCluster
 			rdeId                  string
 		)
 
@@ -46,12 +50,12 @@ var _ = Describe("Workload Cluster CRUD based the completed management Cluster",
 			ctx = context.TODO()
 
 			fmt.Println("getting the CAPI yaml!")
-			capiYaml, err = os.ReadFile(capiYamlPath)
+			capiYaml, err = os.ReadFile(PathToWorkloadClusterCapiYaml)
 			Expect(err).NotTo(HaveOccurred(), "failed to read CAPI YAML")
 			Expect(capiYaml).NotTo(BeEmpty(), "CAPI YAML is empty")
 
 			fmt.Println("getting the Kubernetes Config!")
-			kubeConfig, err = os.ReadFile(kubeCfgPath)
+			kubeConfig, err = os.ReadFile(PathToMngmntClusterKubecfg)
 			Expect(err).NotTo(HaveOccurred(), "failed to read Kubernetes Config")
 			Expect(kubeConfig).NotTo(BeEmpty(), "Kubernetes Config is empty")
 
@@ -72,8 +76,9 @@ var _ = Describe("Workload Cluster CRUD based the completed management Cluster",
 			Expect(err).NotTo(HaveOccurred(), "failed to delete cluster namespace")
 		})
 
-		It("CAPVCD should be able to handle the workload cluster", func() {
+		It("CAPVCD should be able to create the workload cluster", func() {
 			var err error
+			//redId
 			By("getting the clusterName and namespace")
 			clusterName, clusterNameSpace, err = utils.GetClusterNameANDNamespaceFromCAPIYaml(capiYaml)
 			Expect(err).NotTo(HaveOccurred(), "failed to get cluster name and namespace")
@@ -85,12 +90,12 @@ var _ = Describe("Workload Cluster CRUD based the completed management Cluster",
 			Expect(err).NotTo(HaveOccurred(), "failed to create or get namespace")
 
 			By("applying the CAPI yaml in the CAPVCD mgmt cluster")
-			cluster, err := utils.ApplyCAPIYaml(ctx, cs, capiYaml)
+			cluster, err = utils.ApplyCAPIYaml(ctx, cs, capiYaml)
 			Expect(err).NotTo(HaveOccurred(), "failed to apply CAPI YAML")
 			Expect(cluster).NotTo(BeNil(), "cluster is nil")
 
-			err = utils.WaitForClusterReady(ctx, runtimeClient, cluster)
-			Expect(err).NotTo(HaveOccurred(), "failed to wait for cluster ready")
+			err = utils.WaitForClusterProvisioned(ctx, runtimeClient, cluster)
+			Expect(err).NotTo(HaveOccurred(), "failed to wait for cluster provisioned")
 
 			By("retrieving the kube config of the workload cluster")
 			kubeConfigBytes, err := kcfg.FromSecret(ctx, runtimeClient, runtimeclient.ObjectKey{
@@ -101,26 +106,36 @@ var _ = Describe("Workload Cluster CRUD based the completed management Cluster",
 			Expect(kubeConfigBytes).NotTo(BeNil(), "kube config is nil")
 
 			By("validating the kube config of the workload cluster")
-			workloadClientSet, err := utils.ValidateKubeConfig(ctx, kubeConfigBytes)
+			workloadClientSet, err = utils.ValidateKubeConfig(ctx, kubeConfigBytes)
 			Expect(err).NotTo(HaveOccurred(), "failed to validate kube config")
 			Expect(workloadClientSet).NotTo(BeNil(), "workload client set is nil")
 
-			By("getting the rde Id of the CAPVCD cluster - management cluster")
-			rdeId, err = utils.GetRDEIdFromVcdCluster(ctx, cs, clusterNameSpace, clusterName)
-			Expect(err).NotTo(HaveOccurred(), "failed to get RDE ID from VCD cluster")
+			By("getting the vcdcluster of the CAPVCD cluster - management cluster")
+			vcdCluster, err = utils.GetVCDClusterFromCluster(ctx, cs, clusterNameSpace, clusterName)
+			Expect(err).NotTo(HaveOccurred(), "failed to get VCDCluster from the cluster")
+			Expect(vcdCluster).NotTo(BeNil(), "VCDCluster is nil")
 
-			By("initializing the test client using workload kubeConfig")
-			testClient, err = utils.ConstructCAPVCDTestClient(workloadClientSet, host, org, userOrg, ovdc, userName, refreshToken, rdeId, true)
-			Expect(err).NotTo(HaveOccurred(), "failed to construct CAPVCD test client")
+			By("setting the rdeID from the vcdCluster")
+			rdeId = vcdCluster.Status.InfraId
+			Expect(rdeId).NotTo(BeNil(), "rdeId is empty")
+
+			By("creating the cluster resource sets")
+			err = utils.CreateWorkloadClusterResources(ctx, workloadClientSet, string(capiYaml), kubeNameSpace, rdeId, vcdCluster)
+			Expect(err).NotTo(HaveOccurred(), "failed to create cluster Resource Set")
+
+			By("waiting the cluster machines becoming running state")
+			err = utils.WaitForMachinesRunning(ctx, runtimeClient, cluster)
+			Expect(err).NotTo(HaveOccurred(), "failed to wait for machines running")
+		})
+
+		It("CAPVCD should be able to resize the cluster", func() {
+			var err error
+			testClient, err = utils.ConstructCAPVCDTestClient(ctx, workloadClientSet, string(capiYaml), clusterNameSpace, clusterName, rdeId, true)
 
 			By("setting desired worker pool node account")
 			workerpoolNodes, err := testClient.GetWorkerNodes(context.Background())
 			Expect(err).NotTo(HaveOccurred(), "failed to get worker nodes")
 			Expect(workerpoolNodes).NotTo(BeNil(), "worker nodes are nil")
-
-			By("creating the cluster resource sets")
-			err = utils.CreateWorkloadClusterResources(ctx, workloadClientSet, kubeNameSpace, rdeId, refreshToken, host, org, ovdc, ovdcNetwork, clusterName)
-			Expect(err).NotTo(HaveOccurred(), "failed to create cluster Resource Set")
 
 			desiredWorkerNodeCount = int64(len(workerpoolNodes)) + 2
 
@@ -132,6 +147,10 @@ var _ = Describe("Workload Cluster CRUD based the completed management Cluster",
 			err = utils.MonitorK8sNodePools(testClient, runtimeClient, desiredWorkerNodeCount)
 			Expect(err).NotTo(HaveOccurred(), "failed to monitor K8s node pools")
 
+		})
+
+		It("CAPVCD should be able to delete the cluster", func() {
+			var err error
 			By("deleting the workload cluster")
 			err = utils.DeleteCAPIYaml(ctx, cs, capiYaml)
 			Expect(err).NotTo(HaveOccurred(), "failed to delete CAPI YAML")

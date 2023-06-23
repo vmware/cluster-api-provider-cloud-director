@@ -1,13 +1,14 @@
 #!/bin/bash
 
-export GOROOT=~/go
+# Expect the GOROOT is already exported
 export PATH=$PATH:$GOROOT/bin/
 
 # Install kind
-GO111MODULE="on" go get sigs.k8s.io/kind@v0.11.1
+GO111MODULE="on" go install sigs.k8s.io/kind@v0.20.0
 
 # Install clusterctl on Mac
-curl -L https://github.com/kubernetes-sigs/cluster-api/releases/download/v1.1.3/clusterctl-darwin-amd64 -o clusterctl
+# Note: clusterctl-darwin-amd64 is only for MAC. If you are using the different OS, please find the corresponding binary file
+curl -L https://github.com/kubernetes-sigs/cluster-api/releases/download/v1.4.0/clusterctl-darwin-amd64 -o clusterctl
 chmod +x ./clusterctl
 sudo mv ./clusterctl /usr/local/bin/clusterctl
 
