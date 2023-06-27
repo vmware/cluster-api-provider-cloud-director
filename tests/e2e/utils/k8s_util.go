@@ -34,6 +34,8 @@ var ccmConfigMapYamlTemplate string
 //go:embed config_map_files/vcloud-csi-config.yaml
 var csiConfigMapYamlTemplate string
 
+// ApplyCAPIYaml use runtime client to apply unstructured objects directly here.
+// TODO: CAFV-285
 func ApplyCAPIYaml(ctx context.Context, cs *kubernetes.Clientset, yamlContent []byte) (*clusterv1.Cluster, error) {
 	yamlReader := k8syaml.NewYAMLReader(bufio.NewReader(bytes.NewReader(yamlContent)))
 	hundredKB := 100 * 1024
