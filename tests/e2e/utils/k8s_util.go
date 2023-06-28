@@ -225,26 +225,17 @@ func CreateCSIConfigMap(ctx context.Context, cs *kubernetes.Clientset, namespace
 	return createConfigMap(ctx, cs, configMap, namespace)
 }
 
-func getVCDCluster(ctx context.Context, cs *kubernetes.Clientset, namespace string, name string) (*infrav2.VCDCluster, error) {
-	hundredKB := 100 * 1024
+func getVCDCluster(ctx context.Context, r runtimeclient.Client, namespace, name string) (*infrav2.VCDCluster, error) {
 	vcdCluster := &infrav2.VCDCluster{}
-	resp, err := cs.RESTClient().Get().
-		AbsPath(fmt.Sprintf("/apis/infrastructure.cluster.x-k8s.io/%s", CAPVCDObjectVersion)).
-		Resource("vcdclusters").
-		Namespace(namespace).
-		Name(name).
-		DoRaw(ctx)
-
+	err := r.Get(ctx, runtimeclient.ObjectKey{
+		Namespace: namespace,
+		Name:      name,
+	}, vcdCluster)
 	if err != nil {
-		if errors.IsNotFound(err) {
-			return nil, err
-		}
-		return nil, fmt.Errorf("failed to get vcdcluster: %v", err)
+		fmt.Printf("Failed to get object: %s/%s\n", namespace, name)
+		return vcdCluster, fmt.Errorf("failed to get object: %s/%s: %v", namespace, name, err)
 	}
-	yamlDecoder := k8syaml.NewYAMLOrJSONDecoder(bytes.NewReader(resp), hundredKB)
-	if err = yamlDecoder.Decode(vcdCluster); err != nil {
-		return vcdCluster, fmt.Errorf("error occurred when decoding vcdcluster: %v", err)
-	}
+
 	return vcdCluster, nil
 }
 

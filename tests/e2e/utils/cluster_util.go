@@ -21,6 +21,7 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"net/http"
+	runtimeclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"strings"
 )
 
@@ -65,8 +66,8 @@ func CreateClientConfig(kubeConfigBytes []byte) (*rest.Config, *kubernetes.Clien
 	return workloadRestConfig, csConfig, nil
 }
 
-func GetVCDClusterFromCluster(ctx context.Context, cs *kubernetes.Clientset, namespace string, name string) (*v1beta2.VCDCluster, error) {
-	vcdCluster, err := getVCDCluster(ctx, cs, namespace, name)
+func GetVCDClusterFromCluster(ctx context.Context, client runtimeclient.Client, namespace string, name string) (*v1beta2.VCDCluster, error) {
+	vcdCluster, err := getVCDCluster(ctx, client, namespace, name)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get VCDCluster: %w", err)
 	}

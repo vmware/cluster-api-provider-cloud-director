@@ -97,7 +97,7 @@ var _ = Describe("Workload Cluster Life cycle management", func() {
 			ExpectWithOffset(1, workloadClientSet).NotTo(BeNil(), "Workload client set is nil")
 
 			By("Getting the vcdcluster of the CAPVCD cluster - management cluster")
-			vcdCluster, err = utils.GetVCDClusterFromCluster(ctx, cs, clusterNameSpace, clusterName)
+			vcdCluster, err = utils.GetVCDClusterFromCluster(ctx, runtimeClient, clusterNameSpace, clusterName)
 			ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to get VCDCluster from the cluster")
 			ExpectWithOffset(1, vcdCluster).NotTo(BeNil(), "VCDCluster is nil")
 
@@ -129,7 +129,7 @@ var _ = Describe("Workload Cluster Life cycle management", func() {
 			desiredWorkerNodeCount = int64(initialNodeCount + 2)
 
 			By("Resizing the node pool in the workload cluster")
-			err = utils.ScaleNodePool(ctx, runtimeClient, desiredWorkerNodeCount, capiYaml)
+			err = utils.ScaleNodePool(ctx, runtimeClient, desiredWorkerNodeCount, clusterName, clusterNameSpace)
 			ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to scale node pool")
 
 			By(fmt.Sprintf("Monitoring the status of machines inside the CAPVCD cluster after increasing the node pool from %d to %d", initialNodeCount, len(workerPoolNodes)))
@@ -145,7 +145,7 @@ var _ = Describe("Workload Cluster Life cycle management", func() {
 			desiredWorkerNodeCount = int64(len(workerPoolNodes) - 2)
 
 			By("Resizing the node pool in the workload cluster")
-			err = utils.ScaleNodePool(ctx, runtimeClient, desiredWorkerNodeCount, capiYaml)
+			err = utils.ScaleNodePool(ctx, runtimeClient, desiredWorkerNodeCount, clusterName, clusterNameSpace)
 			ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to scale node pool")
 
 			By(fmt.Sprintf("Monitoring the status of machines inside the CAPVCD cluster after decreasing the node pool from %d to %d", initialNodeCount, desiredWorkerNodeCount))

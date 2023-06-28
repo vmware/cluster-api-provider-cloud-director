@@ -1,72 +1,39 @@
 package utils
 
 import (
-	"bufio"
-	"bytes"
 	"context"
 	"fmt"
 	"github.com/vmware/cloud-provider-for-cloud-director/pkg/testingsdk"
-	"io"
 	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/wait"
-	k8syaml "k8s.io/apimachinery/pkg/util/yaml"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	runtimeclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"time"
 )
 
-func ScaleNodePool(ctx context.Context, r runtimeclient.Client, desiredNodePoolSize int64, yamlContent []byte) error {
+func ScaleNodePool(ctx context.Context, r runtimeclient.Client, desiredNodePoolSize int64, clusterName, clusterNameSpace string) error {
 	fmt.Printf("Scaling node pool to %d\n", desiredNodePoolSize)
 
-	// Initialize variables
-	var err error = nil
-	yamlReader := k8syaml.NewYAMLReader(bufio.NewReader(bytes.NewReader(yamlContent)))
-	hundredKB := 100 * 1024
-
-	// Iterate through YAML documents
-	for err == nil {
-		yamlBytes, err := yamlReader.Read()
-		if err == io.EOF {
-			break
-		}
-
-		// Decode YAML into unstructured object
-		yamlDecoder := k8syaml.NewYAMLOrJSONDecoder(bytes.NewReader(yamlBytes), hundredKB)
-		unstructuredObj := unstructured.Unstructured{}
-		err = yamlDecoder.Decode(&unstructuredObj)
-		if err != nil {
-			return fmt.Errorf("unable to parse yaml segment: [%v]\n", err)
-		}
-
-		// Extract kind and name from unstructured object
-		kind := unstructuredObj.GetKind()
-		name := unstructuredObj.GetName()
-
-		switch kind {
-		case MachineDeployment:
-			// If the kind is MachineDeployment, update the replicas field
-			specMap, err := GetMapBySpecName(unstructuredObj.Object, "spec", VCDCluster)
-			if err != nil {
-				return err
-			}
-
-			specMap["replicas"] = desiredNodePoolSize
-
-			// Patch the unstructured object with the updated MachineDeployment
-			force := true
-			executedErr := r.Patch(ctx, &unstructuredObj, runtimeclient.Apply, &runtimeclient.PatchOptions{
-				Force:        &force,
-				FieldManager: FieldManager,
-			})
-			if executedErr != nil {
-				return fmt.Errorf("failed to patch object of kind [%s] and name [%s]: %w", kind, name, executedErr)
-			}
-			break
-		}
+	machineDeploymentName := fmt.Sprintf("%s-md-0", clusterName)
+	machineDeployment := &clusterv1.MachineDeployment{}
+	if err := r.Get(ctx, runtimeclient.ObjectKey{
+		Namespace: clusterNameSpace,
+		Name:      machineDeploymentName,
+	}, machineDeployment); err != nil {
+		fmt.Printf("Failed to get object: %s/%s\n", clusterNameSpace, machineDeploymentName)
+		return fmt.Errorf("failed to get object: %s/%s: %w", clusterNameSpace, machineDeploymentName, err)
 	}
-
+	desiredNodePoolSizeInt32 := int32(desiredNodePoolSize)
+	machineDeployment.Spec.Replicas = &desiredNodePoolSizeInt32
+	force := true
+	executedErr := r.Patch(ctx, machineDeployment, runtimeclient.Apply, &runtimeclient.PatchOptions{
+		Force:        &force,
+		FieldManager: FieldManager,
+	})
+	if executedErr != nil {
+		return fmt.Errorf("failed to patch object of kind [%s] and name [%s]: %w", clusterNameSpace, machineDeploymentName, executedErr)
+	}
 	fmt.Println("Node pool scaling completed successfully")
 	return nil
 }
