@@ -5,8 +5,13 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"github.com/antihax/optional"
 	"github.com/vmware/cloud-provider-for-cloud-director/pkg/testingsdk"
+	"github.com/vmware/cloud-provider-for-cloud-director/pkg/vcdsdk"
+	swagger "github.com/vmware/cloud-provider-for-cloud-director/pkg/vcdswaggerclient"
 	"github.com/vmware/cluster-api-provider-cloud-director/api/v1beta2"
+	"github.com/vmware/cluster-api-provider-cloud-director/pkg/capisdk"
+	rdeType "github.com/vmware/cluster-api-provider-cloud-director/pkg/vcdtypes/rde_type_1_1_0"
 	"io"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -15,6 +20,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
+	"net/http"
 	"strings"
 )
 
@@ -244,4 +250,43 @@ func GetSecret(_ context.Context, capiYaml string) (*corev1.Secret, error) {
 	}
 
 	return secret, err
+}
+
+func CheckRdeEntityNonExisted(ctx context.Context, client *vcdsdk.Client, rdeID, clusterName string) error {
+	org, err := client.VCDClient.GetOrgByName(client.ClusterOrgName)
+	if err != nil {
+		return fmt.Errorf("failed to get org by name [%s]: %v", client.ClusterOrgName, err)
+	}
+
+	if org == nil || org.Org == nil {
+		return fmt.Errorf("obtained nil org when getting org by name [%s]", client.ClusterOrgName)
+	}
+
+	definedEntities, resp, err := client.APIClient.DefinedEntityApi.GetDefinedEntitiesByEntityType(
+		ctx,
+		capisdk.CAPVCDTypeVendor,
+		capisdk.CAPVCDTypeNss,
+		rdeType.CapvcdRDETypeVersion,
+		org.Org.ID,
+		1,
+		25,
+		&swagger.DefinedEntityApiGetDefinedEntitiesByEntityTypeOpts{
+			Filter: optional.NewString(fmt.Sprintf("id==%s", rdeID)),
+		},
+	)
+	if err != nil {
+		return fmt.Errorf("error occurred during RDE deletion; failed to fetch defined entities by entity ID [%s] for cluster [%s]: %v", rdeID, clusterName, err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("error occurred during RDE deletion; error while fetching defined entities by entity ID [%s] for cluster [%s]", rdeID, clusterName)
+	}
+
+	if len(definedEntities.Values) > 0 {
+		return fmt.Errorf("the RDE entity of cluster [%s (%s)] still exists", rdeID, clusterName)
+	}
+
+	fmt.Println("The RDE entity of cluster", clusterName, "with ID", rdeID, "has been successfully deleted.")
+
+	return nil
 }

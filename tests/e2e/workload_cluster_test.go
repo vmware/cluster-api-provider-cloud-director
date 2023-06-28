@@ -103,7 +103,7 @@ var _ = Describe("Workload Cluster Life cycle management", func() {
 
 			By("Getting the rdeID from the vcdCluster")
 			rdeID = vcdCluster.Status.InfraId
-			ExpectWithOffset(1, rdeID).NotTo(BeNil(), "rdeID is empty")
+			ExpectWithOffset(1, rdeID).NotTo(BeZero(), "rdeID is empty")
 
 			By("Creating the cluster resource sets")
 			err = utils.CreateWorkloadClusterResources(ctx, workloadClientSet, string(capiYaml), rdeID, vcdCluster)
@@ -168,6 +168,9 @@ var _ = Describe("Workload Cluster Life cycle management", func() {
 			ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to monitor cluster deletion")
 			err = testClient.DeleteNameSpace(ctx, clusterName)
 			ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to delete cluster namespace")
+			By("Checking the RDE entity of the cluster is already deleted")
+			err = utils.CheckRdeEntityNonExisted(ctx, testClient.VcdClient, rdeID, clusterName)
+			ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to delete the cluster RDE entity")
 		})
 	})
 })
