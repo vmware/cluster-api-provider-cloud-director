@@ -707,6 +707,13 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	if err != nil {
 		return ctrl.Result{}, errors.Wrapf(err, "Error creating VCD client to reconcile Cluster [%s] infrastructure", vcdCluster.Name)
 	}
+	// close all idle connections when reconciliation is done
+	defer func() {
+		if workloadVCDClient != nil && workloadVCDClient.VCDClient != nil {
+			workloadVCDClient.VCDClient.Client.Http.CloseIdleConnections()
+			log.Info(fmt.Sprintf("closed connection to the http client [%#v]", workloadVCDClient.VCDClient.Client.Http))
+		}
+	}()
 	if workloadVCDClient.VDC == nil || workloadVCDClient.VDC.Vdc == nil {
 		return ctrl.Result{}, errors.Wrapf(err, "failed to get the Organization VDC (OVDC) from the VCD client for reconciling infrastructure of Cluster [%s]", vcdCluster.Name)
 	}
@@ -1226,6 +1233,14 @@ func (r *VCDClusterReconciler) reconcileDelete(ctx context.Context,
 	if err != nil {
 		return ctrl.Result{}, errors.Wrapf(err, "Error creating VCD client to reconcile Cluster [%s] infrastructure", vcdCluster.Name)
 	}
+
+	// close all idle connections when reconciliation is done
+	defer func() {
+		if workloadVCDClient != nil && workloadVCDClient.VCDClient != nil {
+			workloadVCDClient.VCDClient.Client.Http.CloseIdleConnections()
+			log.Info(fmt.Sprintf("closed connection to the http client [%#v]", workloadVCDClient.VCDClient.Client.Http))
+		}
+	}()
 
 	if workloadVCDClient.VDC == nil || workloadVCDClient.VDC.Vdc == nil {
 		return ctrl.Result{}, errors.Wrapf(err, "failed to get the Organization VDC (OVDC) from the VCD client for reconciling infrastructure of Cluster [%s]", vcdCluster.Name)
