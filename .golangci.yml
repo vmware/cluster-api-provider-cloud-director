@@ -1,0 +1,9 @@
+run:
+  timeout: 2m
+
+linters:
+  enable:
+    # Default linters plus these:
+    - gofmt
+    - goimports
+    - revive
