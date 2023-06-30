@@ -1,62 +1,47 @@
-# Produce CRDs that work back to Kubernetes 1.11 (no version conversion)
-CRD_OPTIONS ?= "crd"
+CONTROLLER_GEN_VERSION := 0.8.0
+CONVERSION_GEN_VERSION := 0.23.1
+LINT_VERSION := 1.51.2
+GOSEC_VERSION := "v2.16.0"
 
+GOLANGCI_EXIT_CODE ?= 1
+# Produce CRDs that work back to Kubernetes 1.11 (no version conversion)
+CRD_OPTIONS ?= crd
+# Set PATH to pick up cached tools. The additional 'sed' is required for cross-platform support of quoting the args to 'env'
+SHELL := /usr/bin/env PATH=$(shell echo $(GITROOT)/bin:${PATH} | sed 's/ /\\ /g') bash
 # Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
 ifeq (,$(shell go env GOBIN))
-GOBIN=$(shell go env GOPATH)/bin
+	GOBIN = $(shell go env GOPATH)/bin
 else
-GOBIN=$(shell go env GOBIN)
+	GOBIN = $(shell go env GOBIN)
 endif
 
-GITCOMMIT := $(shell git rev-parse --short HEAD 2>/dev/null)
-GITROOT := $(shell git rev-parse --show-toplevel)
-GO_CODE := $(shell ls go.mod go.sum **/*.go)
+GITCOMMIT ?= $(shell git rev-parse --short HEAD 2>/dev/null)
+GITROOT ?= $(shell git rev-parse --show-toplevel)
 
-# Setting SHELL to bash allows bash commands to be executed by recipes.
-# This is a requirement for 'setup-envtest.sh' in the test target.
-# Options are set to exit when a recipe line exits non-zero or a piped command fails.
-SHELL = /usr/bin/env bash -o pipefail
-.SHELLFLAGS = -ec
-MANIFEST_DIR = templates
-
-REGISTRY ?= "projects-stg.registry.vmware.com/vmware-cloud-director"
-VERSION ?= $(shell cat ${GITROOT}/release/version)
 CAPVCD_IMG := cluster-api-provider-cloud-director
-CAPVCD_ARTIFACT_IMG := capvcd-manifest-airgapped
+ARTIFACT_IMG := capvcd-manifest-airgapped
+VERSION ?= $(shell cat $(GITROOT)/release/version)
 
-# go-get-tool will 'go get' any package $2 and install it to $1.
-PROJECT_DIR := $(shell dirname $(abspath $(lastword $(MAKEFILE_LIST))))
-define go-get-tool
-@[ -f $(1) ] || { \
-set -e ;\
-TMP_DIR=$$(mktemp -d) ;\
-cd $$TMP_DIR ;\
-go mod init tmp ;\
-echo "Downloading $(2)" ;\
-GOBIN=$(PROJECT_DIR)/bin go get $(2) ;\
-rm -rf $$TMP_DIR ;\
-}
-endef
+REGISTRY ?= projects-stg.registry.vmware.com/vmware-cloud-director
 
-# go-install-tool will 'go get' any package $2 and install it to $1.
-define go-install-tool
-@[ -f $(1) ] || { \
-set -e ;\
-TMP_DIR=$$(mktemp -d) ;\
-cd $$TMP_DIR ;\
-go mod init tmp ;\
-echo "Downloading $(2)" ;\
-GOBIN=$(GITROOT)/tools go install $(2) ;\
-rm -rf $$TMP_DIR ;\
-}
-endef
+PLATFORM ?= linux/amd64
+OS ?= linux
+ARCH ?= amd64
+CGO ?= 0
+
+KUSTOMIZE ?= bin/kustomize
+CONTROLLER_GEN ?= bin/controller-gen
+CONVERSION_GEN ?= bin/conversion-gen
+GOLANGCI_LINT ?= bin/golangci-lint
+GOSEC ?= bin/gosec
+SHELLCHECK ?= bin/shellcheck
 
 
-_SET_DEV_BUILD:
-	$(eval VERSION=$(VERSION)-$(GITCOMMIT))
+.PHONY: all
+all: vendor lint dev
 
-
-.PHONY: vendor
+.PHONY: capvcd
+capvcd: vendor lint docker-build-capvcd ## Run checks, and build capvcd docker image.
 
 ##@ General
 
@@ -71,109 +56,57 @@ _SET_DEV_BUILD:
 # More info on the awk command:
 # http://linuxcommand.org/lc3_adv_awk.php
 
+.PHONY: help
 help: ## Display this help.
 	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n"} /^[a-zA-Z_0-9-]+:.*?##/ { printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2 } /^##@/ { printf "\n\033[1m%s\033[0m\n", substr($$0, 5) } ' $(MAKEFILE_LIST)
 
+
+
 ##@ Development
 
-manifests: controller-gen ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
-	$(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=manager-role webhook paths="./..." output:crd:artifacts:config=config/crd/bases
-
-generate: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
-	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..."
-
-fmt: ## Run go fmt against code.
-	go fmt ./...
-
-vet: ## Run go vet against code.
-	go vet ./...
-
-vendor: ## Run go mod vendor
+.PHONY: vendor
+vendor: ## Update go mod dependencies.
 	go mod edit -go=1.19
 	go mod tidy -compat=1.19
 	go mod vendor
 
+.PHONY: fmt
+fmt: ## Run go fmt against code.
+	go fmt ./...
 
-ENVTEST_ASSETS_DIR=$(shell pwd)/testbin
-test: manifests generate fmt vet ## Run tests.
-	mkdir -p ${ENVTEST_ASSETS_DIR}
-	test -f ${ENVTEST_ASSETS_DIR}/setup-envtest.sh || curl -sSLo ${ENVTEST_ASSETS_DIR}/setup-envtest.sh https://raw.githubusercontent.com/kubernetes-sigs/controller-runtime/v0.8.3/hack/setup-envtest.sh
-	source ${ENVTEST_ASSETS_DIR}/setup-envtest.sh; fetch_envtest_tools $(ENVTEST_ASSETS_DIR); setup_envtest_env $(ENVTEST_ASSETS_DIR); go test ./... -coverprofile cover.out
+.PHONY: vet
+vet: ## Run go vet against code.
+	go vet ./...
 
-##@ Build
+.PHONY: golangci-lint
+golangci-lint: $(GOLANGCI_LINT) ## Run golangci-lint against code.
+	$(GOLANGCI_LINT) run --issues-exit-code $(GOLANGCI_EXIT_CODE)
 
-build-within-docker: vendor
-	mkdir -p /build/cluster-api-provider-cloud-director
-	CGO_ENABLED=0 go build -ldflags "-s -w -X github.com/vmware/$(CAPVCD_IMG)/release.Version=${VERSION}" -o /build/vcloud/cluster-api-provider-cloud-director main.go
+.PHONY: gosec
+gosec: $(GOSEC) ## Run gosec against code.
+	$(GOSEC) -conf .gosec.json ./...
 
-generate-capvcd-image: generate fmt vet vendor 
-	docker build -f Dockerfile . -t $(CAPVCD_IMG):$(VERSION) --build-arg VERSION=$(VERSION)
-	docker tag $(CAPVCD_IMG):$(VERSION) $(REGISTRY)/$(CAPVCD_IMG):$(VERSION)
+.PHONY: shellcheck
+shellcheck: $(SHELLCHECK) ## Run shellcheck against code.
+	find . -name '*.*sh' -not -path '*/vendor/*' | xargs $(SHELLCHECK) --color
 
-push-capvcd-image:
-	docker push $(REGISTRY)/$(CAPVCD_IMG):$(VERSION)
+.PHONY: lint
+lint: lint-deps golangci-lint gosec shellcheck ## Run golangci-lint, gosec, shellcheck.
 
-generate-capvcd-artifact-image:
-	sed -e "s/__VERSION__/$(VERSION)/g" config/manager/manager.yaml.template > config/manager/manager.yaml
-	sed -e "s/__VERSION__/$(VERSION)/g" -e "s~__REGISTRY__~$(REGISTRY)~g" artifacts/bom.json.template > artifacts/bom.json
-	sed -e "s/__VERSION__/$(VERSION)/g" -e "s~__REGISTRY__~$(REGISTRY)~g" artifacts/dependencies.txt.template > artifacts/dependencies.txt
-	make release-manifests
-	docker build -f ./artifacts/Dockerfile . -t $(CAPVCD_ARTIFACT_IMG):$(VERSION)
-	docker tag $(CAPVCD_ARTIFACT_IMG):$(VERSION) $(REGISTRY)/$(CAPVCD_ARTIFACT_IMG):$(VERSION)
+.PHONY: lint-fix
+lint-fix: $(GOLANGCI_LINT)
+	$(GOLANGCI_LINT) run --fix
 
-push-capvcd-artifact-image:
-	docker push $(REGISTRY)/$(CAPVCD_ARTIFACT_IMG):$(VERSION)
+.PHONY: manifests
+manifests: controller-gen ## Generate manifests e.g. CRD, RBAC etc.
+	$(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=manager-role webhook paths="./..." output:crd:artifacts:config=config/crd/bases
 
-dev: _SET_DEV_BUILD prod ## Build and push dev image
+.PHONY: generate
+generate: controller-gen ## Run controller-gen.
+	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..."
 
-prod: generate-capvcd-image generate-capvcd-artifact-image push-capvcd-image push-capvcd-artifact-image ## Build and push release image
-
-##@ Deployment
-
-install: manifests kustomize ## Install CRDs into the K8s cluster specified in ~/.kube/config.
-	$(KUSTOMIZE) build config/crd | kubectl apply -f -
-
-uninstall: manifests kustomize ## Uninstall CRDs from the K8s cluster specified in ~/.kube/config.
-	$(KUSTOMIZE) build config/crd | kubectl delete -f -
-
-deploy: manifests kustomize ## Deploy controller to the K8s cluster specified in ~/.kube/config.
-	cd config/manager && $(KUSTOMIZE) edit set image controller=$(REGISTRY)/$(CAPVCD_IMG):$(VERSION)
-	$(KUSTOMIZE) build config/default | kubectl apply -f -
-
-undeploy: ## Undeploy controller from the K8s cluster specified in ~/.kube/config.
-	$(KUSTOMIZE) build config/default | kubectl delete -f -
-
-tools-dir:
-	mkdir -p $(GITROOT)/tools
-
-CONTROLLER_GEN := $(GITROOT)/tools/controller-gen
-controller-gen: tools-dir ## Download controller-gen locally if necessary.
-	$(call go-install-tool,$(CONTROLLER_GEN),sigs.k8s.io/controller-tools/cmd/controller-gen@v0.4.1)
-
-CONVERSION_GEN_BIN := conversion-gen
-CONVERSION_GEN_DOCKERFILE := Dockerfile-ConversionGen
-CONVERSION_GEN_CONTAINER := conversion-gen-container
-CONVERSION_GEN := $(GITROOT)/tools/$(CONVERSION_GEN_BIN)
-conversion: tools-dir ## Download controller-gen locally if necessary.
-	docker build . -f $(GITROOT)/$(CONVERSION_GEN_DOCKERFILE) -t conversion
-	docker create -ti --name $(CONVERSION_GEN_CONTAINER) conversion:latest bash
-	docker cp $(CONVERSION_GEN_CONTAINER):/opt/conversion-gen/conversion-gen $(CONVERSION_GEN)
-	docker rm $(CONVERSION_GEN_CONTAINER)
-
-
-KUSTOMIZE = $(GITROOT)/tools/kustomize
-kustomize: tools-dir ## Download kustomize locally if necessary.
-	@if [ ! -f $(KUSTOMIZE) ]; then \
-		wget "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh"; \
-		chmod +x ./install_kustomize.sh; \
-		./install_kustomize.sh 3.8.7 $(GITROOT)/tools/; \
-		rm -f ./install_kustomize.sh; \
-	else \
-		echo "kustomize already installed."; \
-	fi
-
-# Add a target to download and build conversion-gen; and then run it with the below params
-generate-conversions: ## Runs Go related generate targets.
+.PHONY: conversion
+conversion: conversion-gen ## Run conversion-gen.
 	rm -f $(GITROOT)/api/*/zz_generated.conversion.*
 	$(CONVERSION_GEN) \
 		--input-dirs=./api/v1alpha4,./api/v1beta1 \
@@ -181,8 +114,165 @@ generate-conversions: ## Runs Go related generate targets.
 		--output-file-base=zz_generated.conversion \
 		--go-header-file=./boilerplate.go.txt
 
-release-manifests: kustomize
-	mkdir -p $(MANIFEST_DIR)
-	$(KUSTOMIZE) build config/default > $(MANIFEST_DIR)/infrastructure-components.yaml
+.PHONY: autogen-files
+autogen-files: manifests generate conversion release-manifests
 
-autogen-files: manifests generate generate-conversions release-manifests
+
+
+##@ Build
+
+.PHONY: build
+build: bin ## Build CAPVCD binary. To be used from within a Dockerfile
+	GOOS=$(OS) GOARCH=$(ARCH) CGO_ENABLED=$(CGO) go build -ldflags "-s -w -X github.com/vmware/cluster-api-provider-cloud-director/release.Version=$(VERSION)" -o bin/cluster-api-provider-cloud-director main.go
+
+.PHONY: test
+test: bin/testbin manifests generate ## Run tests.
+	test -f bin/testbin/setup-envtest.sh || curl -sSLo bin/testbin/setup-envtest.sh https://raw.githubusercontent.com/kubernetes-sigs/controller-runtime/v0.8.3/hack/setup-envtest.sh
+	source bin/testbin/setup-envtest.sh
+	fetch_envtest_tools bin/testbin
+	setup_envtest_env bin/testbin
+	go test ./... -coverprofile cover.out
+
+.PHONY: manager
+manager: bin generate ## Build manager binary.
+	go build -o bin/manager main.go
+
+.PHONY: run
+run: manifests generate ## Run a controller from your host.
+	go run ./main.go
+
+.PHONY: docker-build-capvcd
+docker-build-capvcd: generate release-manifests build
+	docker build  \
+		--platform $(PLATFORM) \
+		--file Dockerfile \
+		--tag $(REGISTRY)/$(CAPVCD_IMG):$(VERSION) \
+		--build-arg CAPVCD_BUILD_DIR=bin \
+		.
+
+.PHONY: docker-build-artifacts
+docker-build-artifacts: release-prep
+	docker build  \
+		--platform $(PLATFORM) \
+		--file artifacts/Dockerfile \
+		--tag $(REGISTRY)/$(ARTIFACT_IMG):$(VERSION) \
+		.
+
+.PHONY: docker-build
+docker-build: docker-build-capvcd docker-build-artifacts ## Build CAPVCD docker image and artifact image.
+
+
+
+##@ Deploymet
+
+.PHONY: install
+install: manifests kustomize ## Install CRDs into the K8s cluster specified in ~/.kube/config.
+	$(KUSTOMIZE) build config/crd | kubectl apply -f -
+
+.PHONY: uninstall
+uninstall: manifests kustomize ## Uninstall CRDs from the K8s cluster specified in ~/.kube/config.
+	$(KUSTOMIZE) build config/crd | kubectl delete -f -
+
+.PHONY: deploy
+deploy: manifests kustomize ## Deploy controller to the K8s cluster specified in ~/.kube/config.
+	cd config/manager && kustomize edit set image controller=${CAPVCD_IMG}
+	$(KUSTOMIZE) build config/default | kubectl apply -f -
+
+.PHONY: teardown
+teardown: manifests kustomize ## Teardown controller from the K8s cluster specified in ~/.kube/config.
+	$(KUSTOMIZE) build config/default | kubectl delete -f -
+
+
+
+##@ Publish
+
+.PHONY: dev
+dev: VERSION := $(VERSION)-$(GITCOMMIT)
+dev: git-check release ## Build development images and push to registry.
+
+.PHONY: release
+release: docker-build docker-push ## Build release images and push to registry.
+
+.PHONY: release-manifests
+release-manifests: kustomize ## Generate release manifests e.g. CRD, RBAC etc.
+	sed -e "s/__VERSION__/$(VERSION)/g" config/manager/manager.yaml.template > config/manager/manager.yaml
+	$(KUSTOMIZE) build config/default > templates/infrastructure-components.yaml
+
+.PHONY: release-prep
+release-prep: ## Generate BOM and dependencies files.
+	sed -e "s/__VERSION__/$(VERSION)/g" -e "s~__REGISTRY__~$(REGISTRY)~g" artifacts/bom.json.template > artifacts/bom.json
+	sed -e "s/__VERSION__/$(VERSION)/g" -e "s~__REGISTRY__~$(REGISTRY)~g" artifacts/dependencies.txt.template > artifacts/dependencies.txt
+
+.PHONY: docker-push-capvcd
+docker-push-capvcd: # Push capvcd image to registry.
+	docker push $(REGISTRY)/$(CAPVCD_IMG):$(VERSION)
+
+.PHONY: docker-push-artifacts
+docker-push-artifacts: # Push artifacts image to registry
+	docker push $(REGISTRY)/$(ARTIFACT_IMG):$(VERSION)
+
+.PHONY: docker-push
+docker-push: docker-push-capvcd docker-push-artifacts ## Push images to container registry.
+
+
+
+##@ Dependencies
+
+.PHONY: deps
+deps: lint-deps kustomize controller-gen conversion-gen ## Download all dependencies locally.
+
+.PHONY: lint-deps
+lint-deps: $(GOLANGCI_LINT) $(GOSEC) $(SHELLCHECK) ## Download lint dependencies locally.
+
+.PHONY: kustomize
+kustomize: $(KUSTOMIZE) ## Download kustomize binary locally.
+
+.PHONY: controller-gen
+controller-gen: $(CONTROLLER_GEN) ## Download controller-gen binary locally.
+
+.PHONY: conversion-gen
+conversion-gen: $(CONVERSION_GEN) ## Download conversion-gen binary locally.
+
+
+
+
+
+.PHONY: clean
+clean:
+	rm -rf bin
+	rm artifacts/bom.json artifacts/dependencies.txt
+
+bin:
+	@mkdir -p bin
+
+bin/testbin:
+	@mkdir -p bin/testbin
+
+$(KUSTOMIZE): bin
+	@cd bin && \
+		set -ex -o pipefail && \
+		wget -q -O - "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh" | bash;
+
+$(CONTROLLER_GEN): bin
+	@GOBIN=$(GITROOT)/bin go install sigs.k8s.io/controller-tools/cmd/controller-gen@v${CONTROLLER_GEN_VERSION}
+
+$(CONVERSION_GEN): bin
+	@GOBIN=$(GITROOT)/bin go install k8s.io/code-generator/cmd/conversion-gen@v${CONVERSION_GEN_VERSION}
+
+$(GOLANGCI_LINT): bin
+	@set -o pipefail && \
+		wget -q -O - https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(GITROOT)/bin v$(LINT_VERSION);
+
+$(GOSEC): bin
+	@GOBIN=$(GITROOT)/bin go install github.com/securego/gosec/v2/cmd/gosec@${GOSEC_VERSION}
+
+$(SHELLCHECK): bin
+	@cd bin && \
+		set -o pipefail && \
+		wget -q -O - https://github.com/koalaman/shellcheck/releases/download/stable/shellcheck-stable.$$(uname).x86_64.tar.xz | tar -xJv --strip-components=1 shellcheck-stable/shellcheck && \
+		chmod +x $(GITROOT)/bin/shellcheck
+
+.PHONY: git-check
+git-check:
+	@git diff --exit-code --quiet api/ artifacts/ config/ controllers/ pkg/ main.go Dockerfile || (echo 'Uncommitted changes found. Please commit your changes before proceeding.'; exit 1)
+
