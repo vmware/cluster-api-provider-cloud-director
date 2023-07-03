@@ -59,6 +59,7 @@ var _ = Describe("Workload Cluster Life cycle management", func() {
 
 			utilruntime.Must(scheme.AddToScheme(testScheme))
 			utilruntime.Must(clusterv1beta1.AddToScheme(testScheme))
+			utilruntime.Must(infrav2.AddToScheme(testScheme))
 			runtimeClient, err = runtimeclient.New(restConfig, runtimeclient.Options{Scheme: testScheme})
 			ExpectWithOffset(1, runtimeClient).NotTo(BeNil(), "Failed to create runtime client")
 			ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to create runtime client")
@@ -166,8 +167,14 @@ var _ = Describe("Workload Cluster Life cycle management", func() {
 			By("Monitoring the cluster get deleted")
 			err = utils.WaitForClusterDelete(ctx, runtimeClient, clusterName, clusterNameSpace)
 			ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to monitor cluster deletion")
-			err = testClient.DeleteNameSpace(ctx, clusterName)
+
+			By("deleting all the resource in the cluster nameSpace")
+			// using the kind cluster as the clientSet of testClient
+			testClient.Cs = cs
+			// Secret(capi-user-credentials) should also be deleted
+			err = testClient.DeleteNameSpace(ctx, clusterNameSpace)
 			ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to delete cluster namespace")
+
 			By("Checking the RDE entity of the cluster is already deleted")
 			err = utils.CheckRdeEntityNonExisted(ctx, testClient.VcdClient, rdeID, clusterName)
 			ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to delete the cluster RDE entity")

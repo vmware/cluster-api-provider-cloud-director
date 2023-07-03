@@ -25,7 +25,10 @@ func ScaleNodePool(ctx context.Context, r runtimeclient.Client, desiredNodePoolS
 		return fmt.Errorf("failed to get object: %s/%s: %w", clusterNameSpace, machineDeploymentName, err)
 	}
 	desiredNodePoolSizeInt32 := int32(desiredNodePoolSize)
+	machineDeployment.APIVersion = "cluster.x-k8s.io/v1beta1"
+	machineDeployment.Kind = "MachineDeployment"
 	machineDeployment.Spec.Replicas = &desiredNodePoolSizeInt32
+	machineDeployment.ManagedFields = nil
 	force := true
 	executedErr := r.Patch(ctx, machineDeployment, runtimeclient.Apply, &runtimeclient.PatchOptions{
 		Force:        &force,
@@ -98,17 +101,15 @@ func WaitForClusterProvisioned(ctx context.Context, client runtimeclient.Client,
 	}); err != nil {
 		return fmt.Errorf("cluster readiness check failed: %w", err)
 	}
-
 	// Check the readiness of all machines
 	machineList := &clusterv1.MachineList{}
-
-	if err := client.List(ctx, machineList, runtimeclient.InNamespace(cluster.Namespace), runtimeclient.MatchingLabels{
-		clusterv1.ClusterNameLabel: cluster.Name,
-	}); err != nil {
-		return fmt.Errorf("failed to list machines: %w", err)
-	}
-
 	if err := wait.PollImmediate(pollInterval, timeout, func() (bool, error) {
+
+		if err := client.List(ctx, machineList, runtimeclient.InNamespace(cluster.Namespace), runtimeclient.MatchingLabels{
+			clusterv1.ClusterNameLabel: cluster.Name,
+		}); err != nil {
+			return false, fmt.Errorf("failed to list machines: %w", err)
+		}
 		for _, machine := range machineList.Items {
 			if !controllerutil.ContainsFinalizer(&machine, clusterv1.MachineFinalizer) {
 				// Machine is being deleted, so skip it
@@ -133,14 +134,12 @@ func WaitForMachinesRunning(ctx context.Context, client runtimeclient.Client, cl
 	timeout := timeoutMinutes * time.Minute
 	pollInterval := pollIntervalSeconds * time.Second
 	machineList := &clusterv1.MachineList{}
-
-	if err := client.List(ctx, machineList, runtimeclient.InNamespace(clusterNameSpace), runtimeclient.MatchingLabels{
-		clusterv1.ClusterNameLabel: clusterName,
-	}); err != nil {
-		return fmt.Errorf("failed to list machines: %w", err)
-	}
-
 	if err := wait.PollImmediate(pollInterval, timeout, func() (bool, error) {
+		if err := client.List(ctx, machineList, runtimeclient.InNamespace(clusterNameSpace), runtimeclient.MatchingLabels{
+			clusterv1.ClusterNameLabel: clusterName,
+		}); err != nil {
+			return false, fmt.Errorf("failed to list machines: %w", err)
+		}
 		for _, machine := range machineList.Items {
 			if !controllerutil.ContainsFinalizer(&machine, clusterv1.MachineFinalizer) {
 				// Machine is being deleted, so skip it

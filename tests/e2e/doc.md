@@ -28,14 +28,14 @@ Note: **You can also use [setup script](setup_kind_cluster.sh) to set up the kin
     - Apply the CRS of CNI/CPI/CSI
     - Wait for all the machine states become `running`
   - Resize the workload cluster
-    - increase the worker pool node of the workload cluster
+    - increase the worker pool node count of the workload cluster
     - monitor the new machine show up and then become running
-    - decrease the worker pool node of the workload cluster
+    - decrease the worker pool node count of the workload cluster
     - monitor the replicas of machines become correct
   - delete the workload cluster
     - delete all the objects from capiYaml except `secret`
     - Ensure the workload cluster is deleted
-    - Delete the cluster name space
+    - Delete the cluster name space (Secret - capi-user-credentials is deleted at the same time)
 
 ## Tests to be added
 * test the upgrade on an existing workload cluster
