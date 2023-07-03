@@ -1,5 +1,3 @@
-# github.com/BurntSushi/toml v1.0.0
-## explicit; go 1.16
 # github.com/Masterminds/goutils v1.1.1
 ## explicit
 github.com/Masterminds/goutils
@@ -9,8 +7,6 @@ github.com/Masterminds/semver/v3
 # github.com/Masterminds/sprig/v3 v3.2.3
 ## explicit; go 1.13
 github.com/Masterminds/sprig/v3
-# github.com/alessio/shellescape v1.4.1
-## explicit; go 1.14
 # github.com/antihax/optional v1.0.0
 ## explicit; go 1.13
 github.com/antihax/optional
@@ -117,8 +113,6 @@ github.com/google/gofuzz/bytesource
 # github.com/google/pprof v0.0.0-20210407192527-94a9f03dee38
 ## explicit; go 1.14
 github.com/google/pprof/profile
-# github.com/google/safetext v0.0.0-20220905092116-b49f7bc46da2
-## explicit; go 1.19
 # github.com/google/uuid v1.3.0
 ## explicit
 github.com/google/uuid
@@ -131,8 +125,6 @@ github.com/huandu/xstrings
 # github.com/imdario/mergo v0.3.13
 ## explicit; go 1.13
 github.com/imdario/mergo
-# github.com/inconshreveable/mousetrap v1.0.1
-## explicit; go 1.18
 # github.com/josharian/intern v1.0.0
 ## explicit; go 1.5
 github.com/josharian/intern
@@ -150,8 +142,6 @@ github.com/kr/text
 github.com/mailru/easyjson/buffer
 github.com/mailru/easyjson/jlexer
 github.com/mailru/easyjson/jwriter
-# github.com/mattn/go-isatty v0.0.17
-## explicit; go 1.15
 # github.com/matttproud/golang_protobuf_extensions v1.0.2
 ## explicit; go 1.9
 github.com/matttproud/golang_protobuf_extensions/pbutil
@@ -236,8 +226,6 @@ github.com/onsi/gomega/types
 # github.com/opencontainers/go-digest v1.0.0
 ## explicit; go 1.13
 github.com/opencontainers/go-digest
-# github.com/pelletier/go-toml v1.9.4
-## explicit; go 1.12
 # github.com/peterhellberg/link v1.1.0
 ## explicit
 github.com/peterhellberg/link
@@ -272,17 +260,16 @@ github.com/shopspring/decimal
 # github.com/spf13/cast v1.5.0
 ## explicit; go 1.18
 github.com/spf13/cast
-# github.com/spf13/cobra v1.6.1
-## explicit; go 1.15
 # github.com/spf13/pflag v1.0.5
 ## explicit; go 1.12
 github.com/spf13/pflag
-# github.com/vmware/cloud-provider-for-cloud-director v0.0.0-20230420174123-f285168de9e5
-## explicit; go 1.17
+# github.com/vmware/cloud-provider-for-cloud-director v0.0.0-20230703212902-9bacb3b0c6eb
+## explicit; go 1.19
 github.com/vmware/cloud-provider-for-cloud-director/pkg/testingsdk
 github.com/vmware/cloud-provider-for-cloud-director/pkg/util
 github.com/vmware/cloud-provider-for-cloud-director/pkg/vcdsdk
-github.com/vmware/cloud-provider-for-cloud-director/pkg/vcdswaggerclient
+github.com/vmware/cloud-provider-for-cloud-director/pkg/vcdswaggerclient_36_0
+github.com/vmware/cloud-provider-for-cloud-director/pkg/vcdswaggerclient_37_2
 # github.com/vmware/go-vcloud-director/v2 v2.15.0
 ## explicit; go 1.16
 github.com/vmware/go-vcloud-director/v2/govcd
@@ -800,8 +787,6 @@ sigs.k8s.io/controller-runtime/pkg/webhook/internal/metrics
 ## explicit; go 1.18
 sigs.k8s.io/json
 sigs.k8s.io/json/internal/golang/encoding/json
-# sigs.k8s.io/kind v0.20.0
-## explicit; go 1.16
 # sigs.k8s.io/structured-merge-diff/v4 v4.2.3
 ## explicit; go 1.13
 sigs.k8s.io/structured-merge-diff/v4/fieldpath

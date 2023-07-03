@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/vmware/cloud-provider-for-cloud-director/pkg/vcdsdk"
-	swagger "github.com/vmware/cloud-provider-for-cloud-director/pkg/vcdswaggerclient"
+	swaggerClient "github.com/vmware/cloud-provider-for-cloud-director/pkg/vcdswaggerclient_36_0"
 	"github.com/vmware/go-vcloud-director/v2/types/v56"
 )
 
@@ -21,7 +21,7 @@ func getTestVCDClient(params *VCDAuthParams) (*vcdsdk.Client, error) {
 		params.GetVdcClient)
 }
 
-func getRdeById(ctx context.Context, client *vcdsdk.Client, rdeId string) (*swagger.DefinedEntity, error) {
+func getRdeById(ctx context.Context, client *vcdsdk.Client, rdeId string) (*swaggerClient.DefinedEntity, error) {
 	clusterOrg, err := client.VCDClient.GetOrgByName(client.ClusterOrgName)
 	if err != nil {
 		return nil, fmt.Errorf("error retrieving org [%s]: [%v]", client.ClusterOrgName, err)

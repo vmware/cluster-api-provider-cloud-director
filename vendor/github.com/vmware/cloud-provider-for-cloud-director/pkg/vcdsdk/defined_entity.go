@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	swaggerClient "github.com/vmware/cloud-provider-for-cloud-director/pkg/vcdswaggerclient"
+	swaggerClient "github.com/vmware/cloud-provider-for-cloud-director/pkg/vcdswaggerclient_36_0"
 	"k8s.io/klog"
 	"net/http"
 	"net/url"
@@ -137,7 +137,8 @@ func convertMapToComponentStatus(componentStatusMap map[string]interface{}) (*Co
 }
 
 // AddVCDResourceToStatusMap updates the input status map with VCDResource created from the input parameters. This function doesn't make any
-// 	calls to VCD.
+//
+//	calls to VCD.
 func AddVCDResourceToStatusMap(component string, componentName string, componentVersion string, statusMap map[string]interface{}, vcdResource VCDResource) (map[string]interface{}, bool, error) {
 	// get the component info from the status
 	componentIf, ok := statusMap[component]
@@ -306,11 +307,12 @@ Note that vcdResourceId parameter is optional. If a non-empty vcdResourceId is p
 
 Below is the RDE portion this function operates on
 RDE.entity
- status
-   <componentSectionName> //capvcd, csi, cpi, vkp
-       errorSet
-          <controlPlaneError>
-          <cloudInitError>
+
+	status
+	  <componentSectionName> //capvcd, csi, cpi, vkp
+	      errorSet
+	         <controlPlaneError>
+	         <cloudInitError>
 */
 func (rdeManager *RDEManager) RemoveErrorByNameOrIdFromErrorSet(ctx context.Context, componentSectionName string, errorName string, vcdResourceId string, vcdResourceName string) error {
 	if rdeManager.ClusterID == "" || strings.HasPrefix(rdeManager.ClusterID, NoRdePrefix) {
@@ -478,17 +480,18 @@ AddToEventSet function takes BackendEvent as an input and adds it to the "eventS
 It caps the size of the "eventSet" in the specified "componentSectionName" to the "rollingWindowSize" by removing the oldest entries.
 
 It raises errors on below conditions. It is caller/component's responsibility to distinguish the errors as either hard (or) soft failures.
- - If rdeId is not valid or empty.
- - If rde.entity.status section is missing
- - If rde is not of type capvcdCluster
- - On any failures while updating the RDE.
+  - If rdeId is not valid or empty.
+  - If rde.entity.status section is missing
+  - If rde is not of type capvcdCluster
+  - On any failures while updating the RDE.
 
 Below is the sample structure of the RDE this function operates on.
 status:
-  <componentSectionName>:
-     eventSet:
-       - <newEvent>
-       - existingEvent
+
+	<componentSectionName>:
+	   eventSet:
+	     - <newEvent>
+	     - existingEvent
 */
 func (rdeManager *RDEManager) AddToEventSet(ctx context.Context, componentSectionName string, newEvent BackendEvent, rollingWindowSize int) error {
 	if rdeManager.ClusterID == "" || strings.HasPrefix(rdeManager.ClusterID, NoRdePrefix) {
