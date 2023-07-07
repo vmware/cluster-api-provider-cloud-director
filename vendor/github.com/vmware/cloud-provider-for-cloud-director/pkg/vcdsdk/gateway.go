@@ -13,7 +13,7 @@ import (
 	"github.com/antihax/optional"
 	"github.com/peterhellberg/link"
 	"github.com/vmware/cloud-provider-for-cloud-director/pkg/util"
-	swaggerClient "github.com/vmware/cloud-provider-for-cloud-director/pkg/vcdswaggerclient"
+	swaggerClient "github.com/vmware/cloud-provider-for-cloud-director/pkg/vcdswaggerclient_36_0"
 	"github.com/vmware/go-vcloud-director/v2/govcd"
 	"github.com/vmware/go-vcloud-director/v2/types/v56"
 	"k8s.io/klog"
