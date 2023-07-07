@@ -6,7 +6,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/vmware/cloud-provider-for-cloud-director/pkg/vcdsdk"
-	swagger "github.com/vmware/cloud-provider-for-cloud-director/pkg/vcdswaggerclient"
+	swaggerClient "github.com/vmware/cloud-provider-for-cloud-director/pkg/vcdswaggerclient_36_0"
 	"io"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	k8syaml "k8s.io/apimachinery/pkg/util/yaml"
@@ -18,7 +18,7 @@ const (
 	VCDMachineTemplate    = "VCDMachineTemplate"
 )
 
-func GetCapvcdYamlFromRde(capvcdRDE swagger.DefinedEntity) (string, error) {
+func GetCapvcdYamlFromRde(capvcdRDE swaggerClient.DefinedEntity) (string, error) {
 	specIf, ok := capvcdRDE.Entity["spec"]
 	if !ok {
 		return "", fmt.Errorf("unable to get spec field from capvcd RDE [%s]", capvcdRDE.Id)
