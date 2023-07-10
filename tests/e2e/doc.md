@@ -14,10 +14,11 @@ Note: **You can also use [setup script](setup_kind_cluster.sh) to set up the kin
 - Test input
   - PathToKubeconfigOfManagementCluster (absolute path to find the file)
   - PathToCapiYamlOfWorkloadCluster (absolute path to find the file)
+  - [optional] TargetTKGVersion
+  - [optional] TargetK8SVersion
   
 
-
-- Test Workflow
+### Cluster Resize Test
   - use kubeConfigPath and capiYamlPath to get kubeConfig and capiYaml.
   - Create the workload cluster
     - Get the clusterName and clusterNameSpace from capiYaml
@@ -37,7 +38,25 @@ Note: **You can also use [setup script](setup_kind_cluster.sh) to set up the kin
     - Ensure the workload cluster is deleted
     - Delete the cluster name space (Secret - capi-user-credentials is deleted at the same time)
 
+### Cluster Upgrade Test
+- use kubeConfigPath and capiYamlPath to get kubeConfig and capiYaml.
+- Create the workload cluster
+  - Get the clusterName and clusterNameSpace from capiYaml
+  - Create the namespace when necessary
+  - Apply the objects from capiYaml
+  - Wait for the cluster becomes `provisioned` and all the machine states become `provisioned`
+  - Validate the kubeConfig of the workload cluster
+  - Apply the CRS of CNI/CPI/CSI
+  - Wait for all the machine states become `running`
+- Upgrade the workload cluster
+  - upgrade the cluster to the targetK8sVersion and targetTKGVersion
+  - monitor the new machine show up and then become running
+- delete the workload cluster
+  - delete all the objects from capiYaml except `secret`
+  - Ensure the workload cluster is deleted
+  - Delete the cluster name space (Secret - capi-user-credentials is deleted at the same time)
+
+
 ## Tests to be added
-* test the upgrade on an existing workload cluster
 * automate the management cluster creation. Test the management cluster creation and workload cluster creation together.
 * test the VCD resource name change and validate CAPVCD to fallback and use the correct VCD name change.
