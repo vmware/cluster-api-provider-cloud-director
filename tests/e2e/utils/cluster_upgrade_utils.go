@@ -1,11 +1,21 @@
 package utils
 
 import (
+	"bufio"
+	"bytes"
+	"context"
 	"fmt"
 	"github.com/blang/semver"
 	"github.com/vmware/cloud-provider-for-cloud-director/pkg/testingsdk"
 	"github.com/vmware/go-vcloud-director/v2/types/v56"
+	"io"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/util/wait"
+	k8syaml "k8s.io/apimachinery/pkg/util/yaml"
+	clusterv1beta1 "sigs.k8s.io/cluster-api/api/v1beta1"
+	runtimeclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"strings"
+	"time"
 )
 
 func getTkgVersionFromTKGMap(currK8sVersion string, tkgMap map[string]interface{}) (string, error) {
@@ -165,7 +175,8 @@ func getSupportedUpgrades(currK8sVersion string, currTkgVersion string, tkgMap m
 func getRDEUpgradeResources(supportedUpgrades map[string]interface{}, allVappTemplates []*types.QueryResultVappTemplateType, targetK8sVersion, targetTkgVersion string) (string, *types.QueryResultVappTemplateType, error) {
 	// Create a map to store the tkgOva data based on the k8s version
 	tkgOvaMap := make(map[string]map[string]interface{})
-	for _, v := range supportedUpgrades {
+	ovaNameMap := make(map[string]string)
+	for k, v := range supportedUpgrades {
 		tkgOva, ok := v.(map[string]interface{})
 		if !ok {
 			return "", nil, fmt.Errorf("error converting tkg_map unit into map[string]interface{}")
@@ -181,13 +192,13 @@ func getRDEUpgradeResources(supportedUpgrades map[string]interface{}, allVappTem
 		}
 		k8sVersion := tkrSplit[0]
 		tkgOvaMap[k8sVersion] = tkgOva
+		ovaNameMap[k8sVersion] = k
 	}
 
 	// Find the vAppTemplate matching the target k8s and TKG versions
 	for _, vappTemplate := range allVappTemplates {
-		k8sVersion := extractK8sVersionFromVappTemplateName(vappTemplate.Name)
-		if k8sVersion == targetK8sVersion {
-			tkgOva, ok := tkgOvaMap[k8sVersion]
+		if strings.Contains(vappTemplate.Name, targetK8sVersion) {
+			tkgOva, ok := tkgOvaMap[targetK8sVersion]
 			if !ok {
 				continue
 			}
@@ -207,7 +218,7 @@ func getRDEUpgradeResources(supportedUpgrades map[string]interface{}, allVappTem
 				return "", nil, fmt.Errorf("unable to convert %v to string", tkgVersion[0])
 			}
 			if tkgVersionStr == targetTkgVersion {
-				return k8sVersion, vappTemplate, nil
+				return ovaNameMap[targetK8sVersion], vappTemplate, nil
 			}
 		}
 	}
@@ -226,40 +237,271 @@ func extractK8sVersionFromVappTemplateName(templateName string) string {
 	return parts[1]
 }
 
-// UpgradeCluster is the one function that performs all the necessary steps and calls all the
-// necessary functions to upgrade the current cluster
-// @param testClient - test client used to access the cluster using common testing core
-// @param currK8sVersion - the cluster's current k8s version
-// @param tkgMap - tkg_map.json but marshalled into map[string]interface{}
-// @param allVappTemplates - list of vApp Templates installed in each catalog in current org
-// @return string - the updated capiyaml (for stringing operations, if necessary)
-// @return string - the k8s version that we upgraded to
-// @return error - null if there is no error, the error otherwise
-func UpgradeCluster(testClient *testingsdk.TestClient, capiYaml, currK8sVersion, targetK8sVersion, targetTkgVersion string, tkgMap map[string]interface{}, allVappTemplates []*types.QueryResultVappTemplateType) (string, string, error) {
+// getCapiYamlAfterUpgrade returns a new capiyaml with the target state that the cluster should have
+// after upgrading to the specified TKG and Kubernetes version.
+//
+// Parameters:
+// - capiYaml: The cluster's current capiyaml.
+// - tkgMapKey: The key to a specific upgrade path in tkg_map.json.
+// - tkgMap: The tkg_map.json marshalled into a map[string]interface{}.
+// - vappTemplate: The vApp Template that matches the specific upgrade path.
+//
+// Returns:
+// - string: The Kubernetes version that the cluster is being upgraded to.
+// - error: nil if there is no error, otherwise the encountered error.
+func getCapiYamlAfterUpgrade(ctx context.Context, r runtimeclient.Client, capiYaml string, tkgMapKey string, tkgMap map[string]interface{}, vappTemplate *types.QueryResultVappTemplateType) (string, error) {
+	// processing all upgrade data from parameters that needs to be injected into capiyaml
+	k8sVersion := strings.Split(tkgMapKey, "-")[0]
+
+	tkgOva, err := testingsdk.GetMapBySpecName(tkgMap, tkgMapKey, tkgMapKey)
+	if err != nil {
+		return "", fmt.Errorf("error converting tkgMap.%s to map: [%v]", tkgMapKey, err)
+	}
+
+	coreDnsIf, ok := tkgOva["coreDns"]
+	if !ok {
+		return "", fmt.Errorf("%v has no field [coreDns]", tkgOva)
+	}
+	coreDns, ok := coreDnsIf.(string)
+	if !ok {
+		return "", fmt.Errorf("unable to convert %v to string", coreDnsIf)
+	}
+
+	etcdIf, ok := tkgOva["etcd"]
+	if !ok {
+		return "", fmt.Errorf("%v has no field [etcd]", tkgOva)
+	}
+	etcd, ok := etcdIf.(string)
+	if !ok {
+		return "", fmt.Errorf("unable to convert %v to string", etcdIf)
+	}
+
+	// injecting upgrade data into capiyaml
+	hundredKB := 100 * 1024
+	yamlReader := k8syaml.NewYAMLReader(bufio.NewReader(bytes.NewReader([]byte(capiYaml))))
+	for err == nil {
+		yamlBytes, err := yamlReader.Read()
+		if err == io.EOF {
+			break
+		}
+		yamlDecoder := k8syaml.NewYAMLOrJSONDecoder(bytes.NewReader(yamlBytes), hundredKB)
+		unstructuredObj := unstructured.Unstructured{}
+		err = yamlDecoder.Decode(&unstructuredObj)
+		if err != nil {
+			return "", fmt.Errorf("unable to parse yaml segment: [%v]\n", err)
+		}
+
+		kind := unstructuredObj.GetKind()
+		switch kind {
+		case KubeadmControlPlane:
+			specMap, err := testingsdk.GetMapBySpecName(unstructuredObj.Object, "spec", "KubeadmControlPlane")
+			if err != nil {
+				return "", fmt.Errorf("error converting %s.spec to map: [%v]", KubeadmControlPlane, err)
+			}
+			specMap["version"] = k8sVersion
+
+			kubeadmConfigSpecMap, err := testingsdk.GetMapBySpecName(
+				specMap, "kubeadmConfigSpec", "KubeadmControlPlane.spec",
+			)
+			if err != nil {
+				return "", fmt.Errorf("error converting %s.spec.kubeadmConfigSpec to map: [%v]", KubeadmControlPlane, err)
+			}
+			clusterConfigurationMap, err := testingsdk.GetMapBySpecName(
+				kubeadmConfigSpecMap, "clusterConfiguration", "KubeadmControlPlane.spec.kubeadmConfigSpec",
+			)
+			if err != nil {
+				return "", fmt.Errorf("error converting %s.spec.kubeadmConfigSpec.clusterConfiguration to map: [%v]", KubeadmControlPlane, err)
+			}
+			dnsMap, err := testingsdk.GetMapBySpecName(
+				clusterConfigurationMap, "dns", "KubeadmControlPlane.spec.kubeadmConfigSpec.clusterConfiguration",
+			)
+			if err != nil {
+				return "", fmt.Errorf("error converting %s.spec.kubeadmConfigSpec.clusterConfiguration.dns to map: [%v]", KubeadmControlPlane, err)
+			}
+			dnsMap["imageTag"] = coreDns
+
+			etcdMap, err := testingsdk.GetMapBySpecName(
+				clusterConfigurationMap, "etcd", "KubeadmControlPlane.spec.kubeadmConfigSpec.clusterConfiguration",
+			)
+			if err != nil {
+				return "", fmt.Errorf("error converting %s.spec.kubeadmConfigSpec.clusterConfiguration.etcd to map: [%v]", KubeadmControlPlane, err)
+			}
+			localMap, err := testingsdk.GetMapBySpecName(
+				etcdMap, "local", "KubeadmControlPlane.spec.kubeadmConfigSpec.clusterConfiguration.etcd",
+			)
+			if err != nil {
+				return "", fmt.Errorf("error converting %s.spec.kubeadmConfigSpec.clusterConfiguration.etcd.local to map: [%v]", KubeadmControlPlane, err)
+			}
+			localMap["imageTag"] = etcd
+			force := true
+			executedErr := r.Patch(ctx, &unstructuredObj, runtimeclient.Apply, &runtimeclient.PatchOptions{
+				Force:        &force,
+				FieldManager: FieldManager,
+			})
+
+			if executedErr != nil {
+				return "", fmt.Errorf("failed to patch %s: [%v]", KubeadmControlPlane, err)
+			}
+
+			break
+		case MachineDeployment:
+			specMap, err := testingsdk.GetMapBySpecName(unstructuredObj.Object, "spec", "MachineDeployment")
+			if err != nil {
+				return "", fmt.Errorf("error converting %s.spec to map: [%v]", MachineDeployment, err)
+			}
+			templateMap, err := testingsdk.GetMapBySpecName(specMap, "template", "MachineDeployment.spec")
+			if err != nil {
+				return "", fmt.Errorf("error converting %s.spec.template to map: [%v]", MachineDeployment, err)
+			}
+
+			specMap2, err := testingsdk.GetMapBySpecName(templateMap, "spec", "MachineDeployment.spec.template")
+			if err != nil {
+				return "", fmt.Errorf("error converting %s.spec.template.spec to map: [%v]", MachineDeployment, err)
+			}
+			specMap2["version"] = k8sVersion
+
+			force := true
+			executedErr := r.Patch(ctx, &unstructuredObj, runtimeclient.Apply, &runtimeclient.PatchOptions{
+				Force:        &force,
+				FieldManager: FieldManager,
+			})
+
+			if executedErr != nil {
+				return "", fmt.Errorf("failed to patch %s: [%v]", MachineDeployment, err)
+			}
+
+			break
+		case VCDMachineTemplate:
+			specMap, err := testingsdk.GetMapBySpecName(unstructuredObj.Object, "spec", "VCDMachineTemplate")
+			if err != nil {
+				return "", fmt.Errorf("error converting %s.spec to map: [%v]", VCDMachineTemplate, err)
+			}
+			templateMap, err := testingsdk.GetMapBySpecName(specMap, "template", "VCDMachineTemplate.spec")
+			if err != nil {
+				return "", fmt.Errorf("error converting %s.spec.template to map: [%v]", VCDMachineTemplate, err)
+			}
+			specMap2, err := testingsdk.GetMapBySpecName(templateMap, "spec", "VCDMachineTemplate.spec.template")
+			if err != nil {
+				return "", fmt.Errorf("error converting %s.spec.template.spec to map: [%v]", VCDMachineTemplate, err)
+			}
+
+			specMap2["catalog"] = vappTemplate.CatalogName
+			specMap2["template"] = vappTemplate.Name
+
+			force := true
+			executedErr := r.Patch(ctx, &unstructuredObj, runtimeclient.Apply, &runtimeclient.PatchOptions{
+				Force:        &force,
+				FieldManager: FieldManager,
+			})
+
+			if executedErr != nil {
+				return "", fmt.Errorf("failed to patch %s: [%v]", VCDMachineTemplate, err)
+			}
+			break
+		}
+	}
+
+	return k8sVersion, nil
+}
+
+// UpgradeCluster performs all the necessary steps and calls the required functions to upgrade the current cluster.
+// It takes the following parameters:
+// - ctx: the context for the operation
+// - r: the runtime client used to access the cluster using common testing core
+// - capiYaml: the current capiyaml
+// - currK8sVersion: the cluster's current Kubernetes version
+// - targetK8sVersion: the target Kubernetes version for the upgrade
+// - targetTkgVersion: the target Tanzu Kubernetes Grid (TKG) version for the upgrade
+// - tkgMap: tkg_map.json marshalled into map[string]interface{}
+// - allVappTemplates: a list of vApp Templates installed in each catalog in the current organization
+//
+// The function returns the following values:
+// - string: the updated capiyaml (for stringing operations, if necessary)
+// - error: nil if there is no error, otherwise the encountered error
+func UpgradeCluster(ctx context.Context, r runtimeclient.Client, capiYaml, currK8sVersion, targetK8sVersion, targetTkgVersion string, tkgMap map[string]interface{}, allVappTemplates []*types.QueryResultVappTemplateType) (string, error) {
 
 	currTkgVersion, err := getTkgVersionFromTKGMap(currK8sVersion, tkgMap)
 	if err != nil {
-		return "", "", fmt.Errorf("error retrieving TKG version from capiyaml: [%v]", err)
+		return "", fmt.Errorf("error retrieving TKG version from capiyaml: [%v]", err)
 	}
 
 	supportedUpgrades, err := getSupportedUpgrades(currK8sVersion, currTkgVersion, tkgMap)
 	if err != nil {
-		return "", "", fmt.Errorf("error getting supported upgrades for [%s]: [%v]", currK8sVersion, err)
+		return "", fmt.Errorf("error getting supported upgrades for [%s]: [%v]", currK8sVersion, err)
 	}
 	tkgMapKey, vappTemplate, err := getRDEUpgradeResources(supportedUpgrades, allVappTemplates, targetK8sVersion, targetTkgVersion)
 	if err != nil {
-		return "", "", fmt.Errorf("error getting resources for modifying RDE to upgraded state: [%v]", err)
+		return "", fmt.Errorf("error getting resources for modifying RDE to upgraded state: [%v]", err)
 	}
 
-	newCapiYaml, updatedK8sVersion, err := getCapiYamlAfterUpgrade(originalCapiYaml, tkgMapKey, tkgMap, vappTemplate)
+	updatedK8sVersion, err := getCapiYamlAfterUpgrade(ctx, r, capiYaml, tkgMapKey, tkgMap, vappTemplate)
 	if err != nil {
-		return "", "", fmt.Errorf("error constructing new capiyaml: [%v]", err)
+		return "", fmt.Errorf("error constructing new capiyaml: [%v]", err)
 	}
 
-	err = replaceCapiYamlInRDE(testClient, newCapiYaml, clusterOrg)
-	if err != nil {
-		return newCapiYaml, updatedK8sVersion, fmt.Errorf("error replacing capiyaml in RDE in VCD: [%v]", err)
-	}
+	return updatedK8sVersion, nil
+}
 
-	return newCapiYaml, updatedK8sVersion, nil
+// MonitorK8sUpgrade polls the current cluster, checking if all nodes have been upgraded to a specified
+// k8s version and then if all machines have reached running phase.
+// @param testClient - test client needed to access the cluster using common testing core
+// @param runtimeClient - k8s client needed to check if machines have reached running phase
+// @param targetK8sVersion - the specified k8s version that we are checking for the nodes to be upgraded to
+// @return error - null if there is no error, the error otherwise
+func MonitorK8sUpgrade(
+	testClient *testingsdk.TestClient, runtimeClient runtimeclient.Client, targetK8sVersion string,
+) error {
+	timeout := timeoutMinutes * time.Minute
+	pollInterval := pollIntervalSeconds * time.Second
+
+	return wait.PollImmediate(pollInterval, timeout, func() (bool, error) {
+		// getting all nodes
+		nodeList, err := testClient.GetNodes(context.Background())
+		if err != nil {
+			// when control plane is updating, we will get an error saying
+			// "etcdserver request timeout" or
+			// "etcdserver: leader changed" or
+			// "the server was unable to return a response in the time allotted"
+			// these are normal, so we have to count them as a retryable error
+			if testingsdk.IsRetryableError(err) || strings.Contains(err.Error(), etcdServerRequestTimeoutErr) || strings.Contains(err.Error(), etcdServerLeaderChangedErr) || strings.Contains(err.Error(), serverTimeoutError) {
+				fmt.Printf("RETRYABLE ERROR - error getting nodes: [%v]\n", err)
+				fmt.Println("retrying monitor")
+				return false, nil
+			} else {
+				return true, fmt.Errorf("UNRETRYABLE ERROR - error getting nodes [%v]", err)
+			}
+		}
+
+		// checking for kubelet version for each node to reflect k8s version
+		for _, node := range nodeList {
+			nodeK8sVersion := node.Status.NodeInfo.KubeletVersion
+			if nodeK8sVersion != targetK8sVersion {
+				fmt.Printf(
+					"[%s] does not match target k8s version %s in node %s\n", nodeK8sVersion, targetK8sVersion, node.Name,
+				)
+				fmt.Println("retrying monitor")
+				return false, nil
+			}
+		}
+		fmt.Println("k8sVersions Match!")
+
+		// checking for all machines to reach running phase
+		machineList := &clusterv1beta1.MachineList{}
+		err = runtimeClient.List(context.Background(), machineList)
+		if err != nil {
+			return true, fmt.Errorf("error getting machine list [%v]", err)
+		}
+
+		for _, machine := range machineList.Items {
+			if machine.Status.Phase != machinePhaseRunning {
+				fmt.Printf("machine %s : phase: %s\n", machine.Name, machine.Status.Phase)
+				fmt.Println("retrying monitor")
+				return false, nil
+			}
+		}
+
+		fmt.Println("all machines in running phase!")
+
+		return true, nil
+	})
 }
