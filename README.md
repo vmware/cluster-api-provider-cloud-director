@@ -41,8 +41,8 @@ TKG versions:
 | CAPVCD v1alpha4 (v0.5.x) | 1.4.0, 1.3.1                         |
 
 TKG versions 2.2.0, 2.1.1, 1.6.1*: CAPVCD needs to be upgraded to at least 1.0.2 to support workload cluster creations 
-greater than or equal to TKG 1.6.1. This is also applicable for upgrading existing clusters of TKG versions less than or 
-equal to 1.5.4 to TKG versions greater than or equal to 1.6.1
+greater than or equal to TKG 1.6.1. This is also applicable for upgrading existing clusters (of TKG versions less than or 
+equal to 1.5.4) to TKG versions greater than or equal to 1.6.1
 
 ## Troubleshooting
 [Collect CAPI log bundle for Cloud Director](https://github.com/vmware/cluster-api-provider-cloud-director/tree/main/scripts).
