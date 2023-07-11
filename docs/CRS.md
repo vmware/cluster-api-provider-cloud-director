@@ -7,7 +7,7 @@ Initialize the management cluster via [clusterctl](CLUSTERCTL.md)
 
 <a name="apply_crs"></a>
 ## Apply CRS definitions on the (parent) management cluster
-To install CRS components on the management cluster, in CAPVCD repo, copy the contents of  [templates](https://github.com/vmware/cluster-api-provider-cloud-director/tree/1.1.z/templates/crs) 
+To install CRS components on the management cluster, in CAPVCD repo, copy the contents of  [templates](https://github.com/vmware/cluster-api-provider-cloud-director/tree/main/templates/crs) 
 to the management cluster at `~/infrastructure-vcd/v1.1.0/`
 1. Apply CNI (Antrea) CRS definitions:
    - Run `cd ~/infrastructure-vcd/v1.1.0/crs/cni`
