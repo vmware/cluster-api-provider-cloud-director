@@ -24,10 +24,10 @@ Note: The Kubernetes versions mentioned are what we have qualified with.
 
 Cluster API versions:
 
-|                         | v1alpha4 (v1.0) | v1beta1 (v1.4) |
-|-------------------------| --------------  |----------------|
-| CAPVCD v1beta1 (main)   |     ✓           | ✓              |
-| CAPVCD v1beta1 (v1.0)   |     ✓           | ✓              |
+|                          | v1alpha4 (v1.0) | v1beta1 (v1.4) |
+|--------------------------| --------------  |----------------|
+| CAPVCD v1beta2 (main)    |     ✓           | ✓              |
+| CAPVCD v1beta1 (v1.0)    |     ✓           | ✓              |
 | CAPVCD v1alpha4 (v0.5.x) |     ✓           | Not supported  |
 
 TKG versions:
