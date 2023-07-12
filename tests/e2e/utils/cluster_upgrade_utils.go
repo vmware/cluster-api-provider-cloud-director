@@ -65,6 +65,16 @@ func getTkgVersionFromTKGMap(currK8sVersion string, tkgMap map[string]interface{
 // @param currK8sVersion - the cluster's current k8s version
 // @param currTkgVersion - the cluster's current tkg version
 // @param tkgMap - tkg_map.json, but marshalled into map[string]interface{}
+// example:
+// key: "v1.24.11+vmware.1-tkg.1-2ccb2a001f8bd8f15f1bfbc811071830"
+//
+//	map: {
+//	   "tkg": ["v2.2.0"],
+//	   "tkr": "v1.24.11---vmware.1-tkg.1",
+//	   "etcd": "v3.5.6_vmware.10",
+//	   "coreDns": "v1.8.6_vmware.18"
+//	 }
+//
 // @return map[string]interface{} - map of all possible upgrade paths; it is a subset of tkgMap
 // @return error - null if there is no error, the error otherwise
 func getSupportedUpgrades(currK8sVersion string, currTkgVersion string, tkgMap map[string]interface{}) (map[string]interface{}, error) {
@@ -147,14 +157,14 @@ func getSupportedUpgrades(currK8sVersion string, currTkgVersion string, tkgMap m
 			)
 		}
 
-		tkgVersionIsGreater, err := isGreaterThanOrEqual(tkgVersionStr, currTkgVersion)
+		TkgVersionCompatible, err := isGreaterThanOrEqual(tkgVersionStr, currTkgVersion)
 		if err != nil {
 			return nil, fmt.Errorf(
 				"error running isGreaterThanOrEqual in %s and %s: [%v]", tkgVersionStr, currTkgVersion, err,
 			)
 		}
 
-		if k8sUpgradeable && tkgVersionIsGreater {
+		if k8sUpgradeable && TkgVersionCompatible {
 			supportedUpgrades[k] = v
 		}
 	}
@@ -165,6 +175,7 @@ func getSupportedUpgrades(currK8sVersion string, currTkgVersion string, tkgMap m
 // looking for a tkgOVA that matches one of the supported upgrade paths. When one is found, the resources
 // needed to modify the capiyaml for a proper upgrade are returned.
 // @param supportedUpgrades - a subset of tkg_map.json with all possible upgrade paths for the current cluster
+// v1.24.11+vmware.1-tkg.1-2ccb2a001f8bd8f15f1bfbc811071830: {    "tkg": ["v2.2.0"], "tkr": "v1.24.11---vmware.1-tkg.1", "etcd": "v3.5.6_vmware.10", "coreDns": "v1.8.6_vmware.18" }
 // @param allVappTemplates - a list of every vApp template installed in every catalog in the current org
 // @return string - key for the valid upgrade path in tkg_map.json. When modifying the capiyaml
 // When modifying the capiyaml, we must have access to this key's values
@@ -173,8 +184,11 @@ func getSupportedUpgrades(currK8sVersion string, currTkgVersion string, tkgMap m
 // @return error - null if there is no error, the error otherwise
 // [tkgVersion, k8sVersion]
 func getRDEUpgradeResources(supportedUpgrades map[string]interface{}, allVappTemplates []*types.QueryResultVappTemplateType, targetK8sVersion, targetTkgVersion string) (string, *types.QueryResultVappTemplateType, error) {
-	// Create a map to store the tkgOva data based on the k8s version
+	// key-value pair (k8sVersion: tkgOvaInformation)
+	// v1.24.11 : {    "tkg": ["v2.2.0"], "tkr": "v1.24.11---vmware.1-tkg.1", "etcd": "v3.5.6_vmware.10", "coreDns": "v1.8.6_vmware.18" }
 	tkgOvaMap := make(map[string]map[string]interface{})
+	// key-value pair (k8sVersion: tkgOvaName):
+	// v1.24.11 : v1.24.11+vmware.1-tkg.1-2ccb2a001f8bd8f15f1bfbc811071830
 	ovaNameMap := make(map[string]string)
 	for k, v := range supportedUpgrades {
 		tkgOva, ok := v.(map[string]interface{})
@@ -237,7 +251,7 @@ func extractK8sVersionFromVappTemplateName(templateName string) string {
 	return parts[1]
 }
 
-// getCapiYamlAfterUpgrade returns a new capiyaml with the target state that the cluster should have
+// ApplyK8sVersionUpgrade returns a new capiyaml with the target state that the cluster should have
 // after upgrading to the specified TKG and Kubernetes version.
 //
 // Parameters:
@@ -249,7 +263,7 @@ func extractK8sVersionFromVappTemplateName(templateName string) string {
 // Returns:
 // - string: The Kubernetes version that the cluster is being upgraded to.
 // - error: nil if there is no error, otherwise the encountered error.
-func getCapiYamlAfterUpgrade(ctx context.Context, r runtimeclient.Client, capiYaml string, tkgMapKey string, tkgMap map[string]interface{}, vappTemplate *types.QueryResultVappTemplateType) (string, error) {
+func ApplyK8sVersionUpgrade(ctx context.Context, r runtimeclient.Client, capiYaml string, tkgMapKey string, tkgMap map[string]interface{}, vappTemplate *types.QueryResultVappTemplateType) (string, error) {
 	// processing all upgrade data from parameters that needs to be injected into capiyaml
 	k8sVersion := strings.Split(tkgMapKey, "-")[0]
 
@@ -422,9 +436,9 @@ func UpgradeCluster(ctx context.Context, r runtimeclient.Client, capiYaml, currK
 
 	currTkgVersion, err := getTkgVersionFromTKGMap(currK8sVersion, tkgMap)
 	if err != nil {
-		return "", fmt.Errorf("error retrieving TKG version from capiyaml: [%v]", err)
+		return "", fmt.Errorf("error retrieving TKG version for a given k8s version [%s] from the tkgmap: [%v]", currK8sVersion, err)
 	}
-
+	//Todo: getTKGInfoForAGivenK8sAndTKGVersion // get all the tkg details for a given K8s and tkg version; parses through entire tkg json and outputs the map (tkg details)
 	supportedUpgrades, err := getSupportedUpgrades(currK8sVersion, currTkgVersion, tkgMap)
 	if err != nil {
 		return "", fmt.Errorf("error getting supported upgrades for [%s]: [%v]", currK8sVersion, err)
@@ -434,9 +448,9 @@ func UpgradeCluster(ctx context.Context, r runtimeclient.Client, capiYaml, currK
 		return "", fmt.Errorf("error getting resources for modifying RDE to upgraded state: [%v]", err)
 	}
 
-	updatedK8sVersion, err := getCapiYamlAfterUpgrade(ctx, r, capiYaml, tkgMapKey, tkgMap, vappTemplate)
+	updatedK8sVersion, err := ApplyK8sVersionUpgrade(ctx, r, capiYaml, tkgMapKey, tkgMap, vappTemplate)
 	if err != nil {
-		return "", fmt.Errorf("error constructing new capiyaml: [%v]", err)
+		return "", fmt.Errorf("error applying the modified objects of KCP, MD, VCDMachineTemplate for upgrade operation: [%v]", err)
 	}
 
 	return updatedK8sVersion, nil
@@ -451,11 +465,12 @@ func UpgradeCluster(ctx context.Context, r runtimeclient.Client, capiYaml, currK
 func MonitorK8sUpgrade(
 	testClient *testingsdk.TestClient, runtimeClient runtimeclient.Client, targetK8sVersion string,
 ) error {
+	// timeout: 40 minutes; pollInterval: 2 minutes
 	timeout := timeoutMinutes * time.Minute
 	pollInterval := pollIntervalSeconds * time.Second
 
 	return wait.PollImmediate(pollInterval, timeout, func() (bool, error) {
-		// getting all nodes
+		// getting all nodes TODO: refract the code post 4.1 GA
 		nodeList, err := testClient.GetNodes(context.Background())
 		if err != nil {
 			// when control plane is updating, we will get an error saying
