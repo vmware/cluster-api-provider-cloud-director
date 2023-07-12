@@ -65,17 +65,9 @@ func getTkgVersionFromTKGMap(currK8sVersion string, tkgMap map[string]interface{
 // @param currK8sVersion - the cluster's current k8s version
 // @param currTkgVersion - the cluster's current tkg version
 // @param tkgMap - tkg_map.json, but marshalled into map[string]interface{}
-// example:
-// key: "v1.24.11+vmware.1-tkg.1-2ccb2a001f8bd8f15f1bfbc811071830"
-//
-//	map: {
-//	   "tkg": ["v2.2.0"],
-//	   "tkr": "v1.24.11---vmware.1-tkg.1",
-//	   "etcd": "v3.5.6_vmware.10",
-//	   "coreDns": "v1.8.6_vmware.18"
-//	 }
-//
 // @return map[string]interface{} - map of all possible upgrade paths; it is a subset of tkgMap
+// example ----- key: "v1.24.11+vmware.1-tkg.1-2ccb2a001f8bd8f15f1bfbc811071830" value: {
+// "tkg": ["v2.2.0"], "tkr": "v1.24.11---vmware.1-tkg.1", "etcd": "v3.5.6_vmware.10", "coreDns": "v1.8.6_vmware.18" }
 // @return error - null if there is no error, the error otherwise
 func getSupportedUpgrades(currK8sVersion string, currTkgVersion string, tkgMap map[string]interface{}) (map[string]interface{}, error) {
 	// for comparing k8s versions
