@@ -1,7 +1,8 @@
-CONTROLLER_GEN_VERSION := 0.8.0
+CONTROLLER_GEN_VERSION := 0.4.1
 CONVERSION_GEN_VERSION := 0.23.1
 LINT_VERSION := 1.51.2
 GOSEC_VERSION := "v2.16.0"
+KUSTOMIZE_VERSION := 4.5.7
 
 GOLANGCI_EXIT_CODE ?= 1
 # Produce CRDs that work back to Kubernetes 1.11 (no version conversion)
@@ -251,7 +252,10 @@ bin/testbin:
 $(KUSTOMIZE): bin
 	@cd bin && \
 		set -ex -o pipefail && \
-		wget -q -O - "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh" | bash;
+		wget "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh"; \
+		chmod +x ./install_kustomize.sh; \
+		./install_kustomize.sh $(KUSTOMIZE_VERSION) .; \
+		rm -f ./install_kustomize.sh;
 
 $(CONTROLLER_GEN): bin
 	@GOBIN=$(GITROOT)/bin go install sigs.k8s.io/controller-tools/cmd/controller-gen@v${CONTROLLER_GEN_VERSION}
