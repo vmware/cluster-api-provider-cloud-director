@@ -430,7 +430,7 @@ func UpgradeCluster(ctx context.Context, r runtimeclient.Client, capiYaml, currK
 	if err != nil {
 		return "", fmt.Errorf("error retrieving TKG version for a given k8s version [%s] from the tkgmap: [%v]", currK8sVersion, err)
 	}
-	//Todo: getTKGInfoForAGivenK8sAndTKGVersion // get all the tkg details for a given K8s and tkg version; parses through entire tkg json and outputs the map (tkg details)
+	//Todo: CAFV-297 getTKGInfoForAGivenK8sAndTKGVersion // get all the tkg details for a given K8s and tkg version; parses through entire tkg json and outputs the map (tkg details)
 	supportedUpgrades, err := getSupportedUpgrades(currK8sVersion, currTkgVersion, tkgMap)
 	if err != nil {
 		return "", fmt.Errorf("error getting supported upgrades for [%s]: [%v]", currK8sVersion, err)
@@ -462,7 +462,7 @@ func MonitorK8sUpgrade(
 	pollInterval := pollIntervalSeconds * time.Second
 
 	return wait.PollImmediate(pollInterval, timeout, func() (bool, error) {
-		// getting all nodes TODO: refract the code post 4.1 GA
+		// getting all nodes TODO CAFV-297: refract the code post 4.1 GA
 		nodeList, err := testClient.GetNodes(context.Background())
 		if err != nil {
 			// when control plane is updating, we will get an error saying
