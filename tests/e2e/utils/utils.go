@@ -6,15 +6,20 @@ import (
 )
 
 const (
-	timeoutMinutes           = 40
-	pollIntervalSeconds      = 120
-	machinePhaseProvisioned  = "Provisioned"
-	machinePhaseProvisioning = "Provisioning"
-	machinePhaseRunning      = "Running"
-	VCDCluster               = "VCDCluster"
-	Cluster                  = "Cluster"
-	SECRET                   = "Secret"
-	MachineDeployment        = "MachineDeployment"
+	timeoutMinutes              = 40
+	pollIntervalSeconds         = 120
+	machinePhaseProvisioned     = "Provisioned"
+	machinePhaseProvisioning    = "Provisioning"
+	machinePhaseRunning         = "Running"
+	VCDCluster                  = "VCDCluster"
+	MachineDeployment           = "MachineDeployment"
+	Cluster                     = "Cluster"
+	KubeadmControlPlane         = "KubeadmControlPlane"
+	VCDMachineTemplate          = "VCDMachineTemplate"
+	SECRET                      = "Secret"
+	etcdServerRequestTimeoutErr = "etcdserver: request timed out"
+	etcdServerLeaderChangedErr  = "etcdserver: leader changed"
+	serverTimeoutError          = "the server was unable to return a response in the time allotted"
 )
 
 type ConfigMapInput struct {
