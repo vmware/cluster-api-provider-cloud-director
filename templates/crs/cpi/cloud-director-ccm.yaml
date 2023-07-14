@@ -154,7 +154,7 @@ spec:
         fsGroup: 2000
       containers:
         - name: vmware-cloud-director-ccm
-          image: harbor-repo.vmware.com/vcloud/cloud-provider-for-cloud-director:main-branch.8946fef
+          image: projects.registry.vmware.com/vmware-cloud-director/cloud-provider-for-cloud-director:1.4.0
           imagePullPolicy: IfNotPresent
           command:
             - /opt/vcloud/bin/cloud-provider-for-cloud-director
@@ -180,13 +180,15 @@ spec:
           operator: "Exists"
         - key: node-role.kubernetes.io/master
           effect: NoSchedule
+        - key: node-role.kubernetes.io/control-plane
+          effect: NoSchedule
       affinity:
         nodeAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
             nodeSelectorTerms:
               - matchExpressions:
-                - key: node-role.kubernetes.io/master
-                  operator: "Exists"
+                  - key: node-role.kubernetes.io/control-plane
+                    operator: "Exists"
       volumes:
         - name: vcloud-ccm-config-volume
           configMap:
