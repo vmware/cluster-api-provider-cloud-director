@@ -24,7 +24,7 @@ Install [clusterctl](https://cluster-api.sigs.k8s.io/user/quick-start.html#insta
 <a name="generate_cluster_manifest"></a>
 ## Generate cluster manifests for workload cluster
 
-1. Copy [clusterctl.yaml](https://github.com/vmware/cluster-api-provider-cloud-director/blob/1.1.0/templates/clusterctl.yaml) to `~/.cluster-api/clusterctl.yaml` 
+1. Copy [clusterctl.yaml](https://github.com/vmware/cluster-api-provider-cloud-director/blob/1.1.z/templates/clusterctl.yaml) to `~/.cluster-api/clusterctl.yaml` 
 2. Fill out the values for the environment variables in `~/.cluster-api/clusterctl.yaml`.
    - One of the variables is RefreshToken. Refer to [How to create refreshToken (or) API token in Cloud Director](https://docs.vmware.com/en/VMware-Cloud-Director/10.3/VMware-Cloud-Director-Tenant-Portal-Guide/GUID-A1B3B2FA-7B2C-4EE1-9D1B-188BE703EEDE.html).
    - Refer to the [script to get Kubernetes, etcd, coredns versions from TKG OVA](WORKLOAD_CLUSTER.md#tkgm_bom) to fill in few variables. Note that you may skip filling
