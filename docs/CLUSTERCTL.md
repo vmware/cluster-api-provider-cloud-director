@@ -14,21 +14,6 @@ The compatible versions of Core CAPI / clusterctl and CAPVCD are listed in the t
 ## Set up
 Install [clusterctl](https://cluster-api.sigs.k8s.io/user/quick-start.html#install-clusterctl) according to the [version interop table](#version-interop).
 
-The below manual steps are required to enable clusterctl for CAPVCD `1.1.0`.
-
-1. Create a folder structure `~/infrastructure-vcd/v1.1.0/`
-2. Copy the contents of [templates directory](https://github.com/vmware/cluster-api-provider-cloud-director/tree/1.1.0/templates) to `~/infrastructure-vcd/v1.1.0/`
-3. Copy [metadata.yaml](https://github.com/vmware/cluster-api-provider-cloud-director/tree/1.1.0/metadata.yaml) to `~/infrastructure-vcd/v1.1.0/`
-4. Copy [clusterctl.yaml](https://github.com/vmware/cluster-api-provider-cloud-director/blob/1.1.0/templates/clusterctl.yaml) to `~/.cluster-api/clusterctl.yaml`
-5. Copy [infrastructure-components.yaml](https://github.com/vmware/cluster-api-provider-cloud-director/blob/1.1.0/templates/infrastructure-components.yaml) to `~/infrastructure-vcd/v1.1.0/`
-6. Update the `providers.url` in `~/.cluster-api/clusterctl.yaml` to `~/infrastructure-vcd/v1.1.0/infrastructure-components.yaml`
-```yaml
-providers:
-  - name: "vcd"
-    url: "~/infrastructure-vcd/v1.1.0/infrastructure-components.yaml"
-    type: "InfrastructureProvider"
-```
-
 <a name="init_management_cluster"></a>
 ## Initialize Management cluster
 1. Run the below command to initialize the management cluster with the Cluster API and the associated provider for VMware Cloud Director. Ensure the version interop between CAPVCD, Core CAPI, and Clusterctl are correct from the [interop version table](#version-interop)
@@ -39,7 +24,8 @@ providers:
 <a name="generate_cluster_manifest"></a>
 ## Generate cluster manifests for workload cluster
 
-1. Fill out the values for the environment variables in `~/.cluster-api/clusterctl.yaml`. 
+1. Copy [clusterctl.yaml](https://github.com/vmware/cluster-api-provider-cloud-director/blob/1.1.z/templates/clusterctl.yaml) to `~/.cluster-api/clusterctl.yaml` 
+2. Fill out the values for the environment variables in `~/.cluster-api/clusterctl.yaml`.
    - One of the variables is RefreshToken. Refer to [How to create refreshToken (or) API token in Cloud Director](https://docs.vmware.com/en/VMware-Cloud-Director/10.3/VMware-Cloud-Director-Tenant-Portal-Guide/GUID-A1B3B2FA-7B2C-4EE1-9D1B-188BE703EEDE.html).
    - Refer to the [script to get Kubernetes, etcd, coredns versions from TKG OVA](WORKLOAD_CLUSTER.md#tkgm_bom) to fill in few variables. Note that you may skip filling
      in few of these variables if you decide to use the existing [clusterctl template flavors](#template_flavors).
