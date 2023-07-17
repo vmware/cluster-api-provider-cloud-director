@@ -7,8 +7,8 @@
 # clusterctl generate cluster demo -i vcd:v1.0.0 -f v1.20.8
 
 LatestRelease:
-  URL: https://github.com/kubernetes-sigs/cluster-api/releases/tag/v1.0.2
-  Version: v1.0.2
+  URL: https://github.com/kubernetes-sigs/cluster-api/releases/tag/v1.4.0
+  Version: v1.4.0
 cert-manager:
   url: "https://github.com/cert-manager/cert-manager/releases/latest/cert-manager.yaml"
 providers:
@@ -19,7 +19,7 @@ providers:
 # a fully functional folder will look similar to below:
 # {basepath}/infrastructure-vcd/v1.0.0/infrastructure-components.yaml, clusterctl-template.yaml, clusterctl-template-v1.20.8.yaml
   - name: "vcd"
-    url: "~/go/cluster-api-provider-cloud-director/infrastructure-vcd/v1.0.0/infrastructure-components.yaml"
+    url: "~/go/cluster-api-provider-cloud-director/infrastructure-vcd/v1.1.0/infrastructure-components.yaml"
     type: "InfrastructureProvider"
 
 
