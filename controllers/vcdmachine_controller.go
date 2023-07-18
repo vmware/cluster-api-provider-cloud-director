@@ -517,7 +517,7 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	cloudInit := string(mergedCloudInitBytes)
 
 	// nothing is redacted in the cloud init script - please ensure no secrets are present
-	log.Info(fmt.Sprintf("Cloud init Script: [%s]", cloudInit))
+	log.V(2).Info(fmt.Sprintf("Cloud init Script: [%s]", cloudInit))
 	err = capvcdRdeManager.AddToEventSet(ctx, capisdk.CloudInitScriptGenerated, "", machine.Name, "", skipRDEEventUpdates)
 	if err != nil {
 		log.Error(err, "failed to add CloudInitScriptGenerated event into RDE", "rdeID", vcdCluster.Status.InfraId)
@@ -1069,7 +1069,7 @@ func (r *VCDMachineReconciler) getBootstrapData(ctx context.Context, machine *cl
 		return "", errors.New("error retrieving bootstrap data: secret value key is missing")
 	}
 
-	log.Info(fmt.Sprintf("Auto-generated bootstrap script: [%s]", string(value)))
+	log.V(2).Info(fmt.Sprintf("Auto-generated bootstrap script: [%s]", string(value)))
 
 	return string(value), nil
 }
