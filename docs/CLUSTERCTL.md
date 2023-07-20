@@ -14,20 +14,6 @@ The compatible versions of Core CAPI / clusterctl and CAPVCD are listed in the t
 ## Set up
 Install [clusterctl](https://cluster-api.sigs.k8s.io/user/quick-start.html#install-clusterctl) according to the [version interop table](#version-interop).
 
-The below manual steps are required to enable clusterctl for CAPVCD `main`.
-1. Create a folder structure `~/infrastructure-vcd/v1.1.0/`
-2. Copy the contents of [templates directory](https://github.com/vmware/cluster-api-provider-cloud-director/tree/main/templates) to `~/infrastructure-vcd/v1.1.0/`
-3. Copy [metadata.yaml](https://github.com/vmware/cluster-api-provider-cloud-director/tree/main/metadata.yaml) to `~/infrastructure-vcd/v1.1.0/`
-4. Copy [clusterctl.yaml](https://github.com/vmware/cluster-api-provider-cloud-director/blob/main/templates/clusterctl.yaml) to `~/.cluster-api/clusterctl.yaml`
-5. Copy [infrastructure-components.yaml](https://github.com/vmware/cluster-api-provider-cloud-director/blob/main/templates/infrastructure-components.yaml) to `~/infrastructure-vcd/v1.1.0/`
-6. Update the `providers.url` in `~/.cluster-api/clusterctl.yaml` to `~/infrastructure-vcd/v1.1.0/infrastructure-components.yaml`
-```yaml
-providers:
-  - name: "vcd"
-    url: "~/infrastructure-vcd/v1.1.0/infrastructure-components.yaml"
-    type: "InfrastructureProvider"
-```
-
 <a name="init_management_cluster"></a>
 ## Initialize Management cluster
 1. Run the below command to initialize the management cluster with the Cluster API and the associated provider for VMware Cloud Director. Ensure the version interop between CAPVCD, Core CAPI, and Clusterctl are correct from the [interop version table](#version-interop)
