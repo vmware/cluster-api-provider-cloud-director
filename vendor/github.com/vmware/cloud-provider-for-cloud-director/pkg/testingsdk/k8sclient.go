@@ -21,14 +21,14 @@ var (
 	ResourceNameNull            = errors.New("[RNN] resource name is null")
 	ControlPlaneLabel           = "node-role.kubernetes.io/control-plane"
 	defaultRetryInterval        = 10 * time.Second
-	defaultRetryTimeout         = 160 * time.Second
+	defaultRetryTimeout         = 600 * time.Second
 	defaultLongRetryInterval    = 20 * time.Second
-	defaultLongRetryTimeout     = 300 * time.Second
+	defaultLongRetryTimeout     = 900 * time.Second
 	defaultNodeInterval         = 2 * time.Second
 	defaultNodeReadyTimeout     = 20 * time.Minute
 	defaultNodeNotReadyTimeout  = 8 * time.Minute
 	defaultServiceRetryInterval = 10 * time.Second
-	defaultServiceRetryTimeout  = 5 * time.Minute
+	defaultServiceRetryTimeout  = 10 * time.Minute
 )
 
 func waitForServiceExposure(cs kubernetes.Interface, namespace string, name string) (*apiv1.Service, error) {
@@ -189,7 +189,8 @@ func getService(ctx context.Context, k8sClient *kubernetes.Clientset, nameSpace 
 
 func getWorkerNodes(ctx context.Context, k8sClient *kubernetes.Clientset) ([]apiv1.Node, error) {
 	var workerNodes []apiv1.Node
-	nodes, err := k8sClient.CoreV1().Nodes().List(ctx, metav1.ListOptions{})
+	var timeoutSeconds int64 = 600
+	nodes, err := k8sClient.CoreV1().Nodes().List(ctx, metav1.ListOptions{TimeoutSeconds: &timeoutSeconds})
 	if err != nil {
 		return workerNodes, fmt.Errorf("error occurred while getting nodes: [%v]", err)
 	}
@@ -204,7 +205,8 @@ func getWorkerNodes(ctx context.Context, k8sClient *kubernetes.Clientset) ([]api
 
 func getNodes(ctx context.Context, k8sClient *kubernetes.Clientset) ([]apiv1.Node, error) {
 	var allNodes []apiv1.Node
-	nodes, err := k8sClient.CoreV1().Nodes().List(ctx, metav1.ListOptions{})
+	var timeoutSeconds int64 = 600
+	nodes, err := k8sClient.CoreV1().Nodes().List(ctx, metav1.ListOptions{TimeoutSeconds: &timeoutSeconds})
 	if err != nil {
 		return allNodes, fmt.Errorf("error occurred while getting nodes: [%v]", err)
 	}
