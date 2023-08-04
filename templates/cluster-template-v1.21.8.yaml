@@ -80,9 +80,6 @@ spec:
         certSANs:
           - localhost
           - 127.0.0.1
-      controllerManager:
-        extraArgs:
-          enable-hostpath-provisioner: "true"
       dns:
         imageRepository: projects.registry.vmware.com/tkg # image repository to pull the DNS image from
         imageTag: v1.8.0_vmware.11 # DNS image tag associated with the TKGm OVA used. This dns version is associated with TKG OVA using Kubernetes version v1.21.8.
