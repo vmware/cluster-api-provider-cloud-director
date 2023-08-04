@@ -80,9 +80,6 @@ spec:
         certSANs:
           - localhost
           - 127.0.0.1
-      controllerManager:
-        extraArgs:
-          enable-hostpath-provisioner: "true"
       dns:
         imageRepository: projects.registry.vmware.com/tkg # image repository to pull the DNS image from
         imageTag: v1.7.0_vmware.12 # DNS image tag associated with the TKGm OVA used. The values must be retrieved from the TKGm ova BOM. Refer to the github documentation for more details
