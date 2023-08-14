@@ -14,10 +14,10 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// Package v1beta1 contains API Schema definitions for the infrastructure v1beta1 API group
+// Package v1beta3 contains API Schema definitions for the infrastructure v1beta3 API group
 // +kubebuilder:object:generate=true
 // +groupName=infrastructure.cluster.x-k8s.io
-package v1beta2
+package v1beta3
 
 import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -26,13 +26,11 @@ import (
 
 var (
 	// GroupVersion is group version used to register these objects
-	GroupVersion = schema.GroupVersion{Group: "infrastructure.cluster.x-k8s.io", Version: "v1beta1"}
+	GroupVersion = schema.GroupVersion{Group: "infrastructure.cluster.x-k8s.io", Version: "v1beta3"}
 
 	// SchemeBuilder is used to add go types to the GroupVersionKind scheme
 	SchemeBuilder = &scheme.Builder{GroupVersion: GroupVersion}
 
 	// AddToScheme adds the types in this group-version to the given scheme.
 	AddToScheme = SchemeBuilder.AddToScheme
-
-	localSchemeBuilder = SchemeBuilder.SchemeBuilder
 )

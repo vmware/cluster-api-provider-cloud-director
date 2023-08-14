@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v1beta2
+package v1beta3
 
 import (
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -129,6 +129,7 @@ type VCDMachineStatus struct {
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
+// +kubebuilder:storageversion
 // VCDMachine is the Schema for the vcdmachines API
 type VCDMachine struct {
 	metav1.TypeMeta   `json:",inline"`
