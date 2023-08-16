@@ -5,7 +5,7 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.4.1
-  creationTimestamp: null
+  creationTimestamp: "2006-01-02T15:04:05Z"
   name: vcdclusters.infrastructure.cluster.x-k8s.io
 spec:
   group: infrastructure.cluster.x-k8s.io
@@ -676,6 +676,34 @@ spec:
                   username:
                     type: string
                 type: object
+              zoneType:
+                type: string
+              zones:
+                items:
+                  description: 'Zone :'
+                  properties:
+                    controlPlaneZone:
+                      default: false
+                      type: boolean
+                    loadBalancerIP:
+                      type: string
+                    loadBalancerPort:
+                      type: integer
+                    name:
+                      type: string
+                    ovdcName:
+                      type: string
+                    ovdcNetworkName:
+                      type: string
+                  required:
+                  - controlPlaneZone
+                  - name
+                  - ovdcName
+                  - ovdcNetworkName
+                  type: object
+                type: array
+              zonesConfigMapName:
+                type: string
             required:
             - org
             - ovdc
@@ -731,6 +759,25 @@ spec:
                   - type
                   type: object
                 type: array
+              failureDomains:
+                additionalProperties:
+                  description: FailureDomainSpec is the Schema for Cluster API failure
+                    domains. It allows controllers to understand how many failure
+                    domains a cluster can optionally span across.
+                  properties:
+                    attributes:
+                      additionalProperties:
+                        type: string
+                      description: Attributes is a free form map of attributes an
+                        infrastructure provider might use or require.
+                      type: object
+                    controlPlane:
+                      description: ControlPlane determines if this failure domain
+                        is suitable for use by control plane machines.
+                      type: boolean
+                  type: object
+                description: FailureDomains is a slice of FailureDomains.
+                type: object
               infraId:
                 type: string
               loadBalancerConfig:

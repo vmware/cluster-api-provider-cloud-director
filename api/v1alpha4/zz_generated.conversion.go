@@ -338,6 +338,9 @@ func autoConvert_v1beta3_VCDClusterSpec_To_v1alpha4_VCDClusterSpec(in *v1beta3.V
 	// WARNING: in.UseAsManagementCluster requires manual conversion: does not exist in peer-type
 	// WARNING: in.ProxyConfigSpec requires manual conversion: does not exist in peer-type
 	// WARNING: in.LoadBalancerConfigSpec requires manual conversion: does not exist in peer-type
+	// WARNING: in.ZoneType requires manual conversion: does not exist in peer-type
+	// WARNING: in.Zones requires manual conversion: does not exist in peer-type
+	// WARNING: in.ZonesConfigMapName requires manual conversion: does not exist in peer-type
 	return nil
 }
 
@@ -368,6 +371,7 @@ func autoConvert_v1beta3_VCDClusterStatus_To_v1alpha4_VCDClusterStatus(in *v1bet
 	// WARNING: in.UseAsManagementCluster requires manual conversion: does not exist in peer-type
 	// WARNING: in.ProxyConfig requires manual conversion: does not exist in peer-type
 	// WARNING: in.LoadBalancerConfig requires manual conversion: does not exist in peer-type
+	// WARNING: in.FailureDomains requires manual conversion: does not exist in peer-type
 	return nil
 }
 
@@ -466,6 +470,7 @@ func autoConvert_v1beta3_VCDMachineSpec_To_v1alpha4_VCDMachineSpec(in *v1beta3.V
 	// WARNING: in.EnableNvidiaGPU requires manual conversion: does not exist in peer-type
 	// WARNING: in.ExtraOvdcNetworks requires manual conversion: does not exist in peer-type
 	// WARNING: in.VmNamingTemplate requires manual conversion: does not exist in peer-type
+	// WARNING: in.FailureDomain requires manual conversion: does not exist in peer-type
 	return nil
 }
 

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"github.com/pkg/errors"
 	"github.com/vmware/cloud-provider-for-cloud-director/pkg/vcdsdk"
-	infrav1 "github.com/vmware/cluster-api-provider-cloud-director/api/v1beta2"
+	infrav1beta3 "github.com/vmware/cluster-api-provider-cloud-director/api/v1beta3"
 	rdeType "github.com/vmware/cluster-api-provider-cloud-director/pkg/vcdtypes/rde_type_1_1_0"
 	"github.com/vmware/go-vcloud-director/v2/govcd"
 	"gopkg.in/yaml.v2"
@@ -187,26 +187,26 @@ func getOvdcByName(client *vcdsdk.Client, orgName string, ovdcName string) (*gov
 // Todo: Yan - Implement this function in the future
 // Insert vcdResource into vcdcluster.status.VcdResourceMap.
 // It should be the uniform function for all the types - org, ovdc, catalog, etc
-func insertVcdResourceIntoVcdCluster(vcdCluster *infrav1.VCDCluster, vcdResourceType string, resourceID string, resourceName string) error {
+func insertVcdResourceIntoVcdCluster(vcdCluster *infrav1beta3.VCDCluster, vcdResourceType string, resourceID string, resourceName string) error {
 	return nil
 }
 
 // Todo: Yan - Implement this function in the future
 // Insert vcdResource into vcdcluster.status.VcdResourceMap
 // It should be the uniform function for all the types - org, ovdc, catalog, etc
-func getVcdResourceFromVcdCluster(vcdCluster *infrav1.VCDCluster, vcdResourceType string) ([]infrav1.VCDResource, error) {
+func getVcdResourceFromVcdCluster(vcdCluster *infrav1beta3.VCDCluster, vcdResourceType string) ([]infrav1beta3.VCDResource, error) {
 	return nil, nil
 }
 
 // Todo: Yan - Implement this function in the future
 // Update the existing vcdResource into vcdcluster.status.VcdResourceMap.
 // It should be the uniform function for all the types - org, ovdc, catalog, etc
-func updateVcdResourceToVcdCluster(vcdCluster *infrav1.VCDCluster, vcdResourceType string, resourceID string, resourceName string) error {
+func updateVcdResourceToVcdCluster(vcdCluster *infrav1beta3.VCDCluster, vcdResourceType string, resourceID string, resourceName string) error {
 	switch vcdResourceType {
 	case ResourceTypeOvdc:
 		resourceList := vcdCluster.Status.VcdResourceMap.Ovdcs
 		if resourceList == nil {
-			resourceList = []infrav1.VCDResource{}
+			resourceList = []infrav1beta3.VCDResource{}
 		}
 		for i, resource := range resourceList {
 			if resource.ID == resourceID {
@@ -219,7 +219,7 @@ func updateVcdResourceToVcdCluster(vcdCluster *infrav1.VCDCluster, vcdResourceTy
 			}
 		}
 		// Resource not found, add it to the list
-		vcdCluster.Status.VcdResourceMap.Ovdcs = append(resourceList, infrav1.VCDResource{
+		vcdCluster.Status.VcdResourceMap.Ovdcs = append(resourceList, infrav1beta3.VCDResource{
 			ID:   resourceID,
 			Name: resourceName,
 		})
@@ -232,7 +232,7 @@ func updateVcdResourceToVcdCluster(vcdCluster *infrav1.VCDCluster, vcdResourceTy
 // Todo: Yan - Implement this function in the future
 // Remove vcdResource from vcdcluster.status.VcdResourceMap.
 // It should be the uniform function for all the types - org, ovdc, catalog, etc
-func removeVcdResourceFromVcdCluster(vcdCluster *infrav1.VCDCluster, vcdResourceType string, resourceID string) error {
+func removeVcdResourceFromVcdCluster(vcdCluster *infrav1beta3.VCDCluster, vcdResourceType string, resourceID string) error {
 	switch vcdResourceType {
 	case ResourceTypeOvdc:
 		resourceList := vcdCluster.Status.VcdResourceMap.Ovdcs
@@ -254,7 +254,7 @@ func removeVcdResourceFromVcdCluster(vcdCluster *infrav1.VCDCluster, vcdResource
 // Use the ovdcID to execute VCD API Call to get the ovdc in VCD.
 // compare the oldOvdcName and newOvdcName.
 // Return changed, vdc object, error.
-func checkIfOvdcNameChange(vcdCluster *infrav1.VCDCluster, client *vcdsdk.Client) (bool, *govcd.Vdc, error) {
+func checkIfOvdcNameChange(vcdCluster *infrav1beta3.VCDCluster, client *vcdsdk.Client) (bool, *govcd.Vdc, error) {
 	orgName := vcdCluster.Spec.Org
 	ovdcSpecName := vcdCluster.Spec.Ovdc
 
@@ -331,9 +331,9 @@ func getAllCRSBindingForCluster(ctx context.Context, cli client.Client,
 	return crsBindingList, nil
 }
 
-func getVCDMachineTemplateFromKCP(ctx context.Context, cli client.Client, kcp kcpv1.KubeadmControlPlane) (*infrav1.VCDMachineTemplate, error) {
+func getVCDMachineTemplateFromKCP(ctx context.Context, cli client.Client, kcp kcpv1.KubeadmControlPlane) (*infrav1beta3.VCDMachineTemplate, error) {
 	vcdMachineTemplateRef := kcp.Spec.MachineTemplate.InfrastructureRef
-	vcdMachineTemplate := &infrav1.VCDMachineTemplate{}
+	vcdMachineTemplate := &infrav1beta3.VCDMachineTemplate{}
 	vcdMachineTemplateKey := types.NamespacedName{
 		Namespace: vcdMachineTemplateRef.Namespace,
 		Name:      vcdMachineTemplateRef.Name,
@@ -345,9 +345,9 @@ func getVCDMachineTemplateFromKCP(ctx context.Context, cli client.Client, kcp kc
 	return vcdMachineTemplate, nil
 }
 
-func getVCDMachineTemplateFromMachineDeployment(ctx context.Context, cli client.Client, md clusterv1.MachineDeployment) (*infrav1.VCDMachineTemplate, error) {
+func getVCDMachineTemplateFromMachineDeployment(ctx context.Context, cli client.Client, md clusterv1.MachineDeployment) (*infrav1beta3.VCDMachineTemplate, error) {
 	vcdMachineTemplateRef := md.Spec.Template.Spec.InfrastructureRef
-	vcdMachineTemplate := &infrav1.VCDMachineTemplate{}
+	vcdMachineTemplate := &infrav1beta3.VCDMachineTemplate{}
 	vcdMachineTemplateKey := client.ObjectKey{
 		Namespace: vcdMachineTemplateRef.Namespace,
 		Name:      vcdMachineTemplateRef.Name,
@@ -368,8 +368,8 @@ func getMachineListFromCluster(ctx context.Context, cli client.Client, cluster c
 	return machineList, nil
 }
 
-func getVCDMachineTemplateByObjRef(ctx context.Context, cli client.Client, objRef v1.ObjectReference) (*infrav1.VCDMachineTemplate, error) {
-	vcdMachineTemplate := &infrav1.VCDMachineTemplate{}
+func getVCDMachineTemplateByObjRef(ctx context.Context, cli client.Client, objRef v1.ObjectReference) (*infrav1beta3.VCDMachineTemplate, error) {
+	vcdMachineTemplate := &infrav1beta3.VCDMachineTemplate{}
 	vcdMachineTemplateKey := client.ObjectKey{
 		Namespace: objRef.Namespace,
 		Name:      objRef.Name,
@@ -500,7 +500,7 @@ func getNodePoolList(ctx context.Context, cli client.Client, cluster clusterv1.C
 	return nodePoolList, nil
 }
 
-func getK8sClusterObjects(ctx context.Context, cli client.Client, cluster clusterv1.Cluster, vcdCluster infrav1.VCDCluster) ([]interface{}, error) {
+func getK8sClusterObjects(ctx context.Context, cli client.Client, cluster clusterv1.Cluster, vcdCluster infrav1beta3.VCDCluster) ([]interface{}, error) {
 	// Redacting username, password and refresh token from the UserCredentialsContext for security purposes.
 	vcdCluster.Spec.UserCredentialsContext.Username = "***REDACTED***"
 	vcdCluster.Spec.UserCredentialsContext.Password = "***REDACTED***"
@@ -531,7 +531,7 @@ func getK8sClusterObjects(ctx context.Context, cli client.Client, cluster cluste
 		kubeadmConfigTemplateNameToObjRef[md.Spec.Template.Spec.Bootstrap.ConfigRef.Name] = md.Spec.Template.Spec.Bootstrap.ConfigRef
 	}
 
-	vcdMachineTemplates := make([]*infrav1.VCDMachineTemplate, 0)
+	vcdMachineTemplates := make([]*infrav1beta3.VCDMachineTemplate, 0)
 	for _, objRef := range vcdMachineTemplateNameToObjRef {
 		vcdMachineTemplate, err := getVCDMachineTemplateByObjRef(ctx, cli, objRef)
 		if err != nil {
@@ -565,7 +565,7 @@ func getK8sClusterObjects(ctx context.Context, cli client.Client, cluster cluste
 	return capiYamlObjects, nil
 }
 
-func getCapiYaml(ctx context.Context, cli client.Client, cluster clusterv1.Cluster, vcdCluster infrav1.VCDCluster) (string, error) {
+func getCapiYaml(ctx context.Context, cli client.Client, cluster clusterv1.Cluster, vcdCluster infrav1beta3.VCDCluster) (string, error) {
 	capiYamlObjects, err := getK8sClusterObjects(ctx, cli, cluster, vcdCluster)
 	if err != nil {
 		return "", fmt.Errorf("failed to get k8s objects related to cluster [%s]: [%v]", cluster.Name, err)
@@ -583,7 +583,7 @@ func getCapiYaml(ctx context.Context, cli client.Client, cluster clusterv1.Clust
 
 }
 
-func getCapiStatusYaml(ctx context.Context, cli client.Client, cluster clusterv1.Cluster, vcdCluster infrav1.VCDCluster) (string, error) {
+func getCapiStatusYaml(ctx context.Context, cli client.Client, cluster clusterv1.Cluster, vcdCluster infrav1beta3.VCDCluster) (string, error) {
 	capiYamlObjects, err := getK8sClusterObjects(ctx, cli, cluster, vcdCluster)
 	if err != nil {
 		return "", fmt.Errorf("failed to get k8s objects related to cluster [%s]: [%v]", cluster.Name, err)
@@ -599,7 +599,7 @@ func getCapiStatusYaml(ctx context.Context, cli client.Client, cluster clusterv1
 	return strings.Join(yamlObjects, "---\n"), nil
 }
 
-func getUserCredentialsForCluster(ctx context.Context, cli client.Client, definedCreds infrav1.UserCredentialsContext) (infrav1.UserCredentialsContext, error) {
+func getUserCredentialsForCluster(ctx context.Context, cli client.Client, definedCreds infrav1beta3.UserCredentialsContext) (infrav1beta3.UserCredentialsContext, error) {
 	username, password, refreshToken := definedCreds.Username, definedCreds.Password, definedCreds.RefreshToken
 	if definedCreds.SecretRef != nil {
 		secretNamespacedName := types.NamespacedName{
@@ -608,7 +608,7 @@ func getUserCredentialsForCluster(ctx context.Context, cli client.Client, define
 		}
 		userCredsSecret := &v1.Secret{}
 		if err := cli.Get(ctx, secretNamespacedName, userCredsSecret); err != nil {
-			return infrav1.UserCredentialsContext{}, errors.Wrapf(err, "error getting secret [%s] in namespace [%s]",
+			return infrav1beta3.UserCredentialsContext{}, errors.Wrapf(err, "error getting secret [%s] in namespace [%s]",
 				secretNamespacedName.Name, secretNamespacedName.Namespace)
 		}
 		if b, exists := userCredsSecret.Data["username"]; exists {
@@ -621,7 +621,7 @@ func getUserCredentialsForCluster(ctx context.Context, cli client.Client, define
 			refreshToken = strings.TrimRight(string(b), "\n")
 		}
 	}
-	userCredentials := infrav1.UserCredentialsContext{
+	userCredentials := infrav1beta3.UserCredentialsContext{
 		Username:     username,
 		Password:     password,
 		RefreshToken: refreshToken,

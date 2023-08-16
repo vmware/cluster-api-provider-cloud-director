@@ -19,16 +19,6 @@ metadata:
     clusterctl.cluster.x-k8s.io/move: ""
   name: vcdclusters.infrastructure.cluster.x-k8s.io
 spec:
-  conversion:
-    strategy: Webhook
-    webhook:
-      clientConfig:
-        service:
-          name: capvcd-webhook-service
-          namespace: capvcd-system
-          path: /convert
-      conversionReviewVersions:
-      - v1
   group: infrastructure.cluster.x-k8s.io
   names:
     kind: VCDCluster
@@ -697,6 +687,34 @@ spec:
                   username:
                     type: string
                 type: object
+              zoneType:
+                type: string
+              zones:
+                items:
+                  description: 'Zone :'
+                  properties:
+                    controlPlaneZone:
+                      default: false
+                      type: boolean
+                    loadBalancerIP:
+                      type: string
+                    loadBalancerPort:
+                      type: integer
+                    name:
+                      type: string
+                    ovdcName:
+                      type: string
+                    ovdcNetworkName:
+                      type: string
+                  required:
+                  - controlPlaneZone
+                  - name
+                  - ovdcName
+                  - ovdcNetworkName
+                  type: object
+                type: array
+              zonesConfigMapName:
+                type: string
             required:
             - org
             - ovdc
@@ -752,6 +770,25 @@ spec:
                   - type
                   type: object
                 type: array
+              failureDomains:
+                additionalProperties:
+                  description: FailureDomainSpec is the Schema for Cluster API failure
+                    domains. It allows controllers to understand how many failure
+                    domains a cluster can optionally span across.
+                  properties:
+                    attributes:
+                      additionalProperties:
+                        type: string
+                      description: Attributes is a free form map of attributes an
+                        infrastructure provider might use or require.
+                      type: object
+                    controlPlane:
+                      description: ControlPlane determines if this failure domain
+                        is suitable for use by control plane machines.
+                      type: boolean
+                  type: object
+                description: FailureDomains is a slice of FailureDomains.
+                type: object
               infraId:
                 type: string
               loadBalancerConfig:
@@ -1538,6 +1575,8 @@ spec:
                 items:
                   type: string
                 type: array
+              failureDomain:
+                type: string
               placementPolicy:
                 description: PlacementPolicy is the placement policy to be used on
                   this machine.
@@ -2047,6 +2086,8 @@ spec:
                         items:
                           type: string
                         type: array
+                      failureDomain:
+                        type: string
                       placementPolicy:
                         description: PlacementPolicy is the placement policy to be
                           used on this machine.

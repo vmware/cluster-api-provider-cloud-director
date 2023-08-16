@@ -79,6 +79,21 @@ type LoadBalancerConfig struct {
 	VipSubnet string `json:"vipSubnet,omitempty"`
 }
 
+// Zone :
+type Zone struct {
+	Name            string `json:"name"`
+	OVDCName        string `json:"ovdcName"`
+	OVDCNetworkName string `json:"ovdcNetworkName"`
+
+	//+kubebuilder:default=false
+	ControlPlaneZone bool `json:"controlPlaneZone"`
+
+	// +optional
+	LoadBalancerIP string `json:"loadBalancerIP,omitempty"`
+	// +optional
+	LoadBalancerPort int `json:"loadBalancerPort,omitempty"`
+}
+
 // VCDClusterSpec defines the desired state of VCDCluster
 type VCDClusterSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
@@ -107,6 +122,12 @@ type VCDClusterSpec struct {
 	ProxyConfigSpec ProxyConfig `json:"proxyConfigSpec,omitempty"`
 	// +optional
 	LoadBalancerConfigSpec LoadBalancerConfig `json:"loadBalancerConfigSpec,omitempty"`
+	// +optional
+	ZoneType string `json:"zoneType,omitempty"`
+	// +optional
+	Zones []Zone `json:"zones,omitempty"`
+	// +optional
+	ZonesConfigMapName string `json:"zonesConfigMapName,omitempty"`
 }
 
 // VCDClusterStatus defines the observed state of VCDCluster
@@ -159,6 +180,9 @@ type VCDClusterStatus struct {
 
 	// +optional
 	LoadBalancerConfig LoadBalancerConfig `json:"loadBalancerConfig,omitempty"`
+
+	// +optional
+	FailureDomains clusterv1.FailureDomains `json:"failureDomains,omitempty"`
 }
 
 // +kubebuilder:object:root=true

@@ -471,6 +471,9 @@ func autoConvert_v1beta3_VCDClusterSpec_To_v1beta2_VCDClusterSpec(in *v1beta3.VC
 	if err := Convert_v1beta3_LoadBalancerConfig_To_v1beta2_LoadBalancerConfig(&in.LoadBalancerConfigSpec, &out.LoadBalancerConfigSpec, s); err != nil {
 		return err
 	}
+	// WARNING: in.ZoneType requires manual conversion: does not exist in peer-type
+	// WARNING: in.Zones requires manual conversion: does not exist in peer-type
+	// WARNING: in.ZonesConfigMapName requires manual conversion: does not exist in peer-type
 	return nil
 }
 
@@ -524,6 +527,7 @@ func autoConvert_v1beta3_VCDClusterStatus_To_v1beta2_VCDClusterStatus(in *v1beta
 	if err := Convert_v1beta3_LoadBalancerConfig_To_v1beta2_LoadBalancerConfig(&in.LoadBalancerConfig, &out.LoadBalancerConfig, s); err != nil {
 		return err
 	}
+	// WARNING: in.FailureDomains requires manual conversion: does not exist in peer-type
 	return nil
 }
 
@@ -628,6 +632,7 @@ func autoConvert_v1beta3_VCDMachineSpec_To_v1beta2_VCDMachineSpec(in *v1beta3.VC
 	out.EnableNvidiaGPU = in.EnableNvidiaGPU
 	out.ExtraOvdcNetworks = *(*[]string)(unsafe.Pointer(&in.ExtraOvdcNetworks))
 	out.VmNamingTemplate = in.VmNamingTemplate
+	// WARNING: in.FailureDomain requires manual conversion: does not exist in peer-type
 	return nil
 }
 
