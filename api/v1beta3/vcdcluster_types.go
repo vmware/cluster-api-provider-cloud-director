@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v1beta2
+package v1beta3
 
 import (
 	v1 "k8s.io/api/core/v1"
@@ -163,6 +163,7 @@ type VCDClusterStatus struct {
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
+// +kubebuilder:storageversion
 // VCDCluster is the Schema for the vcdclusters API
 type VCDCluster struct {
 	metav1.TypeMeta   `json:",inline"`
