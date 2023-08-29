@@ -12,7 +12,7 @@ require (
 	github.com/onsi/ginkgo/v2 v2.9.1
 	github.com/onsi/gomega v1.27.4
 	github.com/pkg/errors v0.9.1
-	github.com/vmware/cloud-provider-for-cloud-director v0.0.0-20230725213727-e8d9efd4acf0
+	github.com/vmware/cloud-provider-for-cloud-director v0.0.0-20230828194304-402fc20a64a9
 	github.com/vmware/go-vcloud-director/v2 v2.15.0
 	go.uber.org/zap v1.24.0
 	gopkg.in/yaml.v2 v2.4.0
@@ -76,6 +76,7 @@ require (
 	github.com/prometheus/common v0.37.0 // indirect
 	github.com/prometheus/procfs v0.8.0 // indirect
 	github.com/rogpeppe/go-internal v1.6.1 // indirect
+	github.com/sethvargo/go-password v0.2.0 // indirect
 	github.com/shopspring/decimal v1.3.1 // indirect
 	github.com/spf13/cast v1.5.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect

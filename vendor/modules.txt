@@ -254,6 +254,9 @@ github.com/prometheus/procfs/internal/util
 # github.com/rogpeppe/go-internal v1.6.1
 ## explicit; go 1.11
 github.com/rogpeppe/go-internal/fmtsort
+# github.com/sethvargo/go-password v0.2.0
+## explicit; go 1.14
+github.com/sethvargo/go-password/password
 # github.com/shopspring/decimal v1.3.1
 ## explicit; go 1.13
 github.com/shopspring/decimal
@@ -263,7 +266,7 @@ github.com/spf13/cast
 # github.com/spf13/pflag v1.0.5
 ## explicit; go 1.12
 github.com/spf13/pflag
-# github.com/vmware/cloud-provider-for-cloud-director v0.0.0-20230725213727-e8d9efd4acf0
+# github.com/vmware/cloud-provider-for-cloud-director v0.0.0-20230828194304-402fc20a64a9
 ## explicit; go 1.19
 github.com/vmware/cloud-provider-for-cloud-director/pkg/testingsdk
 github.com/vmware/cloud-provider-for-cloud-director/pkg/util
