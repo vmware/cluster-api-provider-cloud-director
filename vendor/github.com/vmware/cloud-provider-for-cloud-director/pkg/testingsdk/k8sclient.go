@@ -75,15 +75,38 @@ func waitForDeploymentReady(ctx context.Context, k8sClient *kubernetes.Clientset
 			return false, fmt.Errorf("unexpected error occurred while getting deployment [%s]", deployName)
 		}
 		podCount := len(podList.Items)
-
-		ready := 0
+		containerCount := 0
+		podsReady := 0
+		containersReady := 0
 		for _, pod := range (*podList).Items {
+			// Add the total amount of containers per pod
+			containerCount += len(pod.Spec.Containers)
+			containersReadyFromCurrentPod := 0
 			if pod.Status.Phase == apiv1.PodRunning {
-				ready++
+				// Ref: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/
+				// Pod running state can mean: at least one container is still running, or is in the process of starting or restarting.
+				// It's possible that the container is just starting up and not fully ready, so we should also check if ContainerStatus is ready.
+				for _, container := range pod.Status.ContainerStatuses {
+					if container.Ready {
+						containersReadyFromCurrentPod++
+					}
+				}
+
+				if containersReadyFromCurrentPod == len(pod.Spec.Containers) {
+					podsReady++
+					containersReady += containersReadyFromCurrentPod
+				}
 			}
 		}
-		if ready < podCount {
-			fmt.Printf("running pods: %v < %v\n", ready, podCount)
+		// It is possible to have a race condition where Pods are not up yet and in testing code it can think that the Deployment is ready
+		// Because there are no Pods up yet, though Deployment has been applied.
+		if podCount == 0 {
+			fmt.Printf("no containers or pods are ready yet")
+			return false, nil
+		}
+
+		if podsReady < podCount || containersReady < containerCount {
+			fmt.Printf("running pods: %v < %v; ready containers: %v < %v\n", podsReady, podCount, containersReady, containerCount)
 			return false, nil
 		}
 		return true, nil
