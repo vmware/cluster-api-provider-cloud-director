@@ -9,6 +9,7 @@ import (
 	"bytes"
 	"encoding/xml"
 	"fmt"
+	"github.com/sethvargo/go-password/password"
 	"github.com/vmware/go-vcloud-director/v2/govcd"
 	"github.com/vmware/go-vcloud-director/v2/types/v56"
 	"io/ioutil"
@@ -633,6 +634,10 @@ func (vdc *VdcManager) AddNewMultipleVM(vapp *govcd.VApp, vmNamePrefix string, v
 			vmName = vmNamePrefix + strconv.Itoa(i)
 		}
 
+		passwd, err := password.Generate(15, 5, 3, false, false)
+		if err != nil {
+			return govcd.Task{}, fmt.Errorf("failed to generate a password to create a VM in the VApp [%s]", vapp.VApp.Name)
+		}
 		sourcedItemList = append(sourcedItemList,
 			&types.SourcedCompositionItemParam{
 				Source: &types.Reference{
@@ -651,10 +656,11 @@ func (vdc *VdcManager) AddNewMultipleVM(vapp *govcd.VApp, vmNamePrefix string, v
 					GuestCustomizationSection: &types.GuestCustomizationSection{
 						Enabled:               &trueVar,
 						AdminPasswordEnabled:  &trueVar,
-						AdminPasswordAuto:     &trueVar,
+						AdminPasswordAuto:     &falseVar,
+						AdminPassword:         passwd,
 						ResetPasswordRequired: &falseVar,
 						ComputerName:          vmName,
-						CustomizationScript: guestCustScript,
+						CustomizationScript:   guestCustScript,
 					},
 					NetworkConnectionSection: &types.NetworkConnectionSection{
 						NetworkConnection: []*types.NetworkConnection{
