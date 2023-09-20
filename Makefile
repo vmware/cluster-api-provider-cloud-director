@@ -130,10 +130,11 @@ build: ## Build CAPVCD binary. To be used from within a Dockerfile
 .PHONY: test
 test: manifests generate ## Run tests.
 	@mkdir -p bin/testbin
-	test -f bin/testbin/setup-envtest.sh || curl -sSLo bin/testbin/setup-envtest.sh https://raw.githubusercontent.com/kubernetes-sigs/controller-runtime/v0.8.3/hack/setup-envtest.sh
-	source bin/testbin/setup-envtest.sh
-	fetch_envtest_tools bin/testbin
-	setup_envtest_env bin/testbin
+	test -f bin/testbin/setup-envtest.sh || \
+	curl -sSLo bin/testbin/setup-envtest.sh https://raw.githubusercontent.com/kubernetes-sigs/controller-runtime/v0.8.3/hack/setup-envtest.sh; \
+	source bin/testbin/setup-envtest.sh; \
+	fetch_envtest_tools bin/testbin; \
+	setup_envtest_env bin/testbin; \
 	go test ./... -coverprofile cover.out
 
 .PHONY: manager
