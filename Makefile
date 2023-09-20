@@ -37,6 +37,7 @@ GOLANGCI_LINT ?= bin/golangci-lint
 GOSEC ?= bin/gosec
 SHELLCHECK ?= bin/shellcheck
 
+TEST_PACKAGES := ./...
 
 .PHONY: all
 all: vendor lint dev
@@ -135,7 +136,7 @@ test: manifests generate ## Run tests.
 	source bin/testbin/setup-envtest.sh; \
 	fetch_envtest_tools bin/testbin; \
 	setup_envtest_env "$(shell pwd)/bin/testbin"; \
-	go test ./... -coverprofile cover.out
+	go test $(TEST_PACKAGES) -coverprofile cover.out
 
 .PHONY: manager
 manager: generate ## Build manager binary.
