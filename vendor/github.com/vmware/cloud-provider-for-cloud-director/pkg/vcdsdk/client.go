@@ -93,18 +93,20 @@ func (client *Client) RefreshBearerToken() error {
 	}
 
 	// reset legacy client
-	org, err := client.VCDClient.GetOrgByNameOrId(client.ClusterOrgName)
-	if err != nil {
-		return fmt.Errorf("unable to get vcd organization [%s]: [%v]",
-			client.ClusterOrgName, err)
+	// Update client VDC if cluster org is provided
+	if client.ClusterOrgName != "" {
+		org, err := client.VCDClient.GetOrgByNameOrId(client.ClusterOrgName)
+		if err != nil {
+			return fmt.Errorf("unable to get vcd organization [%s]: [%v]",
+				client.ClusterOrgName, err)
+		}
+		vdc, err := org.GetVDCByName(client.ClusterOVDCName, true)
+		if err != nil {
+			return fmt.Errorf("unable to get VDC from org [%s], VDC [%s]: [%v]",
+				client.ClusterOrgName, client.VCDAuthConfig.VDC, err)
+		}
+		client.VDC = vdc
 	}
-
-	vdc, err := org.GetVDCByName(client.ClusterOVDCName, true)
-	if err != nil {
-		return fmt.Errorf("unable to get VDC from org [%s], VDC [%s]: [%v]",
-			client.ClusterOrgName, client.VCDAuthConfig.VDC, err)
-	}
-	client.VDC = vdc
 
 	// reset swagger client
 	swaggerConfig := swaggerClient.NewConfiguration()
