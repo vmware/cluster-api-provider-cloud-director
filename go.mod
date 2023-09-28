@@ -12,7 +12,7 @@ require (
 	github.com/onsi/ginkgo/v2 v2.9.1
 	github.com/onsi/gomega v1.27.4
 	github.com/pkg/errors v0.9.1
-	github.com/vmware/cloud-provider-for-cloud-director v0.0.0-20230918183351-1c774142c67d
+	github.com/vmware/cloud-provider-for-cloud-director v0.0.0-20230928223648-8134f65b3f61
 	github.com/vmware/go-vcloud-director/v2 v2.15.0
 	go.uber.org/zap v1.24.0
 	gopkg.in/yaml.v2 v2.4.0
