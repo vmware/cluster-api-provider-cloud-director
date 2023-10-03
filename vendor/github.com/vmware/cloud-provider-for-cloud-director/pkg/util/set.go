@@ -12,8 +12,8 @@ type Set struct {
 	elements map[string]bool
 }
 
-func NewSet(elementList []string) Set {
-	s := Set{
+func NewSet(elementList []string) *Set {
+	s := &Set{
 		elements: make(map[string]bool),
 	}
 
@@ -25,7 +25,7 @@ func NewSet(elementList []string) Set {
 	return s
 }
 
-func (s Set) GetElements() []string {
+func (s *Set) GetElements() []string {
 	s.lock.RLock()
 	defer s.lock.RUnlock()
 
@@ -39,7 +39,7 @@ func (s Set) GetElements() []string {
 	return elementList
 }
 
-func (s Set) Add(element string) {
+func (s *Set) Add(element string) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 
@@ -51,7 +51,7 @@ func (s Set) Add(element string) {
 	return
 }
 
-func (s Set) Delete(element string) {
+func (s *Set) Delete(element string) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 
@@ -63,7 +63,7 @@ func (s Set) Delete(element string) {
 	return
 }
 
-func (s Set) Contains(element string) bool {
+func (s *Set) Contains(element string) bool {
 	s.lock.RLock()
 	defer s.lock.RUnlock()
 

@@ -679,7 +679,7 @@ func (r *VCDClusterReconciler) reconcileRDE(ctx context.Context, cluster *cluste
 		return fmt.Errorf("failed to update defined entity with ID [%s] for cluster [%s]: [%v]", vcdCluster.Status.InfraId, vcdCluster.Name, err)
 	}
 
-	if updatedRDE.State != RDEStatusResolved {
+	if updatedRDE.State != swagger.RDEStateResolved {
 		// try to resolve the defined entity
 		entityState, resp, err := workloadVCDClient.APIClient.DefinedEntityApi.ResolveDefinedEntity(ctx, updatedRDE.Id, org.Org.ID)
 		if err != nil {

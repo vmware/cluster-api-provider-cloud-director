@@ -357,7 +357,7 @@ func deleteDeployment(ctx context.Context, k8sClient *kubernetes.Clientset, name
 		if err == ResourceNotFound {
 			return fmt.Errorf("the deployment [%s] does not exist", deploymentName)
 		}
-		klog.Info("error occurred while getting deployment [%s]: [%v]", deploymentName, err)
+		klog.Infof("error occurred while getting deployment [%s]: [%v]", deploymentName, err)
 	}
 	err = k8sClient.AppsV1().Deployments(nameSpace).Delete(ctx, deploymentName, metav1.DeleteOptions{})
 	if err != nil {
@@ -394,7 +394,7 @@ func deleteService(ctx context.Context, k8sClient *kubernetes.Clientset, nameSpa
 		if err == ResourceNotFound {
 			return fmt.Errorf("the service [%s] does not exist", serviceName)
 		}
-		klog.Info("error occurred while getting service [%s]: [%v]", serviceName, err)
+		klog.Infof("error occurred while getting service [%s]: [%v]", serviceName, err)
 	}
 	err = k8sClient.CoreV1().Services(nameSpace).Delete(ctx, serviceName, metav1.DeleteOptions{})
 	if err != nil {
