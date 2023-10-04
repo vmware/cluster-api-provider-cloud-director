@@ -445,8 +445,8 @@ github.com/stretchr/testify v1.8.1 h1:w7B6lhMri9wdJUVmEZPGGhZzrYTPvgJArz7wNPgYKs
 github.com/stretchr/testify v1.8.1/go.mod h1:w2LPCIKwWwSfY2zedu0+kehJoqGctiVI29o6fzry7u4=
 github.com/subosito/gotenv v1.2.0/go.mod h1:N0PQaV/YGNqwC0u51sEeR/aUtSLEXKX9iv69rRypqCw=
 github.com/tmc/grpc-websocket-proxy v0.0.0-20190109142713-0ad062ec5ee5/go.mod h1:ncp9v5uamzpCO7NfCPTXjqaC+bZgJeR0sMTm6dMHP7U=
-github.com/vmware/cloud-provider-for-cloud-director v0.0.0-20230928183054-e68e5d199d99 h1:YyRKgK6HskPRdlyDtLP5b54ycm41AIMClaus5DjMkaQ=
-github.com/vmware/cloud-provider-for-cloud-director v0.0.0-20230928183054-e68e5d199d99/go.mod h1:LXs88jpAH7nny7nQcLaXzjyCvg4Q1JhttSoD9mI5kaQ=
+github.com/vmware/cloud-provider-for-cloud-director v0.0.0-20231003205426-a660bf83e018 h1:x0xni7/vHPWykem0tpOGnw96AODFfPDY+LfCv5s+W38=
+github.com/vmware/cloud-provider-for-cloud-director v0.0.0-20231003205426-a660bf83e018/go.mod h1:LXs88jpAH7nny7nQcLaXzjyCvg4Q1JhttSoD9mI5kaQ=
 github.com/vmware/go-vcloud-director/v2 v2.15.0 h1:idQ9NsHLr2dOSLBC8KIdBMq7XOvPiWmfxgWNaf580mk=
 github.com/vmware/go-vcloud-director/v2 v2.15.0/go.mod h1:2BS1yw61VN34WI0/nUYoInFvBc3Zcuf84d4ESiAAl68=
 github.com/xeipuuv/gojsonpointer v0.0.0-20180127040702-4e3ac2762d5f/go.mod h1:N2zxlSyiKSe5eX1tZViRH5QA0qijqEDrYZiPEAiq3wU=
