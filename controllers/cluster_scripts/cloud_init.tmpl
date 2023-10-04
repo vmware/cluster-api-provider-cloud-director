@@ -82,6 +82,25 @@ write_files:
       fi
       vmtoolsd --cmd "info-set guestinfo.post_customization_cloud_init_output $CLOUD_INIT_OUTPUT"
     }
+
+    wait_for_containerd_startup() {
+      echo "Waiting for containerd to start-up completely..."
+      while :
+      do
+        crictl_output=$(crictl info)
+        runtime_ready_status=$(echo ${crictl_output} | jq ".status.conditions[] | select(.type==\"RuntimeReady\") | .status")
+        echo "RuntimeReady is [${runtime_ready_status}]."
+        if [ "${runtime_ready_status}" = "true" ]
+        then
+          echo "containerd service has started up."
+          break
+        fi
+        echo "containerd service is not yet up. Sleeping for 5s and checking again"
+        sleep 5
+      done
+      echo "containerd started-up successfully."
+    }
+
     mkdir -p /var/log/capvcd/customization
     trap 'catch $? $LINENO' ERR EXIT
     set -eEx
@@ -127,6 +146,7 @@ write_files:
     END
     systemctl daemon-reload
     systemctl restart containerd
+    wait_for_containerd_startup
     vmtoolsd --cmd "info-set guestinfo.postcustomization.proxy.setting.status successful" {{- end }} {{- if .NvidiaGPU }}
 
     vmtoolsd --cmd "info-set guestinfo.postcustomization.nvidia.runtime.install.status in_progress"
