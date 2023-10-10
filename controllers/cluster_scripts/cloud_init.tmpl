@@ -6,33 +6,7 @@ write_files:
 - path: /etc/cloud/cloud.cfg.d/cse.cfg
   owner: root
   content: |
-     ssh_deletekeys: false {{- if .NvidiaGPU }}
-- path: /etc/containerd/config.toml
-  owner: root
-  content: |
-    version = 2
-
-    [plugins]
-      [plugins."io.containerd.grpc.v1.cri"]
-        sandbox_image = "projects.registry.vmware.com/tkg/pause:3.4.1"
-
-        [plugins."io.containerd.grpc.v1.cri".containerd]
-          default_runtime_name = "nvidia"
-
-          [plugins."io.containerd.grpc.v1.cri".containerd.runtimes]
-            [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.nvidia]
-              privileged_without_host_devices = false
-              runtime_engine = ""
-              runtime_root = ""
-              runtime_type = "io.containerd.runc.v2"
-
-              [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.nvidia.options]
-                BinaryName = "/usr/bin/nvidia-container-runtime"
-
-        [plugins."io.containerd.grpc.v1.cri".registry]
-          [plugins."io.containerd.grpc.v1.cri".registry.mirrors]
-            [plugins."io.containerd.grpc.v1.cri".registry.mirrors."docker.io"]
-              endpoint = ["https://registry-1.docker.io"] {{- end }}
+     ssh_deletekeys: false
 - path: /opt/vmware/cloud-director/metering.sh
   owner: root
   content: |
@@ -147,16 +121,7 @@ write_files:
     systemctl daemon-reload
     systemctl restart containerd
     wait_for_containerd_startup
-    vmtoolsd --cmd "info-set guestinfo.postcustomization.proxy.setting.status successful" {{- end }} {{- if .NvidiaGPU }}
-
-    vmtoolsd --cmd "info-set guestinfo.postcustomization.nvidia.runtime.install.status in_progress"
-    distribution=$(. /etc/os-release;echo $ID$VERSION_ID)
-    curl -s -L https://nvidia.github.io/libnvidia-container/gpgkey | sudo apt-key add -
-    curl -s -L https://nvidia.github.io/libnvidia-container/$distribution/libnvidia-container.list | sudo tee /etc/apt/sources.list.d/libnvidia-container.list
-
-    sudo apt-get update && sudo apt-get install -y nvidia-container-toolkit
-
-    vmtoolsd --cmd "info-set guestinfo.postcustomization.nvidia.runtime.install.status successful" {{- end }}
+    vmtoolsd --cmd "info-set guestinfo.postcustomization.proxy.setting.status successful" {{- end }}
 
     vmtoolsd --cmd "info-set {{ if .ControlPlane -}} guestinfo.postcustomization.kubeinit.status {{- else -}} guestinfo.postcustomization.kubeadm.node.join.status {{- end }} in_progress"
     for IMAGE in "coredns" "etcd" "kube-proxy" "kube-apiserver" "kube-controller-manager" "kube-scheduler"
