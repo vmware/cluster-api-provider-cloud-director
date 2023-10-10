@@ -208,7 +208,6 @@ const (
 	MeteringConfiguration                  = "guestinfo.metering.status"
 	KubeadmInit                            = "guestinfo.postcustomization.kubeinit.status"
 	KubeadmNodeJoin                        = "guestinfo.postcustomization.kubeadm.node.join.status"
-	NvidiaRuntimeInstall                   = "guestinfo.postcustomization.nvidia.runtime.install.status"
 	PostCustomizationScriptExecutionStatus = "guestinfo.post_customization_script_execution_status"
 	PostCustomizationScriptFailureReason   = "guestinfo.post_customization_script_execution_failure_reason"
 )
@@ -217,7 +216,6 @@ var postCustPhases = []string{
 	NetworkConfiguration,
 	MeteringConfiguration,
 	ProxyConfiguration,
-	NvidiaRuntimeInstall,
 }
 
 func removeFromSlice(remove string, arr []string) []string {
@@ -497,7 +495,7 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 
 		// TODO: After tenants has access to siteId, populate siteId to cloudInitInput as opposed to the site
 		cloudInitInput.VcdHostFormatted = strings.ReplaceAll(vcdCluster.Spec.Site, "/", "\\/")
-		cloudInitInput.NvidiaGPU = vcdMachine.Spec.EnableNvidiaGPU
+		cloudInitInput.NvidiaGPU = false
 		cloudInitInput.TKGVersion = getTKGVersion(cluster)   // needed for both worker & control plane machines for metering
 		cloudInitInput.ClusterID = vcdCluster.Status.InfraId // needed for both worker & control plane machines for metering
 		cloudInitInput.ResizedControlPlane = isResizedControlPlane
@@ -836,10 +834,6 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		phases = append(phases, KubeadmInit)
 	} else {
 		phases = append(phases, KubeadmNodeJoin)
-	}
-
-	if !vcdMachine.Spec.EnableNvidiaGPU {
-		phases = removeFromSlice(NvidiaRuntimeInstall, phases)
 	}
 
 	if vcdCluster.Spec.ProxyConfigSpec.HTTPSProxy == "" &&
