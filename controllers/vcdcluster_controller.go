@@ -9,7 +9,9 @@ import (
 	"context"
 	_ "embed"
 	"fmt"
+	"github.com/vmware/cluster-api-provider-cloud-director/common"
 	rdeType "github.com/vmware/cluster-api-provider-cloud-director/pkg/vcdtypes/rde_type_1_1_0"
+	"math/rand"
 	"net/http"
 	"os"
 	"reflect"
@@ -425,7 +427,7 @@ func (r *VCDClusterReconciler) constructAndCreateRDEFromCluster(ctx context.Cont
 
 	ovdcName := ""
 	ovdcID := ""
-	if vcdCluster.Spec.ZoneType == "" {
+	if vcdCluster.Spec.ZoneDetails.ZoneType == "" {
 		vdc, err := getOvdcByName(vcdClient, vcdCluster.Spec.Org, vcdCluster.Spec.Ovdc)
 		if err != nil {
 			return "", fmt.Errorf("unable to retrieve ovdc [%s] from org [%s]: [%v]", vcdCluster.Spec.Ovdc,
@@ -483,7 +485,7 @@ func (r *VCDClusterReconciler) reconcileRDE(ctx context.Context, cluster *cluste
 		metadataPatch["Org"] = org.Org.Name
 	}
 
-	if vcdCluster.Spec.ZoneType == "" {
+	if vcdCluster.Spec.ZoneDetails.ZoneType == "" {
 		ovdcName := vcdCluster.Spec.Ovdc
 		if ovdcName != capvcdMetadata.Vdc {
 			metadataPatch["Vdc"] = capvcdMetadata.Vdc
@@ -668,7 +670,7 @@ func (r *VCDClusterReconciler) reconcileRDE(ctx context.Context, cluster *cluste
 	}
 
 	var ovdcList []rdeType.Ovdc
-	if len(vcdCluster.Spec.Zones) == 0 {
+	if len(vcdCluster.Spec.ZoneDetails.Zones) == 0 {
 		ovdcList = []rdeType.Ovdc{
 			{
 				Name:        vcdClient.VDC.Vdc.Name,
@@ -677,8 +679,8 @@ func (r *VCDClusterReconciler) reconcileRDE(ctx context.Context, cluster *cluste
 			},
 		}
 	} else {
-		ovdcList = make([]rdeType.Ovdc, len(vcdCluster.Spec.Zones))
-		for idx, zone := range vcdCluster.Spec.Zones {
+		ovdcList = make([]rdeType.Ovdc, len(vcdCluster.Spec.ZoneDetails.Zones))
+		for idx, zone := range vcdCluster.Spec.ZoneDetails.Zones {
 			ovdcList[idx] = rdeType.Ovdc{
 				Name:        zone.OVDCName,
 				ID:          "",
@@ -958,11 +960,11 @@ func (r *VCDClusterReconciler) reconcileInfraID(ctx context.Context, vcdClient *
 }
 
 func GetMapOfEdgeGateways(ctx context.Context, client *vcdsdk.Client, orgName string,
-	zones []infrav1beta3.Zone) (map[string]*vcdutil.EdgeGatewayDetails, error) {
+	zoneDetails infrav1beta3.ZoneDetailsSpec) (map[string]*vcdutil.EdgeGatewayDetails, error) {
 
 	// This is a map of ovdcNetworkName:ovdcName to edgeGatewayDetails
 	edgeGatewayDetailsMap := make(map[string]*vcdutil.EdgeGatewayDetails)
-	for _, zone := range zones {
+	for _, zone := range zoneDetails.Zones {
 		ovdcNetwork, vdc, err := vcdutil.GetAllDetailsForOVDC(ctx, client, nil, zone.OVDCNetworkName,
 			zone.OVDCName, orgName)
 		if err != nil {
@@ -988,6 +990,49 @@ func GetMapOfEdgeGateways(ctx context.Context, client *vcdsdk.Client, orgName st
 	return edgeGatewayDetailsMap, nil
 }
 
+func (r *VCDClusterReconciler) updateEdgeGatewayDetailsMapForUserSpecifiedEdgeMode(ctx context.Context, vcdClient *vcdsdk.Client,
+	edgeGatewayDetailsMap map[string]*vcdutil.EdgeGatewayDetails,
+	vcdCluster *infrav1beta3.VCDCluster) (map[string]*vcdutil.EdgeGatewayDetails, error) {
+
+	var err error
+	log := ctrl.LoggerFrom(ctx)
+
+	userSpecifiedEdgeGatewayZone := vcdCluster.Spec.ZoneDetails.UserSpecifiedEdgeGatewayZone
+	userSpecifiedEdgeGatewayName := ""
+	if userSpecifiedEdgeGatewayZone == "" {
+		// AMK: multiAZ TODO: get edge gateway having SEG with minimal usage
+		// currently choose one at random
+		randomZone := rand.Intn(len(vcdCluster.Spec.ZoneDetails.Zones))
+		userSpecifiedEdgeGatewayZone = vcdCluster.Spec.ZoneDetails.Zones[randomZone].Name
+	} else {
+		for zone, edgeGatewayDetails := range edgeGatewayDetailsMap {
+			if edgeGatewayDetails.EdgeGatewayReference.Name == userSpecifiedEdgeGatewayName {
+				userSpecifiedEdgeGatewayZone = zone
+				break
+			}
+		}
+		if userSpecifiedEdgeGatewayZone == "" {
+			// this is a fatal error
+			log.Error(fmt.Errorf("unable to obtain zone which has a user-specified-edge-gatewayname [%s]",
+				userSpecifiedEdgeGatewayName), "")
+			return nil, fmt.Errorf(
+				"unable to get zone with edge gateway [%s] from list of zones for Org Name [%s], zoneType [%s] and zones [%v]: [%v]",
+				userSpecifiedEdgeGatewayName, vcdClient.ClusterOrgName, vcdCluster.Spec.ZoneDetails.ZoneType,
+				vcdCluster.Spec.ZoneDetails.Zones, err)
+		}
+	}
+
+	// now point all other edge gateways in the map to the one specified in the zone
+	for key := range edgeGatewayDetailsMap {
+		if key != userSpecifiedEdgeGatewayZone {
+			// point all zones to the same edge gateway
+			edgeGatewayDetailsMap[key].EdgeGatewayReference = edgeGatewayDetailsMap[userSpecifiedEdgeGatewayZone].EdgeGatewayReference
+		}
+	}
+
+	return edgeGatewayDetailsMap, nil
+}
+
 func (r *VCDClusterReconciler) reconcileLoadBalancer(ctx context.Context, vcdClient *vcdsdk.Client,
 	vcdCluster *infrav1beta3.VCDCluster, infraID string, skipRDEEventUpdates bool) (ctrl.Result, error) {
 
@@ -1002,17 +1047,19 @@ func (r *VCDClusterReconciler) reconcileLoadBalancer(ctx context.Context, vcdCli
 	// not span edge gateways.
 	var edgeGatewayDetailsMap map[string]*vcdutil.EdgeGatewayDetails
 	var err error
-	switch vcdCluster.Spec.ZoneType {
+	switch vcdCluster.Spec.ZoneDetails.ZoneType {
 	case "":
 		edgeGatewayDetailsMap, err = GetMapOfEdgeGateways(ctx, vcdClient, vcdClient.ClusterOrgName,
-			[]infrav1beta3.Zone{
-				{
-					Name:             "Single-OVDC",
-					OVDCNetworkName:  vcdCluster.Spec.OvdcNetwork,
-					OVDCName:         vcdCluster.Spec.OvdcNetwork,
-					ControlPlaneZone: true,
-					LoadBalancerIP:   vcdCluster.Spec.ControlPlaneEndpoint.Host,
-					LoadBalancerPort: vcdCluster.Spec.ControlPlaneEndpoint.Port,
+			infrav1beta3.ZoneDetailsSpec{
+				Zones: []infrav1beta3.Zone{
+					{
+						Name:             "Single-OVDC",
+						OVDCNetworkName:  vcdCluster.Spec.OvdcNetwork,
+						OVDCName:         vcdCluster.Spec.OvdcNetwork,
+						ControlPlaneZone: true,
+						LoadBalancerIP:   vcdCluster.Spec.ControlPlaneEndpoint.Host,
+						LoadBalancerPort: vcdCluster.Spec.ControlPlaneEndpoint.Port,
+					},
 				},
 			})
 		if err != nil {
@@ -1026,31 +1073,43 @@ func (r *VCDClusterReconciler) reconcileLoadBalancer(ctx context.Context, vcdCli
 		}
 		break
 
-	case "dcgroup", "external":
+	case common.ZoneTypeDCGroup, common.ZoneTypeExternal, common.ZoneTypeUserSpecifiedEdge:
 		// Admission controller should have ensured that if Zones exists, ZoneType, ZoneTypeConfigMapName and other
 		// zone details will be present (and, optionally, will be valid).
 		vcdCluster.Status.Ovdc = ""
 		vcdCluster.Status.FailureDomains = make(clusterv1.FailureDomains)
-		edgeGatewayDetailsMap, err = GetMapOfEdgeGateways(ctx, vcdClient, vcdClient.ClusterOrgName,
-			vcdCluster.Spec.Zones)
-		if err != nil {
+		if edgeGatewayDetailsMap, err = GetMapOfEdgeGateways(ctx, vcdClient, vcdClient.ClusterOrgName,
+			vcdCluster.Spec.ZoneDetails); err != nil {
 			// this is potentially an irrecoverable FATAL error
 			log.Error(err, "unable to get list of edge gateways",
-				"orgName", vcdClient.ClusterOrgName, "zoneType", vcdCluster.Spec.ZoneType,
-				"zones", vcdCluster.Spec.Zones)
+				"orgName", vcdClient.ClusterOrgName, "zoneType", vcdCluster.Spec.ZoneDetails.ZoneType,
+				"zones", vcdCluster.Spec.ZoneDetails.Zones)
 			return ctrl.Result{}, errors.Wrapf(err,
 				"unable to get list of edge gateways for Org Name [%s], zoneType [%s] and zones [%v]",
-				vcdClient.ClusterOrgName, vcdCluster.Spec.ZoneType, vcdCluster.Spec.Zones)
+				vcdClient.ClusterOrgName, vcdCluster.Spec.ZoneDetails.ZoneType, vcdCluster.Spec.ZoneDetails.Zones)
 		}
-		for _, zone := range vcdCluster.Spec.Zones {
+
+		if vcdCluster.Spec.ZoneDetails.ZoneType == common.ZoneTypeUserSpecifiedEdge {
+			if edgeGatewayDetailsMap, err = r.updateEdgeGatewayDetailsMapForUserSpecifiedEdgeMode(ctx, vcdClient,
+				edgeGatewayDetailsMap, vcdCluster); err != nil {
+				log.Error(err, "unable to update edge gateway details map",
+					"zoneType", vcdCluster.Spec.ZoneDetails.ZoneType)
+				return ctrl.Result{}, errors.Wrapf(err, "unable to update edge gateway details map for "+
+					"Org Name [%s], zoneType [%s] and zones [%v]", vcdClient.ClusterOrgName,
+					vcdCluster.Spec.ZoneDetails.ZoneType, vcdCluster.Spec.ZoneDetails.Zones)
+			}
+		}
+
+		userSpecifiedEdgeGatewayName := ""
+		for _, zone := range vcdCluster.Spec.ZoneDetails.Zones {
 			edgeGatewayDetails, ok := edgeGatewayDetailsMap[zone.Name]
 			if !ok {
 				log.Error(err, "unable to get edge gateway details",
-					"orgName", vcdClient.ClusterOrgName, "zoneType", vcdCluster.Spec.ZoneType,
+					"orgName", vcdClient.ClusterOrgName, "zoneType", vcdCluster.Spec.ZoneDetails.ZoneType,
 					"zone", zone)
 				return ctrl.Result{}, errors.Wrapf(err,
 					"unable to get list of edge gateways for Org Name [%s], zoneType [%s] and zone [%v]",
-					vcdClient.ClusterOrgName, vcdCluster.Spec.ZoneType, zone)
+					vcdClient.ClusterOrgName, vcdCluster.Spec.ZoneDetails.ZoneType, zone)
 			}
 
 			vcdCluster.Status.FailureDomains[zone.Name] = clusterv1.FailureDomainSpec{
@@ -1066,19 +1125,29 @@ func (r *VCDClusterReconciler) reconcileLoadBalancer(ctx context.Context, vcdCli
 					"ControlPlanePort": fmt.Sprintf("%d", edgeGatewayDetails.EndPointPort),
 				},
 			}
+
+			if zone.Name == vcdCluster.Spec.ZoneDetails.UserSpecifiedEdgeGatewayZone {
+				userSpecifiedEdgeGatewayName = edgeGatewayDetails.EdgeGatewayReference.Name
+			}
+		}
+		vcdCluster.Status.ZoneDetails = infrav1beta3.ZoneDetailsStatus{
+			ZoneType:                     vcdCluster.Spec.ZoneDetails.ZoneType,
+			UserSpecifiedEdgeGateway:     userSpecifiedEdgeGatewayName,
+			UserSpecifiedEdgeGatewayZone: vcdCluster.Spec.ZoneDetails.UserSpecifiedEdgeGatewayZone,
+			Zones:                        vcdCluster.Spec.ZoneDetails.Zones,
 		}
 
+		log.Info("status.zoneDetails set up", "status.zoneDetails", vcdCluster.Status.ZoneDetails)
 		log.Info("FailureDomains set up", "failureDomains", vcdCluster.Status.FailureDomains)
-
 		break
 
 	default:
 		// this is an irreconcilable FATAL error; this should be handled by an Admission Controller
-		err := fmt.Errorf("unknown zoneType [%s]", vcdCluster.Spec.ZoneType)
+		err := fmt.Errorf("unknown zoneType [%s]", vcdCluster.Spec.ZoneDetails.ZoneType)
 		log.Error(err, "Unable to process cluster with Zones but incorrect ZoneType")
 		return ctrl.Result{}, errors.Wrapf(err,
 			"unable process cluster [%s:%s] with invalid ZoneType [%s]",
-			vcdCluster.Name, vcdCluster.Status.InfraId, vcdCluster.Spec.ZoneType)
+			vcdCluster.Name, vcdCluster.Status.InfraId, vcdCluster.Spec.ZoneDetails.ZoneType)
 	}
 
 	controlPlaneHost := ""
@@ -1102,6 +1171,9 @@ func (r *VCDClusterReconciler) reconcileLoadBalancer(ctx context.Context, vcdCli
 				"failed to create gateway manager using the workload client to reconcile cluster [%s]",
 				vcdCluster.Name)
 		}
+		// overwrite the edge gateway details so that UserSpecifiedEdgeMode will also be satisfied
+		gateway.GatewayRef = edgeGatewayDetails.EdgeGatewayReference
+
 		err = capvcdRdeManager.RdeManager.RemoveErrorByNameOrIdFromErrorSet(ctx, vcdsdk.ComponentCAPVCD,
 			capisdk.VCDClusterError, "", vcdCluster.Name)
 		if err != nil {
@@ -1135,32 +1207,26 @@ func (r *VCDClusterReconciler) reconcileLoadBalancer(ctx context.Context, vcdCli
 
 			// if the zone as an IP setup, use it. For the non-multi-AZ, we will pass in the
 			// vcdCluster.Spec.ControlPlaneEndpoint.Host, so no need to check here.
-			switch vcdCluster.Spec.ZoneType {
-			case "dcgroup":
+			switch vcdCluster.Spec.ZoneDetails.ZoneType {
+			case common.ZoneTypeDCGroup, common.ZoneTypeUserSpecifiedEdge, "":
 				controlPlaneHost = vcdCluster.Spec.ControlPlaneEndpoint.Host
 				controlPlanePort = vcdCluster.Spec.ControlPlaneEndpoint.Port
 				break
 
-			case "external":
-				// The Host and port are mandatory for "external".
+			case common.ZoneTypeExternal:
+				// The Host and port are mandatory for External.
 				// Also, the vcdCluster.Spec.ControlPlaneEndpoint
 				controlPlaneHost = edgeGatewayDetails.EndPointHost
 				controlPlanePort = edgeGatewayDetails.EndPointPort
 				break
 
-			case "":
-				// this is the flow where Zones are not used
-				controlPlaneHost = vcdCluster.Spec.ControlPlaneEndpoint.Host
-				controlPlanePort = vcdCluster.Spec.ControlPlaneEndpoint.Port
-				break
-
 			default:
 				// this is an irreconcilable FATAL error; this should be handled by an Admission Controller
-				err := fmt.Errorf("unknown zoneType [%s]", vcdCluster.Spec.ZoneType)
+				err := fmt.Errorf("unknown zoneType [%s]", vcdCluster.Spec.ZoneDetails.ZoneType)
 				log.Error(err, "Unable to process cluster with Zones but incorrect ZoneType")
 				return ctrl.Result{}, errors.Wrapf(err,
 					"unable process cluster [%s:%s] with invalid ZoneType [%s]",
-					vcdCluster.Name, vcdCluster.Status.InfraId, vcdCluster.Spec.ZoneType)
+					vcdCluster.Name, vcdCluster.Status.InfraId, vcdCluster.Spec.ZoneDetails.ZoneType)
 
 			}
 			if controlPlanePort == 0 {
@@ -1285,11 +1351,12 @@ func (r *VCDClusterReconciler) reconcileLoadBalancer(ctx context.Context, vcdCli
 		}
 	}
 
-	// For the "external" mode, the vcdCluster.Spec.ControlPlaneEndpoint MUST BE SPECIFIED, and remains as it is.
+	// For the External mode, the vcdCluster.Spec.ControlPlaneEndpoint MUST BE SPECIFIED, and remains as it is.
 	// For the other modes, the LB fronting the cluster can either specify an IP:port, or it may get one allocated
 	// to it by the IPAM. In both of these cases, the controlPlaneHost:controlPlanePort will contain the correct
 	// values.
-	if vcdCluster.Spec.ZoneType == "dcgroup" {
+	if vcdCluster.Spec.ZoneDetails.ZoneType == common.ZoneTypeDCGroup ||
+		vcdCluster.Spec.ZoneDetails.ZoneType == common.ZoneTypeUserSpecifiedEdge {
 		vcdCluster.Spec.ControlPlaneEndpoint = infrav1beta3.APIEndpoint{
 			Host: controlPlaneHost,
 			Port: controlPlanePort,
@@ -1397,7 +1464,7 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 }
 
 func (r *VCDClusterReconciler) deleteLB(ctx context.Context, vcdCluster *infrav1beta3.VCDCluster,
-	ovdcNetworkName string, controlPlaneHost string, controlPlanePort int) error {
+	ovdcNetworkName string, ovdcName string, controlPlaneHost string, controlPlanePort int) error {
 
 	log := ctrl.LoggerFrom(ctx)
 
@@ -1424,7 +1491,7 @@ func (r *VCDClusterReconciler) deleteLB(ctx context.Context, vcdCluster *infrav1
 
 	capvcdRdeManager := capisdk.NewCapvcdRdeManager(vcdClient, vcdCluster.Status.InfraId)
 	gateway, err := vcdsdk.NewGatewayManager(ctx, vcdClient, ovdcNetworkName,
-		vcdCluster.Spec.LoadBalancerConfigSpec.VipSubnet, "")
+		vcdCluster.Spec.LoadBalancerConfigSpec.VipSubnet, ovdcName)
 	if err != nil {
 		updatedErr := capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDClusterError, "", vcdCluster.Name,
 			fmt.Sprintf("failed to create new gateway manager: [%v]", err))
@@ -1589,7 +1656,7 @@ func (r *VCDClusterReconciler) reconcileDeleteVApps(ctx context.Context,
 	log := ctrl.LoggerFrom(ctx)
 	capvcdRDEManager := capisdk.NewCapvcdRdeManager(vcdClient, vcdCluster.Status.InfraId)
 
-	switch vcdCluster.Spec.ZoneType {
+	switch vcdCluster.Spec.ZoneDetails.ZoneType {
 	case "":
 		result, err := r.reconcileDeleteSingleVApp(ctx, vcdCluster.Spec.Org, vcdCluster.Spec.Ovdc, vcdCluster.Name,
 			vcdClient, capvcdRDEManager, vcdCluster)
@@ -1606,7 +1673,7 @@ func (r *VCDClusterReconciler) reconcileDeleteVApps(ctx context.Context,
 			vcdClient.ClusterOrgName, vcdCluster.Spec.Ovdc)
 		break
 
-	case "dcgroup", "external":
+	case common.ZoneTypeDCGroup, common.ZoneTypeExternal, common.ZoneTypeUserSpecifiedEdge:
 		for _, failureDomain := range vcdCluster.Status.FailureDomains {
 			ovdcName, ok := failureDomain.Attributes["OVDCName"]
 			if !ok {
@@ -1655,11 +1722,11 @@ func (r *VCDClusterReconciler) reconcileDeleteVApps(ctx context.Context,
 
 	default:
 		// this is an irreconcilable FATAL error; this should be handled by an Admission Controller
-		err := fmt.Errorf("unknown zoneType [%s]", vcdCluster.Spec.ZoneType)
+		err := fmt.Errorf("unknown zoneType [%s]", vcdCluster.Spec.ZoneDetails.ZoneType)
 		log.Error(err, "Unable to process cluster with Zones but incorrect ZoneType")
 		return ctrl.Result{}, errors.Wrapf(err,
 			"unable process cluster [%s:%s] with invalid ZoneType [%s]",
-			vcdCluster.Name, vcdCluster.Status.InfraId, vcdCluster.Spec.ZoneType)
+			vcdCluster.Name, vcdCluster.Status.InfraId, vcdCluster.Spec.ZoneDetails.ZoneType)
 	}
 
 	return ctrl.Result{}, nil
@@ -1684,7 +1751,7 @@ func (r *VCDClusterReconciler) reconcileDelete(ctx context.Context,
 
 	// if zones are used, the OVDC networks of each zone needs to be connected to the same gateway, so choose an ovdc
 	// network at random
-	switch vcdCluster.Spec.ZoneType {
+	switch vcdCluster.Spec.ZoneDetails.ZoneType {
 	case "":
 		// in no-AZ case, there is one LB
 		ovdcName := vcdCluster.Spec.Ovdc
@@ -1694,33 +1761,72 @@ func (r *VCDClusterReconciler) reconcileDelete(ctx context.Context,
 		if controlPlanePort == 0 {
 			controlPlanePort = TcpPort
 		}
-		if err = r.deleteLB(ctx, vcdCluster, ovdcNetworkName, controlPlaneHost, controlPlanePort); err != nil {
+		if err = r.deleteLB(ctx, vcdCluster, ovdcNetworkName, ovdcName, controlPlaneHost, controlPlanePort); err != nil {
 			return ctrl.Result{}, errors.Wrapf(err,
 				"unable to delete LB with control plane host [%s], port[%d] in ovdc [%s] and network [%s]: [%v]",
 				controlPlaneHost, controlPlanePort, ovdcName, ovdcNetworkName, err)
 		}
 		break
-	case "dcgroup":
+	case common.ZoneTypeDCGroup:
 		// in the dcgroup case, there is one LB
-		if len(vcdCluster.Spec.Zones) == 0 {
+		if len(vcdCluster.Spec.ZoneDetails.Zones) == 0 {
 			log.Info("ZoneType specified but no zones specified. Hence no LB created",
-				"zoneType", vcdCluster.Spec.ZoneType)
+				"zoneType", vcdCluster.Spec.ZoneDetails.ZoneType)
 			return ctrl.Result{}, nil
 		}
-		ovdcName := vcdCluster.Spec.Zones[0].OVDCName
-		ovdcNetworkName := vcdCluster.Spec.Zones[0].OVDCNetworkName
+		ovdcName := vcdCluster.Spec.ZoneDetails.Zones[0].OVDCName
+		ovdcNetworkName := vcdCluster.Spec.ZoneDetails.Zones[0].OVDCNetworkName
 		controlPlaneHost := vcdCluster.Spec.ControlPlaneEndpoint.Host
 		controlPlanePort := vcdCluster.Spec.ControlPlaneEndpoint.Port
 		if controlPlanePort == 0 {
 			controlPlanePort = TcpPort
 		}
-		if err = r.deleteLB(ctx, vcdCluster, ovdcNetworkName, controlPlaneHost, controlPlanePort); err != nil {
+		if err = r.deleteLB(ctx, vcdCluster, ovdcNetworkName, ovdcName, controlPlaneHost, controlPlanePort); err != nil {
 			return ctrl.Result{}, errors.Wrapf(err,
 				"unable to delete LB with control plane host [%s], port[%d] in ovdc [%s] and network [%s]: [%v]",
 				controlPlaneHost, controlPlanePort, ovdcName, ovdcNetworkName, err)
 		}
 		break
-	case "external":
+
+	case common.ZoneTypeUserSpecifiedEdge:
+		// In the userspecifiededge case, there is one LB. This LB however belongs to the zone specified in the status.
+		if len(vcdCluster.Spec.ZoneDetails.Zones) == 0 {
+			log.Info("ZoneType specified but no zones specified. Hence no LB created",
+				"zoneType", vcdCluster.Spec.ZoneDetails.ZoneType)
+			return ctrl.Result{}, nil
+		}
+
+		controlPlaneHost := vcdCluster.Spec.ControlPlaneEndpoint.Host
+		controlPlanePort := vcdCluster.Spec.ControlPlaneEndpoint.Port
+		if controlPlanePort == 0 {
+			controlPlanePort = TcpPort
+		}
+
+		ovdcName := ""
+		ovdcNetworkName := ""
+		for _, zone := range vcdCluster.Status.ZoneDetails.Zones {
+			if zone.Name == vcdCluster.Status.ZoneDetails.UserSpecifiedEdgeGatewayZone {
+				ovdcName = zone.OVDCName
+				ovdcNetworkName = zone.OVDCNetworkName
+			}
+		}
+		if ovdcName == "" || ovdcNetworkName == "" {
+			err = fmt.Errorf("unable to find ovdcName[%s] or ovdcNetworkName[%s] for zone [%s]",
+				ovdcName, ovdcNetworkName, vcdCluster.Status.ZoneDetails.UserSpecifiedEdgeGatewayZone)
+			log.Error(err, "unable to delete LB")
+			return ctrl.Result{}, errors.Wrapf(err,
+				"unable to delete LB with control plane host [%s], port[%d] in ovdc [%s] and network [%s]",
+				controlPlaneHost, controlPlanePort, ovdcName, ovdcNetworkName)
+		}
+
+		if err = r.deleteLB(ctx, vcdCluster, ovdcNetworkName, ovdcName, controlPlaneHost, controlPlanePort); err != nil {
+			return ctrl.Result{}, errors.Wrapf(err,
+				"unable to delete LB with control plane host [%s], port[%d] in ovdc [%s] and network [%s]: [%v]",
+				controlPlaneHost, controlPlanePort, ovdcName, ovdcNetworkName, err)
+		}
+		break
+
+	case common.ZoneTypeExternal:
 		// in the 'external' case, there is one Avi per AZ
 		for _, failureDomain := range vcdCluster.Status.FailureDomains {
 			ovdcName, ok := failureDomain.Attributes["OVDCName"]
@@ -1752,7 +1858,7 @@ func (r *VCDClusterReconciler) reconcileDelete(ctx context.Context,
 				return ctrl.Result{}, errors.Wrapf(err, "unable to convert control plane port [%s] to int: [%v]",
 					controlPlanePort, err)
 			}
-			if err = r.deleteLB(ctx, vcdCluster, ovdcNetworkName, controlPlaneHost, int(controlPlanePortInt)); err != nil {
+			if err = r.deleteLB(ctx, vcdCluster, ovdcNetworkName, ovdcName, controlPlaneHost, int(controlPlanePortInt)); err != nil {
 				return ctrl.Result{}, errors.Wrapf(err,
 					"unable to delete LB with control plane host [%s], port[%d] in ovdc [%s] and network [%s]: [%v]",
 					controlPlaneHost, controlPlanePortInt, ovdcName, ovdcNetworkName, err)
@@ -1761,7 +1867,8 @@ func (r *VCDClusterReconciler) reconcileDelete(ctx context.Context,
 		break
 
 	default:
-		return ctrl.Result{}, errors.Wrapf(fmt.Errorf("unknown zoneType [%s]", vcdCluster.Spec.ZoneType), "")
+		return ctrl.Result{}, errors.Wrapf(
+			fmt.Errorf("unknown zoneType [%s]", vcdCluster.Spec.ZoneDetails.ZoneType), "")
 	}
 
 	// Delete vApp

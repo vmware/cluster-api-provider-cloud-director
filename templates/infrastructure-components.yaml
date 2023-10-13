@@ -9,8 +9,8 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    cert-manager.io/inject-ca-from: capvcd-system/capvcd-serving-cert
     controller-gen.kubebuilder.io/version: v0.4.1
+  creationTimestamp: null
   labels:
     cluster.x-k8s.io/provider: infrastructure-vcd
     cluster.x-k8s.io/v1alpha4: v1alpha4
@@ -687,32 +687,38 @@ spec:
                   username:
                     type: string
                 type: object
-              zoneType:
-                type: string
-              zones:
-                items:
-                  description: 'Zone :'
-                  properties:
-                    controlPlaneZone:
-                      default: false
-                      type: boolean
-                    loadBalancerIP:
-                      type: string
-                    loadBalancerPort:
-                      type: integer
-                    name:
-                      type: string
-                    ovdcName:
-                      type: string
-                    ovdcNetworkName:
-                      type: string
-                  required:
-                  - controlPlaneZone
-                  - name
-                  - ovdcName
-                  - ovdcNetworkName
-                  type: object
-                type: array
+              zoneDetails:
+                description: ZoneDetailsSpec
+                properties:
+                  userSpecifiedEdgeGatewayZone:
+                    type: string
+                  zoneType:
+                    type: string
+                  zones:
+                    items:
+                      description: 'Zone :'
+                      properties:
+                        controlPlaneZone:
+                          default: false
+                          type: boolean
+                        loadBalancerIP:
+                          type: string
+                        loadBalancerPort:
+                          type: integer
+                        name:
+                          type: string
+                        ovdcName:
+                          type: string
+                        ovdcNetworkName:
+                          type: string
+                      required:
+                      - controlPlaneZone
+                      - name
+                      - ovdcName
+                      - ovdcNetworkName
+                      type: object
+                    type: array
+                type: object
               zonesConfigMapName:
                 type: string
             required:
@@ -862,6 +868,40 @@ spec:
                       required:
                       - id
                       - name
+                      type: object
+                    type: array
+                type: object
+              zoneDetails:
+                description: ZoneDetailsStatus
+                properties:
+                  userSpecifiedEdgeGateway:
+                    type: string
+                  userSpecifiedEdgeGatewayZone:
+                    type: string
+                  zoneType:
+                    type: string
+                  zones:
+                    items:
+                      description: 'Zone :'
+                      properties:
+                        controlPlaneZone:
+                          default: false
+                          type: boolean
+                        loadBalancerIP:
+                          type: string
+                        loadBalancerPort:
+                          type: integer
+                        name:
+                          type: string
+                        ovdcName:
+                          type: string
+                        ovdcNetworkName:
+                          type: string
+                      required:
+                      - controlPlaneZone
+                      - name
+                      - ovdcName
+                      - ovdcNetworkName
                       type: object
                     type: array
                 type: object
@@ -1037,8 +1077,8 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    cert-manager.io/inject-ca-from: capvcd-system/capvcd-serving-cert
     controller-gen.kubebuilder.io/version: v0.4.1
+  creationTimestamp: null
   labels:
     cluster.x-k8s.io/provider: infrastructure-vcd
     cluster.x-k8s.io/v1alpha4: v1alpha4
@@ -1047,16 +1087,6 @@ metadata:
     clusterctl.cluster.x-k8s.io/move: ""
   name: vcdmachines.infrastructure.cluster.x-k8s.io
 spec:
-  conversion:
-    strategy: Webhook
-    webhook:
-      clientConfig:
-        service:
-          name: capvcd-webhook-service
-          namespace: capvcd-system
-          path: /convert
-      conversionReviewVersions:
-      - v1
   group: infrastructure.cluster.x-k8s.io
   names:
     kind: VCDMachine
@@ -1721,8 +1751,8 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    cert-manager.io/inject-ca-from: capvcd-system/capvcd-serving-cert
     controller-gen.kubebuilder.io/version: v0.4.1
+  creationTimestamp: null
   labels:
     cluster.x-k8s.io/provider: infrastructure-vcd
     cluster.x-k8s.io/v1alpha4: v1alpha4
@@ -1731,16 +1761,6 @@ metadata:
     clusterctl.cluster.x-k8s.io/move: ""
   name: vcdmachinetemplates.infrastructure.cluster.x-k8s.io
 spec:
-  conversion:
-    strategy: Webhook
-    webhook:
-      clientConfig:
-        service:
-          name: capvcd-webhook-service
-          namespace: capvcd-system
-          path: /convert
-      conversionReviewVersions:
-      - v1
   group: infrastructure.cluster.x-k8s.io
   names:
     kind: VCDMachineTemplate

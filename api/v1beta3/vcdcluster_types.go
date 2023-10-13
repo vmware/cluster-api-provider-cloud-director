@@ -17,6 +17,7 @@ limitations under the License.
 package v1beta3
 
 import (
+	"github.com/vmware/cluster-api-provider-cloud-director/common"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
@@ -94,6 +95,28 @@ type Zone struct {
 	LoadBalancerPort int `json:"loadBalancerPort,omitempty"`
 }
 
+// ZoneDetailsSpec
+type ZoneDetailsSpec struct {
+	// +optional
+	ZoneType common.ZoneType `json:"zoneType,omitempty"`
+	// +optional
+	UserSpecifiedEdgeGatewayZone string `json:"userSpecifiedEdgeGatewayZone"`
+	// +optional
+	Zones []Zone `json:"zones,omitempty"`
+}
+
+// ZoneDetailsStatus
+type ZoneDetailsStatus struct {
+	// +optional
+	ZoneType common.ZoneType `json:"zoneType,omitempty"`
+	// +optional
+	UserSpecifiedEdgeGateway string `json:"userSpecifiedEdgeGateway"`
+	// +optional
+	UserSpecifiedEdgeGatewayZone string `json:"userSpecifiedEdgeGatewayZone"`
+	// +optional
+	Zones []Zone `json:"zones,omitempty"`
+}
+
 // VCDClusterSpec defines the desired state of VCDCluster
 type VCDClusterSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
@@ -123,9 +146,7 @@ type VCDClusterSpec struct {
 	// +optional
 	LoadBalancerConfigSpec LoadBalancerConfig `json:"loadBalancerConfigSpec,omitempty"`
 	// +optional
-	ZoneType string `json:"zoneType,omitempty"`
-	// +optional
-	Zones []Zone `json:"zones,omitempty"`
+	ZoneDetails ZoneDetailsSpec `json:"zoneDetails,omitempty"`
 	// +optional
 	ZonesConfigMapName string `json:"zonesConfigMapName,omitempty"`
 }
@@ -183,6 +204,9 @@ type VCDClusterStatus struct {
 
 	// +optional
 	FailureDomains clusterv1.FailureDomains `json:"failureDomains,omitempty"`
+
+	// +optional
+	ZoneDetails ZoneDetailsStatus `json:"zoneDetails,omitempty"`
 }
 
 // +kubebuilder:object:root=true

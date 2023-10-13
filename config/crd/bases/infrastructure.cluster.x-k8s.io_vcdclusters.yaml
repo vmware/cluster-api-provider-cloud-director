@@ -5,7 +5,7 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.4.1
-  creationTimestamp: "2006-01-02T15:04:05Z"
+  creationTimestamp: null
   name: vcdclusters.infrastructure.cluster.x-k8s.io
 spec:
   group: infrastructure.cluster.x-k8s.io
@@ -676,32 +676,38 @@ spec:
                   username:
                     type: string
                 type: object
-              zoneType:
-                type: string
-              zones:
-                items:
-                  description: 'Zone :'
-                  properties:
-                    controlPlaneZone:
-                      default: false
-                      type: boolean
-                    loadBalancerIP:
-                      type: string
-                    loadBalancerPort:
-                      type: integer
-                    name:
-                      type: string
-                    ovdcName:
-                      type: string
-                    ovdcNetworkName:
-                      type: string
-                  required:
-                  - controlPlaneZone
-                  - name
-                  - ovdcName
-                  - ovdcNetworkName
-                  type: object
-                type: array
+              zoneDetails:
+                description: ZoneDetailsSpec
+                properties:
+                  userSpecifiedEdgeGatewayZone:
+                    type: string
+                  zoneType:
+                    type: string
+                  zones:
+                    items:
+                      description: 'Zone :'
+                      properties:
+                        controlPlaneZone:
+                          default: false
+                          type: boolean
+                        loadBalancerIP:
+                          type: string
+                        loadBalancerPort:
+                          type: integer
+                        name:
+                          type: string
+                        ovdcName:
+                          type: string
+                        ovdcNetworkName:
+                          type: string
+                      required:
+                      - controlPlaneZone
+                      - name
+                      - ovdcName
+                      - ovdcNetworkName
+                      type: object
+                    type: array
+                type: object
               zonesConfigMapName:
                 type: string
             required:
@@ -851,6 +857,40 @@ spec:
                       required:
                       - id
                       - name
+                      type: object
+                    type: array
+                type: object
+              zoneDetails:
+                description: ZoneDetailsStatus
+                properties:
+                  userSpecifiedEdgeGateway:
+                    type: string
+                  userSpecifiedEdgeGatewayZone:
+                    type: string
+                  zoneType:
+                    type: string
+                  zones:
+                    items:
+                      description: 'Zone :'
+                      properties:
+                        controlPlaneZone:
+                          default: false
+                          type: boolean
+                        loadBalancerIP:
+                          type: string
+                        loadBalancerPort:
+                          type: integer
+                        name:
+                          type: string
+                        ovdcName:
+                          type: string
+                        ovdcNetworkName:
+                          type: string
+                      required:
+                      - controlPlaneZone
+                      - name
+                      - ovdcName
+                      - ovdcNetworkName
                       type: object
                     type: array
                 type: object
