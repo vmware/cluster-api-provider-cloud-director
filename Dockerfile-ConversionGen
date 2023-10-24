@@ -1,4 +1,4 @@
-FROM golang:1.19 as builder
+FROM golang:1.20 as builder
 
 ENV CONVERSION_GEN_VER=v0.23.1
 ENV CONVERSION_GEN_BIN=conversion-gen
