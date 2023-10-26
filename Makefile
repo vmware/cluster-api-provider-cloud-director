@@ -123,11 +123,13 @@ autogen-files: manifests generate conversion release-manifests
 ##@ Build
 
 .PHONY: build
-build: bin ## Build CAPVCD binary. To be used from within a Dockerfile
+build: ## Build CAPVCD binary. To be used from within a Dockerfile
+	@mkdir -p bin
 	GOOS=$(OS) GOARCH=$(ARCH) CGO_ENABLED=$(CGO) go build -ldflags "-s -w -X github.com/vmware/cluster-api-provider-cloud-director/release.Version=$(VERSION)" -o bin/cluster-api-provider-cloud-director main.go
 
 .PHONY: test
-test: bin/testbin manifests generate ## Run tests.
+test: manifests generate ## Run tests.
+	@mkdir -p bin/testbin
 	test -f bin/testbin/setup-envtest.sh || curl -sSLo bin/testbin/setup-envtest.sh https://raw.githubusercontent.com/kubernetes-sigs/controller-runtime/v0.8.3/hack/setup-envtest.sh
 	source bin/testbin/setup-envtest.sh
 	fetch_envtest_tools bin/testbin
@@ -135,7 +137,8 @@ test: bin/testbin manifests generate ## Run tests.
 	go test ./... -coverprofile cover.out
 
 .PHONY: manager
-manager: bin generate ## Build manager binary.
+manager: generate ## Build manager binary.
+	@mkdir -p bin
 	go build -o bin/manager main.go
 
 .PHONY: run
@@ -243,13 +246,8 @@ clean:
 	rm -rf bin
 	rm artifacts/bom.json artifacts/dependencies.txt
 
-bin:
+$(KUSTOMIZE):
 	@mkdir -p bin
-
-bin/testbin:
-	@mkdir -p bin/testbin
-
-$(KUSTOMIZE): bin
 	@cd bin && \
 		set -ex -o pipefail && \
 		wget "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh"; \
@@ -257,20 +255,25 @@ $(KUSTOMIZE): bin
 		./install_kustomize.sh $(KUSTOMIZE_VERSION) .; \
 		rm -f ./install_kustomize.sh;
 
-$(CONTROLLER_GEN): bin
+$(CONTROLLER_GEN):
+	@mkdir -p bin
 	@GOBIN=$(GITROOT)/bin go install sigs.k8s.io/controller-tools/cmd/controller-gen@v${CONTROLLER_GEN_VERSION}
 
-$(CONVERSION_GEN): bin
+$(CONVERSION_GEN):
+	@mkdir -p bin
 	@GOBIN=$(GITROOT)/bin go install k8s.io/code-generator/cmd/conversion-gen@v${CONVERSION_GEN_VERSION}
 
-$(GOLANGCI_LINT): bin
+$(GOLANGCI_LINT):
+	@mkdir -p bin
 	@set -o pipefail && \
 		wget -q -O - https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(GITROOT)/bin v$(LINT_VERSION);
 
-$(GOSEC): bin
+$(GOSEC):
+	@mkdir -p bin
 	@GOBIN=$(GITROOT)/bin go install github.com/securego/gosec/v2/cmd/gosec@${GOSEC_VERSION}
 
-$(SHELLCHECK): bin
+$(SHELLCHECK):
+	@mkdir -p bin
 	@cd bin && \
 		set -o pipefail && \
 		wget -q -O - https://github.com/koalaman/shellcheck/releases/download/stable/shellcheck-stable.$$(uname).x86_64.tar.xz | tar -xJv --strip-components=1 shellcheck-stable/shellcheck && \
