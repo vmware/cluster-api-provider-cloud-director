@@ -380,18 +380,51 @@ func (r *VCDMachineReconciler) getOVDCDetailsForMachine(ctx context.Context, mac
 	}
 }
 
-func CreateFullVAppName(ctx context.Context, vcdCluster *infrav1beta3.VCDCluster, ovdcID string) (string, error) {
+func GetMachineDeploymentName(ctx context.Context, cli client.Client, vcdCluster *infrav1beta3.VCDCluster,
+	machine *clusterv1.Machine) (string, error) {
+
+	machineList := &clusterv1.MachineList{}
+	machineListLabels := map[string]string{clusterv1.ClusterNameLabel: vcdCluster.Name}
+	if err := cli.List(ctx, machineList, client.InNamespace(vcdCluster.Namespace),
+		client.MatchingLabels(machineListLabels)); err != nil {
+		return "", fmt.Errorf("error getting MachineList object for cluster [%s]: [%v]", vcdCluster.Name, err)
+	}
+
+	for _, machineListItem := range machineList.Items {
+		if machine.Name == machineListItem.Name {
+			if kcpNameLabel, ok := machineListItem.Labels[clusterv1.MachineControlPlaneNameLabel]; ok {
+				return kcpNameLabel, nil
+			} else {
+				if machineDeploymentNameLabel, ok := machineListItem.Labels[clusterv1.MachineDeploymentNameLabel]; ok {
+					return machineDeploymentNameLabel, nil
+				}
+			}
+		}
+	}
+
+	return "", fmt.Errorf("unable to find machine deployment for cluster [%s], machine [%s]",
+		vcdCluster.Name, machine.Name)
+}
+
+func CreateFullVAppName(ctx context.Context, cli client.Client, ovdcID string,
+	vcdCluster *infrav1beta3.VCDCluster, machine *clusterv1.Machine) (string, error) {
+
 	switch vcdCluster.Spec.ZoneDetails.ZoneType {
 	case "":
 		return vcdCluster.Name, nil
 
 	case common.ZoneTypeDCGroup, common.ZoneTypeExternal, common.ZoneTypeUserSpecifiedEdge:
-		vAppName, err := vcdutil.CreateVAppNamePrefix(vcdCluster.Name, ovdcID)
+		machineDeploymentName, err := GetMachineDeploymentName(ctx, cli, vcdCluster, machine)
 		if err != nil {
-			return "", fmt.Errorf("unable to get vApp name from cluster name [%s], OVDC ID [%s]: [%v]",
-				vcdCluster.Name, ovdcID, err)
+			return "", fmt.Errorf("unable to get MachineDeployment name from cluster [%s], machine [%s]: [%v]",
+				vcdCluster.Name, machine.Name, err)
 		}
-		return vAppName, nil
+		vAppPrefix, err := vcdutil.CreateVAppNamePrefix(vcdCluster.Name, ovdcID)
+		if err != nil {
+			return "", fmt.Errorf("unable to get vApp name from cluster name [%s], machine [%s]: [%v]",
+				vcdCluster.Name, machine.Name, err)
+		}
+		return fmt.Sprintf("%s_%s", vAppPrefix, machineDeploymentName), nil
 
 	default:
 		return "", fmt.Errorf("encountered unknown zonetype while creating vApp Name for cluster [%s]",
@@ -887,11 +920,11 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	// Create the vApp if it doesn't already exist. In the multi-AZ case, this has to be done in the machine controller
 	// since new zones could be added dynamically. In the non-AZ case, it can be done in the vcdCluster controller. However,
 	// we do it in one place for simplicity.
-	vAppName, err := CreateFullVAppName(ctx, vcdCluster, vdcManager.Vdc.Vdc.ID)
+	vAppName, err := CreateFullVAppName(ctx, r.Client, vdcManager.Vdc.Vdc.ID, vcdCluster, machine)
 	if err != nil {
-		log.Error(err, "unable to get vApp name from cluster name [%s], OVDC ID [%s]",
-			"clusterName", vcdCluster.Name, "OVDC ID", vdcManager.Vdc.Vdc.ID)
-		return ctrl.Result{}, errors.Wrapf(err, "unable to get vApp name from cluster name [%s], OVDC ID [%s]",
+		log.Error(err, "unable to get vApp name from cluster name [%s], machine [%s]",
+			"clusterName", vcdCluster.Name, "OVDC ID", machine.Name)
+		return ctrl.Result{}, errors.Wrapf(err, "unable to get vApp name from cluster name [%s] in OVDC ID [%s]",
 			vcdCluster.Name, vdcManager.Vdc.Vdc.ID)
 	}
 
@@ -1630,10 +1663,11 @@ func (r *VCDMachineReconciler) reconcileDelete(ctx context.Context, cluster *clu
 	}
 
 	// get the vApp
-	vAppName, err := CreateFullVAppName(ctx, vcdCluster, vcdClient.VDC.Vdc.ID)
+	vAppName, err := CreateFullVAppName(ctx, r.Client, vdcManager.Vdc.Vdc.ID, vcdCluster, machine)
 	if err != nil {
-		log.Error(err, "unable to create full name for vApp", "OVDC ID", vcdClient.VDC.Vdc.ID)
-		return ctrl.Result{}, errors.Wrapf(err, "unable to get vApp for VM [%s] in OVDC [%s]", machine.Name, ovdcName)
+		log.Error(err, "unable to create full name for vApp", "machine", machine.Name)
+		return ctrl.Result{}, errors.Wrapf(err, "unable to get vApp for VM [%s] in OVDC [%s]",
+			machine.Name, ovdcName)
 	}
 
 	vApp, err := vdcManager.Vdc.GetVAppByName(vAppName, true)
