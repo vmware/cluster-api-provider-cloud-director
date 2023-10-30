@@ -494,7 +494,7 @@ func (r *VCDMachineReconciler) reconcileVAppCreation(ctx context.Context, vcdCli
 		return ctrl.Result{}, errors.Wrapf(err, "found nil value for VApp [%s]", vAppName)
 	}
 
-	// AMK: TODO: understand what this does
+	// AMK: TODO: this is likely not needed since the resourceset will get added later.
 	//if !strings.HasPrefix(vcdCluster.Status.InfraId, NoRdePrefix) {
 	//	if err := r.reconcileRDE(ctx, cluster, vcdCluster, vcdClient, clusterVApp.VApp.ID, true); err != nil {
 	//		log.Error(err, "failed to add VApp ID to RDE", "rdeID", vcdCluster.Status.InfraId,
@@ -1684,16 +1684,17 @@ func (r *VCDMachineReconciler) reconcileDelete(ctx context.Context, cluster *clu
 	}
 	if vApp != nil {
 		// Delete the VM if and only if rdeId (matches) present in the vApp
-		// AMK: multiAZ TODO: this must be fixed
+
+		// AMK: multiAZ TODO: we don't add the metadata above, so no need to check the vappmetadataupdated here
 		// if !vcdCluster.Status.VAppMetadataUpdated {
-		if false {
-			updatedErr := capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDMachineError, "", machine.Name,
-				fmt.Sprintf("rdeId is not presented in the vApp [%s]: %v", vAppName, err))
-			if updatedErr != nil {
-				log.Error(updatedErr, "failed to add VCDMachineError into RDE", "rdeID", vcdCluster.Status.InfraId)
-			}
-			return ctrl.Result{}, errors.Errorf("Error occurred during the machine deletion; Metadata not found in vApp")
-		}
+		//	updatedErr := capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDMachineError, "", machine.Name,
+		//		fmt.Sprintf("rdeId is not presented in the vApp [%s]: %v", vAppName, err))
+		//	if updatedErr != nil {
+		//		log.Error(updatedErr, "failed to add VCDMachineError into RDE", "rdeID", vcdCluster.Status.InfraId)
+		//	}
+		//	return ctrl.Result{}, errors.Errorf("Error occurred during the machine deletion; Metadata not found in vApp")
+		//}
+
 		metadataInfraId, err := vdcManager.GetMetadataByKey(vApp, CapvcdInfraId)
 		if err != nil {
 			updatedErr := capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDMachineError, "", machine.Name,
