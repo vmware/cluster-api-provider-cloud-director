@@ -1346,14 +1346,16 @@ func (r *VCDMachineReconciler) reconcileDelete(ctx context.Context, cluster *clu
 	rdeManager := vcdsdk.NewRDEManager(workloadVCDClient, vcdCluster.Status.InfraId, capisdk.StatusComponentNameCAPVCD, release.Version)
 	err = rdeManager.RemoveFromVCDResourceSet(ctx, vcdsdk.ComponentCAPVCD, VcdResourceTypeVM, machine.Name)
 	if err != nil {
+		log.Error(fmt.Errorf("error occurred when removing VM [%s] from VCD resource set: [%v]", machine.Name, err),
+			"failed to remove VM from VCD resource set")
 		updatedErr := capvcdRdeManager.AddToErrorSet(ctx, capisdk.RdeError, "", machine.Name,
 			fmt.Sprintf("failed to delete VCD Resource [%s] of type [%s] from VCDResourceSet of RDE [%s]: [%v]",
 				machine.Name, VcdResourceTypeVM, vcdCluster.Status.InfraId, err))
 		if updatedErr != nil {
 			log.Error(updatedErr, "failed to add RdeError into RDE", "rdeID", vcdCluster.Status.InfraId)
 		}
-		return ctrl.Result{}, errors.Wrapf(err, "failed to delete VCD Resource [%s] of type [%s] from VCDResourceSet of RDE [%s]: [%v]",
-			machine.Name, VcdResourceTypeVM, vcdCluster.Status.InfraId, err)
+		// VCD has a bug where RDE update to VCD resource set may fail. Although VCD resource set in the RDE may
+		// contain outdated information, the cluster creation won't be blocked.
 	}
 	err = capvcdRdeManager.RdeManager.RemoveErrorByNameOrIdFromErrorSet(ctx, vcdsdk.ComponentCAPVCD, capisdk.RdeError, "", machine.Name)
 	if err != nil {
