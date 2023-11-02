@@ -10,9 +10,10 @@ import (
 	_ "embed"
 	"flag"
 	"fmt"
-	"github.com/vmware/cluster-api-provider-cloud-director/release"
 	"os"
 	"time"
+
+	"github.com/vmware/cluster-api-provider-cloud-director/release"
 
 	"go.uber.org/zap/zapcore"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -98,7 +99,7 @@ func main() {
 		SyncPeriod:             &syncPeriod,
 		HealthProbeBindAddress: probeAddr,
 		LeaderElection:         enableLeaderElection,
-		LeaderElectionID:       "cluster.x-k8s.io",
+		LeaderElectionID:       "capvcd-controller-manager-leader-election",
 	})
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
