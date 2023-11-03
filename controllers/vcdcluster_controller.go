@@ -892,7 +892,6 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 					if err1 != nil {
 						log.Error(err1, "failed to add RdeError (RDE upgrade failed) ", "rdeID", infraID)
 					}
-					return ctrl.Result{}, errors.Wrapf(err, "failed to reconcile RDE after upgrading RDE [%s]", infraID)
 				}
 				err = capvcdRdeManager.AddToEventSet(ctx, capisdk.RdeUpgraded, infraID, "", "", skipRDEEventUpdates)
 				if err != nil {
@@ -1016,13 +1015,14 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		// Update VCDResourceSet even if the creation has failed since we may have partially
 		// created set of resources
 		if err = addLBResourcesToVCDResourceSet(ctx, rdeManager, resourcesAllocated, controlPlaneNodeIP); err != nil {
+			log.Error(fmt.Errorf("error occurred while adding LoadBalancer resources to VCD Resource set of RDE [%s]: [%v]",
+				vcdCluster.Status.InfraId, err), "failed to add LoadBalancer resources to VCD resource set of RDE")
 			updatedErr := capvcdRdeManager.AddToErrorSet(ctx, capisdk.RdeError, "", vcdCluster.Name,
 				fmt.Sprintf("failed to add VCD Resource [%s] of type [%s] from VCDResourceSet of RDE [%s]: [%v]",
 					vcdCluster.Name, VcdResourceTypeVM, vcdCluster.Status.InfraId, err))
 			if updatedErr != nil {
 				log.Error(updatedErr, "failed to add RdeError into RDE", "rdeID", vcdCluster.Status.InfraId)
 			}
-			return ctrl.Result{}, errors.Wrapf(err, "failed to add load balancer resources to RDE [%s]", infraID)
 		}
 		if err = capvcdRdeManager.RdeManager.RemoveErrorByNameOrIdFromErrorSet(ctx, vcdsdk.ComponentCAPVCD, capisdk.RdeError, "", ""); err != nil {
 			log.Error(err, "failed to remove RdeError ", "rdeID", infraID)
@@ -1054,13 +1054,14 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	}
 
 	if err = addLBResourcesToVCDResourceSet(ctx, rdeManager, resourcesAllocated, controlPlaneNodeIP); err != nil {
+		log.Error(fmt.Errorf("error occurred while adding LoadBalancer resources to VCD Resource set of RDE [%s]: [%v]",
+			vcdCluster.Status.InfraId, err), "failed to add LoadBalancer resources to VCD resource set of RDE")
 		updatedErr := capvcdRdeManager.AddToErrorSet(ctx, capisdk.RdeError, "", vcdCluster.Name,
 			fmt.Sprintf("failed to add VCD Resource [%s] of type [%s] from VCDResourceSet of RDE [%s]: [%v]",
 				vcdCluster.Name, VcdResourceTypeVM, vcdCluster.Status.InfraId, err))
 		if updatedErr != nil {
 			log.Error(updatedErr, "failed to add RdeError (LBResources) into RDE", "rdeID", vcdCluster.Status.InfraId)
 		}
-		return ctrl.Result{}, errors.Wrapf(err, "failed to add load balancer resources to RDE [%s]", infraID)
 	}
 	if err = capvcdRdeManager.RdeManager.RemoveErrorByNameOrIdFromErrorSet(ctx, vcdsdk.ComponentCAPVCD, capisdk.RdeError, "", ""); err != nil {
 		log.Error(err, "failed to remove RdeError from RDE", "rdeID", infraID)
@@ -1161,9 +1162,10 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	if !strings.HasPrefix(vcdCluster.Status.InfraId, NoRdePrefix) {
 		if err := r.reconcileRDE(ctx, cluster, vcdCluster, workloadVCDClient, clusterVApp.VApp.ID, true); err != nil {
 			log.Error(err, "failed to add VApp ID to RDE", "rdeID", infraID, "vappID", clusterVApp.VApp.ID)
-			return ctrl.Result{}, errors.Wrapf(err, "failed to update RDE [%s] with VApp ID [%s]: [%v]", vcdCluster.Status.InfraId, clusterVApp.VApp.ID, err)
+		} else {
+			// err is nil; means rde was updated with the vapp ID
+			log.Info("successfully updated external ID of RDE with VApp ID", "infraID", infraID, "vAppID", clusterVApp.VApp.ID)
 		}
-		log.Info("successfully updated external ID of RDE with VApp ID", "infraID", infraID, "vAppID", clusterVApp.VApp.ID)
 	}
 
 	if metadataMap != nil && len(metadataMap) > 0 && !vcdCluster.Status.VAppMetadataUpdated {
@@ -1180,14 +1182,14 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	err = rdeManager.AddToVCDResourceSet(ctx, vcdsdk.ComponentCAPVCD, VCDResourceVApp,
 		vcdCluster.Name, clusterVApp.VApp.ID, nil)
 	if err != nil {
+		log.Error(fmt.Errorf("failed to add VApp details of VApp [%s] to RDE VCD resource set of RDE [%s]: [%v]",
+			vcdCluster.Name, vcdCluster.Status.InfraId, err), "failed to add VApp details to VCD resource set of RDE")
 		updatedErr := capvcdRdeManager.AddToErrorSet(ctx, capisdk.RdeError, "", vcdCluster.Name,
 			fmt.Sprintf("failed to add VCD Resource [%s] of type [%s] from VCDResourceSet of RDE [%s]: [%v]",
 				vcdCluster.Name, VcdResourceTypeVM, vcdCluster.Status.InfraId, err))
 		if updatedErr != nil {
 			log.Error(updatedErr, "failed to add RdeError into RDE", "rdeID", vcdCluster.Status.InfraId)
 		}
-		return ctrl.Result{}, errors.Wrapf(err, "failed to add resource [%s] of type [%s] to VCDResourceSet of RDE [%s]: [%v]",
-			vcdCluster.Name, VCDResourceVApp, infraID, err)
 	}
 	err = capvcdRdeManager.AddToEventSet(ctx, capisdk.InfraVappAvailable, clusterVApp.VApp.ID, "", "", skipRDEEventUpdates)
 	if err != nil {
@@ -1267,7 +1269,7 @@ func (r *VCDClusterReconciler) reconcileDelete(ctx context.Context,
 
 	// Delete the load balancer components
 	virtualServiceNamePrefix := capisdk.GetVirtualServiceNamePrefix(vcdCluster.Name, vcdCluster.Status.InfraId)
-	lbPoolNamePrefix := capisdk.GetVirtualServiceNamePrefix(vcdCluster.Name, vcdCluster.Status.InfraId)
+	lbPoolNamePrefix := capisdk.GetLoadBalancerPoolNamePrefix(vcdCluster.Name, vcdCluster.Status.InfraId)
 
 	controlPlanePort := vcdCluster.Spec.ControlPlaneEndpoint.Port
 	if controlPlanePort == 0 {
@@ -1384,15 +1386,16 @@ func (r *VCDClusterReconciler) reconcileDelete(ctx context.Context,
 		capisdk.StatusComponentNameCAPVCD, release.Version)
 	err = rdeManager.RemoveFromVCDResourceSet(ctx, vcdsdk.ComponentCAPVCD, VCDResourceVApp, vcdCluster.Name)
 	if err != nil {
+		log.Error(
+			fmt.Errorf("failed to remove VCD resource [%s] from VCD resource set of RDE [%s]: [%v]",
+				VCDResourceVApp, vcdCluster.Status.InfraId, err),
+			"error occurred while removing VCD resource from VCD resource set in RDE")
 		updatedErr := capvcdRdeManager.AddToErrorSet(ctx, capisdk.RdeError, "", vcdCluster.Name,
 			fmt.Sprintf("failed to delete VCD Resource [%s] of type [%s] from VCDResourceSet of RDE [%s]: [%v]",
 				vcdCluster.Name, VCDResourceVApp, vcdCluster.Status.InfraId, err))
 		if updatedErr != nil {
 			log.Error(updatedErr, "failed to add RdeError into RDE", "rdeID", vcdCluster.Status.InfraId)
 		}
-		return ctrl.Result{}, errors.Wrapf(err,
-			"failed to delete VCD Resource [%s] of type [%s] from VCDResourceSet of RDE [%s]: [%v]",
-			vcdCluster.Name, VCDResourceVApp, vcdCluster.Status.InfraId, err)
 	}
 	if err = capvcdRdeManager.RdeManager.RemoveErrorByNameOrIdFromErrorSet(ctx, vcdsdk.ComponentCAPVCD, capisdk.RdeError, "", vcdCluster.Name); err != nil {
 		log.Error(err, "failed to remove RdeError from RDE", "rdeID", vcdCluster.Status.InfraId)
