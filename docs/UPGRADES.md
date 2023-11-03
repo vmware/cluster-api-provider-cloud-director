@@ -8,7 +8,7 @@
 4. Run `clusterctl init -i vcd:v1.0.0`
 
 ## Upgrades from CAPVCD 1.0.x to 1.0.2
-To upgrade CAPVCD from verison 1.0.x to 1.0.2, a patch for CAPVCD deployment to update the image will be needed. Please execute the following command for each management cluster:
+To upgrade CAPVCD from version 1.0.x to 1.0.2, a patch for CAPVCD deployment to update the image will be needed. Please execute the following command for each management cluster:
 
 ```kubectl patch deployment -n capvcd-system capvcd-controller-manager -p '{"spec": {"template": {"spec": {"containers": [{"name": "manager", "image": "projects.registry.vmware.com/vmware-cloud-director/cluster-api-provider-cloud-director:1.0.2"}]}}}}'```
 
