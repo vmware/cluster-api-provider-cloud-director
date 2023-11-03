@@ -1162,8 +1162,10 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	if !strings.HasPrefix(vcdCluster.Status.InfraId, NoRdePrefix) {
 		if err := r.reconcileRDE(ctx, cluster, vcdCluster, workloadVCDClient, clusterVApp.VApp.ID, true); err != nil {
 			log.Error(err, "failed to add VApp ID to RDE", "rdeID", infraID, "vappID", clusterVApp.VApp.ID)
+		} else {
+			// err is nil; means rde was updated with the vapp ID
+			log.Info("successfully updated external ID of RDE with VApp ID", "infraID", infraID, "vAppID", clusterVApp.VApp.ID)
 		}
-		log.Info("successfully updated external ID of RDE with VApp ID", "infraID", infraID, "vAppID", clusterVApp.VApp.ID)
 	}
 
 	if metadataMap != nil && len(metadataMap) > 0 && !vcdCluster.Status.VAppMetadataUpdated {
