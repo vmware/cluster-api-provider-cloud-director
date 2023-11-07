@@ -150,7 +150,7 @@ runcmd:
 - '[ ! -f /opt/vmware/cloud-director/metering.sh ] && sudo reboot'
 - '[ ! -f /etc/cloud/cloud.cfg.d/cse.cfg ] && sudo reboot'
 - '[ ! -f /etc/vcloud/metering ] && sudo reboot'
-- sed -i -e 's~#PermitRootLogin prohibit-password~PermitRootLogin yes~' /etc/ssh/sshd_config
+- sed -i -e 's~#PermitRootLogin prohibit-password~PermitRootLogin yes~' -e 's~UsePAM yes~#UsePAM yes~' /etc/ssh/sshd_config
 - 'service ssh restart'
 {{ if .ControlPlane }}
 - '[ ! -f /root/control_plane.sh ] && sudo reboot'
