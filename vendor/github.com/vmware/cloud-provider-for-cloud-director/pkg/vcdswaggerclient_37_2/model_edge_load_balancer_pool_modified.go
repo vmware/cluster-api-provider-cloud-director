@@ -37,7 +37,7 @@ type EdgeLoadBalancerPool struct {
 	// The destination server port used by the traffic sent to the member.
 	DefaultPort int32 `json:"defaultPort,omitempty"`
 	// Maximum time (in minutes) to gracefully disable a member. Virtual service waits for the specified time before terminating the existing connections to the members that are disabled. <code>Special values: 0 represents 'Immediate', -1 represents 'Infinite'.</code> 
-	GracefulTimeoutPeriod int32 `json:"gracefulTimeoutPeriod,omitempty"`
+	GracefulTimeoutPeriod int32 `json:"gracefulTimeoutPeriod"`
 	// The algorithm for choosing a member within the pool's list of available members for each new connection. Default value is \"LEAST_CONNECTIONS\". Supported algorithms are: <ul> <li>LEAST_CONNECTIONS <li>ROUND_ROBIN <li>CONSISTENT_HASH <li>FASTEST_RESPONSE <li>LEAST_LOAD <li>FEWEST_SERVERS <li>RANDOM <li>FEWEST_TASKS <li>CORE_AFFINITY </ul> <em>CONSISTENT_HASH</em> uses Source IP Address hash. Using <em>FASTEST_RESPONSE</em>, <em>LEAST_LOAD</em>, <em>FEWEST_SERVERS</em>, <em>RANDOM</em>, <em>FEWEST_TASKS</em>, <em>CORE_AFFINITY</em> algorithms requires an Edge Gateway Load Balancer with PREMIUM feature set. 
 	Algorithm string `json:"algorithm,omitempty"`
 	// Member server's health can be monitored by using one or more health monitors. Active monitors generate synthetic traffic and mark a server up or down based on the response. 
