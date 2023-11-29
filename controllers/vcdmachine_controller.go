@@ -751,8 +751,8 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		// try to power on the VM
 		b64CloudInitScript := b64.StdEncoding.EncodeToString([]byte(cloudInit))
 		keyVals := map[string]string{
-			"guestinfo.userdata":          b64CloudInitScript,
-			"guestinfo.userdata.encoding": "base64",
+			"guestinfo.ignition.config":          b64CloudInitScript,
+			"guestinfo.ignition.config.encoding": "base64",
 			"disk.enableUUID":             "1",
 		}
 
