@@ -514,7 +514,7 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 			vAppName, machine.Name, bootstrapJinjaScript)
 	}
 
-	cloudInit := string(mergedCloudInitBytes)
+	cloudInit := string(bootstrapJinjaScript)
 
 	// nothing is redacted in the cloud init script - please ensure no secrets are present
 	log.Info(fmt.Sprintf("Cloud init Script: [%s]", cloudInit))
@@ -749,7 +749,7 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	}
 	if vmStatus != "POWERED_ON" {
 		// try to power on the VM
-		b64CloudInitScript := b64.StdEncoding.EncodeToString(mergedCloudInitBytes)
+		b64CloudInitScript := b64.StdEncoding.EncodeToString(cloudInit)
 		keyVals := map[string]string{
 			"guestinfo.userdata":          b64CloudInitScript,
 			"guestinfo.userdata.encoding": "base64",
