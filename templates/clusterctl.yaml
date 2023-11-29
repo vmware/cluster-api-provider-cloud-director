@@ -48,6 +48,7 @@ VCD_RDE_ID: "urn:vcloud:entity:vmware:capvcdCluster:UUID"
 VCD_VIP_CIDR: ""
 
 # Kubernetes cluster properties
+# When using the "ignition" flavor, do not append "vmware" strings to KUBERNETES_VERSION, ETCD_VERSION and DNS_VERSION as it will be pulling from public registries
 CLUSTER_NAME: "myCluster"
 TARGET_NAMESPACE: default
 CONTROL_PLANE_MACHINE_COUNT: 1

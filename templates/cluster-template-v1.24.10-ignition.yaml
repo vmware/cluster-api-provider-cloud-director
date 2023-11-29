@@ -1,0 +1,352 @@
+apiVersion: cluster.x-k8s.io/v1beta1
+kind: Cluster
+metadata:
+  name: ${CLUSTER_NAME}
+  namespace: ${TARGET_NAMESPACE}
+spec:
+  clusterNetwork:
+    pods:
+      cidrBlocks:
+        - ${POD_CIDR} # pod CIDR for the cluster
+    serviceDomain: cluster.local
+    services:
+      cidrBlocks:
+        - ${SERVICE_CIDR} # service CIDR for the clusterrdeId
+  controlPlaneRef:
+    apiVersion: controlplane.cluster.x-k8s.io/v1beta1
+    kind: KubeadmControlPlane
+    name: ${CLUSTER_NAME}-control-plane # name of the KubeadmControlPlane object associated with the cluster.
+    namespace: ${TARGET_NAMESPACE} # kubernetes namespace in which the KubeadmControlPlane object reside. Should be the same namespace as that of the Cluster object
+  infrastructureRef:
+    apiVersion: infrastructure.cluster.x-k8s.io/v1beta2
+    kind: VCDCluster
+    name: ${CLUSTER_NAME} # name of the VCDCluster object associated with the cluster.
+    namespace: ${TARGET_NAMESPACE} # kubernetes namespace in which the VCDCluster object resides. Should be the same namespace as that of the Cluster object
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: capi-user-credentials
+  namespace: ${TARGET_NAMESPACE}
+type: Opaque
+data:
+  username: "${VCD_USERNAME_B64}" # B64 encoded username of the VCD persona creating the cluster. If system administrator is the user, please encode 'system/administrator' as the username.
+  password: "${VCD_PASSWORD_B64}" # B64 encoded password associated with the user creating the cluster
+  refreshToken: "${VCD_REFRESH_TOKEN_B64}" # B64 encoded refresh token of the client registered with VCD for creating clusters. password can be left blank if refresh token is provided
+---
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta2
+kind: VCDCluster
+metadata:
+  name: ${CLUSTER_NAME}
+  namespace: ${TARGET_NAMESPACE}
+spec:
+  site: ${VCD_SITE} # VCD endpoint with the format https://VCD_HOST. No trailing '/'
+  org: ${VCD_ORGANIZATION} # VCD organization name where the cluster should be deployed
+  ovdc: ${VCD_ORGANIZATION_VDC} # VCD virtual datacenter name where the cluster should be deployed
+  ovdcNetwork: ${VCD_ORGANIZATION_VDC_NETWORK} # VCD virtual datacenter network to be used by the cluster
+  useAsManagementCluster: false # intent to use the resultant CAPVCD cluster as a management cluster; defaults to false
+  userContext:
+    secretRef:
+      name: capi-user-credentials
+      namespace: ${TARGET_NAMESPACE}
+  loadBalancerConfigSpec:
+    vipSubnet: "" # Virtual IP CIDR for the external network
+---
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta2
+kind: VCDMachineTemplate
+metadata:
+  name: ${CLUSTER_NAME}-control-plane
+  namespace: ${TARGET_NAMESPACE}
+spec:
+  template:
+    spec:
+      catalog: ${VCD_CATALOG} # Catalog hosting the TKGm template, which will be used to deploy the control plane VMs
+      template: ${VCD_TEMPLATE_NAME} # Name of the template to be used to create (or) upgrade the control plane nodes (this template must be pre-suploaded to the catalog in VCD)
+      sizingPolicy: ${VCD_CONTROL_PLANE_SIZING_POLICY} # Sizing policy to be used for the control plane VMs (this must be pre-published on the chosen organization virtual datacenter). If no sizing policy should be used, use "".
+      placementPolicy: ${VCD_CONTROL_PLANE_PLACEMENT_POLICY} # Placement policy to be used for worker VMs (this must be pre-published on the chosen organization virtual datacenter)
+      storageProfile: "${VCD_CONTROL_PLANE_STORAGE_PROFILE}" # Storage profile for control plane machine if any
+      diskSize: ${DISK_SIZE} # Disk size to use for the control plane machine, defaults to 20Gi
+      enableNvidiaGPU: false
+---
+apiVersion: controlplane.cluster.x-k8s.io/v1beta1
+kind: KubeadmControlPlane
+metadata:
+  name: ${CLUSTER_NAME}-control-plane
+  namespace: ${TARGET_NAMESPACE}
+spec:
+  kubeadmConfigSpec:
+    clusterConfiguration:
+      apiServer:
+        certSANs:
+          - localhost
+          - 127.0.0.1
+      controllerManager:
+        extraArgs:
+          enable-hostpath-provisioner: "true"
+      dns:
+        imageRepository: coredns # image repository to pull the DNS image from
+        imageTag: 1.8.6
+      etcd:
+        local:
+          imageRepository: quay.io/coreos/etcd # image repository to pull the etcd image from
+          imageTag: v3.5.6
+      imageRepository: bitnami # image repository to use for the rest of kubernetes images
+    users:
+      - name: root
+        sshAuthorizedKeys:
+          - "${SSH_PUBLIC_KEY}" # ssh public key to log in to the control plane VMs in VCD
+    format: ignition
+    ignition:
+      containerLinuxConfig:
+        additionalConfig: |-
+          storage:
+            files:
+            - path: /opt/set-hostname
+              filesystem: root
+              mode: 0744
+              contents:
+                inline: |
+                  #!/bin/sh
+                  set -x
+                  echo "${COREOS_CUSTOM_HOSTNAME}" > /etc/hostname
+                  hostname "${COREOS_CUSTOM_HOSTNAME}"
+                  echo "::1         ipv6-localhost ipv6-loopback" >/etc/hosts
+                  echo "127.0.0.1   localhost" >>/etc/hosts
+                  echo "127.0.0.1   ${COREOS_CUSTOM_HOSTNAME}" >>/etc/hosts
+          systemd:
+            units:
+            - name: coreos-metadata.service
+              contents: |
+                [Unit]
+                Description=VMware metadata agent
+                After=nss-lookup.target
+                After=network-online.target
+                Wants=network-online.target
+                [Service]
+                Type=oneshot
+                Restart=on-failure
+                RemainAfterExit=yes
+                Environment=OUTPUT=/run/metadata/coreos
+                ExecStart=/usr/bin/mkdir --parent /run/metadata
+                ExecStart=/usr/bin/bash -cv 'echo "COREOS_CUSTOM_HOSTNAME=$(/usr/share/oem/bin/vmtoolsd --cmd "info-get guestinfo.ignition.vmname")" > ${OUTPUT}'
+            - name: set-hostname.service
+              enabled: true
+              contents: |
+                [Unit]
+                Description=Set the hostname
+                Requires=coreos-metadata.service
+                After=coreos-metadata.service
+                [Service]
+                Type=oneshot
+                RemainAfterExit=yes
+                EnvironmentFile=/run/metadata/coreos
+                ExecStart=/opt/set-hostname
+                [Install]
+                WantedBy=multi-user.target
+            - name: set-networkd-units.service
+              enabled: true
+              contents: |
+                [Unit]
+                Description=Install the networkd unit files
+                Requires=coreos-metadata.service
+                After=set-hostname.service
+                [Service]
+                Type=oneshot
+                RemainAfterExit=yes
+                ExecStart=/usr/bin/bash -cv 'echo "$(/usr/share/oem/bin/vmtoolsd --cmd "info-get guestinfo.ignition.network")" > /opt/set-networkd-units'
+                ExecStart=/usr/bin/bash -cv 'chmod u+x /opt/set-networkd-units'
+                ExecStart=/opt/set-networkd-units
+                [Install]
+                WantedBy=multi-user.target
+            - name: ethtool-segmentation.service
+              enabled: true
+              contents: |
+                [Unit]
+                After=network.target
+                [Service]
+                Type=oneshot
+                RemainAfterExit=yes
+                ExecStart=/usr/sbin/ethtool -K ens192 tx-udp_tnl-csum-segmentation off
+                ExecStart=/usr/sbin/ethtool -K ens192 tx-udp_tnl-segmentation off
+                [Install]
+                WantedBy=default.target
+            - name: kubeadm.service
+              enabled: true
+              dropins:
+              - name: 10-flatcar.conf
+                contents: |
+                  [Unit]
+                  # kubeadm must run after coreos-metadata populated /run/metadata directory.
+                  Requires=coreos-metadata.service
+                  After=set-networkd-units.service
+                  [Service]
+                  # Make metadata environment variables available for pre-kubeadm commands.
+                  EnvironmentFile=/run/metadata/*
+    initConfiguration:
+      nodeRegistration:
+        criSocket: /run/containerd/containerd.sock
+        kubeletExtraArgs:
+          eviction-hard: nodefs.available<0%,nodefs.inodesFree<0%,imagefs.available<0%
+          cloud-provider: external
+    joinConfiguration:
+      nodeRegistration:
+        criSocket: /run/containerd/containerd.sock
+        kubeletExtraArgs:
+          eviction-hard: nodefs.available<0%,nodefs.inodesFree<0%,imagefs.available<0%
+          cloud-provider: external
+  machineTemplate:
+    infrastructureRef:
+      apiVersion: infrastructure.cluster.x-k8s.io/v1beta2
+      kind: VCDMachineTemplate
+      name: ${CLUSTER_NAME}-control-plane # name of the VCDMachineTemplate object used to deploy control plane VMs. Should be the same name as that of KubeadmControlPlane object
+      namespace: ${TARGET_NAMESPACE} # kubernetes namespace of the VCDMachineTemplate object. Should be the same namespace as that of the Cluster object
+  replicas: ${CONTROL_PLANE_MACHINE_COUNT} # desired number of control plane nodes for the cluster
+  version: v1.24.10 # Kubernetes version to be used to create (or) upgrade the control plane nodes.
+---
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta2
+kind: VCDMachineTemplate
+metadata:
+  name: ${CLUSTER_NAME}-md-0
+  namespace: ${TARGET_NAMESPACE}
+spec:
+  template:
+    spec:
+      catalog: ${VCD_CATALOG} # Catalog hosting the TKGm template, which will be used to deploy the worker VMs
+      template: ${VCD_TEMPLATE_NAME} # Name of the template to be used to create (or) upgrade the control plane nodes (this template must be pre-suploaded to the catalog in VCD)
+      sizingPolicy: ${VCD_WORKER_SIZING_POLICY} # Sizing policy to be used for the worker VMs (this must be pre-published on the chosen organization virtual datacenter). If no sizing policy should be used, use "".
+      placementPolicy: ${VCD_WORKER_PLACEMENT_POLICY} # Placement policy to be used for worker VMs (this must be pre-published on the chosen organization virtual datacenter)
+      storageProfile: "${VCD_WORKER_STORAGE_PROFILE}" # Storage profile for control plane machine if any
+      diskSize: ${DISK_SIZE} # Disk size for the worker machine; defaults to 20Gi
+      enableNvidiaGPU: false
+---
+apiVersion: bootstrap.cluster.x-k8s.io/v1beta1
+kind: KubeadmConfigTemplate
+metadata:
+  name: ${CLUSTER_NAME}-md-0
+  namespace: ${TARGET_NAMESPACE}
+spec:
+  template:
+    spec:
+      users:
+        - name: root
+          sshAuthorizedKeys:
+            - "${SSH_PUBLIC_KEY}" # ssh public key to log in to the worker VMs in VCD
+      joinConfiguration:
+        nodeRegistration:
+          criSocket: /run/containerd/containerd.sock
+          kubeletExtraArgs:
+            eviction-hard: nodefs.available<0%,nodefs.inodesFree<0%,imagefs.available<0%
+            cloud-provider: external
+      format: ignition
+      ignition:
+        containerLinuxConfig:
+          additionalConfig: |-
+            storage:
+              files:
+              - path: /opt/set-hostname
+                filesystem: root
+                mode: 0744
+                contents:
+                  inline: |
+                    #!/bin/sh
+                    set -x
+                    echo "${COREOS_CUSTOM_HOSTNAME}" > /etc/hostname
+                    hostname "${COREOS_CUSTOM_HOSTNAME}"
+                    echo "::1         ipv6-localhost ipv6-loopback" >/etc/hosts
+                    echo "127.0.0.1   localhost" >>/etc/hosts
+                    echo "127.0.0.1   ${COREOS_CUSTOM_HOSTNAME}" >>/etc/hosts
+            systemd:
+              units:
+              - name: coreos-metadata.service
+                contents: |
+                  [Unit]
+                  Description=VMware metadata agent
+                  After=nss-lookup.target
+                  After=network-online.target
+                  Wants=network-online.target
+                  [Service]
+                  Type=oneshot
+                  Restart=on-failure
+                  RemainAfterExit=yes
+                  Environment=OUTPUT=/run/metadata/coreos
+                  ExecStart=/usr/bin/mkdir --parent /run/metadata
+                  ExecStart=/usr/bin/bash -cv 'echo "COREOS_CUSTOM_HOSTNAME=$(/usr/share/oem/bin/vmtoolsd --cmd "info-get guestinfo.ignition.vmname")" > ${OUTPUT}'
+              - name: set-hostname.service
+                enabled: true
+                contents: |
+                  [Unit]
+                  Description=Set the hostname
+                  Requires=coreos-metadata.service
+                  After=coreos-metadata.service
+                  [Service]
+                  Type=oneshot
+                  RemainAfterExit=yes
+                  EnvironmentFile=/run/metadata/coreos
+                  ExecStart=/opt/set-hostname
+                  [Install]
+                  WantedBy=multi-user.target
+              - name: set-networkd-units.service
+                enabled: true
+                contents: |
+                  [Unit]
+                  Description=Install the networkd unit files
+                  Requires=coreos-metadata.service
+                  After=set-hostname.service
+                  [Service]
+                  Type=oneshot
+                  RemainAfterExit=yes
+                  ExecStart=/usr/bin/bash -cv 'echo "$(/usr/share/oem/bin/vmtoolsd --cmd "info-get guestinfo.ignition.network")" > /opt/set-networkd-units'
+                  ExecStart=/usr/bin/bash -cv 'chmod u+x /opt/set-networkd-units'
+                  ExecStart=/opt/set-networkd-units
+                  [Install]
+                  WantedBy=multi-user.target
+              - name: ethtool-segmentation.service
+                enabled: true
+                contents: |
+                  [Unit]
+                  After=network.target
+                  [Service]
+                  Type=oneshot
+                  RemainAfterExit=yes
+                  ExecStart=/usr/sbin/ethtool -K ens192 tx-udp_tnl-csum-segmentation off
+                  ExecStart=/usr/sbin/ethtool -K ens192 tx-udp_tnl-segmentation off
+                  [Install]
+                  WantedBy=default.target
+              - name: kubeadm.service
+                enabled: true
+                dropins:
+                - name: 10-flatcar.conf
+                  contents: |
+                    [Unit]
+                    # kubeadm must run after coreos-metadata populated /run/metadata directory.
+                    Requires=coreos-metadata.service
+                    After=set-networkd-units.service
+                    [Service]
+                    # Make metadata environment variables available for pre-kubeadm commands.
+                    EnvironmentFile=/run/metadata/*
+---
+apiVersion: cluster.x-k8s.io/v1beta1
+kind: MachineDeployment
+metadata:
+  name: ${CLUSTER_NAME}-md-0
+  namespace: ${TARGET_NAMESPACE}
+spec:
+  clusterName: ${CLUSTER_NAME} # name of the Cluster object
+  replicas: ${WORKER_MACHINE_COUNT} # desired number of worker nodes for the cluster
+  selector:
+    matchLabels: null
+  template:
+    spec:
+      bootstrap:
+        configRef:
+          apiVersion: bootstrap.cluster.x-k8s.io/v1beta1
+          kind: KubeadmConfigTemplate
+          name: ${CLUSTER_NAME}-md-0 # name of the KubeadmConfigTemplate object
+          namespace: ${TARGET_NAMESPACE} # kubernetes namespace of the KubeadmConfigTemplate object. Should be the same namespace as that of the Cluster object
+      clusterName: ${CLUSTER_NAME} # name of the Cluster object
+      infrastructureRef:
+        apiVersion: infrastructure.cluster.x-k8s.io/v1beta2
+        kind: VCDMachineTemplate
+        name: ${CLUSTER_NAME}-md-0 # name of the VCDMachineTemplate object used to deploy worker nodes
+        namespace: ${TARGET_NAMESPACE} # kubernetes namespace of the VCDMachineTemplate object used to deploy worker nodes
+      version: v1.24.10 # Kubernetes version to be used to create (or) upgrade the worker nodes.
