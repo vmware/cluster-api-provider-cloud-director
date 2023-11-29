@@ -831,7 +831,7 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		log.Error(err, "failed to remove VCDMachineCreationError from RDE", "rdeID", vcdCluster.Status.InfraId)
 	}
 
-	phases := postCustPhases
+	/* phases := postCustPhases
 	if useControlPlaneScript {
 		phases = append(phases, KubeadmInit)
 	} else {
@@ -868,7 +868,7 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 				vAppName, vm.VM.Name, phase)
 		}
 		log.Info(fmt.Sprintf("End: waiting for the bootstrapping phase [%s] to complete", phase))
-	}
+	} */
 
 	err = capvcdRdeManager.RdeManager.RemoveErrorByNameOrIdFromErrorSet(ctx, vcdsdk.ComponentCAPVCD, capisdk.VCDMachineScriptExecutionError, "", "")
 	if err != nil {
