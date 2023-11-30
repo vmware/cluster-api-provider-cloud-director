@@ -755,6 +755,7 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 			"guestinfo.ignition.config.data.encoding": "base64",
 			"guestinfo.userdata":          b64CloudInitScript,
 			"guestinfo.userdata.encoding": "base64",
+			"guestinfo.vmname": vmName,
 			"disk.enableUUID":             "1",
 		}
 
