@@ -756,6 +756,8 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 			"guestinfo.userdata":          b64CloudInitScript,
 			"guestinfo.userdata.encoding": "base64",
 			"disk.enableUUID":             "1",
+			"guestinfo.hostname": "testname",
+			"guestinfo.interface.ens192.dhcp": "yes",
 		}
 
 		for key, val := range keyVals {
@@ -1026,7 +1028,7 @@ func getNetworkConnection(connections *types.NetworkConnectionSection, ovdcNetwo
 		Network:                 ovdcNetwork,
 		NeedsCustomization:      false,
 		IsConnected:             true,
-		IPAddressAllocationMode: "POOL",
+		IPAddressAllocationMode: "DHCP",
 		NetworkAdapterType:      "VMXNET3",
 	}
 }
