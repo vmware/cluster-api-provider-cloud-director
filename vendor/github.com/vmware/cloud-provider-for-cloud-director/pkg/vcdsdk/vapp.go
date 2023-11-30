@@ -662,7 +662,7 @@ func (vdc *VdcManager) AddNewMultipleVM(vapp *govcd.VApp, vmNamePrefix string, v
 								Network:                 vapp.VApp.NetworkConfigSection.NetworkNames()[0],
 								NeedsCustomization:      false,
 								IsConnected:             true,
-								IPAddressAllocationMode: "DHCP",
+								IPAddressAllocationMode: "POOL",
 								NetworkAdapterType:      "VMXNET3",
 							},
 						},
