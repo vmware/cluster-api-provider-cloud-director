@@ -140,7 +140,7 @@ spec:
             capabilities:
               add: ["SYS_ADMIN"]
             allowPrivilegeEscalation: true
-          image: projects.registry.vmware.com/vmware-cloud-director/cloud-director-named-disk-csi-driver:1.4.0
+          image: projects.registry.vmware.com/vmware-cloud-director/cloud-director-named-disk-csi-driver:1.6.0
           imagePullPolicy: IfNotPresent
           command:
             - /opt/vcloud/bin/cloud-director-named-disk-csi-driver
