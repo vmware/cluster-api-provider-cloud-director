@@ -12,6 +12,7 @@ import (
 	b64 "encoding/base64"
 	"fmt"
 	"math"
+	"net"
 	"reflect"
 	"sigs.k8s.io/yaml"
 	"strconv"
@@ -747,15 +748,31 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	if err = capvcdRdeManager.RdeManager.RemoveErrorByNameOrIdFromErrorSet(ctx, vcdsdk.ComponentCAPVCD, capisdk.VCDMachineCreationError, "", ""); err != nil {
 		log.Error(err, "failed to remove VCDMachineCreationError from RDE")
 	}
+
+	// Collect OvdcNetwork to populate ignition metadata
+	OrgVdcNetwork, err := vdcManager.Vdc.GetOrgVdcNetworkByName(ovdcNetwork, true)
+	if err != nil {
+		return fmt.Errorf("unable to get ovdc network [%s]: [%v]", ovdcNetworkName, err)
+	}
+
+	// Convert netmask to CIDR notation for ignition
+	netmask := net.ParseIP(OrgVdcNetwork.Configuration.IpScopes.IpScope.Netmask)
+	netmaskCidr, _ := net.IPMask(ip.To4()).Size()
+
 	if vmStatus != "POWERED_ON" {
 		// try to power on the VM
 		b64CloudInitScript := b64.StdEncoding.EncodeToString([]byte(cloudInit))
 		keyVals := map[string]string{
-			"guestinfo.ignition.config.data":          b64CloudInitScript,
-			"guestinfo.ignition.config.data.encoding": "base64",
 			"guestinfo.userdata":          b64CloudInitScript,
 			"guestinfo.userdata.encoding": "base64",
-			"guestinfo.vmname": vmName,
+			"guestinfo.ignition.config.data":          b64CloudInitScript,
+			"guestinfo.ignition.config.data.encoding": "base64",
+			"guestinfo.ignition.vmname": vmName,
+			"guestinfo.ignition.machineaddress": machineAddress,
+			"guestinfo.ignition.gateway": OrgVdcNetwork.Configuration.IpScopes.IpScope.Gateway,
+			"guestinfo.ignition.netmask": netmaskCidr,
+			"guestinfo.ignition.dns1": OrgVdcNetwork.Configuration.IpScopes.IpScope.Dns1,
+			"guestinfo.ignition.dns2": OrgVdcNetwork.Configuration.IpScopes.IpScope.Dns2,
 			"disk.enableUUID":             "1",
 		}
 
