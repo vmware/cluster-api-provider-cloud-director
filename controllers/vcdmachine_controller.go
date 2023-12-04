@@ -750,16 +750,13 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	}
 
 	// Collect OvdcNetwork to populate ignition metadata
-	OrgVdcNetwork, err := vdcManager.Vdc.GetOrgVdcNetworkByName(ovdcNetwork, true)
-	if err != nil {
-		return fmt.Errorf("unable to get ovdc network [%s]: [%v]", ovdcNetworkName, err)
-	}
+	OrgVdcNetwork, err := vdcManager.Vdc.GetOrgVdcNetworkByName(vcdCluster.Spec.OvdcNetwork, true)
 
 	// Convert netmask to CIDR notation for ignition
-	netmask := net.ParseIP(OrgVdcNetwork.Configuration.IpScopes.IpScope.Netmask)
-	netmaskCidr, _ := net.IPMask(ip.To4()).Size()
+	netmask := net.ParseIP(OrgVdcNetwork.OrgVDCNetwork.Configuration.IPScopes.IPScope[0].Netmask)
+	netmaskCidr, _ := net.IPMask(netmask.To4()).Size()
 	ignitionAddress := fmt.Sprint(machineAddress) + "/" + fmt.Sprint(netmaskCidr)
-
+	
 	if vmStatus != "POWERED_ON" {
 		// try to power on the VM
 		b64CloudInitScript := b64.StdEncoding.EncodeToString([]byte(cloudInit))
@@ -770,9 +767,9 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 			"guestinfo.ignition.config.data.encoding": "base64",
 			"guestinfo.ignition.vmname": vmName,
 			"guestinfo.ignition.machineaddress": ignitionAddress,
-			"guestinfo.ignition.gateway": OrgVdcNetwork.Configuration.IpScopes.IpScope.Gateway,
-			"guestinfo.ignition.dns1": OrgVdcNetwork.Configuration.IpScopes.IpScope.Dns1,
-			"guestinfo.ignition.dns2": OrgVdcNetwork.Configuration.IpScopes.IpScope.Dns2,
+			"guestinfo.ignition.gateway": OrgVdcNetwork.OrgVDCNetwork.Configuration.IPScopes.IPScope[0].Gateway,
+			"guestinfo.ignition.dns1": OrgVdcNetwork.OrgVDCNetwork.Configuration.IPScopes.IPScope[0].DNS1,
+			"guestinfo.ignition.dns2": OrgVdcNetwork.OrgVDCNetwork.Configuration.IPScopes.IPScope[0].DNS2,
 			"disk.enableUUID":             "1",
 		}
 
