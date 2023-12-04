@@ -216,7 +216,7 @@ func validateDerivedRDEProperties(vcdCluster *infrav1.VCDCluster, infraID string
 		}
 		newRdeVersion, err := semver.New(rdeVersionInUse)
 		if err != nil {
-			return fmt.Errorf("invalid RDE verison [%s] derived", rdeVersionInUse)
+			return fmt.Errorf("invalid RDE version [%s] derived", rdeVersionInUse)
 		}
 		if newRdeVersion.LT(*statusRdeVersion) {
 			return fmt.Errorf("derived RDE version [%s] is lesser than RDE version in VCDCluster status [%s]",
