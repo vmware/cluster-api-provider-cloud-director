@@ -14,11 +14,12 @@ import (
 	"math"
 	"net"
 	"reflect"
-	"sigs.k8s.io/yaml"
 	"strconv"
 	"strings"
 	"text/template"
 	"time"
+
+	"sigs.k8s.io/yaml"
 
 	"github.com/Masterminds/sprig/v3"
 	"github.com/go-logr/logr"
@@ -67,6 +68,11 @@ const (
 	ReclaimPolicyRetain = "Retain"
 
 	VcdResourceTypeVM = "virtual-machine"
+)
+
+const (
+	BootstrapFormatCloudConfig = "cloud-config"
+	BootstrapFormatIgnition    = "ignition"
 )
 
 const Mebibyte = 1048576
@@ -460,7 +466,7 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	if err != nil {
 		log.Error(err, "failed to remove VCDClusterVappCreationError from RDE", "rdeID", vcdCluster.Status.InfraId)
 	}
-	bootstrapJinjaScript, err := r.getBootstrapData(ctx, machine)
+	bootstrapFormat, bootstrapJinjaScript, err := r.getBootstrapData(ctx, machine)
 	if err != nil {
 		err1 := capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDMachineScriptGenerationError, "", machine.Name, fmt.Sprintf("%v", err))
 		if err1 != nil {
@@ -481,45 +487,49 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	// Hence we are checking if it contains the control plane label and has kubeadm join in the script
 	isResizedControlPlane := util.IsControlPlaneMachine(machine) && strings.Contains(bootstrapJinjaScript, "kubeadm join")
 
-	// Construct a CloudInitScriptInput struct to pass into template.Execute() function to generate the necessary
-	// cloud init script for the relevant node type, i.e. control plane or worker node
-	cloudInitInput := CloudInitScriptInput{}
-	if !vcdMachine.Spec.Bootstrapped {
-		if useControlPlaneScript {
-			cloudInitInput = CloudInitScriptInput{
-				ControlPlane: true,
+	var bootstrapData string
+	if bootstrapFormat == BootstrapFormatCloudConfig {
+
+		// Construct a CloudInitScriptInput struct to pass into template.Execute() function to generate the necessary
+		// cloud init script for the relevant node type, i.e. control plane or worker node
+		cloudInitInput := CloudInitScriptInput{}
+		if !vcdMachine.Spec.Bootstrapped {
+			if useControlPlaneScript {
+				cloudInitInput = CloudInitScriptInput{
+					ControlPlane: true,
+				}
 			}
+
+			cloudInitInput.HTTPProxy = vcdCluster.Spec.ProxyConfigSpec.HTTPProxy
+			cloudInitInput.HTTPSProxy = vcdCluster.Spec.ProxyConfigSpec.HTTPSProxy
+			cloudInitInput.NoProxy = vcdCluster.Spec.ProxyConfigSpec.NoProxy
+			cloudInitInput.MachineName = vmName
+
+			// TODO: After tenants has access to siteId, populate siteId to cloudInitInput as opposed to the site
+			cloudInitInput.VcdHostFormatted = strings.ReplaceAll(vcdCluster.Spec.Site, "/", "\\/")
+			cloudInitInput.NvidiaGPU = vcdMachine.Spec.EnableNvidiaGPU
+			cloudInitInput.TKGVersion = getTKGVersion(cluster)   // needed for both worker & control plane machines for metering
+			cloudInitInput.ClusterID = vcdCluster.Status.InfraId // needed for both worker & control plane machines for metering
+			cloudInitInput.ResizedControlPlane = isResizedControlPlane
 		}
 
-		cloudInitInput.HTTPProxy = vcdCluster.Spec.ProxyConfigSpec.HTTPProxy
-		cloudInitInput.HTTPSProxy = vcdCluster.Spec.ProxyConfigSpec.HTTPSProxy
-		cloudInitInput.NoProxy = vcdCluster.Spec.ProxyConfigSpec.NoProxy
-		cloudInitInput.MachineName = vmName
-
-		// TODO: After tenants has access to siteId, populate siteId to cloudInitInput as opposed to the site
-		cloudInitInput.VcdHostFormatted = strings.ReplaceAll(vcdCluster.Spec.Site, "/", "\\/")
-		cloudInitInput.NvidiaGPU = vcdMachine.Spec.EnableNvidiaGPU
-		cloudInitInput.TKGVersion = getTKGVersion(cluster)   // needed for both worker & control plane machines for metering
-		cloudInitInput.ClusterID = vcdCluster.Status.InfraId // needed for both worker & control plane machines for metering
-		cloudInitInput.ResizedControlPlane = isResizedControlPlane
-	}
-
-	mergedCloudInitBytes, err := MergeJinjaToCloudInitScript(cloudInitInput, bootstrapJinjaScript)
-	if err != nil {
-		err1 := capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDMachineScriptGenerationError, "", machine.Name, fmt.Sprintf("%v", err))
-		if err1 != nil {
-			log.Error(err1, "failed to add VCDMachineScriptGenerationError into RDE", "rdeID", vcdCluster.Status.InfraId)
+		mergedCloudInitBytes, err := MergeJinjaToCloudInitScript(cloudInitInput, bootstrapJinjaScript)
+		if err != nil {
+			err1 := capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDMachineScriptGenerationError, "", machine.Name, fmt.Sprintf("%v", err))
+			if err1 != nil {
+				log.Error(err1, "failed to add VCDMachineScriptGenerationError into RDE", "rdeID", vcdCluster.Status.InfraId)
+			}
+			return ctrl.Result{}, errors.Wrapf(err,
+				"Error merging bootstrap jinja script with the cloudInit script for [%s/%s] [%s]",
+				vAppName, machine.Name, bootstrapJinjaScript)
 		}
-		return ctrl.Result{}, errors.Wrapf(err,
-			"Error merging bootstrap jinja script with the cloudInit script for [%s/%s] [%s]",
-			vAppName, machine.Name, bootstrapJinjaScript)
+		bootstrapData = string(mergedCloudInitBytes)
+	} else if bootstrapFormat == BootstrapFormatIgnition {
+		bootstrapData = string(bootstrapJinjaScript)
 	}
-
-	cloudInit := string(mergedCloudInitBytes)
-	ignition := string(bootstrapJinjaScript)
 
 	// nothing is redacted in the cloud init script - please ensure no secrets are present
-	log.Info(fmt.Sprintf("Cloud init Script: [%s]", cloudInit))
+	log.Info(fmt.Sprintf("Cloud init Script: [%s]", bootstrapData))
 	err = capvcdRdeManager.AddToEventSet(ctx, capisdk.CloudInitScriptGenerated, "", machine.Name, "", skipRDEEventUpdates)
 	if err != nil {
 		log.Error(err, "failed to add CloudInitScriptGenerated event into RDE", "rdeID", vcdCluster.Status.InfraId)
@@ -757,22 +767,29 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	netmask := net.ParseIP(OrgVdcNetwork.OrgVDCNetwork.Configuration.IPScopes.IPScope[0].Netmask)
 	netmaskCidr, _ := net.IPMask(netmask.To4()).Size()
 	ignitionAddress := fmt.Sprint(machineAddress) + "/" + fmt.Sprint(netmaskCidr)
-	
+
 	if vmStatus != "POWERED_ON" {
 		// try to power on the VM
-		b64CloudInitScript := b64.StdEncoding.EncodeToString([]byte(cloudInit))
-		b64ignitionScript := b64.StdEncoding.EncodeToString([]byte(ignition))
-		keyVals := map[string]string{
-			"guestinfo.userdata":          b64CloudInitScript,
-			"guestinfo.userdata.encoding": "base64",
-			"guestinfo.ignition.config.data":          b64ignitionScript,
-			"guestinfo.ignition.config.data.encoding": "base64",
-			"guestinfo.ignition.vmname": vmName,
-			"guestinfo.ignition.machineaddress": ignitionAddress,
-			"guestinfo.ignition.gateway": OrgVdcNetwork.OrgVDCNetwork.Configuration.IPScopes.IPScope[0].Gateway,
-			"guestinfo.ignition.dns1": OrgVdcNetwork.OrgVDCNetwork.Configuration.IPScopes.IPScope[0].DNS1,
-			"guestinfo.ignition.dns2": OrgVdcNetwork.OrgVDCNetwork.Configuration.IPScopes.IPScope[0].DNS2,
-			"disk.enableUUID":             "1",
+		b64BootstrapData := b64.StdEncoding.EncodeToString([]byte(bootstrapData))
+
+		var keyVals map[string]string
+		if bootstrapFormat == BootstrapFormatCloudConfig {
+			keyVals = map[string]string{
+				"guestinfo.userdata":          b64BootstrapData,
+				"guestinfo.userdata.encoding": "base64",
+				"disk.enableUUID":             "1",
+			}
+		} else if bootstrapFormat == BootstrapFormatIgnition {
+			keyVals = map[string]string{
+				"guestinfo.ignition.config.data":          b64BootstrapData,
+				"guestinfo.ignition.config.data.encoding": "base64",
+				"guestinfo.ignition.vmname":               vmName,
+				"guestinfo.ignition.machineaddress":       ignitionAddress,
+				"guestinfo.ignition.gateway":              OrgVdcNetwork.OrgVDCNetwork.Configuration.IPScopes.IPScope[0].Gateway,
+				"guestinfo.ignition.dns1":                 OrgVdcNetwork.OrgVDCNetwork.Configuration.IPScopes.IPScope[0].DNS1,
+				"guestinfo.ignition.dns2":                 OrgVdcNetwork.OrgVDCNetwork.Configuration.IPScopes.IPScope[0].DNS2,
+				"disk.enableUUID":                         "1",
+			}
 		}
 
 		for key, val := range keyVals {
@@ -850,44 +867,46 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		log.Error(err, "failed to remove VCDMachineCreationError from RDE", "rdeID", vcdCluster.Status.InfraId)
 	}
 
-	/* phases := postCustPhases
-	if useControlPlaneScript {
-		phases = append(phases, KubeadmInit)
-	} else {
-		phases = append(phases, KubeadmNodeJoin)
-	}
-
-	if !vcdMachine.Spec.EnableNvidiaGPU {
-		phases = removeFromSlice(NvidiaRuntimeInstall, phases)
-	}
-
-	if vcdCluster.Spec.ProxyConfigSpec.HTTPSProxy == "" &&
-		vcdCluster.Spec.ProxyConfigSpec.HTTPProxy == "" {
-		phases = removeFromSlice(ProxyConfiguration, phases)
-	}
-
-	for _, phase := range phases {
-		if err = vApp.Refresh(); err != nil {
-			err1 := capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDMachineScriptExecutionError, "", machine.Name, fmt.Sprintf("%v", err))
-			if err1 != nil {
-				log.Error(err1, "failed to add VCDMachineScriptExecutionError into RDE", "rdeID", vcdCluster.Status.InfraId)
-			}
-			return ctrl.Result{},
-				errors.Wrapf(err, "Error while bootstrapping the machine [%s/%s]; unable to refresh vapp",
-					vAppName, vm.VM.Name)
+	if bootstrapFormat == BootstrapFormatCloudConfig {
+		phases := postCustPhases
+		if useControlPlaneScript {
+			phases = append(phases, KubeadmInit)
+		} else {
+			phases = append(phases, KubeadmNodeJoin)
 		}
-		log.Info(fmt.Sprintf("Start: waiting for the bootstrapping phase [%s] to complete", phase))
-		if err = r.waitForPostCustomizationPhase(ctx, workloadVCDClient, vm, phase); err != nil {
-			log.Error(err, fmt.Sprintf("Error waiting for the bootstrapping phase [%s] to complete", phase))
-			err1 := capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDMachineScriptExecutionError, "", machine.Name, fmt.Sprintf("%v", err))
-			if err1 != nil {
-				log.Error(err1, "failed to add VCDMachineScriptExecutionError into RDE", "rdeID", vcdCluster.Status.InfraId)
-			}
-			return ctrl.Result{}, errors.Wrapf(err, "Error while bootstrapping the machine [%s/%s]; unable to wait for post customization phase [%s]",
-				vAppName, vm.VM.Name, phase)
+
+		if !vcdMachine.Spec.EnableNvidiaGPU {
+			phases = removeFromSlice(NvidiaRuntimeInstall, phases)
 		}
-		log.Info(fmt.Sprintf("End: waiting for the bootstrapping phase [%s] to complete", phase))
-	} */
+
+		if vcdCluster.Spec.ProxyConfigSpec.HTTPSProxy == "" &&
+			vcdCluster.Spec.ProxyConfigSpec.HTTPProxy == "" {
+			phases = removeFromSlice(ProxyConfiguration, phases)
+		}
+
+		for _, phase := range phases {
+			if err = vApp.Refresh(); err != nil {
+				err1 := capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDMachineScriptExecutionError, "", machine.Name, fmt.Sprintf("%v", err))
+				if err1 != nil {
+					log.Error(err1, "failed to add VCDMachineScriptExecutionError into RDE", "rdeID", vcdCluster.Status.InfraId)
+				}
+				return ctrl.Result{},
+					errors.Wrapf(err, "Error while bootstrapping the machine [%s/%s]; unable to refresh vapp",
+						vAppName, vm.VM.Name)
+			}
+			log.Info(fmt.Sprintf("Start: waiting for the bootstrapping phase [%s] to complete", phase))
+			if err = r.waitForPostCustomizationPhase(ctx, workloadVCDClient, vm, phase); err != nil {
+				log.Error(err, fmt.Sprintf("Error waiting for the bootstrapping phase [%s] to complete", phase))
+				err1 := capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDMachineScriptExecutionError, "", machine.Name, fmt.Sprintf("%v", err))
+				if err1 != nil {
+					log.Error(err1, "failed to add VCDMachineScriptExecutionError into RDE", "rdeID", vcdCluster.Status.InfraId)
+				}
+				return ctrl.Result{}, errors.Wrapf(err, "Error while bootstrapping the machine [%s/%s]; unable to wait for post customization phase [%s]",
+					vAppName, vm.VM.Name, phase)
+			}
+			log.Info(fmt.Sprintf("End: waiting for the bootstrapping phase [%s] to complete", phase))
+		}
+	}
 
 	err = capvcdRdeManager.RdeManager.RemoveErrorByNameOrIdFromErrorSet(ctx, vcdsdk.ComponentCAPVCD, capisdk.VCDMachineScriptExecutionError, "", "")
 	if err != nil {
@@ -1069,28 +1088,35 @@ func ensureNetworkIsAttachedToVApp(vdcManager *vcdsdk.VdcManager, vApp *govcd.VA
 	return nil
 }
 
-func (r *VCDMachineReconciler) getBootstrapData(ctx context.Context, machine *clusterv1.Machine) (string, error) {
+func (r *VCDMachineReconciler) getBootstrapData(ctx context.Context, machine *clusterv1.Machine) (string, string, error) {
 	log := ctrl.LoggerFrom(ctx)
 	if machine.Spec.Bootstrap.DataSecretName == nil {
-		return "", errors.New("error retrieving bootstrap data: linked Machine's bootstrap.dataSecretName is nil")
+		return "", "", errors.New("error retrieving bootstrap data: linked Machine's bootstrap.dataSecretName is nil")
 	}
 
 	s := &corev1.Secret{}
 	key := client.ObjectKey{Namespace: machine.GetNamespace(), Name: *machine.Spec.Bootstrap.DataSecretName}
 	if err := r.Client.Get(ctx, key, s); err != nil {
-		return "", errors.Wrapf(err,
+		return "", "", errors.Wrapf(err,
 			"failed to retrieve bootstrap data secret for VCDMachine %s/%s",
 			machine.GetNamespace(), machine.GetName())
 	}
 
 	value, ok := s.Data["value"]
 	if !ok {
-		return "", errors.New("error retrieving bootstrap data: secret value key is missing")
+		return "", "", errors.New("error retrieving bootstrap data: secret value key is missing")
 	}
 
 	log.Info(fmt.Sprintf("Auto-generated bootstrap script: [%s]", string(value)))
 
-	return string(value), nil
+	format, ok := s.Data["format"]
+	if !ok {
+		return "", "", errors.New("error retrieving bootstrap data: secret format key is missing")
+	}
+
+	log.Info(fmt.Sprintf("Auto-generated bootstrap format: [%s] script: [%s]", string(format), string(value)))
+
+	return string(format), string(value), nil
 }
 
 func (r *VCDMachineReconciler) reconcileDelete(ctx context.Context, cluster *clusterv1.Cluster, machine *clusterv1.Machine,
