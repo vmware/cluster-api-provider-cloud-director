@@ -525,7 +525,10 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		}
 		bootstrapData = string(mergedCloudInitBytes)
 	} else if bootstrapFormat == BootstrapFormatIgnition {
-		bootstrapData = string(bootstrapJinjaScript)
+		bootstrapData = bootstrapJinjaScript
+	} else {
+		return ctrl.Result{}, errors.Wrapf(err,
+			"Error unsupported bootstrap format [%s]", bootstrapFormat)
 	}
 
 	// nothing is redacted in the cloud init script - please ensure no secrets are present
