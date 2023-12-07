@@ -77,8 +77,6 @@ resources:
   version: v1beta2
   webhooks:
     conversion: true
-    defaulting: true
-    validation: true
     webhookVersion: v1
 - api:
     crdVersion: v1
@@ -90,8 +88,6 @@ resources:
   version: v1beta2
   webhooks:
     conversion: true
-    defaulting: true
-    validation: true
     webhookVersion: v1
 - api:
     crdVersion: v1
@@ -112,4 +108,41 @@ resources:
   kind: VCDClusterTemplate
   path: github.com/vmware/cluster-api-provider-cloud-director/api/v1beta2
   version: v1beta2
+- api:
+    crdVersion: v1
+    namespaced: true
+  domain: cluster.x-k8s.io
+  group: infrastructure
+  kind: VCDMachine
+  path: github.com/vmware/cluster-api-provider-cloud-director/api/v1beta3
+  version: v1beta3
+  webhooks:
+    conversion: true
+    defaulting: true
+    validation: true
+    webhookVersion: v1
+- api:
+    crdVersion: v1
+    namespaced: true
+  domain: cluster.x-k8s.io
+  group: infrastructure
+  kind: VCDCluster
+  path: github.com/vmware/cluster-api-provider-cloud-director/api/v1beta3
+  version: v1beta3
+  webhooks:
+    conversion: true
+    defaulting: true
+    validation: true
+    webhookVersion: v1
+- api:
+    crdVersion: v1
+    namespaced: true
+  domain: cluster.x-k8s.io
+  group: infrastructure
+  kind: VCDMachineTemplate
+  path: github.com/vmware/cluster-api-provider-cloud-director/api/v1beta3
+  version: v1beta3
+  webhooks:
+    conversion: true
+    webhookVersion: v1
 version: "3"

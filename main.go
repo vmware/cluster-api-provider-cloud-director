@@ -10,9 +10,10 @@ import (
 	_ "embed"
 	"flag"
 	"fmt"
-	"github.com/vmware/cluster-api-provider-cloud-director/release"
 	"os"
 	"time"
+
+	"github.com/vmware/cluster-api-provider-cloud-director/release"
 
 	"go.uber.org/zap/zapcore"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -27,6 +28,7 @@ import (
 	infrav1alpha4 "github.com/vmware/cluster-api-provider-cloud-director/api/v1alpha4"
 	infrav1beta1 "github.com/vmware/cluster-api-provider-cloud-director/api/v1beta1"
 	infrav1beta2 "github.com/vmware/cluster-api-provider-cloud-director/api/v1beta2"
+	infrav1beta3 "github.com/vmware/cluster-api-provider-cloud-director/api/v1beta3"
 	"github.com/vmware/cluster-api-provider-cloud-director/controllers"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
@@ -51,6 +53,7 @@ func init() {
 	utilruntime.Must(infrav1alpha4.AddToScheme(myscheme))
 	utilruntime.Must(infrav1beta1.AddToScheme(myscheme))
 	utilruntime.Must(infrav1beta2.AddToScheme(myscheme))
+	utilruntime.Must(infrav1beta3.AddToScheme(myscheme))
 	// We only need the v1beta1 for core CAPI since their webhooks will convert v1alpha4 to v1beta1. We will handle all
 	// core CAPI objects using v1beta1 using the available webhook conversion. Hence v1beta1 support in core CAPI is
 	// mandatory.
@@ -126,15 +129,15 @@ func main() {
 		os.Exit(1)
 	}
 	if os.Getenv("ENABLE_WEBHOOKS") != "false" {
-		if err = (&infrav1beta2.VCDCluster{}).SetupWebhookWithManager(mgr); err != nil {
+		if err = (&infrav1beta3.VCDCluster{}).SetupWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "VCDCluster")
 			os.Exit(1)
 		}
-		if err = (&infrav1beta2.VCDMachine{}).SetupWebhookWithManager(mgr); err != nil {
+		if err = (&infrav1beta3.VCDMachine{}).SetupWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "VCDMachine")
 			os.Exit(1)
 		}
-		if err = (&infrav1beta2.VCDMachineTemplate{}).SetupWebhookWithManager(mgr); err != nil {
+		if err = (&infrav1beta3.VCDMachineTemplate{}).SetupWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "VCDMachineTemplate")
 			os.Exit(1)
 		}
