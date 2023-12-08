@@ -1712,7 +1712,7 @@ func (gm *GatewayManager) CreateLoadBalancer(ctx context.Context, virtualService
 			// return  plain error if vcdsdk.VirtualServicePendingError is returned. Helps the caller recognize that the
 			// error is because VirtualService is still in Pending state.
 			if _, ok := err.(*VirtualServicePendingError); ok {
-				resourcesAllocated.Insert("virtualService", virtualServiceRef)
+				resourcesAllocated.Insert(VcdResourceVirtualService, virtualServiceRef)
 				klog.Infof("Load Balancer with virtual service [%v], pool [%v] on gateway [%s] is pending\n",
 					virtualServiceRef, lbPoolRef, gm.GatewayRef.Name)
 				continue
