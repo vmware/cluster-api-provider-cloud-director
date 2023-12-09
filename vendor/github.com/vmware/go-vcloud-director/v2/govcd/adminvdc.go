@@ -251,6 +251,10 @@ func (adminVdc *AdminVdc) Update() (AdminVdc, error) {
 
 	util.Logger.Printf("[DEBUG] Update call function for version %s", vdcFunctions.SupportedVersion)
 
+	// Explicitly remove ResourcePoolRefs because it cannot be set and breaks Go marshaling bug
+	// https://github.com/golang/go/issues/9519
+	adminVdc.AdminVdc.ResourcePoolRefs = nil
+
 	updatedAdminVdc, err := vdcFunctions.UpdateVdc(adminVdc)
 	if err != nil {
 		return AdminVdc{}, err
@@ -489,7 +493,7 @@ func (vdc *AdminVdc) RemoveStorageProfile(storageProfileName string) (Task, erro
 			Units:   vdcStorageProfileDetails.Units,
 			Limit:   vdcStorageProfileDetails.Limit,
 			Default: false,
-			Enabled: takeBoolPointer(false),
+			Enabled: addrOf(false),
 			ProviderVdcStorageProfile: &types.Reference{
 				HREF: vdcStorageProfileDetails.ProviderVdcStorageProfile.HREF,
 			},
@@ -557,7 +561,7 @@ func (vdc *AdminVdc) SetDefaultStorageProfile(storageProfileName string) error {
 		Units:   vdcStorageProfileDetails.Units,
 		Limit:   vdcStorageProfileDetails.Limit,
 		Default: true,
-		Enabled: takeBoolPointer(true),
+		Enabled: addrOf(true),
 		ProviderVdcStorageProfile: &types.Reference{
 			HREF: vdcStorageProfileDetails.ProviderVdcStorageProfile.HREF,
 		},
@@ -591,4 +595,12 @@ func (adminVdc *AdminVdc) GetDefaultStorageProfileReference() (*types.Reference,
 		return defaultSp, nil
 	}
 	return nil, fmt.Errorf("no default storage profile found for VDC %s", adminVdc.AdminVdc.Name)
+}
+
+// IsNsxv is a convenience function to check if the Admin VDC is backed by NSX-V Provider VDC
+func (adminVdc *AdminVdc) IsNsxv() bool {
+	vdc := NewVdc(adminVdc.client)
+	vdc.Vdc = &adminVdc.AdminVdc.Vdc
+	vdc.parent = adminVdc.parent
+	return vdc.IsNsxv()
 }

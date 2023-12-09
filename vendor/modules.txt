@@ -273,8 +273,8 @@ github.com/vmware/cloud-provider-for-cloud-director/pkg/util
 github.com/vmware/cloud-provider-for-cloud-director/pkg/vcdsdk
 github.com/vmware/cloud-provider-for-cloud-director/pkg/vcdswaggerclient_36_0
 github.com/vmware/cloud-provider-for-cloud-director/pkg/vcdswaggerclient_37_2
-# github.com/vmware/go-vcloud-director/v2 v2.15.0
-## explicit; go 1.16
+# github.com/vmware/go-vcloud-director/v2 v2.21.0
+## explicit; go 1.19
 github.com/vmware/go-vcloud-director/v2/govcd
 github.com/vmware/go-vcloud-director/v2/types/v56
 github.com/vmware/go-vcloud-director/v2/util

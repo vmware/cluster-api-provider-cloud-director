@@ -42,6 +42,8 @@ type Vm struct {
 	// Section ovf:VirtualHardwareSection
 	VirtualHardwareSection *VirtualHardwareSection `xml:"VirtualHardwareSection,omitempty"`
 
+	RuntimeInfoSection *RuntimeInfoSection `xml:"RuntimeInfoSection,omitempty"`
+
 	// FIXME: Upstream bug? Missing NetworkConnectionSection
 	NetworkConnectionSection *NetworkConnectionSection `xml:"NetworkConnectionSection,omitempty"`
 
@@ -49,8 +51,8 @@ type Vm struct {
 
 	Snapshots *SnapshotSection `xml:"SnapshotSection,omitempty"`
 
-	// TODO: OVF Sections to be implemented
-	// Environment OVF_Environment `xml:"Environment,omitempty"
+	// The OVF environment defines how the guest software and the virtualization platform interact.
+	Environment *OvfEnvironment `xml:"Environment,omitempty"`
 
 	VmSpecSection *VmSpecSection `xml:"VmSpecSection,omitempty"`
 
@@ -63,6 +65,16 @@ type Vm struct {
 	ProductSection *ProductSection `xml:"ProductSection,omitempty"`
 	ComputePolicy  *ComputePolicy  `xml:"ComputePolicy,omitempty"` // accessible only from version API 33.0
 	Media          *Reference      `xml:"Media,omitempty"`         // Reference to the media object to insert in a new VM.
+}
+
+type RuntimeInfoSection struct {
+	Ns10        string `xml:"ns10,attr"`
+	Type        string `xml:"type,attr"`
+	Href        string `xml:"href,attr"`
+	Info        string `xml:"Info"`
+	VMWareTools struct {
+		Version string `xml:"version,attr"`
+	} `xml:"VMWareTools"`
 }
 
 // VmSpecSection from Vm struct
@@ -87,6 +99,7 @@ type RecomposeVAppParamsForEmptyVm struct {
 	XMLName          xml.Name    `xml:"RecomposeVAppParams"`
 	XmlnsVcloud      string      `xml:"xmlns,attr"`
 	XmlnsOvf         string      `xml:"xmlns:ovf,attr"`
+	PowerOn          bool        `xml:"powerOn,attr,omitempty"` // True if the VM should be powered-on after creation. Defaults to false.
 	CreateItem       *CreateItem `xml:"CreateItem,omitempty"`
 	AllEULAsAccepted bool        `xml:"AllEULAsAccepted,omitempty"`
 }
@@ -147,4 +160,51 @@ type SourcedVmTemplateParams struct {
 	VmGeneralParams               *VMGeneralParams     `xml:"VmGeneralParams,omitempty"`               // Specify name, description, and other properties of a VM during instantiation.
 	VmTemplateInstantiationParams *InstantiationParams `xml:"VmTemplateInstantiationParams,omitempty"` // Same as InstantiationParams used for VMs within a vApp
 	StorageProfile                *Reference           `xml:"StorageProfile,omitempty"`                // A reference to a storage profile to be used for the VM. The specified storage profile must exist in the organization vDC that contains the composed vApp. If not specified, the default storage profile for the vDC is used.
+}
+
+// The OVF environment enables the guest software to access information about the virtualization platform, such as
+// the user-specified values for the properties defined in the OVF descriptor.
+type OvfEnvironment struct {
+	XMLName                xml.Name                `xml:"Environment"`
+	Ve                     string                  `xml:"ve,attr,omitempty"`                // Xml namespace
+	Id                     string                  `xml:"id,attr,omitempty"`                // Identification of VM from OVF Descriptor. Describes this virtual system.
+	VCenterId              string                  `xml:"vCenterId,attr,omitempty"`         // VM moref in the vCenter
+	PlatformSection        *PlatformSection        `xml:"PlatformSection,omitempty"`        // Describes the virtualization platform
+	PropertySection        *PropertySection        `xml:"PropertySection,omitempty"`        // Property elements with key/value pairs
+	EthernetAdapterSection *EthernetAdapterSection `xml:"EthernetAdapterSection,omitempty"` // Contains adapters info and virtual networks attached
+}
+
+// Provides information from the virtualization platform
+type PlatformSection struct {
+	XMLName xml.Name `xml:"PlatformSection"`
+	Kind    string   `xml:"Kind,omitempty"`    // Hypervisor kind is typically VMware ESXi
+	Version string   `xml:"Version,omitempty"` // Hypervisor version
+	Vendor  string   `xml:"Vendor,omitempty"`  // VMware, Inc.
+	Locale  string   `xml:"Locale,omitempty"`  // Hypervisor locale
+}
+
+// Contains a list of key/value pairs corresponding to properties defined in the OVF descriptor
+// Operating system level configuration, such as host names, IP address, subnets, gateways, etc.
+// Application-level configuration such as DNS name of active directory server, databases and
+// other external services.
+type PropertySection struct {
+	XMLName    xml.Name       `xml:"PropertySection"`
+	Properties []*OvfProperty `xml:"Property,omitempty"`
+}
+
+type OvfProperty struct {
+	Key   string `xml:"key,attr"`
+	Value string `xml:"value,attr"`
+}
+
+// Contains adapters info and virtual networks attached
+type EthernetAdapterSection struct {
+	XMLName  xml.Name   `xml:"EthernetAdapterSection"`
+	Adapters []*Adapter `xml:"Adapter,omitempty"`
+}
+
+type Adapter struct {
+	Mac        string `xml:"mac,attr"`
+	Network    string `xml:"network,attr"`
+	UnitNumber string `xml:"unitNumber,attr"`
 }

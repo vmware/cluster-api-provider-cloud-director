@@ -10,7 +10,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"math"
 	"net/http"
 	"net/url"
@@ -56,6 +55,14 @@ func (catalog *Catalog) Delete(force, recursive bool) error {
 	}
 	adminCatalogHREF.Path += "/admin/catalog/" + catalogID
 
+	if force && recursive {
+		// A catalog cannot be removed if it has active tasks, or if any of its items have active tasks
+		err = catalog.consumeTasks()
+		if err != nil {
+			return err
+		}
+	}
+
 	req := catalog.client.NewRequest(map[string]string{
 		"force":     strconv.FormatBool(force),
 		"recursive": strconv.FormatBool(recursive),
@@ -73,6 +80,58 @@ func (catalog *Catalog) Delete(force, recursive bool) error {
 		return fmt.Errorf(combinedTaskErrorMessage(task.Task, fmt.Errorf("catalog %s not properly destroyed", catalog.Catalog.Name)))
 	}
 	return task.WaitTaskCompletion()
+}
+
+// consumeTasks will cancel all catalog tasks and the ones related to its items
+// 1. cancel all tasks associated with the catalog and keep them in a list
+// 2. find a list of all catalog items
+// 3. find a list of all tasks associated with the organization, with name = "syncCatalogItem" or "createCatalogItem"
+// 4. loop through the tasks until we find the ones that belong to one of the items - add them to list in 1.
+// 5. cancel all the filtered tasks
+// 6. wait for the task list until all are finished
+func (catalog *Catalog) consumeTasks() error {
+	allTasks, err := catalog.client.QueryTaskList(map[string]string{
+		"status": "running,preRunning,queued",
+	})
+	if err != nil {
+		return err
+	}
+	var taskList []string
+	addTask := func(status, href string) {
+		if status != "success" && status != "error" && status != "aborted" {
+			quickTask := Task{
+				client: catalog.client,
+				Task: &types.Task{
+					HREF: href,
+				},
+			}
+			err = quickTask.CancelTask()
+			if err != nil {
+				util.Logger.Printf("[consumeTasks] error canceling task: %s\n", err)
+			}
+			taskList = append(taskList, extractUuid(href))
+		}
+	}
+	if catalog.Catalog.Tasks != nil && len(catalog.Catalog.Tasks.Task) > 0 {
+		for _, task := range catalog.Catalog.Tasks.Task {
+			addTask(task.Status, task.HREF)
+		}
+	}
+	catalogItemRefs, err := catalog.QueryCatalogItemList()
+	if err != nil {
+		return err
+	}
+	for _, task := range allTasks {
+		for _, ref := range catalogItemRefs {
+			catalogItemId := extractUuid(ref.HREF)
+			if extractUuid(task.Object) == catalogItemId {
+				addTask(task.Status, task.HREF)
+				// No break here: the same object can have more than one task
+			}
+		}
+	}
+	_, err = catalog.client.WaitTaskListCompletion(taskList, true)
+	return err
 }
 
 // Envelope is a ovf description root element. File contains information for vmdk files.
@@ -444,6 +503,11 @@ func queryVappTemplateAndVerifyTask(client *Client, vappTemplateUrl *url.URL, ne
 		return nil, err
 	}
 
+	if vappTemplateParsed.Tasks == nil {
+		util.Logger.Printf("[ERROR] the vApp Template %s does not contain tasks, an error happened during upload: %v", vappTemplateUrl, vappTemplateParsed)
+		return vappTemplateParsed, fmt.Errorf("the vApp Template %s does not contain tasks, an error happened during upload", vappTemplateUrl)
+	}
+
 	for _, task := range vappTemplateParsed.Tasks.Task {
 		if task.Status == "error" && newItemName == task.Owner.Name {
 			util.Logger.Printf("[Error] %#v", task.Error)
@@ -472,8 +536,7 @@ func fetchVappTemplate(client *Client, vappTemplateUrl *url.URL) (*types.VAppTem
 // Function will return parsed part for upload files from description xml.
 func uploadOvfDescription(client *Client, ovfFile string, ovfUploadUrl *url.URL) error {
 	util.Logger.Printf("[TRACE] Uploding ovf description with file: %s and url: %s\n", ovfFile, ovfUploadUrl)
-	// #nosec G304 - linter does not like 'filePath' to be a variable. However this is necessary for file uploads.
-	openedFile, err := os.Open(ovfFile)
+	openedFile, err := os.Open(filepath.Clean(ovfFile))
 	if err != nil {
 		return err
 	}
@@ -499,7 +562,7 @@ func uploadOvfDescription(client *Client, ovfFile string, ovfUploadUrl *url.URL)
 }
 
 func parseOvfFileDesc(file *os.File, ovfFileDesc *Envelope) error {
-	ovfXml, err := ioutil.ReadAll(file)
+	ovfXml, err := io.ReadAll(file)
 	if err != nil {
 		return err
 	}
@@ -562,7 +625,12 @@ func createItemForUpload(client *Client, createHREF *url.URL, catalogItemName st
 	if err != nil {
 		return nil, err
 	}
-	defer response.Body.Close()
+	defer func(Body io.ReadCloser) {
+		err := Body.Close()
+		if err != nil {
+			util.Logger.Printf("error closing response Body [createItemForUpload]: %s", err)
+		}
+	}(response.Body)
 
 	catalogItemParsed := &types.CatalogItem{}
 	if err = decodeBody(types.BodyTypeXML, response, catalogItemParsed); err != nil {
@@ -593,7 +661,12 @@ func createItemWithLink(client *Client, createHREF *url.URL, catalogItemName, it
 	if err != nil {
 		return nil, err
 	}
-	defer response.Body.Close()
+	defer func(Body io.ReadCloser) {
+		err := Body.Close()
+		if err != nil {
+			util.Logger.Printf("error closing response Body [createItemWithLink]: %s", err)
+		}
+	}(response.Body)
 
 	catalogItemParsed := &types.CatalogItem{}
 	if err = decodeBody(types.BodyTypeXML, response, catalogItemParsed); err != nil {
@@ -611,12 +684,13 @@ func createItemWithLink(client *Client, createHREF *url.URL, catalogItemName, it
 }
 
 // Helper method to get path to multi-part files.
-//For example a file called test.vmdk with total_file_size = 100 bytes and part_size = 40 bytes, implies the file is made of *3* part files.
-//		- test.vmdk.000000000 = 40 bytes
-//		- test.vmdk.000000001 = 40 bytes
-//		- test.vmdk.000000002 = 20 bytes
-//Say base_dir = /dummy_path/, and base_file_name = test.vmdk then
-//the output of this function will be [/dummy_path/test.vmdk.000000000,
+// For example a file called test.vmdk with total_file_size = 100 bytes and part_size = 40 bytes, implies the file is made of *3* part files.
+//   - test.vmdk.000000000 = 40 bytes
+//   - test.vmdk.000000001 = 40 bytes
+//   - test.vmdk.000000002 = 20 bytes
+//
+// Say base_dir = /dummy_path/, and base_file_name = test.vmdk then
+// the output of this function will be [/dummy_path/test.vmdk.000000000,
 // /dummy_path/test.vmdk.000000001, /dummy_path/test.vmdk.000000002]
 func getChunkedFilePaths(baseDir, baseFileName string, totalFileSize, partSize int) []string {
 	var filePaths []string
@@ -642,8 +716,7 @@ func getOvfPath(filesAbsPaths []string) (string, error) {
 }
 
 func getOvf(ovfFilePath string) (Envelope, error) {
-	// #nosec G304 - linter does not like 'filePath' to be a variable. However this is necessary for file uploads.
-	openedFile, err := os.Open(ovfFilePath)
+	openedFile, err := os.Open(filepath.Clean(ovfFilePath))
 	if err != nil {
 		return Envelope{}, err
 	}
@@ -729,7 +802,11 @@ func removeCatalogItemOnError(client *Client, vappTemplateLink *url.URL, itemNam
 			if err != nil {
 				util.Logger.Printf("[Error] Error deleting Catalog item %s: %s", vappTemplateLink, err)
 			}
-			if len(vAppTemplate.Tasks.Task) > 0 {
+			if vAppTemplate.Tasks == nil {
+				util.Logger.Printf("[Error] Error deleting Catalog item %s: it doesn't contain any task", vappTemplateLink)
+				return
+			}
+			if vAppTemplate.Tasks != nil && len(vAppTemplate.Tasks.Task) > 0 {
 				util.Logger.Printf("[TRACE] Task found. Will try to cancel.\n")
 				break
 			}
@@ -833,11 +910,16 @@ func (cat *Catalog) GetCatalogItemByHref(catalogItemHref string) (*CatalogItem, 
 // On success, returns a pointer to the vApp template structure and a nil error
 // On failure, returns a nil pointer and an error
 func (cat *Catalog) GetVappTemplateByHref(href string) (*VAppTemplate, error) {
+	return getVAppTemplateByHref(cat.client, href)
+}
 
-	vappTemplate := NewVAppTemplate(cat.client)
+// getVAppTemplateByHref finds a vApp template by HREF
+// On success, returns a pointer to the vApp template structure and a nil error
+// On failure, returns a nil pointer and an error
+func getVAppTemplateByHref(client *Client, href string) (*VAppTemplate, error) {
+	vappTemplate := NewVAppTemplate(client)
 
-	_, err := cat.client.ExecuteRequest(href, http.MethodGet,
-		"", "error retrieving catalog item: %s", nil, vappTemplate.VAppTemplate)
+	_, err := client.ExecuteRequest(href, http.MethodGet, "", "error retrieving vApp Template: %s", nil, vappTemplate.VAppTemplate)
 	if err != nil {
 		return nil, err
 	}
@@ -864,6 +946,17 @@ func (cat *Catalog) GetCatalogItemByName(catalogItemName string, refresh bool) (
 	return nil, ErrorEntityNotFound
 }
 
+// GetVAppTemplateByName finds a VAppTemplate by Name
+// On success, returns a pointer to the VAppTemplate structure and a nil error
+// On failure, returns a nil pointer and an error
+func (cat *Catalog) GetVAppTemplateByName(vAppTemplateName string) (*VAppTemplate, error) {
+	vAppTemplateQueryResult, err := cat.QueryVappTemplateWithName(vAppTemplateName)
+	if err != nil {
+		return nil, err
+	}
+	return cat.GetVappTemplateByHref(vAppTemplateQueryResult.HREF)
+}
+
 // GetCatalogItemById finds a Catalog Item by ID
 // On success, returns a pointer to the CatalogItem structure and a nil error
 // On failure, returns a nil pointer and an error
@@ -884,7 +977,28 @@ func (cat *Catalog) GetCatalogItemById(catalogItemId string, refresh bool) (*Cat
 	return nil, ErrorEntityNotFound
 }
 
-// GetCatalogItemByNameOrId finds a Catalog Item by Name or ID
+// GetVAppTemplateById finds a vApp Template by ID.
+// On success, returns a pointer to the VAppTemplate structure and a nil error.
+// On failure, returns a nil pointer and an error.
+func (cat *Catalog) GetVAppTemplateById(vAppTemplateId string) (*VAppTemplate, error) {
+	return getVAppTemplateById(cat.client, vAppTemplateId)
+}
+
+// getVAppTemplateById finds a vApp Template by ID.
+// On success, returns a pointer to the VAppTemplate structure and a nil error.
+// On failure, returns a nil pointer and an error.
+func getVAppTemplateById(client *Client, vAppTemplateId string) (*VAppTemplate, error) {
+	vappTemplateHref := client.VCDHREF
+	vappTemplateHref.Path += "/vAppTemplate/vappTemplate-" + extractUuid(vAppTemplateId)
+
+	vappTemplate, err := getVAppTemplateByHref(client, vappTemplateHref.String())
+	if err != nil {
+		return nil, fmt.Errorf("could not find vApp Template with ID %s: %s", vAppTemplateId, err)
+	}
+	return vappTemplate, nil
+}
+
+// GetCatalogItemByNameOrId finds a Catalog Item by Name or ID.
 // On success, returns a pointer to the CatalogItem structure and a nil error
 // On failure, returns a nil pointer and an error
 func (cat *Catalog) GetCatalogItemByNameOrId(identifier string, refresh bool) (*CatalogItem, error) {
@@ -897,6 +1011,19 @@ func (cat *Catalog) GetCatalogItemByNameOrId(identifier string, refresh bool) (*
 	return entity.(*CatalogItem), err
 }
 
+// GetVAppTemplateByNameOrId finds a vApp Template by Name or ID.
+// On success, returns a pointer to the VAppTemplate structure and a nil error
+// On failure, returns a nil pointer and an error
+func (cat *Catalog) GetVAppTemplateByNameOrId(identifier string, refresh bool) (*VAppTemplate, error) {
+	getByName := func(name string, refresh bool) (interface{}, error) { return cat.GetVAppTemplateByName(name) }
+	getById := func(id string, refresh bool) (interface{}, error) { return cat.GetVAppTemplateById(id) }
+	entity, err := getEntityByNameOrIdSkipNonId(getByName, getById, identifier, refresh)
+	if entity == nil {
+		return nil, err
+	}
+	return entity.(*VAppTemplate), err
+}
+
 // QueryMediaList retrieves a list of media items for the catalog
 func (catalog *Catalog) QueryMediaList() ([]*types.MediaRecordType, error) {
 	typeMedia := "media"
@@ -907,7 +1034,7 @@ func (catalog *Catalog) QueryMediaList() ([]*types.MediaRecordType, error) {
 	filter := fmt.Sprintf("catalog==%s", url.QueryEscape(catalog.Catalog.HREF))
 	results, err := catalog.client.QueryWithNotEncodedParams(nil, map[string]string{"type": typeMedia, "filter": filter, "filterEncoded": "true"})
 	if err != nil {
-		return nil, fmt.Errorf("error querying medias %s", err)
+		return nil, fmt.Errorf("error querying medias: %s", err)
 	}
 
 	mediaResults := results.Results.MediaRecord
@@ -968,4 +1095,113 @@ func (cat *Catalog) PublishToExternalOrganizations(publishExternalCatalog types.
 	}
 
 	return err
+}
+
+// elementSync is a low level function that synchronises a Catalog, AdminCatalog, CatalogItem, or Media item
+func elementSync(client *Client, elementHref, label string) error {
+	task, err := elementLaunchSync(client, elementHref, label)
+	if err != nil {
+		return err
+	}
+	return task.WaitTaskCompletion()
+}
+
+// queryMediaList retrieves a list of media items for a given catalog or AdminCatalog
+func queryMediaList(client *Client, catalogHref string) ([]*types.MediaRecordType, error) {
+	typeMedia := "media"
+	if client.IsSysAdmin {
+		typeMedia = "adminMedia"
+	}
+
+	filter := fmt.Sprintf("catalog==%s", url.QueryEscape(catalogHref))
+	results, err := client.QueryWithNotEncodedParams(nil, map[string]string{"type": typeMedia, "filter": filter, "filterEncoded": "true"})
+	if err != nil {
+		return nil, fmt.Errorf("error querying medias: %s", err)
+	}
+
+	mediaResults := results.Results.MediaRecord
+	if client.IsSysAdmin {
+		mediaResults = results.Results.AdminMediaRecord
+	}
+	return mediaResults, nil
+}
+
+// elementLaunchSync is a low level function that starts synchronisation for Catalog, AdminCatalog, CatalogItem, or Media item
+func elementLaunchSync(client *Client, elementHref, label string) (*Task, error) {
+	util.Logger.Printf("[TRACE] elementLaunchSync '%s' \n", label)
+	href := elementHref + "/action/sync"
+	syncTask, err := client.ExecuteTaskRequest(href, http.MethodPost,
+		"", "error synchronizing "+label+": %s", nil)
+
+	if err != nil {
+		// This process may fail due to a possible race condition: a synchronisation process may start in background
+		// after we check for existing tasks (in the function that called this one)
+		// and before we run the request in this function.
+		// In a Terraform vcd_subscribed_catalog operation, the completeness of the synchronisation
+		// will be ensured at the next refresh.
+		if strings.Contains(err.Error(), "LIBRARY_ITEM_SYNC") {
+			util.Logger.Printf("[SYNC FAILURE] error when launching synchronisation: %s\n", err)
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &syncTask, nil
+}
+
+// QueryTaskList retrieves a list of tasks associated to the Catalog
+func (catalog *Catalog) QueryTaskList(filter map[string]string) ([]*types.QueryResultTaskRecordType, error) {
+	var newFilter = map[string]string{
+		"object": catalog.Catalog.HREF,
+	}
+	for k, v := range filter {
+		newFilter[k] = v
+	}
+	return catalog.client.QueryTaskList(newFilter)
+}
+
+// GetCatalogByHref allows retrieving a catalog from HREF, without a fully qualified Org object
+func (client *Client) GetCatalogByHref(catalogHref string) (*Catalog, error) {
+	catalogHref = strings.Replace(catalogHref, "/api/admin/catalog", "/api/catalog", 1)
+
+	cat := NewCatalog(client)
+
+	_, err := client.ExecuteRequest(catalogHref, http.MethodGet,
+		"", "error retrieving catalog: %s", nil, cat.Catalog)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return cat, nil
+}
+
+// GetCatalogById allows retrieving a catalog from ID, without a fully qualified Org object
+func (client *Client) GetCatalogById(catalogId string) (*Catalog, error) {
+	href, err := url.JoinPath(client.VCDHREF.String(), "catalog", extractUuid(catalogId))
+	if err != nil {
+		return nil, err
+	}
+	return client.GetCatalogByHref(href)
+}
+
+// GetCatalogByName allows retrieving a catalog from name, without a fully qualified Org object
+func (client *Client) GetCatalogByName(parentOrg, catalogName string) (*Catalog, error) {
+	catalogs, err := queryCatalogList(client, nil)
+	if err != nil {
+		return nil, err
+	}
+	var parentOrgs []string
+	for _, cat := range catalogs {
+		if cat.Name == catalogName && cat.OrgName == parentOrg {
+			return client.GetCatalogByHref(cat.HREF)
+		}
+		if cat.Name == catalogName {
+			parentOrgs = append(parentOrgs, cat.OrgName)
+		}
+	}
+	parents := ""
+	if len(parentOrgs) > 0 {
+		parents = fmt.Sprintf(" - Found catalog %s in Orgs %v", catalogName, parentOrgs)
+	}
+	return nil, fmt.Errorf("no catalog '%s' found in Org %s%s", catalogName, parentOrg, parents)
 }

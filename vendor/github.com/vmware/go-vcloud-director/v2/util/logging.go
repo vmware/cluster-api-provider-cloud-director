@@ -9,11 +9,12 @@ package util
 
 import (
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"net/http"
 	"os"
 	"path"
+	"path/filepath"
 	"regexp"
 	"runtime"
 	"strings"
@@ -33,6 +34,7 @@ const (
 	envLogOnScreen = "GOVCD_LOG_ON_SCREEN"
 
 	// Name of the environment variable that enables logging of passwords
+	// #nosec G101 -- This is not a password
 	envLogPasswords = "GOVCD_LOG_PASSWORDS"
 
 	// Name of the environment variable that enables logging of HTTP requests
@@ -49,7 +51,7 @@ const (
 )
 
 var (
-	// All go-vcloud director logging goes through this logger
+	// All go-vcloud-director logging goes through this logger
 	Logger *log.Logger
 
 	// It's true if we're using an user provided logger
@@ -113,9 +115,9 @@ func newLogger(logpath string) *log.Logger {
 	var err error
 	var file *os.File
 	if OverwriteLog {
-		file, err = os.OpenFile(logpath, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0640)
+		file, err = os.OpenFile(filepath.Clean(logpath), os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0600)
 	} else {
-		file, err = os.OpenFile(logpath, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0640)
+		file, err = os.OpenFile(filepath.Clean(logpath), os.O_RDWR|os.O_CREATE|os.O_APPEND, 0600)
 	}
 
 	if err != nil {
@@ -137,7 +139,7 @@ func SetLog() {
 		return
 	}
 	if !EnableLogging {
-		Logger = log.New(ioutil.Discard, "", log.Ldate|log.Ltime)
+		Logger = log.New(io.Discard, "", log.Ldate|log.Ltime)
 		return
 	}
 
@@ -193,6 +195,14 @@ func hideSensitive(in string, onScreen bool) string {
 	re7 := regexp.MustCompile(`(refresh_token)=(\S+)`)
 	out = re7.ReplaceAllString(out, `${1}=*******`)
 
+	// Bearer token inside JSON response
+	re8 := regexp.MustCompile(`("access_token":\s*)"[^"]*`)
+	out = re8.ReplaceAllString(out, `${1}*******`)
+
+	// Token inside JSON response
+	re9 := regexp.MustCompile(`("refresh_token":\s*)"[^"]*`)
+	out = re9.ReplaceAllString(out, `${1}*******`)
+
 	return out
 }
 
@@ -201,6 +211,7 @@ func isBinary(data string, req *http.Request) bool {
 	reContentRange := regexp.MustCompile(`(?i)content-range`)
 	reMultipart := regexp.MustCompile(`(?i)multipart/form`)
 	reMediaXml := regexp.MustCompile(`(?i)media+xml;`)
+	uiPlugin := regexp.MustCompile(`manifest\.json|bundle\.js`)
 	for key, value := range req.Header {
 		if reContentRange.MatchString(key) {
 			return true
@@ -214,7 +225,7 @@ func isBinary(data string, req *http.Request) bool {
 			}
 		}
 	}
-	return false
+	return uiPlugin.MatchString(data)
 }
 
 // SanitizedHeader returns a http.Header with sensitive fields masked

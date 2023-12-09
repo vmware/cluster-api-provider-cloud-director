@@ -163,7 +163,7 @@ func prettyTask(task *types.Task) string {
 }
 
 // Returns an Edge Gateway service configuration structure as JSON
-//func prettyEdgeGatewayServiceConfiguration(conf types.EdgeGatewayServiceConfiguration) string {
+// func prettyEdgeGatewayServiceConfiguration(conf types.EdgeGatewayServiceConfiguration) string {
 func prettyEdgeGateway(egw types.EdgeGateway) string {
 	result := ""
 	byteBuf, err := json.MarshalIndent(egw, " ", " ")
@@ -306,6 +306,20 @@ func ShowTask(task *types.Task, howManyTimes int, elapsed time.Duration, first, 
 
 func SimpleShowTask(task *types.Task, howManyTimes int, elapsed time.Duration, first, last bool) {
 	simpleOutTask("screen", task, howManyTimes, elapsed, first, last)
+}
+
+func MinimalShowTask(task *types.Task, howManyTimes int, elapsed time.Duration, first, last bool) {
+	marker := "."
+	if task.Status == "success" {
+		marker = "+"
+	}
+	if task.Status == "error" {
+		marker = "-"
+	}
+	fmt.Print(marker)
+	if last {
+		fmt.Println()
+	}
 }
 
 func SimpleLogTask(task *types.Task, howManyTimes int, elapsed time.Duration, first, last bool) {

@@ -6,24 +6,32 @@ type OpenAPIEdgeGateway struct {
 	Status string `json:"status,omitempty"`
 	ID     string `json:"id,omitempty"`
 	// Name of edge gateway
+
 	Name string `json:"name"`
+
 	// Description of edge gateway
 	Description string `json:"description"`
+
 	// OwnerRef defines Org VDC or VDC Group that this network belongs to. If the ownerRef is set to a VDC Group, this
 	// network will be available across all the VDCs in the vDC Group. If the VDC Group is backed by a NSX-V network
 	// provider, the Org VDC network is automatically connected to the distributed router associated with the VDC Group
 	// and the "connection" field does not need to be set. For API version 35.0 and above, this field should be set for
 	// network creation.
 	OwnerRef *OpenApiReference `json:"ownerRef,omitempty"`
+
 	// OrgVdc holds the organization vDC or vDC Group that this edge gateway belongs to. If the ownerRef is set to a VDC
 	// Group, this gateway will be available across all the participating Organization vDCs in the VDC Group.
 	OrgVdc *OpenApiReference `json:"orgVdc,omitempty"`
+
 	// Org holds the organization to which the gateway belongs.
 	Org *OpenApiReference `json:"orgRef,omitempty"`
+
 	// EdgeGatewayUplink defines uplink connections for the edge gateway.
 	EdgeGatewayUplinks []EdgeGatewayUplinks `json:"edgeGatewayUplinks"`
+
 	// DistributedRoutingEnabled is a flag indicating whether distributed routing is enabled or not. The default is false.
 	DistributedRoutingEnabled *bool `json:"distributedRoutingEnabled,omitempty"`
+
 	// EdgeClusterConfig holds Edge Cluster Configuration for the Edge Gateway. Can be specified if a gateway needs to be
 	// placed on a specific set of Edge Clusters. For NSX-T Edges, user should specify the ID of the NSX-T edge cluster as
 	// the value of primaryEdgeCluster's backingId. The gateway defaults to the Edge Cluster of the connected External
@@ -32,8 +40,10 @@ type OpenAPIEdgeGateway struct {
 	// Note. The value of secondaryEdgeCluster will be set to NULL for NSX-T edge gateways. For NSX-V Edges, this is
 	// read-only and the legacy API must be used for edge specific placement.
 	EdgeClusterConfig *OpenAPIEdgeGatewayEdgeClusterConfig `json:"edgeClusterConfig,omitempty"`
+
 	// OrgVdcNetworkCount holds the number of Org VDC networks connected to the gateway.
 	OrgVdcNetworkCount *int `json:"orgVdcNetworkCount,omitempty"`
+
 	// GatewayBacking must contain backing details of the edge gateway only if importing an NSX-T router.
 	GatewayBacking *OpenAPIEdgeGatewayBacking `json:"gatewayBacking,omitempty"`
 
@@ -42,6 +52,9 @@ type OpenAPIEdgeGateway struct {
 	// supported for VMC. If nothing is set, the default is 192.168.255.225/27. The DHCP listener IP network is on
 	// 192.168.255.225/30. The DNS listener IP network is on 192.168.255.228/32. This field cannot be updated.
 	ServiceNetworkDefinition string `json:"serviceNetworkDefinition,omitempty"`
+
+	// UsingIpSpace is a boolean flag to indicate whether the edge gateway is using IP space or not.
+	UsingIpSpace *bool `json:"usingIpSpace,omitempty"`
 }
 
 // EdgeGatewayUplink defines uplink connections for the edge gateway.
@@ -58,13 +71,16 @@ type EdgeGatewayUplinks struct {
 	// Dedicated defines if the external network is dedicated. Dedicating the External Network will enable Route
 	// Advertisement for this Edge Gateway
 	Dedicated bool `json:"dedicated,omitempty"`
+
+	// UsingIpSpace is a boolean flag showing if the uplink uses IP Space
+	UsingIpSpace *bool `json:"usingIpSpace,omitempty"`
 }
 
-// OpenApiIPRanges is a type alias to reuse the same definitions with appropriate names
-type OpenApiIPRanges = ExternalNetworkV2IPRanges
+// ExternalNetworkV2IPRanges is a type alias to reuse the same definitions with appropriate names
+type ExternalNetworkV2IPRanges = OpenApiIPRanges
 
-// OpenApiIPRangeValues is a type alias to reuse the same definitions with appropriate names
-type OpenApiIPRangeValues = ExternalNetworkV2IPRange
+// ExternalNetworkV2IPRange is a type alias to reuse the same definitions with appropriate names
+type ExternalNetworkV2IPRange = OpenApiIPRangeValues
 
 // OpenAPIEdgeGatewaySubnets lists slice of OpenAPIEdgeGatewaySubnetValue values
 type OpenAPIEdgeGatewaySubnets struct {
@@ -86,11 +102,18 @@ type OpenAPIEdgeGatewaySubnetValue struct {
 	// IPRanges contain IP allocations
 	IPRanges *OpenApiIPRanges `json:"ipRanges,omitempty"`
 	// Enabled toggles if the subnet is enabled
-	Enabled              bool   `json:"enabled"`
-	TotalIPCount         int    `json:"totalIpCount,omitempty"`
-	UsedIPCount          int    `json:"usedIpCount,omitempty"`
-	PrimaryIP            string `json:"primaryIp,omitempty"`
-	AutoAllocateIPRanges bool   `json:"autoAllocateIpRanges,omitempty"`
+	Enabled bool `json:"enabled"`
+	// TotalIPCount specified total allocated IP count
+	TotalIPCount *int `json:"totalIpCount,omitempty"`
+
+	// UsedIPCount specifies used IP count
+	UsedIPCount int `json:"usedIpCount,omitempty"`
+
+	// PrimaryIP of the Edge Gateway. Can only be one per Edge (from all subnets)
+	PrimaryIP string `json:"primaryIp,omitempty"`
+
+	// AutoAllocateIPRanges provides a way to automatically allocate
+	AutoAllocateIPRanges bool `json:"autoAllocateIpRanges,omitempty"`
 }
 
 // OpenAPIEdgeGatewayBacking specifies edge gateway backing details
@@ -109,6 +132,13 @@ type OpenAPIEdgeGatewayEdgeCluster struct {
 type OpenAPIEdgeGatewayEdgeClusterConfig struct {
 	PrimaryEdgeCluster   OpenAPIEdgeGatewayEdgeCluster `json:"primaryEdgeCluster,omitempty"`
 	SecondaryEdgeCluster OpenAPIEdgeGatewayEdgeCluster `json:"secondaryEdgeCluster,omitempty"`
+}
+
+// GatewayUsedIpAddress defines used IP address on edge gateway
+type GatewayUsedIpAddress struct {
+	Category   string           `json:"category"`
+	IPAddress  string           `json:"ipAddress"`
+	NetworkRef OpenApiReference `json:"networkRef"`
 }
 
 // OpenApiOrgVdcNetwork allows users to manage Org Vdc networks
@@ -131,6 +161,10 @@ type OpenApiOrgVdcNetwork struct {
 	// NetworkType describes type of Org Vdc network. ('NAT_ROUTED', 'ISOLATED')
 	NetworkType string `json:"networkType"`
 
+	// OrgVdcIsNsxTBacked is a read only flag that indicates whether the Org VDC is backed by NSX-T or not
+	// Note. It returns `false` if Org VDC network is withing an NSX-T VDC Group
+	OrgVdcIsNsxTBacked bool `json:"orgVdcIsNsxTBacked,omitempty"`
+
 	// Connection specifies the edge gateway this network is connected to.
 	//
 	// Note. When NetworkType == ISOLATED, there is no uplink connection.
@@ -138,8 +172,10 @@ type OpenApiOrgVdcNetwork struct {
 
 	// backingNetworkId contains the NSX ID of the backing network.
 	BackingNetworkId string `json:"backingNetworkId,omitempty"`
-	// backingNetworkType contains object type of the backing network. ('VIRTUAL_WIRE' for NSX-V, 'NSXT_FLEXIBLE_SEGMENT'
-	// for NSX-T)
+	// backingNetworkType contains object type of the backing network.
+	// * 'VIRTUAL_WIRE' for NSX-V'
+	// * 'NSXT_FLEXIBLE_SEGMENT' for NSX-T networks
+	// * 'DV_PORTGROUP' for NSX-T Imported network backed by DV Portgroup
 	BackingNetworkType string `json:"backingNetworkType,omitempty"`
 
 	// ParentNetwork should have external network ID specified when creating NSX-V direct network
@@ -167,6 +203,10 @@ type OpenApiOrgVdcNetwork struct {
 
 	// Shared shares network with other VDCs in the organization
 	Shared *bool `json:"shared,omitempty"`
+
+	// EnableDualSubnetNetwork defines whether or not this network will support two subnets (IPv4
+	// and IPv6)
+	EnableDualSubnetNetwork *bool `json:"enableDualSubnetNetwork,omitempty"`
 }
 
 // OrgVdcNetworkSubnetIPRanges is a type alias to reuse the same definitions with appropriate names
@@ -175,7 +215,7 @@ type OrgVdcNetworkSubnetIPRanges = ExternalNetworkV2IPRanges
 // OrgVdcNetworkSubnetIPRangeValues is a type alias to reuse the same definitions with appropriate names
 type OrgVdcNetworkSubnetIPRangeValues = ExternalNetworkV2IPRange
 
-//OrgVdcNetworkSubnets
+// OrgVdcNetworkSubnets
 type OrgVdcNetworkSubnets struct {
 	Values []OrgVdcNetworkSubnetValues `json:"values"`
 }
@@ -201,23 +241,111 @@ type NsxtImportableSwitch = OpenApiReference
 
 // OpenApiOrgVdcNetworkDhcp allows users to manage DHCP configuration for Org VDC networks by using OpenAPI endpoint
 type OpenApiOrgVdcNetworkDhcp struct {
-	Enabled   *bool                           `json:"enabled,omitempty"`
+	Enabled *bool `json:"enabled,omitempty"`
+
+	// LeaseTime specifies the amount of time in seconds of how long a DHCP IP will be leased out
+	// for. The minimum is 60s while the maximum is 4,294,967,295s, which is roughly 49,710 days.
 	LeaseTime *int                            `json:"leaseTime,omitempty"`
 	DhcpPools []OpenApiOrgVdcNetworkDhcpPools `json:"dhcpPools,omitempty"`
+
 	// Mode describes how the DHCP service is configured for this network. Once a DHCP service has been created, the mode
 	// attribute cannot be changed. The mode field will default to 'EDGE' if it is not provided. This field only applies
 	// to networks backed by an NSX-T network provider.
 	//
-	// The supported values are EDGE (default) and NETWORK.
+	// The supported values are EDGE, NETWORK and RELAY (VCD 10.3.1+, API 36.1+).
 	// * If EDGE is specified, the DHCP service of the edge is used to obtain DHCP IPs.
-	// * If NETWORK is specified, a DHCP server is created for use by this network. (To use NETWORK
+	// * If NETWORK is specified, a DHCP server is created for use by this network.
+	// * If RELAY is specified, all the DHCP client requests will be relayed to Gateway DHCP
+	//   Forwarder service. This mode is only supported for Routed Org vDC Networks.
 	//
-	// In order to use DHCP for IPV6, NETWORK mode must be used. Routed networks which are using NETWORK DHCP services can
-	// be disconnected from the edge gateway and still retain their DHCP configuration, however network using EDGE DHCP
-	// cannot be disconnected from the gateway until DHCP has been disabled.
+	// In order to use DHCP for IPV6, NETWORK mode must be used. Routed networks which are using
+	// NETWORK DHCP services can be disconnected from the edge gateway and still retain their DHCP
+	// configuration, however DHCP configuration will be removed during connection change for
+	// networks using EDGE or RELAY DHCP mode.
 	Mode string `json:"mode,omitempty"`
+
 	// IPAddress is only applicable when mode=NETWORK. This will specify IP address of DHCP server in network.
 	IPAddress string `json:"ipAddress,omitempty"`
+
+	// New fields starting with 36.1
+
+	// DnsServers are the IPs to be assigned by this DHCP service. The IP type must match the IP
+	// type of the subnet on which the DHCP config is being created.
+	DnsServers []string `json:"dnsServers,omitempty"`
+}
+
+// OpenApiOrgVdcNetworkDhcpBinding defines configuration of NSX-T DHCP binding in Org VDC network
+type OpenApiOrgVdcNetworkDhcpBinding struct {
+	// ID of DHCP binding
+	ID string `json:"id,omitempty"`
+
+	// Name contains display name for the DHCP binding
+	Name string `json:"name"`
+
+	// Description of the DHCP binding
+	Description string `json:"description,omitempty"`
+
+	// BindingType holds the type of DHCP binding:
+	// * IPV4 - an IPv4 DHCP binding (`types.NsxtDhcpBindingTypeIpv4`)
+	// * IPV6 - an IPv6 DHCP binding (`types.NsxtDhcpBindingTypeIpv6`)
+	BindingType string `json:"bindingType"`
+
+	// MacAddress for the host
+	MacAddress string `json:"macAddress"`
+
+	// DhcpV4BindingConfig contains additional configuration for IPv4 DHCP binding.
+	// Note. This is ignored for IPV6 binding.
+	DhcpV4BindingConfig *DhcpV4BindingConfig `json:"dhcpV4BindingConfig,omitempty"`
+
+	// DhcpV6BindingConfig contains additional configuration for IPv6 DHCP binding.
+	// Note. This is ignored for IPV4 binding.
+	DhcpV6BindingConfig *DhcpV6BindingConfig `json:"dhcpV6BindingConfig,omitempty"`
+
+	// DnsServers to be set on the host. Maximum 2 DNS, order is important.
+	DnsServers []string `json:"dnsServers,omitempty"`
+
+	// IpAddress assigned to host. This address must belong to the subnet of Org VDC network. For
+	// IPv4, this is required. For IPv6, when not specified, Stateless Address Autoconfiguration
+	// (SLAAC) is used to auto-assign an IPv6 address to the DHCPv6 clients.
+	IpAddress string `json:"ipAddress"`
+
+	// Lease time in seconds defines how long a DHCP IP will be leased out for. The minimum is 60s
+	// while the maximum is 4,294,967,295s, which is roughly 49,710 days. Default is 24 hours.
+	LeaseTime *int `json:"leaseTime,omitempty"`
+
+	// Version describes the current version of the entity. To prevent clients from overwriting each
+	// other's changes, update operations must include the version which can be obtained by issuing
+	// a GET operation. If the version number on an update call is missing, the operation will be
+	// rejected. This is only needed on update calls.
+	Version OpenApiOrgVdcNetworkDhcpBindingVersion `json:"version"`
+}
+
+// DhcpV4BindingConfig describes additional configuration for IPv6 DHCP Binding of an Org VDC
+// Network.
+type DhcpV4BindingConfig struct {
+	// GatewayIPAddress contains optional Gateway IP Address. When not specified, Gateway IP of Org
+	// vDC network will be used.
+	GatewayIPAddress string `json:"gatewayIpAddress,omitempty"`
+	// HostName to assign to the host.
+	HostName string `json:"hostName,omitempty"`
+}
+
+// DhcpV6BindingConfig describes additional configuration for IPv6 DHCP Binding of an Org VDC
+// Network.
+type DhcpV6BindingConfig struct {
+	// DomainNames to be assigned to client host.
+	DomainNames []string `json:"domainNames,omitempty"`
+
+	// SntpServers contains IP addresses of SNTP servers
+	SntpServers []string `json:"sntpServers,omitempty"`
+}
+
+// OpenApiOrgVdcNetworkDhcpBindingVersion describes the current version of the entity. To prevent
+// clients from overwriting each other's changes, update operations must include the version which
+// can be obtained by issuing a GET operation. If the version number on an update call is missing,
+// the operation will be rejected. This is only needed on update calls.
+type OpenApiOrgVdcNetworkDhcpBindingVersion struct {
+	Version int `json:"version"`
 }
 
 // OpenApiOrgVdcNetworkDhcpIpRange is a type alias to fit naming
@@ -249,7 +377,7 @@ type OpenApiOrgVdcNetworkDhcpPools struct {
 type NsxtFirewallGroup struct {
 	// ID contains Firewall Group ID (URN format)
 	// e.g. urn:vcloud:firewallGroup:d7f4e0b4-b83f-4a07-9f22-d242c9c0987a
-	ID string `json:"id"`
+	ID string `json:"id,omitempty"`
 	// Name of Firewall Group. Name are unique per 'Type'. There cannot be two SECURITY_GROUP or two
 	// IP_SET objects with the same name, but there can be one object of Type SECURITY_GROUP and one
 	// of Type IP_SET named the same.
@@ -270,6 +398,13 @@ type NsxtFirewallGroup struct {
 	// groups )
 	Members []OpenApiReference `json:"members,omitempty"`
 
+	// VmCriteria (VCD 10.3+) defines list of dynamic criteria that determines whether a VM belongs
+	// to a dynamic firewall group. A VM needs to meet at least one criteria to belong to the
+	// firewall group. In other words, the logical AND is used for rules within a single criteria
+	// and the logical OR is used in between each criteria. This is only applicable for Dynamic
+	// Security Groups (VM_CRITERIA Firewall Groups).
+	VmCriteria []NsxtFirewallGroupVmCriteria `json:"vmCriteria,omitempty"`
+
 	// OwnerRef replaces EdgeGatewayRef in API V35.0+ and can accept both - NSX-T Edge Gateway or a
 	// VDC group ID
 	// Sample VDC Group URN - urn:vcloud:vdcGroup:89a53000-ef41-474d-80dc-82431ff8a020
@@ -283,8 +418,29 @@ type NsxtFirewallGroup struct {
 	// value is only populated in this field (not OwnerRef)
 	EdgeGatewayRef *OpenApiReference `json:"edgeGatewayRef,omitempty"`
 
-	// Type is either SECURITY_GROUP or IP_SET
-	Type string `json:"type"`
+	// Type is deprecated starting with API 36.0 (VCD 10.3+)
+	Type string `json:"type,omitempty"`
+
+	// TypeValue replaces Type starting with API 36.0 (VCD 10.3+) and can be one of:
+	// SECURITY_GROUP, IP_SET, VM_CRITERIA(VCD 10.3+ only)
+	// Constants `types.FirewallGroupTypeSecurityGroup`, `types.FirewallGroupTypeIpSet`,
+	// `types.FirewallGroupTypeVmCriteria` can be used to set the value.
+	TypeValue string `json:"typeValue,omitempty"`
+}
+
+// NsxtFirewallGroupVmCriteria defines list of rules where criteria represents boolean OR for
+// matching There can be up to 3 criteria
+type NsxtFirewallGroupVmCriteria struct {
+	// VmCriteria is a list of rules where each rule represents boolean AND for matching VMs
+	VmCriteriaRule []NsxtFirewallGroupVmCriteriaRule `json:"rules,omitempty"`
+}
+
+// NsxtFirewallGroupVmCriteriaRule defines a single rule for matching VM
+// There can be up to 4 rules in a single criteria
+type NsxtFirewallGroupVmCriteriaRule struct {
+	AttributeType  string `json:"attributeType,omitempty"`
+	AttributeValue string `json:"attributeValue,omitempty"`
+	Operator       string `json:"operator,omitempty"`
 }
 
 // NsxtFirewallGroupMemberVms is a structure to read NsxtFirewallGroup associated VMs when its type
@@ -516,6 +672,15 @@ type NsxtIpSecVpnTunnel struct {
 	// Note. Up to version 10.3 VCD only supports INITIATOR
 	ConnectorInitiationMode string `json:"connectorInitiationMode,omitempty"`
 
+	// CertificateRef points server certificate which will be used to secure the tunnel's local
+	// endpoint. The certificate must be the end-entity certificate (leaf) for the local endpoint.
+	CertificateRef *OpenApiReference `json:"certificateRef,omitempty"`
+
+	// CaCertificateRef points to certificate authority used to verify the remote endpoint's
+	// certificate. The selected CA must be a root or intermediate CA. The selected CA should be
+	// able to directly verify the remote endpoint's certificate.
+	CaCertificateRef *OpenApiReference `json:"caCertificateRef,omitempty"`
+
 	// Version of IPsec VPN Tunnel configuration. Must not be set when creating, but required for updates
 	Version *struct {
 		// Version is incremented after each update
@@ -538,10 +703,16 @@ type NsxtIpSecVpnTunnelLocalEndpoint struct {
 
 // NsxtIpSecVpnTunnelRemoteEndpoint corresponds to the device on the remote site terminating the VPN tunnel
 type NsxtIpSecVpnTunnelRemoteEndpoint struct {
-	// RemoteId is needed to uniquely identify the peer site. If this tunnel is using PSK authentication,
-	// the Remote ID is the public IP Address of the remote device terminating the VPN Tunnel. When NAT is configured on
-	// the Remote ID, enter the private IP Address of the Remote Site. If the remote ID is not set, VCD will set the
-	// remote ID to the remote address.
+	// This Remote ID is needed to uniquely identify the peer site. If the remote ID is not set, it
+	// will default to the remote IP address. The requirement for remote id depends on the
+	// authentication mode for the tunnel:
+	// * PSK - The Remote ID is the public IP Address of the remote device terminating the VPN
+	// Tunnel. When NAT is configured on the Remote ID, enter the private IP Address of the Remote
+	// Site.
+	// * CERTIFICATE - The remote ID needs to match the certificate SAN (Subject Alternative Name)
+	// if available. If the remote certificate does not contain a SAN, the remote ID must match the
+	// the distinguished name of the certificate used to secure the remote endpoint (for example,
+	// C=US,ST=Massachusetts,O=VMware,OU=VCD,CN=Edge1).
 	RemoteId string `json:"remoteId,omitempty"`
 	// RemoteAddress is IPv4 Address of the remote endpoint on the remote site. This is the Public IPv4 Address of the
 	// remote device terminating the IPsec VPN Tunnel connection. This is required
@@ -698,6 +869,7 @@ type NsxtAlbController struct {
 	// LicenseType By enabling this feature, the provider acknowledges that they have independently licensed the
 	// enterprise version of the NSX AVI LB.
 	// Possible options: 'BASIC', 'ENTERPRISE'
+	// This field was removed since VCD 10.4.0 (v37.0) in favor of NsxtAlbServiceEngineGroup.SupportedFeatureSet
 	LicenseType string `json:"licenseType,omitempty"`
 	// Version of ALB (e.g. 20.1.3). Read-only
 	Version string `json:"version,omitempty"`
@@ -793,6 +965,9 @@ type NsxtAlbServiceEngineGroup struct {
 	// OverAllocated indicates whether the maximum number of virtual services supported on the Load Balancer Service
 	// Engine Group has been surpassed by the current number of reserved virtual services.
 	OverAllocated *bool `json:"overAllocated,omitempty"`
+	// SupportedFeatureSet was added in VCD 10.4.0 (v37.0) as substitute of NsxtAlbController.LicenseType.
+	// Possible values are: "STANDARD", "PREMIUM".
+	SupportedFeatureSet string `json:"supportedFeatureSet,omitempty"`
 }
 
 type ServiceEngineGroupBacking struct {
@@ -821,15 +996,32 @@ type NsxtAlbConfig struct {
 	// LicenseType of the backing Load Balancer Cloud.
 	// * BASIC - Basic edition of the NSX Advanced Load Balancer.
 	// * ENTERPRISE - Full featured edition of the NSX Advanced Load Balancer.
+	// This field was removed since VCD 10.4.0 (v37.0) in favor of NsxtAlbConfig.SupportedFeatureSet
 	LicenseType string `json:"licenseType,omitempty"`
+	// SupportedFeatureSet was added in VCD 10.4.0 (v37.0) as substitute of NsxtAlbConfig.LicenseType.
+	// Possible values are: "STANDARD", "PREMIUM".
+	SupportedFeatureSet string `json:"supportedFeatureSet,omitempty"`
 	// LoadBalancerCloudRef
 	LoadBalancerCloudRef *OpenApiReference `json:"loadBalancerCloudRef,omitempty"`
-
 	// ServiceNetworkDefinition in Gateway CIDR format which will be used by Load Balancer service. All the load balancer
 	// service engines associated with the Service Engine Group will be attached to this network. The subnet prefix length
 	// must be 25. If nothing is set, the default is 192.168.255.1/25. Default CIDR can be configured. This field cannot
 	// be updated.
 	ServiceNetworkDefinition string `json:"serviceNetworkDefinition,omitempty"`
+
+	// The IPv6 network definition in Gateway CIDR format which will be used by Load Balancer
+	// service on Edge. All the load balancer service engines associated with the Service Engine
+	// Group will be attached to this network.
+	// Once set, this field cannot be updated. The default
+	// IPv4 service network will be used if both the serviceNetworkDefinition and
+	// ipv6ServiceNetworkDefinition properties are unset. If both are set, it will still be one
+	// service network with a dual IPv4 and IPv6 stack.
+	// This field is only available for VCD 10.4.0+ (v37.0+)
+	Ipv6ServiceNetworkDefinition string `json:"ipv6ServiceNetworkDefinition,omitempty"`
+
+	// TransparentModeEnabled allows to configure Preserve Client IP on a Virtual Service
+	// This field is only available for VCD 10.4.1+ (v37.1+)
+	TransparentModeEnabled *bool `json:"transparentModeEnabled,omitempty"`
 }
 
 // NsxtAlbServiceEngineGroupAssignment configures Service Engine Group assignments to Edge Gateway. The only mandatory
@@ -899,7 +1091,17 @@ type NsxtAlbPool struct {
 
 	// Members field defines list of destination servers which are used by the Load Balancer Pool to direct load balanced
 	// traffic.
+	//
+	// Note. Only one of Members or MemberGroupRef can be specified
 	Members []NsxtAlbPoolMember `json:"members,omitempty"`
+
+	// MemberGroupRef contains reference to the Edge Firewall Group (`types.NsxtFirewallGroup`)
+	// representing destination servers which are used by the Load Balancer Pool to direct load
+	// balanced traffic.
+	//
+	// This field is only available in VCD 10.4.1+ (v37.1+)
+	// Note. Only one of Members or MemberGroupRef can be specified
+	MemberGroupRef *OpenApiReference `json:"memberGroupRef,omitempty"`
 
 	// CaCertificateRefs point to root certificates to use when validating certificates presented by the pool members.
 	CaCertificateRefs []OpenApiReference `json:"caCertificateRefs,omitempty"`
@@ -1041,6 +1243,16 @@ type NsxtAlbVirtualService struct {
 
 	// VirtualIpAddress to be used for exposing this virtual service
 	VirtualIpAddress string `json:"virtualIpAddress"`
+
+	// IPv6VirtualIpAddress defined IPv6 address to be used for this virtual service
+	// This field is only available in VCD 10.4.0 (v37.0+)
+	IPv6VirtualIpAddress string `json:"ipv6VirtualIpAddress,omitempty"`
+
+	// TransparentModeEnabled allows to configure Preserve Client IP on a Virtual Service
+	// This field is only available for VCD 10.4.1+ (v37.1+)
+	// Note. `types.NsxtAlbConfig.TransparentModeEnabled` must be set to `true` for this field to be
+	// available.
+	TransparentModeEnabled *bool `json:"transparentModeEnabled,omitempty"`
 
 	// HealthStatus contains status of the Load Balancer Cloud. Possible values are:
 	// UP - The cloud is healthy and ready to enable Load Balancer for an Edge Gateway.
@@ -1203,4 +1415,370 @@ type NsxtNetworkContextProfileAttributes struct {
 	Type          string      `json:"type"`
 	Values        []string    `json:"values"`
 	SubAttributes interface{} `json:"subAttributes"`
+}
+
+// SecurityTag represents An individual security tag
+type SecurityTag struct {
+	// Entities are the list of entities to tag in urn format.
+	Entities []string `json:"entities"`
+	// Tag is the tag name to use.
+	Tag string `json:"tag"`
+}
+
+// SecurityTaggedEntity is an entity that has a tag.
+type SecurityTaggedEntity struct {
+	// EntityType is the type of entity. Currently, only 'vm' is supported.
+	EntityType string `json:"entityType"`
+	// ID is the unique identifier of the entity in URN format.
+	ID string `json:"id"`
+	// Name of the entity.
+	Name string `json:"name"`
+	// OwnerRef is the owner of the specified entity such as vDC or vDC Group. If not applicable, field is not set.
+	OwnerRef *OpenApiReference `json:"ownerRef"`
+	// ParentRef is the parent of the entity such as vApp if the entity is a VM. If not applicable, field is not set.
+	ParentRef *OpenApiReference `json:"parentRef"`
+}
+
+// SecurityTagValue describes the most basic tag structure: its value.
+type SecurityTagValue struct {
+	// Tag is the value of the tag. The value is case-agnostic and will be converted to lower-case.
+	Tag string `json:"tag"`
+}
+
+// EntitySecurityTags is a list of a tags assigned to a specific entity
+type EntitySecurityTags struct {
+	// Tags is the list of tags. The value is case-agnostic and will be converted to lower-case.
+	Tags []string `json:"tags"`
+}
+
+// RouteAdvertisement lists the subnets that will be advertised so that the Edge Gateway can route out to the
+// connected external network.
+type RouteAdvertisement struct {
+	// Enable if true, means that the subnets will be advertised.
+	Enable bool `json:"enable"`
+	// Subnets is the list of subnets that will be advertised so that the Edge Gateway can route out to the connected
+	// external network.
+	Subnets []string `json:"subnets"`
+}
+
+// EdgeBgpNeighbor represents a BGP neighbor on the NSX-T Edge Gateway
+type EdgeBgpNeighbor struct {
+	ID string `json:"id,omitempty"`
+
+	// NeighborAddress holds IP address of the BGP neighbor. Both IPv4 and IPv6 formats are supported.
+	//
+	// Note. Uniqueness is enforced by NeighborAddress
+	NeighborAddress string `json:"neighborAddress"`
+
+	// RemoteASNumber specified Autonomous System (AS) number of a BGP neighbor in ASPLAIN format.
+	RemoteASNumber string `json:"remoteASNumber"`
+
+	// KeepAliveTimer specifies the time interval (in seconds) between keep alive messages sent to
+	// peer.
+	KeepAliveTimer int `json:"keepAliveTimer,omitempty"`
+
+	// HoldDownTimer specifies the time interval (in seconds) before declaring a peer dead.
+	HoldDownTimer int `json:"holdDownTimer,omitempty"`
+
+	// NeighborPassword for BGP neighbor authentication. Empty string ("") clears existing password.
+	// Not specifying a value will be treated as "no password".
+	NeighborPassword string `json:"neighborPassword"`
+
+	// AllowASIn is a flag indicating whether BGP neighbors can receive routes with same AS.
+	AllowASIn bool `json:"allowASIn,omitempty"`
+
+	// GracefulRestartMode Describes Graceful Restart configuration Modes for BGP configuration on
+	// an Edge Gateway.
+	//
+	// Possible values are: DISABLE , HELPER_ONLY , GRACEFUL_AND_HELPER
+	// * DISABLE - Both graceful restart and helper modes are disabled.
+	// * HELPER_ONLY - Only helper mode is enabled. (ability for a BGP speaker to indicate its ability to preserve
+	//   forwarding state during BGP restart
+	// * GRACEFUL_AND_HELPER - Both graceful restart and helper modes are enabled.  Ability of a BGP
+	//	 speaker to advertise its restart to its peers.
+	GracefulRestartMode string `json:"gracefulRestartMode,omitempty"`
+
+	// IpAddressTypeFiltering specifies IP address type based filtering in each direction. Setting
+	// the value to "DISABLED" will disable address family based filtering.
+	//
+	// Possible values are: IPV4 , IPV6 , DISABLED
+	IpAddressTypeFiltering string `json:"ipAddressTypeFiltering,omitempty"`
+
+	// InRoutesFilterRef specifies route filtering configuration for the BGP neighbor in 'IN'
+	// direction. It is the reference to the prefix list, indicating which routes to filter for IN
+	// direction. Not specifying a value will be treated as "no IN route filters".
+	InRoutesFilterRef *OpenApiReference `json:"inRoutesFilterRef,omitempty"`
+
+	// OutRoutesFilterRef specifies route filtering configuration for the BGP neighbor in 'OUT'
+	// direction. It is the reference to the prefix list, indicating which routes to filter for OUT
+	// direction. Not specifying a value will be treated as "no OUT route filters".
+	OutRoutesFilterRef *OpenApiReference `json:"outRoutesFilterRef,omitempty"`
+
+	// Specifies the BFD (Bidirectional Forwarding Detection) configuration for failure detection. Not specifying a value
+	// results in default behavior.
+	Bfd *EdgeBgpNeighborBfd `json:"bfd,omitempty"`
+}
+
+// EdgeBgpNeighborBfd describes BFD (Bidirectional Forwarding Detection) configuration for failure detection.
+type EdgeBgpNeighborBfd struct {
+	// A flag indicating whether BFD configuration is enabled or not.
+	Enabled bool `json:"enabled"`
+
+	// BfdInterval specifies the time interval (in milliseconds) between heartbeat packets.
+	BfdInterval int `json:"bfdInterval,omitempty"`
+
+	// DeclareDeadMultiple specifies number of times heartbeat packet is missed before BFD declares
+	// that the neighbor is down.
+	DeclareDeadMultiple int `json:"declareDeadMultiple,omitempty"`
+	// EdgeBgpIpPrefixList holds BGP IP Prefix List configuration for NSX-T Edge Gateways
+
+}
+
+type EdgeBgpIpPrefixList struct {
+	// ID is the unique identifier of the entity in URN format.
+	ID string `json:"id,omitempty"`
+
+	// Name of the entity
+	Name string `json:"name"`
+
+	// Description of the entity
+	Description string `json:"description,omitempty"`
+
+	// Prefixes is the list of prefixes that will be advertised so that the Edge Gateway can route out to the
+	// connected external network.
+	Prefixes []EdgeBgpConfigPrefixListPrefixes `json:"prefixes,omitempty"`
+}
+
+// EdgeBgpConfigPrefixListPrefixes is a list of prefixes that will be advertised so that the Edge Gateway can route out to the
+// connected external network.
+type EdgeBgpConfigPrefixListPrefixes struct {
+	// Network is the network address of the prefix
+	Network string `json:"network,omitempty"`
+
+	// Action is the action to be taken on the prefix. Can be 'PERMIT' or 'DENY'
+	Action string `json:"action,omitempty"`
+
+	// GreateerThan is the the value which the prefix length must be greater than or equal to. Must
+	// be less than or equal to 'LessThanEqualTo'
+	GreaterThanEqualTo int `json:"greaterThanEqualTo,omitempty"`
+
+	// The value which the prefix length must be less than or equal to. Must be greater than or
+	// equal to 'GreaterThanEqualTo'
+	LessThanEqualTo int `json:"lessThanEqualTo,omitempty"`
+}
+
+// EdgeBgpConfig defines BGP configuration on NSX-T Edge Gateways (Tier1 NSX-T Gateways)
+type EdgeBgpConfig struct {
+	// A flag indicating whether BGP configuration is enabled or not.
+	Enabled bool `json:"enabled"`
+
+	// Ecmp A flag indicating whether ECMP is enabled or not.
+	Ecmp bool `json:"ecmp"`
+
+	// BGP AS (Autonomous system) number to advertise to BGP peers. BGP AS number can be specified
+	// in either ASPLAIN or ASDOT formats, like ASPLAIN format :- '65546', ASDOT format :- '1.10'.
+	//
+	// Read only if using a VRF-Lite backed external network.
+	LocalASNumber string `json:"localASNumber,omitempty"`
+
+	// BGP Graceful Restart configuration. Not specifying a value results in default bahavior.
+	//
+	// Read only if using a VRF-Lite backed external network.
+	GracefulRestart *EdgeBgpGracefulRestartConfig `json:"gracefulRestart,omitempty"`
+
+	// This property describes the current version of the entity. To prevent clients from
+	// overwriting each other's changes, update operations must include the version which can be
+	// obtained by issuing a GET operation. If the version number on an update call is missing, the
+	// operation will be rejected. This is only needed on update calls.
+	Version EdgeBgpConfigVersion `json:"version"`
+}
+
+// EdgeBgpGracefulRestartConfig describes current graceful restart configuration mode and timer for
+// BGP configuration on an edge gateway.
+type EdgeBgpGracefulRestartConfig struct {
+	// Mode describes Graceful Restart configuration Modes for BGP configuration on an edge gateway.
+	// HELPER_ONLY mode is the ability for a BGP speaker to indicate its ability to preserve
+	// forwarding state during BGP restart. GRACEFUL_RESTART mode is the ability of a BGP speaker to
+	// advertise its restart to its peers.
+	//
+	// DISABLE - Both graceful restart and helper modes are disabled.
+	// HELPER_ONLY - Only helper mode is enabled.
+	// GRACEFUL_AND_HELPER - Both graceful restart and helper modes are enabled.
+	//
+	// Possible values are: DISABLE , HELPER_ONLY , GRACEFUL_AND_HELPER
+	Mode string `json:"mode"`
+
+	// RestartTimer specifies maximum time taken (in seconds) for a BGP session to be established
+	// after a restart. If the session is not re-established within this timer, the receiving
+	// speaker will delete all the stale routes from that peer.
+	RestartTimer int `json:"restartTimer"`
+
+	// StaleRouteTimer defines maximum time (in seconds) before stale routes are removed when BGP
+	// restarts.
+	StaleRouteTimer int `json:"staleRouteTimer"`
+}
+
+// EdgeBgpConfigVersion is part of EdgeBgpConfig type and describes current version of the entity
+// being modified
+type EdgeBgpConfigVersion struct {
+	Version int `json:"version"`
+}
+
+// VdcNetworkProfile defines a VDC Network Profile.
+//
+// All fields are optional, but omiting them will reset value. The general approach while updating
+// VdcNetworkProfile should be to retrieve existing configuration and mutate it.
+type VdcNetworkProfile struct {
+	// PrimaryEdgeCluster defines NSX-V Edge Cluster where the primary appliance for an NSX-V Edge
+	// Gateway will be deployed. (NSX-V only)
+	PrimaryEdgeCluster *OpenApiReference `json:"primaryEdgeCluster,omitempty"`
+
+	// SecondaryEdgeCluster defines NSX-V Edge Cluster where the secondary appliance for an NSX-V
+	// Edge Gateway will be deployed if HA is enabled on the Edge. (NSX-V only)
+	SecondaryEdgeCluster *OpenApiReference `json:"secondaryEdgeCluster,omitempty"`
+
+	// ServicesEdgeCluster contains NSX-T Edge Cluster where the DHCP server profile will be stored
+	// for NSX-T networks using NETWORK mode DHCP. (NSX-T only)
+	ServicesEdgeCluster *VdcNetworkProfileServicesEdgeCluster `json:"servicesEdgeCluster,omitempty"`
+
+	// VappNetworkSegmentProfileTemplateRef defines vApp Network Segment Profile Template that is to
+	// be used when any new vApp Network is created under this VDC. Setting this will override any
+	// global level vApp Network Segment Profile Template. This field is only applicable for (NSX-T
+	// only)
+	// VCD 10.3.2+ (API 36.2+)
+	VappNetworkSegmentProfileTemplateRef *OpenApiReference `json:"vappNetworkSegmentProfileTemplateRef,omitempty"`
+
+	// VdcNetworkSegmentProfileTemplateRef defines Org vDC Network Segment Profile Template that is
+	// to be used when any new Org vDC Network is created under this VDC. Setting this will override
+	// any global level Org vDC Network Segment Profile Template. (NSX-T only)
+	// VCD 10.3.2+ (API 36.2+)
+	VdcNetworkSegmentProfileTemplateRef *OpenApiReference `json:"vdcNetworkSegmentProfileTemplateRef,omitempty"`
+}
+
+// VdcNetworkProfileServicesEdgeCluster contains reference to NSX-T Edge Cluster used in
+// VdcNetworkProfile
+type VdcNetworkProfileServicesEdgeCluster struct {
+	BackingID      string            `json:"backingId"`
+	EdgeClusterRef *OpenApiReference `json:"edgeClusterRef,omitempty"`
+}
+
+// NsxtEdgeGatewayQosProfiles defines a Gateway QoS Profile Object (structure comes from NSX-T)
+// This is a read-only entity in VCD
+type NsxtEdgeGatewayQosProfile struct {
+	// ID of the gateway QoS profile.
+	ID string `json:"id"`
+
+	DisplayName string `json:"displayName"`
+	Description string `json:"description"`
+
+	//BurstSize defines burst size in bytes.
+	BurstSize int `json:"burstSize"`
+
+	// CommittedBandwidth defines committed bandwidth in both directions specificd in Mb/s.
+	// Bandwidth is limited to line rate when the value configured is greater than line rate.
+	CommittedBandwidth int `json:"committedBandwidth"`
+
+	// ExcessAction defines action on traffic exceeding bandwidth.
+	ExcessAction string `json:"excessAction"`
+
+	// NsxTManagerRef contains reference to the originating NSX-T manager
+	NsxTManagerRef *OpenApiReference `json:"nsxTManagerRef"`
+}
+
+// NsxtEdgeGatewayQos provides Rate Limiting (QoS) configuration on an Edge Gateway by defining QoS
+// profiles in ingress and egress directions.
+//
+// Note. Sending `null` for either ingressProfile or egressProfile will reset the value to default
+// (unlimited)
+type NsxtEdgeGatewayQos struct {
+	EgressProfile  *OpenApiReference `json:"egressProfile"`
+	IngressProfile *OpenApiReference `json:"ingressProfile"`
+}
+
+// NsxtEdgeGatewayDhcpForwarder provides DHCP forwarding configuration on an Edge Gateway by defining
+// DHCP servers
+type NsxtEdgeGatewayDhcpForwarder struct {
+	Enabled     bool         `json:"enabled"`
+	DhcpServers []string     `json:"dhcpServers"`
+	Version     VersionField `json:"version,omitempty"`
+}
+
+// VcenterImportableDvpg defines a Distributed Port Group that can be imported into VCD
+// from a vCenter Server.
+//
+// Note. This is a read-only structure.
+type VcenterImportableDvpg struct {
+	BackingRef *OpenApiReference `json:"backingRef"`
+	DvSwitch   struct {
+		BackingRef    *OpenApiReference `json:"backingRef"`
+		VirtualCenter *OpenApiReference `json:"virtualCenter"`
+	} `json:"dvSwitch"`
+	VirtualCenter *OpenApiReference `json:"virtualCenter"`
+	Vlan          string            `json:"vlan"`
+}
+
+// NsxtEdgeGatewaySlaacProfile provides configuration for NSX-T Edge Gateway IPv6 configuration
+type NsxtEdgeGatewaySlaacProfile struct {
+	Enabled bool `json:"enabled"`
+	// Mode is 'SLAAC' ,'DHCPv6', 'DISABLED'
+	Mode string `json:"mode"`
+	// DNSConfig provides additional configuration when Mode is set to 'SLAAC'
+	DNSConfig NsxtEdgeGatewaySlaacProfileDNSConfig `json:"dnsConfig,omitempty"`
+}
+
+// NsxtEdgeGatewaySlaacProfileDNSConfig contains additional NSX-T Edge Gateway IPv6 configuration
+// when it is configured for 'SLAAC' mode
+type NsxtEdgeGatewaySlaacProfileDNSConfig struct {
+	DNSServerIpv6Addresses []string `json:"dnsServerIpv6Addresses,omitempty"`
+	DomainNames            []string `json:"domainNames,omitempty"`
+}
+
+// NsxtEdgeGatewayStaticRoute provides configuration structure for NSX-T Edge Gateway static route
+// configuration
+type NsxtEdgeGatewayStaticRoute struct {
+	// ID of this static route. On updates, the ID is required for the object, while for create a
+	// new ID will be generated. This ID is not a VCD URN
+	ID   string `json:"id,omitempty"`
+	Name string `json:"name"`
+	// Description
+	Description string `json:"description,omitempty"`
+	// NetworkCidr contains network prefix in CIDR format. Both IPv4 and IPv6 formats are supported
+	NetworkCidr string `json:"networkCidr"`
+	// NextHops contains the list of next hops to use within the static route. List must contain at
+	// least one valid next hop
+	NextHops []NsxtEdgeGatewayStaticRouteNextHops `json:"nextHops"`
+
+	// SystemOwned contains a read-only flag whether this static route is managed by the system
+	SystemOwned *bool `json:"systemOwned,omitempty"`
+	// Version property describes the current version of the entity. To prevent clients from
+	// overwriting each other's changes, update operations must include the version which can be
+	// obtained by issuing a GET operation. If the version number on an update call is missing, the
+	// operation will be rejected. This is only needed on update calls.
+	Version string `json:"version,omitempty"`
+}
+
+// NsxtEdgeGatewayStaticRouteNextHops sets one next hop entry for the list
+type NsxtEdgeGatewayStaticRouteNextHops struct {
+	// AdminDistance for the next hop
+	AdminDistance int `json:"adminDistance"`
+	// IPAddress for next hop gateway IP Address for the static route.
+	IPAddress string `json:"ipAddress"`
+	// Scope holds a reference to an entity where the next hop of a static route is reachable. In
+	// general, the reference should be an org vDC network or segment backed external network, but
+	// scope could also reference a SYSTEM_OWNED entity if the next hop is configured outside of
+	// VCD.
+	Scope *NsxtEdgeGatewayStaticRouteNextHopScope `json:"scope,omitempty"`
+}
+
+// NsxtEdgeGatewayStaticRouteNextHopScope for a single NsxtEdgeGatewayStaticRouteNextHops entry
+type NsxtEdgeGatewayStaticRouteNextHopScope struct {
+	// ID of this scoped entity.
+	ID string `json:"id"`
+	// Name of the scoped entity.
+	Name string `json:"name"`
+	// ScopeType of this entity. This can be an network or a system-owned entity if the static
+	// route is SYSTEM_OWNED. Supported types are:
+	// * NETWORK
+	// * SYSTEM_OWNED
+	ScopeType string `json:"scopeType"`
 }

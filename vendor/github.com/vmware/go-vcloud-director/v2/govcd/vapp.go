@@ -1,5 +1,5 @@
 /*
- * Copyright 2021 VMware, Inc.  All rights reserved.  Licensed under the Apache v2 License.
+ * Copyright 2023 VMware, Inc.  All rights reserved.  Licensed under the Apache v2 License.
  */
 
 package govcd
@@ -40,6 +40,7 @@ type VappNetworkSettings struct {
 	Description        string
 	Gateway            string
 	NetMask            string
+	SubnetPrefixLength string
 	DNS1               string
 	DNS2               string
 	DNSSuffix          string
@@ -150,6 +151,39 @@ func (vapp *VApp) AddVM(orgVdcNetworks []*types.OrgVDCNetwork, vappNetworkName s
 	}
 
 	return vapp.AddNewVM(name, vappTemplate, &networkConnectionSection, acceptAllEulas)
+}
+
+// AddRawVM accepts raw types.ReComposeVAppParams which contains all information for VM creation
+func (vapp *VApp) AddRawVM(vAppComposition *types.ReComposeVAppParams) (*VM, error) {
+	apiEndpoint := urlParseRequestURI(vapp.VApp.HREF)
+	apiEndpoint.Path += "/action/recomposeVApp"
+
+	// Return the task
+	task, err := vapp.client.ExecuteTaskRequest(apiEndpoint.String(), http.MethodPost, types.MimeRecomposeVappParams, "error instantiating a new VM: %s", vAppComposition)
+	if err != nil {
+		return nil, fmt.Errorf("error instantiating a new VM: %s", err)
+	}
+
+	err = task.WaitTaskCompletion()
+	if err != nil {
+		return nil, fmt.Errorf("VM creation task failed: %s", err)
+	}
+
+	// VM task does not return any reference to VM therefore it must be looked up by name after
+	// creation
+
+	var vmName string
+	if vAppComposition.SourcedItem != nil && vAppComposition.SourcedItem.Source != nil {
+		vmName = vAppComposition.SourcedItem.Source.Name
+	}
+
+	vm, err := vapp.GetVMByName(vmName, true)
+	if err != nil {
+		return nil, fmt.Errorf("error finding VM %s in vApp %s after creation: %s", vAppComposition.Name, vapp.VApp.Name, err)
+	}
+
+	return vm, nil
+
 }
 
 // AddNewVM adds VM from vApp template with custom NetworkConnectionSection
@@ -345,6 +379,7 @@ func (vapp *VApp) Reset() (Task, error) {
 		"", "error resetting vApp: %s", nil)
 }
 
+// Suspend suspends a vApp
 func (vapp *VApp) Suspend() (Task, error) {
 
 	apiEndpoint := urlParseRequestURI(vapp.VApp.HREF)
@@ -353,6 +388,24 @@ func (vapp *VApp) Suspend() (Task, error) {
 	// Return the task
 	return vapp.client.ExecuteTaskRequest(apiEndpoint.String(), http.MethodPost,
 		"", "error suspending vApp: %s", nil)
+}
+
+// DiscardSuspendedState takes back a vApp from suspension
+func (vapp *VApp) DiscardSuspendedState() error {
+	// Status 3 means that the vApp is suspended
+	if vapp.VApp.Status != 3 {
+		return nil
+	}
+	apiEndpoint := urlParseRequestURI(vapp.VApp.HREF)
+	apiEndpoint.Path += "/action/discardSuspendedState"
+
+	// Return the task
+	task, err := vapp.client.ExecuteTaskRequest(apiEndpoint.String(), http.MethodPost,
+		"", "error discarding suspended state for vApp: %s", nil)
+	if err != nil {
+		return err
+	}
+	return task.WaitTaskCompletion()
 }
 
 func (vapp *VApp) Shutdown() (Task, error) {
@@ -428,10 +481,10 @@ func (vapp *VApp) Customize(computername, script string, changeSid bool) (Task, 
 		HREF:                vapp.VApp.Children.VM[0].HREF,
 		Type:                types.MimeGuestCustomizationSection,
 		Info:                "Specifies Guest OS Customization Settings",
-		Enabled:             takeBoolPointer(true),
+		Enabled:             addrOf(true),
 		ComputerName:        computername,
 		CustomizationScript: script,
-		ChangeSid:           takeBoolPointer(changeSid),
+		ChangeSid:           &changeSid,
 	}
 
 	apiEndpoint := urlParseRequestURI(vapp.VApp.Children.VM[0].HREF)
@@ -887,14 +940,22 @@ func (vapp *VApp) CreateVappNetworkAsync(newNetworkSettings *VappNetworkSettings
 			FenceMode:        types.FenceModeIsolated,
 			GuestVlanAllowed: newNetworkSettings.GuestVLANAllowed,
 			Features:         networkFeatures,
-			IPScopes: &types.IPScopes{IPScope: []*types.IPScope{&types.IPScope{IsInherited: false, Gateway: newNetworkSettings.Gateway,
-				Netmask: newNetworkSettings.NetMask, DNS1: newNetworkSettings.DNS1,
-				DNS2: newNetworkSettings.DNS2, DNSSuffix: newNetworkSettings.DNSSuffix, IsEnabled: true,
-				IPRanges: &types.IPRanges{IPRange: newNetworkSettings.StaticIPRanges}}}},
+			IPScopes: &types.IPScopes{
+				IPScope: []*types.IPScope{{
+					IsInherited:        false,
+					Gateway:            newNetworkSettings.Gateway,
+					Netmask:            newNetworkSettings.NetMask,
+					SubnetPrefixLength: newNetworkSettings.SubnetPrefixLength,
+					DNS1:               newNetworkSettings.DNS1,
+					DNS2:               newNetworkSettings.DNS2,
+					DNSSuffix:          newNetworkSettings.DNSSuffix,
+					IsEnabled:          true,
+					IPRanges:           &types.IPRanges{IPRange: newNetworkSettings.StaticIPRanges}}}},
 			RetainNetInfoAcrossDeployments: newNetworkSettings.RetainIpMacEnabled,
 		},
 		IsDeployed: false,
 	}
+
 	if orgNetwork != nil {
 		vappConfiguration.Configuration.ParentNetwork = &types.Reference{
 			HREF: orgNetwork.HREF,
@@ -1039,6 +1100,10 @@ func (vapp *VApp) UpdateNetworkAsync(networkSettingsToUpdate *VappNetworkSetting
 		networkSettingsToUpdate.DhcpSettings.IPRange.EndAddress = networkSettingsToUpdate.DhcpSettings.IPRange.StartAddress
 	}
 
+	if networkToUpdate.Configuration.Features == nil {
+		networkToUpdate.Configuration.Features = &types.NetworkFeatures{}
+	}
+
 	// remove DHCP config
 	if networkSettingsToUpdate.DhcpSettings == nil {
 		networkToUpdate.Configuration.Features.DhcpService = nil
@@ -1141,12 +1206,12 @@ func validateNetworkConfigSettings(networkSettings *VappNetworkSettings) error {
 		return errors.New("network gateway IP is missing")
 	}
 
-	if networkSettings.NetMask == "" {
-		return errors.New("network mask config is missing")
+	if networkSettings.NetMask == "" && networkSettings.SubnetPrefixLength == "" {
+		return errors.New("network mask and subnet prefix length config is missing, exactly one is required")
 	}
 
-	if networkSettings.NetMask == "" {
-		return errors.New("network mask config is missing")
+	if networkSettings.NetMask != "" && networkSettings.SubnetPrefixLength != "" {
+		return errors.New("exactly one of netmask and prefix length can be supplied")
 	}
 
 	if networkSettings.DhcpSettings != nil && networkSettings.DhcpSettings.IPRange == nil {
@@ -1484,8 +1549,8 @@ func (vapp *VApp) RenewLease(deploymentLeaseInSeconds, storageLeaseInSeconds int
 		Xmlns:                    types.XMLNamespaceVCloud,
 		OVFInfo:                  "Lease section settings",
 		Type:                     types.MimeLeaseSettingSection,
-		DeploymentLeaseInSeconds: takeIntAddress(deploymentLeaseInSeconds),
-		StorageLeaseInSeconds:    takeIntAddress(storageLeaseInSeconds),
+		DeploymentLeaseInSeconds: &deploymentLeaseInSeconds,
+		StorageLeaseInSeconds:    &storageLeaseInSeconds,
 	}
 
 	task, err := vapp.client.ExecuteTaskRequest(href, http.MethodPut,

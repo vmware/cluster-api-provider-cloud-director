@@ -462,10 +462,10 @@ func (vm *VM) Customize(computerName, script string, changeSid bool) (Task, erro
 		HREF:                vm.VM.HREF,
 		Type:                types.MimeGuestCustomizationSection,
 		Info:                "Specifies Guest OS Customization Settings",
-		Enabled:             takeBoolPointer(true),
+		Enabled:             addrOf(true),
 		ComputerName:        computerName,
 		CustomizationScript: script,
-		ChangeSid:           takeBoolPointer(changeSid),
+		ChangeSid:           &changeSid,
 	}
 
 	apiEndpoint := urlParseRequestURI(vm.VM.HREF)
@@ -482,6 +482,25 @@ func (vm *VM) Undeploy() (Task, error) {
 	vu := &types.UndeployVAppParams{
 		Xmlns:               types.XMLNamespaceVCloud,
 		UndeployPowerAction: "powerOff",
+	}
+
+	apiEndpoint := urlParseRequestURI(vm.VM.HREF)
+	apiEndpoint.Path += "/action/undeploy"
+
+	// Return the task
+	return vm.client.ExecuteTaskRequest(apiEndpoint.String(), http.MethodPost,
+		types.MimeUndeployVappParams, "error undeploy VM: %s", vu)
+}
+
+// Shutdown triggers a VM undeploy and shutdown action. "Shut Down Guest OS" action in UI behaves
+// this way.
+//
+// Note. Success of this operation depends on the VM having Guest Tools installed.
+func (vm *VM) Shutdown() (Task, error) {
+
+	vu := &types.UndeployVAppParams{
+		Xmlns:               types.XMLNamespaceVCloud,
+		UndeployPowerAction: "shutdown",
 	}
 
 	apiEndpoint := urlParseRequestURI(vm.VM.HREF)
@@ -777,7 +796,7 @@ func (vm *VM) ToggleHardwareVirtualization(isEnabled bool) (Task, error) {
 	if err != nil {
 		return Task{}, fmt.Errorf("unable to toggle hardware virtualization: %s", err)
 	}
-	if vmStatus != "POWERED_OFF" {
+	if vmStatus != "POWERED_OFF" && vmStatus != "PARTIALLY_POWERED_OFF" {
 		return Task{}, fmt.Errorf("hardware virtualization can be changed from powered off state, status: %s", vmStatus)
 	}
 
@@ -811,6 +830,20 @@ func (vm *VM) SetProductSectionList(productSection *types.ProductSectionList) (*
 // or returned as set before
 func (vm *VM) GetProductSectionList() (*types.ProductSectionList, error) {
 	return getProductSectionList(vm.client, vm.VM.HREF)
+}
+
+// GetEnvironment returns the OVF Environment. It's only available for poweredOn VM
+func (vm *VM) GetEnvironment() (*types.OvfEnvironment, error) {
+	vmStatus, err := vm.GetStatus()
+	if err != nil {
+		return nil, fmt.Errorf("unable to get OVF environment: %s", err)
+	}
+
+	if vmStatus != "POWERED_ON" {
+		return nil, fmt.Errorf("OVF environment is only available when VM is powered on")
+	}
+
+	return vm.VM.Environment, nil
 }
 
 // GetGuestCustomizationSection retrieves guest customization section for a VM. It allows to read VM guest customization properties.
@@ -922,6 +955,10 @@ func (vm *VM) getEdgeGatewaysForRoutedNics(nicDhcpConfigs []nicDhcpConfig) ([]ni
 		} else {
 			// Lookup edge gateway
 			edgeGateway, err := vdc.GetEdgeGatewayByName(edgeGatewayName, false)
+			if ContainsNotFound(err) {
+				util.Logger.Printf("[TRACE] [DHCP IP Lookup] edge gateway not found: %s. Ignoring.", edgeGatewayName)
+				continue
+			}
 			if err != nil {
 				return nil, fmt.Errorf("could not lookup edge gateway for routed network on NIC %d: %s",
 					nic.vmNicIndex, err)
@@ -1464,7 +1501,32 @@ func (vm *VM) UpdateVmSpecSectionAsync(vmSettingsToUpdate *types.VmSpecSection, 
 		})
 }
 
+// UpdateComputePolicyV2 updates VM Compute policy with the given compute policies using v2.0.0 OpenAPI endpoint,
+// and returns an error if something went wrong, or the refreshed VM if all went OK.
+// Updating with an empty compute policy ID will remove it from the VM. Both policies can't be empty as the VM requires
+// at least one policy.
+func (vm *VM) UpdateComputePolicyV2(sizingPolicyId, placementPolicyId, vGpuPolicyId string) (*VM, error) {
+	task, err := vm.UpdateComputePolicyV2Async(sizingPolicyId, placementPolicyId, vGpuPolicyId)
+	if err != nil {
+		return nil, err
+	}
+
+	err = task.WaitTaskCompletion()
+	if err != nil {
+		return nil, err
+	}
+
+	err = vm.Refresh()
+	if err != nil {
+		return nil, err
+	}
+
+	return vm, nil
+
+}
+
 // UpdateComputePolicy updates VM compute policy and returns refreshed VM or error.
+// Deprecated: Use VM.UpdateComputePolicyV2 instead
 func (vm *VM) UpdateComputePolicy(computePolicy *types.VdcComputePolicy) (*VM, error) {
 	task, err := vm.UpdateComputePolicyAsync(computePolicy)
 	if err != nil {
@@ -1485,7 +1547,64 @@ func (vm *VM) UpdateComputePolicy(computePolicy *types.VdcComputePolicy) (*VM, e
 
 }
 
+// UpdateComputePolicyV2Async updates VM Compute policy with the given compute policies using v2.0.0 OpenAPI endpoint,
+// and returns a Task and an error. Updating with an empty compute policy ID will remove it from the VM. Both
+// policies can't be empty as the VM requires at least one policy.
+// WARNING: At the moment, vGPU Policies are not supported. Using one will return an error.
+func (vm *VM) UpdateComputePolicyV2Async(sizingPolicyId, placementPolicyId, vGpuPolicyId string) (Task, error) {
+	if vm.VM.HREF == "" {
+		return Task{}, fmt.Errorf("cannot update VM compute policy, VM HREF is unset")
+	}
+
+	sizingIsEmpty := strings.TrimSpace(sizingPolicyId) == ""
+	placementIsEmpty := strings.TrimSpace(placementPolicyId) == ""
+	vGpuPolicyIsEmpty := strings.TrimSpace(vGpuPolicyId) == ""
+
+	if !vGpuPolicyIsEmpty {
+		return Task{}, fmt.Errorf("vGPU policies are not supported, hence %s should be empty", vGpuPolicyId)
+	}
+
+	if sizingIsEmpty && placementIsEmpty {
+		return Task{}, fmt.Errorf("either sizing policy ID or placement policy ID is needed")
+	}
+
+	// `reconfigureVm` updates VM name, Description, and any or all of the following sections.
+	//    VirtualHardwareSection
+	//    OperatingSystemSection
+	//    NetworkConnectionSection
+	//    GuestCustomizationSection
+	// Sections not included in the request body will not be updated.
+
+	computePolicy := &types.ComputePolicy{}
+
+	if !sizingIsEmpty {
+		vdcSizingPolicyHref, err := vm.client.OpenApiBuildEndpoint(types.OpenApiPathVersion2_0_0, types.OpenApiEndpointVdcComputePolicies, sizingPolicyId)
+		if err != nil {
+			return Task{}, fmt.Errorf("error constructing HREF for sizing policy")
+		}
+		computePolicy.VmSizingPolicy = &types.Reference{HREF: vdcSizingPolicyHref.String()}
+	}
+
+	if !placementIsEmpty {
+		vdcPlacementPolicyHref, err := vm.client.OpenApiBuildEndpoint(types.OpenApiPathVersion2_0_0, types.OpenApiEndpointVdcComputePolicies, placementPolicyId)
+		if err != nil {
+			return Task{}, fmt.Errorf("error constructing HREF for placement policy")
+		}
+		computePolicy.VmPlacementPolicy = &types.Reference{HREF: vdcPlacementPolicyHref.String()}
+	}
+
+	return vm.client.ExecuteTaskRequest(vm.VM.HREF+"/action/reconfigureVm", http.MethodPost,
+		types.MimeVM, "error updating VM spec section: %s", &types.Vm{
+			Xmlns:         types.XMLNamespaceVCloud,
+			Ovf:           types.XMLNamespaceOVF,
+			Name:          vm.VM.Name,
+			Description:   vm.VM.Description,
+			ComputePolicy: computePolicy,
+		})
+}
+
 // UpdateComputePolicyAsync updates VM Compute policy and returns Task and error.
+// Deprecated: Use VM.UpdateComputePolicyV2Async instead
 func (vm *VM) UpdateComputePolicyAsync(computePolicy *types.VdcComputePolicy) (Task, error) {
 	if vm.VM.HREF == "" {
 		return Task{}, fmt.Errorf("cannot update VM compute policy, VM HREF is unset")
@@ -1837,19 +1956,39 @@ func (vm *VM) ChangeMemory(sizeInMb int64) error {
 // (i.e. CPUs x cores per socket)
 // Cpu cores count is inherited from template.
 // https://communities.vmware.com/thread/576209
+// Deprecated: use ChangeCPUAndCoreCount
 func (vm *VM) ChangeCPU(cpus, cpuCores int) error {
 	vmSpecSection := vm.VM.VmSpecSection
 	description := vm.VM.Description
 	// update treats same values as changes and fails, with no values provided - no changes are made for that section
 	vmSpecSection.DiskSection = nil
 
-	vmSpecSection.NumCpus = takeIntAddress(cpus)
+	vmSpecSection.NumCpus = &cpus
 	// has to come together
-	vmSpecSection.NumCoresPerSocket = takeIntAddress(cpuCores)
+	vmSpecSection.NumCoresPerSocket = &cpuCores
 
 	_, err := vm.UpdateVmSpecSection(vmSpecSection, description)
 	if err != nil {
 		return fmt.Errorf("error changing cpu size: %s", err)
+	}
+	return nil
+}
+
+// ChangeCPUAndCoreCount sets CPU and CPU core counts
+// Accepts values or `nil` for both parameters.
+func (vm *VM) ChangeCPUAndCoreCount(cpus, cpuCores *int) error {
+	vmSpecSection := vm.VM.VmSpecSection
+	description := vm.VM.Description
+	// update treats same values as changes and fails, with no values provided - no changes are made for that section
+	vmSpecSection.DiskSection = nil
+
+	vmSpecSection.NumCpus = cpus
+	// has to come together
+	vmSpecSection.NumCoresPerSocket = cpuCores
+
+	_, err := vm.UpdateVmSpecSection(vmSpecSection, description)
+	if err != nil {
+		return fmt.Errorf("error changing CPU size: %s", err)
 	}
 	return nil
 }

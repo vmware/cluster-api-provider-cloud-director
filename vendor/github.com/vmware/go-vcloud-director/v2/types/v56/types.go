@@ -1,5 +1,5 @@
 /*
- * Copyright 2021 VMware, Inc.  All rights reserved.  Licensed under the Apache v2 License.
+ * Copyright 2023 VMware, Inc.  All rights reserved.  Licensed under the Apache v2 License.
  */
 
 // Package types/v56 provider all types which are used by govcd package in order to perform API
@@ -35,7 +35,7 @@ var VAppStatuses = map[int]string{
 	17: "TRANSFER_TIMEOUT",
 	18: "VAPP_UNDEPLOYED",
 	19: "VAPP_PARTIALLY_DEPLOYED",
-	20: "PARTIALLY_POWERED_OFF",
+	20: "PARTIALLY_POWERED_OFF", // VCD 10.3+
 	21: "PARTIALLY_SUSPENDED",
 }
 
@@ -174,6 +174,7 @@ type IPScope struct {
 	IsInherited          bool            `xml:"IsInherited"`                    // True if the IP scope is inherit from parent network.
 	Gateway              string          `xml:"Gateway,omitempty"`              // Gateway of the network.
 	Netmask              string          `xml:"Netmask,omitempty"`              // Network mask.
+	SubnetPrefixLength   string          `xml:"SubnetPrefixLength,omitempty"`   // Prefix length.
 	DNS1                 string          `xml:"Dns1,omitempty"`                 // Primary DNS server.
 	DNS2                 string          `xml:"Dns2,omitempty"`                 // Secondary DNS server.
 	DNSSuffix            string          `xml:"DnsSuffix,omitempty"`            // DNS suffix.
@@ -396,7 +397,7 @@ type OrgVDCNetwork struct {
 // Description: Contains a list of VMware virtual hardware versions supported in this vDC.
 // Since: 1.5
 type SupportedHardwareVersions struct {
-	SupportedHardwareVersion []string `xml:"SupportedHardwareVersion,omitempty"` // A virtual hardware version supported in this vDC.
+	SupportedHardwareVersion []Reference `xml:"SupportedHardwareVersion,omitempty"` // A virtual hardware version supported in this vDC.
 }
 
 // Capabilities collection of supported hardware capabilities.
@@ -405,7 +406,7 @@ type SupportedHardwareVersions struct {
 // Description: Collection of supported hardware capabilities.
 // Since: 1.5
 type Capabilities struct {
-	SupportedHardwareVersions *SupportedHardwareVersions `xml:"SupportedHardwareVersions,omitempty"` // Read-only list of virtual hardware versions supported by this vDC.
+	SupportedHardwareVersions *SupportedHardwareVersions `xml:"SupportedHardwareVersions,omitempty" json:"supportedHardwareVersions,omitempty"` // Read-only list of virtual hardware versions supported by this vDC.
 }
 
 // Vdc represents the user view of an organization VDC.
@@ -447,20 +448,119 @@ type AdminVdc struct {
 	Xmlns string `xml:"xmlns,attr"`
 	Vdc
 
-	VCpuInMhz2                    *int64         `xml:"VCpuInMhz2,omitempty"`
-	ResourceGuaranteedMemory      *float64       `xml:"ResourceGuaranteedMemory,omitempty"`
-	ResourceGuaranteedCpu         *float64       `xml:"ResourceGuaranteedCpu,omitempty"`
-	VCpuInMhz                     *int64         `xml:"VCpuInMhz,omitempty"`
-	IsThinProvision               *bool          `xml:"IsThinProvision,omitempty"`
-	NetworkPoolReference          *Reference     `xml:"NetworkPoolReference,omitempty"`
-	ProviderVdcReference          *Reference     `xml:"ProviderVdcReference"`
-	ResourcePoolRefs              *VimObjectRefs `xml:"vmext:ResourcePoolRefs,omitempty"`
+	VCpuInMhz2               *int64     `xml:"VCpuInMhz2,omitempty"`
+	ResourceGuaranteedMemory *float64   `xml:"ResourceGuaranteedMemory,omitempty"`
+	ResourceGuaranteedCpu    *float64   `xml:"ResourceGuaranteedCpu,omitempty"`
+	VCpuInMhz                *int64     `xml:"VCpuInMhz,omitempty"`
+	IsThinProvision          *bool      `xml:"IsThinProvision,omitempty"`
+	NetworkPoolReference     *Reference `xml:"NetworkPoolReference,omitempty"`
+	ProviderVdcReference     *Reference `xml:"ProviderVdcReference"`
+
+	// ResourcePoolRefs is a read-only field and should be avoided in XML structure for write
+	// operations because it breaks on Go marshalling bug https://github.com/golang/go/issues/9519
+	ResourcePoolRefs              *VimObjectRefs `xml:"ResourcePoolRefs,omitempty"`
 	UsesFastProvisioning          *bool          `xml:"UsesFastProvisioning,omitempty"`
 	OverCommitAllowed             bool           `xml:"OverCommitAllowed,omitempty"`
 	VmDiscoveryEnabled            bool           `xml:"VmDiscoveryEnabled,omitempty"`
 	IsElastic                     *bool          `xml:"IsElastic,omitempty"`                     // Supported from 32.0 for the Flex model
 	IncludeMemoryOverhead         *bool          `xml:"IncludeMemoryOverhead,omitempty"`         // Supported from 32.0 for the Flex model
 	UniversalNetworkPoolReference *Reference     `xml:"UniversalNetworkPoolReference,omitempty"` // Reference to a universal network pool
+}
+
+// ProviderVdc represents a Provider VDC.
+// Type: ProviderVdcType
+// Namespace: http://www.vmware.com/vcloud/v1.5
+// Description: Represents a Provider VDC.
+// Since: 0.9
+type ProviderVdc struct {
+	HREF         string `xml:"href,attr,omitempty" json:"href,omitempty"`
+	Type         string `xml:"type,attr,omitempty" json:"type,omitempty"`
+	ID           string `xml:"id,attr,omitempty" json:"id,omitempty"`
+	OperationKey string `xml:"operationKey,attr,omitempty" json:"operationKey,omitempty"`
+	Name         string `xml:"name,attr" json:"name"`
+	Status       int    `xml:"status,attr,omitempty" json:"status,omitempty"` // -1 (creation failed), 0 (not ready), 1 (ready), 2 (unknown), 3 (unrecognized)
+
+	AvailableNetworks     *AvailableNetworks       `xml:"AvailableNetworks,omitempty" json:"availableNetworks,omitempty"`         // Read-only list of available networks.
+	Capabilities          *Capabilities            `xml:"Capabilities,omitempty" json:"capabilities,omitempty"`                   // Read-only list of virtual hardware versions supported by this Provider VDC.
+	ComputeCapacity       *RootComputeCapacity     `xml:"ComputeCapacity,omitempty" json:"computeCapacity,omitempty"`             // Read-only indicator of CPU and memory capacity.
+	Description           string                   `xml:"Description,omitempty" json:"description,omitempty"`                     // Optional description.
+	IsEnabled             *bool                    `xml:"IsEnabled,omitempty" json:"isEnabled,omitempty"`                         // True if this Provider VDC is enabled and can provide resources to organization VDCs. A Provider VDC is always enabled on creation.
+	Link                  *LinkList                `xml:"Link,omitempty" json:"link,omitempty"`                                   // A reference to an entity or operation associated with this object.
+	NetworkPoolReferences *NetworkPoolReferences   `xml:"NetworkPoolReferences,omitempty" json:"networkPoolReferences,omitempty"` // Read-only list of network pools used by this Provider VDC.
+	StorageProfiles       *ProviderStorageProfiles `xml:"StorageProfiles,omitempty" json:"storageProfiles,omitempty"`             // Container for references to vSphere storage profiles available to this Provider VDC.
+	Tasks                 *TasksInProgress         `xml:"Tasks,omitempty" json:"tasks,omitempty"`                                 // A list of queued, running, or recently completed tasks associated with this entity.
+}
+
+// VMWProviderVdc represents an extension of ProviderVdc.
+// Type: VMWProviderVdcType
+// Namespace: http://www.vmware.com/vcloud/v1.5
+// Description: Represents an extension of ProviderVdc.
+// Since: 1.0
+type VMWProviderVdc struct {
+	ProviderVdc
+
+	AvailableUniversalNetworkPool   *Reference         `xml:"AvailableUniversalNetworkPool,omitempty" json:"availableUniversalNetworkPool,omitempty"`     // Selectable universal network reference.
+	ComputeProviderScope            string             `xml:"ComputeProviderScope,omitempty" json:"computeProviderScope,omitempty"`                       // The compute provider scope represents the compute fault domain for this provider VDC. This value is a tenant-facing tag that is shown to tenants when viewing fault domains of the child Organization VDCs (for ex. a VDC Group).
+	DataStoreRefs                   VimObjectRefs      `xml:"DataStoreRefs" json:"dataStoreRefs"`                                                         // vSphere datastores backing this provider VDC.
+	HighestSupportedHardwareVersion string             `xml:"HighestSupportedHardwareVersion,omitempty" json:"highestSupportedHardwareVersion,omitempty"` // The highest virtual hardware version supported by this Provider VDC. If empty or omitted on creation, the system sets it to the highest virtual hardware version supported by all hosts in the primary resource pool. You can modify it when you add more resource pools.
+	HostReferences                  *VMWHostReferences `xml:"HostReferences,omitempty" json:"hostReferences,omitempty"`                                   // Shows all hosts which are connected to VC server.
+	NsxTManagerReference            *Reference         `xml:"NsxTManagerReference,omitempty" json:"nsxTManagerReference,omitempty"`                       // An optional reference to a registered NSX-T Manager to back networking operations for this provider VDC.
+	ResourcePoolRefs                *VimObjectRefs     `xml:"ResourcePoolRefs,omitempty" json:"resourcePoolRefs,omitempty"`                               // Resource pools backing this provider VDC. On create, you must specify a resource pool that is not used by (and is not the child of a resource pool used by) any other provider VDC. On modify, this element is required for schema validation, but its contents cannot be changed.
+	VimServer                       []*Reference       `xml:"VimServer,omitempty" json:"vimServer,omitempty"`                                             // The vCenter server that provides the resource pools and datastores. A valid reference is required on create. On modify, this element is required for schema validation, but its contents cannot be changed.
+}
+
+// VMWHostReferences represents a list of available hosts.
+// Type: VMWHostReferencesType
+// Namespace: http://www.vmware.com/vcloud/v1.5
+// Description: Represents a list of available hosts.
+// Since: 1.0
+type VMWHostReferences struct {
+	HostReference []*Reference `xml:"HostReference,omitempty" json:"hostReference,omitempty"`
+	Link          *Link        `xml:"Link,omitempty" json:"link,omitempty"`
+}
+
+// RootComputeCapacity represents compute capacity with units.
+// Type: RootComputeCapacityType
+// Namespace: http://www.vmware.com/vcloud/v1.5
+// Description: Represents compute capacity with units.
+// Since: 0.9
+type RootComputeCapacity struct {
+	Cpu       *ProviderVdcCapacity `xml:"Cpu" json:"cpu"`
+	IsElastic bool                 `xml:"IsElastic,omitempty" json:"isElastic,omitempty"`
+	IsHA      bool                 `xml:"IsHA,omitempty" json:"isHA,omitempty"`
+	Memory    *ProviderVdcCapacity `xml:"Memory" json:"memory"`
+}
+
+// NetworkPoolReferences is a container for references to network pools in this vDC.
+// Type: NetworkPoolReferencesType
+// Namespace: http://www.vmware.com/vcloud/v1.5
+// Description: Container for references to network pools in this vDC.
+// Since: 0.9
+type NetworkPoolReferences struct {
+	NetworkPoolReference []*Reference `xml:"NetworkPoolReference" json:"networkPoolReference"`
+}
+
+// ProviderStorageProfiles is a container for references to storage profiles associated with a Provider vDC.
+// Type: ProviderVdcStorageProfilesType
+// Namespace: http://www.vmware.com/vcloud/v1.5
+// Description: Container for references to storage profiles associated with a Provider vDC.
+// Since: 0.9
+type ProviderStorageProfiles struct {
+	ProviderVdcStorageProfile []*Reference `xml:"ProviderVdcStorageProfile" json:"providerVdcStorageProfile,omitempty"`
+}
+
+// ProviderVdcCapacity represents resource capacity in a Provider vDC.
+// Type: ProviderVdcCapacityType
+// Namespace: http://www.vmware.com/vcloud/v1.5
+// Description: Represents resource capacity in a Provider vDC.
+// Since: 0.9
+type ProviderVdcCapacity struct {
+	Allocation int64  `xml:"Allocation,omitempty"`
+	Overhead   int64  `xml:"Overhead,omitempty"`
+	Reserved   int64  `xml:"Reserved,omitempty"`
+	Total      int64  `xml:"Total,omitempty"`
+	Units      string `xml:"Units"`
+	Used       int64  `xml:"Used,omitempty"`
 }
 
 // VdcStorageProfileConfiguration represents the parameters to assign a storage profile in creation of organization vDC.
@@ -556,41 +656,50 @@ type VdcConfiguration struct {
 	IncludeMemoryOverhead    *bool                             `xml:"IncludeMemoryOverhead,omitempty"` // Supported from 32.0 for the Flex model
 }
 
-// Task represents an asynchronous operation in vCloud Director.
+// Task represents an asynchronous operation in VMware Cloud Director.
 // Type: TaskType
 // Namespace: http://www.vmware.com/vcloud/v1.5
-// Description: Represents an asynchronous operation in vCloud Director.
+// Description: Represents an asynchronous operation in VMware Cloud Director.u
 // Since: 0.9
 // Comments added from https://code.vmware.com/apis/912/vmware-cloud-director/doc/doc/types/TaskType.html
 type Task struct {
-	HREF             string           `xml:"href,attr,omitempty"`             // The URI of the entity.
-	Type             string           `xml:"type,attr,omitempty"`             // The MIME type of the entity.
-	ID               string           `xml:"id,attr,omitempty"`               // The entity identifier, expressed in URN format. The value of this attribute uniquely identifies the entity, persists for the life of the entity, and is never reused.
-	OperationKey     string           `xml:"operationKey,attr,omitempty"`     // Optional unique identifier to support idempotent semantics for create and delete operations.
-	Name             string           `xml:"name,attr"`                       // The name of the entity.
-	Status           string           `xml:"status,attr"`                     // The execution status of the task. One of queued, preRunning, running, success, error, aborted
-	Operation        string           `xml:"operation,attr,omitempty"`        // A message describing the operation that is tracked by this task.
-	OperationName    string           `xml:"operationName,attr,omitempty"`    // The short name of the operation that is tracked by this task.
-	ServiceNamespace string           `xml:"serviceNamespace,attr,omitempty"` // Identifier of the service that created the task. It must not start with com.vmware.vcloud and the length must be between 1 and 128 symbols.
-	StartTime        string           `xml:"startTime,attr,omitempty"`        // The date and time the system started executing the task. May not be present if the task has not been executed yet.
-	EndTime          string           `xml:"endTime,attr,omitempty"`          // The date and time that processing of the task was completed. May not be present if the task is still being executed.
-	ExpiryTime       string           `xml:"expiryTime,attr,omitempty"`       // The date and time at which the task resource will be destroyed and no longer available for retrieval. May not be present if the task has not been executed or is still being executed.
-	CancelRequested  bool             `xml:"cancelRequested,attr,omitempty"`  // Whether user has requested this processing to be canceled.
-	Link             *Link            `xml:"Link,omitempty"`                  // A reference to an entity or operation associated with this object.
-	Description      string           `xml:"Description,omitempty"`           // Optional description.
-	Tasks            *TasksInProgress `xml:"Tasks,omitempty"`                 // A list of queued, running, or recently completed tasks associated with this entity.
-	Owner            *Reference       `xml:"Owner,omitempty"`                 // Reference to the owner of the task. This is typically the object that the task is creating or updating.
-	Error            *Error           `xml:"Error,omitempty"`                 // Represents error information from a failed task.
-	User             *Reference       `xml:"User,omitempty"`                  // The user who started the task.
-	Organization     *Reference       `xml:"Organization,omitempty"`          // The organization to which the User belongs.
-	Progress         int              `xml:"Progress,omitempty"`              // Read-only indicator of task progress as an approximate percentage between 0 and 100. Not available for all tasks.
-	Details          string           `xml:"Details,omitempty"`               // Detailed message about the task. Also contained by the Owner entity when task status is preRunning.
-
+	HREF             string           `xml:"href,attr,omitempty" json:"HREF,omitempty"`                         // The URI of the entity.
+	Type             string           `xml:"type,attr,omitempty" json:"type,omitempty"`                         // The MIME type of the entity.
+	ID               string           `xml:"id,attr,omitempty" json:"ID,omitempty"`                             // The entity identifier, expressed in URN format. The value of this attribute uniquely identifies the entity, persists for the life of the entity, and is never reused.
+	OperationKey     string           `xml:"operationKey,attr,omitempty" json:"operationKey,omitempty"`         // Optional unique identifier to support idempotent semantics for create and delete operations.
+	Name             string           `xml:"name,attr" json:"name,omitempty"`                                   // The name of the entity.
+	Status           string           `xml:"status,attr" json:"status,omitempty"`                               // The execution status of the task. One of queued, preRunning, running, success, error, aborted
+	Operation        string           `xml:"operation,attr,omitempty" json:"operation,omitempty"`               // A message describing the operation that is tracked by this task.
+	OperationName    string           `xml:"operationName,attr,omitempty" json:"operationName,omitempty"`       // The short name of the operation that is tracked by this task.
+	ServiceNamespace string           `xml:"serviceNamespace,attr,omitempty" json:"serviceNamespace,omitempty"` // Identifier of the service that created the task. It must not start with com.vmware.vcloud and the length must be between 1 and 128 symbols.
+	StartTime        string           `xml:"startTime,attr,omitempty" json:"startTime,omitempty"`               // The date and time the system started executing the task. May not be present if the task has not been executed yet.
+	EndTime          string           `xml:"endTime,attr,omitempty" json:"endTime,omitempty"`                   // The date and time that processing of the task was completed. May not be present if the task is still being executed.
+	ExpiryTime       string           `xml:"expiryTime,attr,omitempty" json:"expiryTime,omitempty"`             // The date and time at which the task resource will be destroyed and no longer available for retrieval. May not be present if the task has not been executed or is still being executed.
+	CancelRequested  bool             `xml:"cancelRequested,attr,omitempty" json:"cancelRequested,omitempty"`   // Whether user has requested this processing to be canceled.
+	Link             *LinkList        `xml:"Link,omitempty" json:"link,omitempty"`                              // A reference to an entity or operation associated with this object.
+	Description      string           `xml:"Description,omitempty" json:"description,omitempty"`                // Optional description.
+	Tasks            *TasksInProgress `xml:"Tasks,omitempty" json:"tasks,omitempty"`                            // A list of queued, running, or recently completed tasks associated with this entity.
+	Owner            *Reference       `xml:"Owner,omitempty" json:"owner,omitempty"`                            // Reference to the owner of the task. This is typically the object that the task is creating or updating.
+	Error            *Error           `xml:"Error,omitempty" json:"error,omitempty"`                            // Represents error information from a failed task.
+	User             *Reference       `xml:"User,omitempty" json:"user,omitempty"`                              // The user who started the task.
+	Organization     *Reference       `xml:"Organization,omitempty" json:"organization,omitempty"`              // The organization to which the User belongs.
+	Progress         int              `xml:"Progress,omitempty" json:"progress,omitempty"`                      // Read-only indicator of task progress as an approximate percentage between 0 and 100. Not available for all tasks.
+	Details          string           `xml:"Details,omitempty" json:"details,omitempty"`                        // Detailed message about the task. Also contained by the Owner entity when task status is preRunning.
+	Result           *TaskResult      `xml:"Result,omitempty" json:"result,omitempty"`                          // Result contains additional details that the task may expose
 	//
 	// TODO: add the following fields
 	// Params      anyType        The parameters with which this task was started.
-	// Result      ResultType	    An optional element that can be used to hold the result of a task.
 	// VcTaskList  VcTaskListType List of Virtual Center tasks related to this vCD task.
+}
+
+// TaskResult contains additional details that the task may expose after finishing
+type TaskResult struct {
+	ResultContent struct {
+		Text string `xml:",chardata"`
+		Xsi  string `xml:"xsi,attr"`
+		Ns11 string `xml:"ns11,attr"`
+		Type string `xml:"type,attr"`
+	} `xml:"ResultContent"`
 }
 
 // CapacityWithUsage represents a capacity and usage of a given resource.
@@ -622,10 +731,10 @@ type ComputeCapacity struct {
 // Description: A reference to a resource. Contains an href attribute and optional name and type attributes.
 // Since: 0.9
 type Reference struct {
-	HREF string `xml:"href,attr,omitempty"`
-	ID   string `xml:"id,attr,omitempty"`
-	Type string `xml:"type,attr,omitempty"`
-	Name string `xml:"name,attr,omitempty"`
+	HREF string `xml:"href,attr,omitempty" json:"href,omitempty"`
+	ID   string `xml:"id,attr,omitempty" json:"id,omitempty"`
+	Type string `xml:"type,attr,omitempty" json:"type,omitempty"`
+	Name string `xml:"name,attr,omitempty" json:"name,omitempty"`
 }
 
 // ResourceReference represents a reference to a resource. Contains an href attribute, a resource status attribute, and optional name and type attributes.
@@ -666,7 +775,7 @@ type ResourceEntities struct {
 // Description: Container for references to available organization vDC networks.
 // Since: 0.9
 type AvailableNetworks struct {
-	Network []*Reference `xml:"Network,omitempty"`
+	Network []*Reference `xml:"Network,omitempty" json:"network,omitempty"`
 }
 
 // Link extends reference type by adding relation attribute. Defines a hyper-link with a relationship, hyper-link reference, and an optional MIME type.
@@ -675,27 +784,27 @@ type AvailableNetworks struct {
 // Description: Extends reference type by adding relation attribute. Defines a hyper-link with a relationship, hyper-link reference, and an optional MIME type.
 // Since: 0.9
 type Link struct {
-	HREF string `xml:"href,attr"`
-	ID   string `xml:"id,attr,omitempty"`
-	Type string `xml:"type,attr,omitempty"`
-	Name string `xml:"name,attr,omitempty"`
-	Rel  string `xml:"rel,attr"`
+	HREF string `xml:"href,attr" json:"href,omitempty"`
+	ID   string `xml:"id,attr,omitempty" json:"id,omitempty"`
+	Type string `xml:"type,attr,omitempty" json:"type,omitempty"`
+	Name string `xml:"name,attr,omitempty" json:"name,omitempty"`
+	Rel  string `xml:"rel,attr" json:"rel,omitempty"`
 }
 
 // OrgList represents a lists of Organizations
 // Type: OrgType
 // Namespace: http://www.vmware.com/vcloud/v1.5
-// Description: Represents a list of vCloud Director organizations.
+// Description: Represents a list of VMware Cloud Director organizations.
 // Since: 0.9
 type OrgList struct {
 	Link LinkList `xml:"Link,omitempty"`
 	Org  []*Org   `xml:"Org,omitempty"`
 }
 
-// Org represents the user view of a vCloud Director organization.
+// Org represents the user view of a VMware Cloud Director organization.
 // Type: OrgType
 // Namespace: http://www.vmware.com/vcloud/v1.5
-// Description: Represents the user view of a vCloud Director organization.
+// Description: Represents the user view of a VMware Cloud Director organization.
 // Since: 0.9
 type Org struct {
 	HREF         string           `xml:"href,attr,omitempty"`
@@ -730,10 +839,10 @@ type RightsType struct {
 	RightReference []*Reference `xml:"RightReference,omitempty"`
 }
 
-// AdminOrg represents the admin view of a vCloud Director organization.
+// AdminOrg represents the admin view of a VMware Cloud Director organization.
 // Type: AdminOrgType
 // Namespace: http://www.vmware.com/vcloud/v1.5
-// Description: Represents the admin view of a vCloud Director organization.
+// Description: Represents the admin view of a VMware Cloud Director organization.
 // Since: 0.9
 type AdminOrg struct {
 	XMLName         xml.Name         `xml:"AdminOrg"`
@@ -758,10 +867,10 @@ type AdminOrg struct {
 	RoleReferences  *OrgRoleType     `xml:"RoleReferences,omitempty"`
 }
 
-// OrgSettingsType represents the settings for a vCloud Director organization.
+// OrgSettingsType represents the settings for a VMware Cloud Director organization.
 // Type: OrgSettingsType
 // Namespace: http://www.vmware.com/vcloud/v1.5
-// Description: Represents the settings of a vCloud Director organization.
+// Description: Represents the settings of a VMware Cloud Director organization.
 // Since: 0.9
 type OrgSettings struct {
 	//attributes
@@ -776,10 +885,10 @@ type OrgSettings struct {
 
 }
 
-// OrgGeneralSettingsType represents the general settings for a vCloud Director organization.
+// OrgGeneralSettingsType represents the general settings for a VMware Cloud Director organization.
 // Type: OrgGeneralSettingsType
 // Namespace: http://www.vmware.com/vcloud/v1.5
-// Description: Represents the user view of a vCloud Director organization.
+// Description: Represents the user view of a VMware Cloud Director organization.
 // Since: 0.9
 type OrgGeneralSettings struct {
 	HREF string   `xml:"href,attr,omitempty"` // The URI of the entity.
@@ -795,10 +904,10 @@ type OrgGeneralSettings struct {
 	DelayAfterPowerOnSeconds int  `xml:"DelayAfterPowerOnSeconds,omitempty"`
 }
 
-// VAppTemplateLeaseSettings represents the vapp template lease settings for a vCloud Director organization.
+// VAppTemplateLeaseSettings represents the vapp template lease settings for a VMware Cloud Director organization.
 // Type: VAppTemplateLeaseSettingsType
 // Namespace: http://www.vmware.com/vcloud/v1.5
-// Description: Represents the vapp template lease settings of a vCloud Director organization.
+// Description: Represents the vapp template lease settings of a VMware Cloud Director organization.
 // Since: 0.9
 type VAppTemplateLeaseSettings struct {
 	HREF string   `xml:"href,attr,omitempty"` // The URI of the entity.
@@ -820,18 +929,10 @@ type VAppLeaseSettings struct {
 	PowerOffOnRuntimeLeaseExpiration *bool `xml:"PowerOffOnRuntimeLeaseExpiration,omitempty"`
 }
 
-type OrgFederationSettings struct {
-	HREF string   `xml:"href,attr,omitempty"` // The URI of the entity.
-	Type string   `xml:"type,attr,omitempty"` // The MIME type of the entity.
-	Link LinkList `xml:"Link,omitempty"`      // A reference to an entity or operation associated with this object.
-
-	Enabled bool `xml:"Enabled,omitempty"`
-}
-
-// OrgLdapSettingsType represents the ldap settings for a vCloud Director organization.
+// OrgLdapSettingsType represents the ldap settings for a VMware Cloud Director organization.
 // Type: OrgLdapSettingsType
 // Namespace: http://www.vmware.com/vcloud/v1.5
-// Description: Represents the ldap settings of a vCloud Director organization.
+// Description: Represents the ldap settings of a VMware Cloud Director organization.
 // Since: 0.9
 type OrgLdapSettingsType struct {
 	XMLName xml.Name `xml:"OrgLdapSettings"`
@@ -845,10 +946,10 @@ type OrgLdapSettingsType struct {
 	CustomOrgLdapSettings *CustomOrgLdapSettings `xml:"CustomOrgLdapSettings,omitempty"` // Needs to be set if user chooses custom mode
 }
 
-// CustomOrgLdapSettings represents the custom ldap settings for a vCloud Director organization.
+// CustomOrgLdapSettings represents the custom ldap settings for a VMware Cloud Director organization.
 // Type: CustomOrgLdapSettingsType
 // Namespace: http://www.vmware.com/vcloud/v1.5
-// Description: Represents the custom ldap settings of a vCloud Director organization.
+// Description: Represents the custom ldap settings of a VMware Cloud Director organization.
 // Since: 0.9
 // Note. Order of these fields matter and API will error if it is changed
 type CustomOrgLdapSettings struct {
@@ -874,10 +975,10 @@ type CustomOrgLdapSettings struct {
 	Realm string `xml:"Realm,omitempty"`
 }
 
-// OrgLdapGroupAttributes	 represents the ldap group attribute settings for a vCloud Director organization.
+// OrgLdapGroupAttributes	 represents the ldap group attribute settings for a VMware Cloud Director organization.
 // Type: OrgLdapGroupAttributesType
 // Namespace: http://www.vmware.com/vcloud/v1.5
-// Description: Represents the ldap group attribute settings of a vCloud Director organization.
+// Description: Represents the ldap group attribute settings of a VMware Cloud Director organization.
 // Since: 0.9
 // Note. Order of these fields matter and API will error if it is changed
 type OrgLdapGroupAttributes struct {
@@ -885,14 +986,14 @@ type OrgLdapGroupAttributes struct {
 	ObjectIdentifier     string `xml:"ObjectIdentifier"`
 	GroupName            string `xml:"GroupName"`
 	Membership           string `xml:"Membership"`
-	BackLinkIdentifier   string `xml:"BackLinkIdentifier,omitempty"`
 	MembershipIdentifier string `xml:"MembershipIdentifier"`
+	BackLinkIdentifier   string `xml:"BackLinkIdentifier,omitempty"`
 }
 
-// OrgLdapUserAttributesType represents the ldap user attribute settings for a vCloud Director organization.
+// OrgLdapUserAttributesType represents the ldap user attribute settings for a VMware Cloud Director organization.
 // Type: OrgLdapUserAttributesType
 // Namespace: http://www.vmware.com/vcloud/v1.5
-// Description: Represents the ldap user attribute settings of a vCloud Director organization.
+// Description: Represents the ldap user attribute settings of a VMware Cloud Director organization.
 // Since: 0.9
 // Note. Order of these fields matter and API will error if it is changed.
 type OrgLdapUserAttributes struct {
@@ -914,7 +1015,7 @@ type OrgLdapUserAttributes struct {
 // Description: Represents a list of organization vDCs.
 // Since: 0.9
 type VDCList struct {
-	Vdcs []*Reference `xml:"Vdc,omitempty"`
+	Vdcs []*Reference `xml:"Vdc,omitempty" json:"vdcs,omitempty"`
 }
 
 // NetworksListType contains a list of references to Org Networks
@@ -1039,11 +1140,13 @@ type PublishExternalCatalogParams struct {
 // Description: Represents the configuration parameters for a catalog that has an external subscription.
 // Since: 5.5
 type ExternalCatalogSubscription struct {
-	ExpectedSslThumbprint    bool   `xml:"ExpectedSslThumbprint,omitempty"`
-	LocalCopy                bool   `xml:"LocalCopy,omitempty"`
-	Password                 string `xml:"Password,omitempty"`
-	SubscribeToExternalFeeds bool   `xml:"SubscribeToExternalFeeds,omitempty"`
-	Location                 string `xml:"Location,omitempty"`
+	XMLName                  xml.Name `xml:"ExternalCatalogSubscriptionParams"`
+	Xmlns                    string   `xml:"xmlns,attr,omitempty"`
+	ExpectedSslThumbprint    string   `xml:"ExpectedSslThumbprint,omitempty"`
+	SubscribeToExternalFeeds bool     `xml:"SubscribeToExternalFeeds,omitempty"`
+	Location                 string   `xml:"Location,omitempty"`
+	Password                 string   `xml:"Password,omitempty"`
+	LocalCopy                bool     `xml:"LocalCopy,omitempty"`
 }
 
 // CatalogStorageProfiles represents a container for storage profiles used by this catalog
@@ -1073,11 +1176,11 @@ type Owner struct {
 // Description: The standard error message type used in the vCloud REST API.
 // Since: 0.9
 type Error struct {
-	Message                 string `xml:"message,attr"`
-	MajorErrorCode          int    `xml:"majorErrorCode,attr"`
-	MinorErrorCode          string `xml:"minorErrorCode,attr"`
-	VendorSpecificErrorCode string `xml:"vendorSpecificErrorCode,attr,omitempty"`
-	StackTrace              string `xml:"stackTrace,attr,omitempty"`
+	Message                 string `xml:"message,attr" json:"message,omitempty"`
+	MajorErrorCode          int    `xml:"majorErrorCode,attr" json:"majorErrorCode,omitempty"`
+	MinorErrorCode          string `xml:"minorErrorCode,attr" json:"minorErrorCode,omitempty"`
+	VendorSpecificErrorCode string `xml:"vendorSpecificErrorCode,attr,omitempty" json:"vendorSpecificErrorCode,omitempty"`
+	StackTrace              string `xml:"stackTrace,attr,omitempty" json:"stackTrace,omitempty"`
 }
 
 func (err Error) Error() string {
@@ -1345,43 +1448,67 @@ type Value struct {
 	Value string `xml:"http://schemas.dmtf.org/ovf/envelope/1 value,attr,omitempty"`
 }
 
+// MetadataValue is the type returned when querying a unique entry of metadata.
+// Type: MetadataValueType
+// Namespace: http://www.vmware.com/vcloud/v1.5
 type MetadataValue struct {
-	XMLName    xml.Name    `xml:"MetadataValue"`
-	Xsi        string      `xml:"xmlns:xsi,attr"`
-	Xmlns      string      `xml:"xmlns,attr"`
-	TypedValue *TypedValue `xml:"TypedValue"`
+	XMLName    xml.Name            `xml:"MetadataValue"`
+	Xsi        string              `xml:"xmlns:xsi,attr"`
+	Xmlns      string              `xml:"xmlns,attr"`
+	Domain     *MetadataDomainTag  `xml:"Domain,omitempty"`
+	TypedValue *MetadataTypedValue `xml:"TypedValue"`
 }
 
-type TypedValue struct {
-	XsiType string `xml:"xsi:type,attr"`
+// MetadataTypedValue is the content of a metadata entry.
+// Type: MetadataTypedValue
+// Namespace: http://www.vmware.com/vcloud/v1.5
+// Description: One of: MetadataStringValue, MetadataNumberValue, MetadataBooleanValue, MetadataDateTimeValue
+// Since: 5.1
+type MetadataTypedValue struct {
+	XsiType string `xml:"http://www.w3.org/2001/XMLSchema-instance type,attr"`
 	Value   string `xml:"Value"`
 }
 
+// Deprecated: Use MetadataTypedValue instead
+type TypedValue = MetadataTypedValue
+
+// Metadata is the user-defined metadata associated with an object.
 // Type: MetadataType
 // Namespace: http://www.vmware.com/vcloud/v1.5
-// Description: User-defined metadata associated with with an object.
+// Description: User-defined metadata associated with an object.
 // Since: 1.5
 type Metadata struct {
 	XMLName       xml.Name         `xml:"Metadata"`
 	Xmlns         string           `xml:"xmlns,attr"`
 	HREF          string           `xml:"href,attr"`
-	Type          string           `xml:"type,attr,omitempty"`
+	Type          string           `xml:"type,attr,omitempty"` // The MIME type of the entity.
 	Xsi           string           `xml:"xmlns:xsi,attr"`
 	Link          []*Link          `xml:"Link,omitempty"`
 	MetadataEntry []*MetadataEntry `xml:"MetadataEntry,omitempty"`
 }
 
+// MetadataEntry is a single metadata entry.
 // Type: MetadataEntryType
 // Namespace: http://www.vmware.com/vcloud/v1.5
 type MetadataEntry struct {
-	Xmlns      string      `xml:"xmlns,attr"`
-	HREF       string      `xml:"href,attr"`
-	Type       string      `xml:"type,attr,omitempty"`
-	Xsi        string      `xml:"xmlns:xsi,attr"`
-	Domain     string      `xml:"Domain,omitempty"` // A value of SYSTEM places this MetadataEntry in the SYSTEM domain. Omit or leave empty to place this MetadataEntry in the GENERAL domain.
-	Key        string      `xml:"Key"`              // An arbitrary key name. Length cannot exceed 256 UTF-8 characters.
-	Link       []*Link     `xml:"Link,omitempty"`   //A reference to an entity or operation associated with this object.
-	TypedValue *TypedValue `xml:"TypedValue"`
+	Xmlns      string              `xml:"xmlns,attr"`
+	HREF       string              `xml:"href,attr"`
+	Type       string              `xml:"type,attr,omitempty"` // The MIME type of the entity
+	Xsi        string              `xml:"xmlns:xsi,attr"`
+	Domain     *MetadataDomainTag  `xml:"Domain,omitempty"`
+	Key        string              `xml:"Key"`            // An arbitrary key name. Length cannot exceed 256 UTF-8 characters.
+	Link       []*Link             `xml:"Link,omitempty"` // A reference to an entity or operation associated with this object.
+	TypedValue *MetadataTypedValue `xml:"TypedValue"`
+}
+
+// MetadataDomainTag contains both the visibility and the domain of the metadata.
+// Type: MetadataDomainTagType
+// Namespace: http://www.vmware.com/vcloud/v1.5
+// Description: A value of SYSTEM places this MetadataEntry in the SYSTEM domain. Omit or leave empty to place this MetadataEntry in the GENERAL domain.
+// Since: 5.1
+type MetadataDomainTag struct {
+	Visibility string `xml:"visibility,attr"` // One of: PRIVATE (hidden), READONLY, READWRITE (read/write)
+	Domain     string `xml:",chardata"`
 }
 
 // VAppChildren is a container for virtual machines included in this vApp.
@@ -1400,7 +1527,7 @@ type VAppChildren struct {
 // Since: 0.9
 type TasksInProgress struct {
 	// Elements
-	Task []*Task `xml:"Task"` // A task.
+	Task []*Task `xml:"Task" json:"task"` // A task.
 }
 
 // VAppTemplateChildren is a container for virtual machines included in this vApp template.
@@ -1727,6 +1854,25 @@ type InstantiateVAppTemplateParams struct {
 	IsSourceDelete      bool                         `xml:"IsSourceDelete,omitempty"`      // Set to true to delete the source object after the operation completes.
 	SourcedItem         *SourcedCompositionItemParam `xml:"SourcedItem,omitempty"`         // Composition item. One of: vApp vAppTemplate VM.
 	AllEULAsAccepted    bool                         `xml:"AllEULAsAccepted,omitempty"`    // True confirms acceptance of all EULAs in a vApp template. Instantiation fails if this element is missing, empty, or set to false and one or more EulaSection elements are present.
+}
+
+// CloneVAppParams is used to copy one vApp into another
+type CloneVAppParams struct {
+	XMLName xml.Name `xml:"CloneVAppParams"`
+	Ovf     string   `xml:"xmlns:ovf,attr"`
+	Xsi     string   `xml:"xmlns:xsi,attr,omitempty"`
+	Xmlns   string   `xml:"xmlns,attr"`
+	// Attributes
+	Name        string `xml:"name,attr,omitempty"`        // Typically used to name or identify the subject of the request. For example, the name of the object being created or modified.
+	Deploy      bool   `xml:"deploy,attr"`                // True if the vApp should be deployed at instantiation. Defaults to true.
+	PowerOn     bool   `xml:"powerOn,attr"`               // True if the vApp should be powered-on at instantiation. Defaults to true.
+	LinkedClone bool   `xml:"linkedClone,attr,omitempty"` // Reserved. Unimplemented.
+	// Elements
+	Description         string                       `xml:"Description,omitempty"`         // Optional description.
+	InstantiationParams *InstantiationParams         `xml:"InstantiationParams,omitempty"` // Instantiation parameters for the composed vApp.
+	Source              *Reference                   `xml:"Source"`                        // A reference to a source object such as a vApp or vApp template.
+	IsSourceDelete      *bool                        `xml:"IsSourceDelete"`                // Set to true to delete the source object after the operation completes.
+	SourcedItem         *SourcedCompositionItemParam `xml:"SourcedItem,omitempty"`         // Composition item. One of: vApp vAppTemplate VM.
 }
 
 // EdgeGateway represents a gateway.
@@ -2192,6 +2338,7 @@ type QueryResultRecordsType struct {
 	VAppRecord                      []*QueryResultVAppRecordType                      `xml:"VAppRecord"`                      // A record representing a VApp result.
 	AdminVAppRecord                 []*QueryResultVAppRecordType                      `xml:"AdminVAppRecord"`                 // A record representing a VApp result as admin.
 	OrgVdcStorageProfileRecord      []*QueryResultOrgVdcStorageProfileRecordType      `xml:"OrgVdcStorageProfileRecord"`      // A record representing storage profiles
+	AdminOrgVdcStorageProfileRecord []*QueryResultAdminOrgVdcStorageProfileRecordType `xml:"AdminOrgVdcStorageProfileRecord"` // A record representing storage profiles as admin
 	MediaRecord                     []*MediaRecordType                                `xml:"MediaRecord"`                     // A record representing media
 	AdminMediaRecord                []*MediaRecordType                                `xml:"AdminMediaRecord"`                // A record representing Admin media
 	VMWProviderVdcRecord            []*QueryResultVMWProviderVdcRecordType            `xml:"VMWProviderVdcRecord"`            // A record representing a Provider VDC result.
@@ -2211,6 +2358,37 @@ type QueryResultRecordsType struct {
 	NsxtManagerRecord               []*QueryResultNsxtManagerRecordType               `xml:"NsxTManagerRecord"`               // A record representing NSX-T manager
 	OrgVdcRecord                    []*QueryResultOrgVdcRecordType                    `xml:"OrgVdcRecord"`                    // A record representing Org VDC
 	OrgVdcAdminRecord               []*QueryResultOrgVdcRecordType                    `xml:"AdminVdcRecord"`                  // A record representing Org VDC
+	ResourcePoolRecord              []*QueryResultResourcePoolRecordType              `xml:"ResourcePoolRecord"`              // A record representing a Resource Pool
+	VmGroupsRecord                  []*QueryResultVmGroupsRecordType                  `xml:"VmGroupsRecord"`                  // A record representing a VM Group
+	TaskRecord                      []*QueryResultTaskRecordType                      `xml:"TaskRecord"`                      // A record representing a Task
+	AdminTaskRecord                 []*QueryResultTaskRecordType                      `xml:"AdminTaskRecord"`                 // A record representing an Admin Task
+}
+
+// QueryResultVmGroupsRecordType represent a VM Groups record
+type QueryResultVmGroupsRecordType struct {
+	HREF           string `xml:"href,attr,omitempty"`
+	ID             string `xml:"vmGroupId,attr,omitempty"`
+	Name           string `xml:"vmGroupName,attr,omitempty"`
+	ClusterMoref   string `xml:"clusterMoref,attr,omitempty"`
+	ClusterName    string `xml:"clusterName,attr,omitempty"`
+	VcenterId      string `xml:"vcId,attr,omitempty"`
+	NamedVmGroupId string `xml:"namedVmGroupId,attr,omitempty"`
+}
+
+// QueryResultResourcePoolRecordType represent a Resource Pool record
+type QueryResultResourcePoolRecordType struct {
+	HREF                string `xml:"href,attr,omitempty"`
+	Name                string `xml:"name,attr,omitempty"`
+	Moref               string `xml:"moref,attr,omitempty"`
+	IsDeleted           bool   `xml:"isDeleted,attr,omitempty"`
+	VcenterHREF         string `xml:"vc,attr,omitempty"`
+	VcenterName         string `xml:"vcName,attr,omitempty"`
+	ProviderVdcHREF     string `xml:"providerVdc,attr,omitempty"`
+	ProviderName        string `xml:"providerName,attr,omitempty"`
+	IsEnabled           bool   `xml:"isEnabled,attr,omitempty"`
+	IsPrimary           bool   `xml:"isPrimary,attr,omitempty"`
+	ClusterMoref        string `xml:"clusterMoref,attr,omitempty"`
+	IsKubernetesEnabled bool   `xml:"isKubernetesEnabled,attr,omitempty"`
 }
 
 // QueryResultOrgVdcRecordType represents an Org VDC record
@@ -2275,7 +2453,7 @@ type QueryResultCatalogItemType struct {
 	Type         string    `xml:"type,attr,omitempty"`         // The MIME type of the entity.
 	Entity       string    `xml:"entity,attr,omitempty"`       // Entity reference or ID
 	EntityName   string    `xml:"entityName,attr,omitempty"`   // Entity name
-	EntityType   string    `xml:"entityType,attr,omitempty"`   // Entity name
+	EntityType   string    `xml:"entityType,attr,omitempty"`   // Entity type
 	Catalog      string    `xml:"catalog,attr,omitempty"`      // Catalog reference or ID
 	CatalogName  string    `xml:"catalogName,attr,omitempty"`  // Catalog name
 	OwnerName    string    `xml:"ownerName,attr,omitempty"`    // Owner name
@@ -2294,29 +2472,53 @@ type QueryResultCatalogItemType struct {
 
 // QueryResultVappTemplateType represents a vApp template as query result
 type QueryResultVappTemplateType struct {
-	HREF               string    `xml:"href,attr,omitempty"`               // The URI of the entity.
-	ID                 string    `xml:"id,attr,omitempty"`                 // vApp template ID.
-	Type               string    `xml:"type,attr,omitempty"`               // The MIME type of the entity.
-	OwnerName          string    `xml:"ownerName,attr,omitempty"`          // Owner name
-	CatalogName        string    `xml:"catalogName,attr,omitempty"`        // Catalog name
-	IsPublished        bool      `xml:"isPublished,attr,omitempty"`        // True if this entity is in a published catalog
-	Name               string    `xml:"name,attr,omitempty"`               // vApp template name.
-	Description        string    `xml:"description,attr,omitempty"`        // vApp template description.
-	Vdc                string    `xml:"vdc,attr,omitempty"`                // VDC reference or ID
-	VdcName            string    `xml:"vdcName,attr,omitempty"`            // VDC name
-	Org                string    `xml:"org,attr,omitempty"`                // Organization reference or ID
-	CreationDate       string    `xml:"creationDate,attr,omitempty"`       // Creation date
-	IsBusy             bool      `xml:"isBusy,attr,omitempty"`             // True if the vApp template is busy
-	IsGoldMaster       bool      `xml:"isGoldMaster,attr,omitempty"`       // True if the vApp template is a gold master
-	IsEnabled          bool      `xml:"isEnabled,attr,omitempty"`          // True if the vApp template is enabled
-	Status             string    `xml:"status,attr,omitempty"`             // Status
-	IsDeployed         bool      `xml:"isDeployed,attr,omitempty"`         // True if this entity is deployed
-	IsExpired          bool      `xml:"isExpired,attr,omitempty"`          // True if this entity is expired
-	StorageProfileName string    `xml:"storageProfileName,attr,omitempty"` // Storage profile name
-	Version            string    `xml:"version,attr,omitempty"`            // Storage profile name
-	LastSuccessfulSync string    `xml:"lastSuccessfulSync,attr,omitempty"` // Date of last successful sync
-	Link               *Link     `xml:"Link,omitempty"`
-	Metadata           *Metadata `xml:"Metadata,omitempty"`
+	HREF                    string    `xml:"href,attr,omitempty"`                    // The URI of the entity.
+	ID                      string    `xml:"id,attr,omitempty"`                      // vApp template ID.
+	Type                    string    `xml:"type,attr,omitempty"`                    // The MIME type of the entity.
+	OwnerName               string    `xml:"ownerName,attr,omitempty"`               // Owner name
+	Owner                   string    `xml:"owner,attr,omitempty"`                   // Owner reference or ID
+	CatalogName             string    `xml:"catalogName,attr,omitempty"`             // Catalog name
+	Catalog                 string    `xml:"catalog,attr,omitempty"`                 // Catalog reference or ID
+	CatalogItem             string    `xml:"catalogItem,attr,omitempty"`             // CatalogItem reference or ID
+	IsPublished             bool      `xml:"isPublished,attr,omitempty"`             // True if this entity is in a published catalog
+	PublishSubscriptionType string    `xml:"publishSubscriptionType,attr,omitempty"` // PUBLISHED if parent catalog published externally, SUBSCRIBED if parent catalog subscribed to an external catalog, UNPUBLISHED otherwise.
+	Name                    string    `xml:"name,attr,omitempty"`                    // vApp template name.
+	Description             string    `xml:"description,attr,omitempty"`             // vApp template description.
+	Vdc                     string    `xml:"vdc,attr,omitempty"`                     // VDC reference or ID
+	VdcName                 string    `xml:"vdcName,attr,omitempty"`                 // VDC name
+	IsVdcEnabled            bool      `xml:"isVdcEnabled,attr,omitempty"`            // true if the containing VDC is enabled
+	Org                     string    `xml:"org,attr,omitempty"`                     // Organization reference or ID
+	CreationDate            string    `xml:"creationDate,attr,omitempty"`            // Creation date
+	IsBusy                  bool      `xml:"isBusy,attr,omitempty"`                  // True if the vApp template is busy
+	IsGoldMaster            bool      `xml:"isGoldMaster,attr,omitempty"`            // True if the vApp template is a gold master
+	IsEnabled               bool      `xml:"isEnabled,attr,omitempty"`               // True if the vApp template is enabled
+	Status                  string    `xml:"status,attr,omitempty"`                  // Status
+	IsDeployed              bool      `xml:"isDeployed,attr,omitempty"`              // True if this entity is deployed
+	IsExpired               bool      `xml:"isExpired,attr,omitempty"`               // True if this entity is expired
+	StorageProfileName      string    `xml:"storageProfileName,attr,omitempty"`      // Storage profile name
+	Version                 string    `xml:"version,attr,omitempty"`                 // Storage profile name
+	LastSuccessfulSync      string    `xml:"lastSuccessfulSync,attr,omitempty"`      // Date of last successful sync
+	Link                    *Link     `xml:"Link,omitempty"`
+	Metadata                *Metadata `xml:"Metadata,omitempty"`
+
+	// Undocumented fields
+	// Provisionally used in some catalog synchronisation tasks. To be removed and replaced by using a different algorithm
+	// https://developer.vmware.com/apis/1260/vmware-cloud-director/doc/doc/types/QueryResultAdminVAppTemplateRecordType.html
+	// https://developer.vmware.com/apis/1260/vmware-cloud-director/doc/doc/types/QueryResultVAppTemplateRecordType.html
+	IsInCatalog              bool   `xml:"isInCatalog,attr,omitempty"`              // True if this vApp template is in a catalog
+	HonorBootOrder           bool   `xml:"honorBootOrder,attr,omitempty"`           // ?
+	NumberOfShadowVms        int    `xml:"numberOfShadowVMs,attr,omitempty"`        // number of shadow VMs
+	NumberOfVms              int    `xml:"numberOfVMs,attr,omitempty"`              // number of VMs
+	TaskStatusName           string `xml:"taskStatusName,attr,omitempty"`           // name of the associated task
+	TaskStatus               string `xml:"taskStatus,attr,omitempty"`               // status of the associated task
+	Task                     string `xml:"task,attr,omitempty"`                     // ID or reference of the associated task
+	TaskDetails              string `xml:"taskDetails,attr,omitempty"`              // details of the associated task
+	IsDeleteUndeployNotified bool   `xml:"isDeleteUndeployNotified,attr,omitempty"` // ?
+	IsAutoUndeployNotified   bool   `xml:"isAutoUndeployNotified,attr,omitempty"`   // ?
+	CpuAllocationInMhz       int    `xml:"cpuAllocationInMhz,attr,omitempty"`       // CPU allocation
+	NumberOfCpus             int    `xml:"numberOfCpus,attr,omitempty"`             // Number of CPUs
+	MemoryAllocationMb       int    `xml:"memoryAllocationMB,attr,omitempty"`       // Memory allocation in MB
+	StorageKb                int    `xml:"storageKB,attr,omitempty"`                // Storage allocation in Kb
 }
 
 // QueryResultEdgeGatewayRecordType represents an edge gateway record as query result.
@@ -2339,6 +2541,7 @@ type QueryResultVMRecordType struct {
 	// Attributes
 	HREF                     string    `xml:"href,attr,omitempty"` // The URI of the entity.
 	ID                       string    `xml:"id,attr,omitempty"`
+	Moref                    string    `xml:"moref,attr,omitempty"`         // VM moref id.
 	Name                     string    `xml:"name,attr,omitempty"`          // VM name.
 	Type                     string    `xml:"type,attr,omitempty"`          // Contains the type of the resource.
 	ContainerName            string    `xml:"containerName,attr,omitempty"` // The name of the vApp or vApp template that contains this VM.
@@ -2376,6 +2579,7 @@ type QueryResultVMRecordType struct {
 	DateCreated              string    `xml:"dateCreated,attr,omitempty"`
 	TotalStorageAllocatedMb  string    `xml:"totalStorageAllocatedMb,attr,omitempty"`
 	IsExpired                bool      `xml:"isExpired,attr,omitempty"`
+	HostName                 string    `xml:"hostName,attr,omitempty"` // HostName=Hypervisor of virtual machine
 	Link                     []*Link   `xml:"Link,omitempty"`
 	MetaData                 *Metadata `xml:"Metadata,omitempty"`
 }
@@ -2417,18 +2621,52 @@ type QueryResultVAppRecordType struct {
 
 // QueryResultOrgVdcStorageProfileRecordType represents a storage
 // profile as query result.
+// https://code.vmware.com/apis/722/vmware-cloud-director/doc/doc/types/QueryResultOrgVdcStorageProfileRecordType.html
 type QueryResultOrgVdcStorageProfileRecordType struct {
 	// Attributes
-	HREF                    string `xml:"href,attr,omitempty"` // The URI of the entity.
-	Name                    string `xml:"name,attr,omitempty"` // Storage Profile name.
-	VdcHREF                 string `xml:"vdc,attr,omitempty"`
-	VdcName                 string `xml:"vdcName,attr,omitempty"`
-	IsDefaultStorageProfile bool   `xml:"isDefaultStorageProfile,attr,omitempty"`
-	IsEnabled               bool   `xml:"isEnabled,attr,omitempty"`
-	IsVdcBusy               bool   `xml:"isVdcBusy,attr,omitempty"`
-	NumberOfConditions      int    `xml:"numberOfConditions,attr,omitempty"`
-	StorageUsedMB           int    `xml:"storageUsedMB,attr,omitempty"`
-	StorageLimitMB          int    `xml:"storageLimitMB,attr,omitempty"`
+	HREF                    string `xml:"href,attr,omitempty"`                    // The URI of the entity.
+	ID                      string `xml:"id,attr,omitempty"`                      // The ID of the entity.
+	Type                    string `xml:"type,attr,omitempty"`                    // Contains the type of the resource.
+	Name                    string `xml:"name,attr,omitempty"`                    // Name of the storage profile.
+	IsEnabled               bool   `xml:"isEnabled,attr,omitempty"`               // True if this entity is enabled.
+	IsDefaultStorageProfile bool   `xml:"isDefaultStorageProfile,attr,omitempty"` // True if this is the default storage profile for a VDC.
+	StorageUsedMB           uint64 `xml:"storageUsedMB,attr,omitempty"`           // Storage used in MB.
+	StorageLimitMB          uint64 `xml:"storageLimitMB,attr,omitempty"`          // Storage limit in MB.
+	IopsAllocated           uint64 `xml:"iopsAllocated,attr,omitempty"`           // Total currently allocated IOPS on the storage profile.
+	IopsLimit               uint64 `xml:"iopsLimit,attr,omitempty"`               // IOPS limit for the storage profile.
+	NumberOfConditions      int    `xml:"numberOfConditions,attr,omitempty"`      // Number of conditions on the storage profile.
+	Vdc                     string `xml:"vdc,attr,omitempty"`                     // VDC reference or id.
+	VdcName                 string `xml:"vdcName,attr,omitempty"`                 // VDC name.
+	IsVdcBusy               bool   `xml:"isVdcBusy,attr,omitempty"`               // True if the associated VDC is busy.
+	// Elements
+	Link          []*Link          `xml:"Link,omitempty"`
+	MetadataEntry []*MetadataEntry `xml:"MetadataEntry,omitempty"`
+}
+
+// QueryResultAdminOrgVdcStorageProfileRecordType represents a storage
+// profile as query result.
+// https://code.vmware.com/apis/722/vmware-cloud-director/doc/doc/types/QueryResultAdminOrgVdcStorageProfileRecordType.html
+type QueryResultAdminOrgVdcStorageProfileRecordType struct {
+	// Attributes
+	HREF                    string `xml:"href,attr,omitempty"`                    // The URI of the entity.
+	ID                      string `xml:"id,attr,omitempty"`                      // The ID of the entity.
+	Type                    string `xml:"type,attr,omitempty"`                    // Contains the type of the resource.
+	Name                    string `xml:"name,attr,omitempty"`                    // Name of the storage profile.
+	IsEnabled               bool   `xml:"isEnabled,attr,omitempty"`               // True if this entity is enabled.
+	IsDefaultStorageProfile bool   `xml:"isDefaultStorageProfile,attr,omitempty"` // True if this is the default storage profile for a VDC.
+	StorageUsedMB           uint64 `xml:"storageUsedMB,attr,omitempty"`           // Storage used in MB.
+	StorageLimitMB          uint64 `xml:"storageLimitMB,attr,omitempty"`          // Storage limit in MB.
+	IopsAllocated           uint64 `xml:"iopsAllocated,attr,omitempty"`           // Total currently allocated IOPS on the storage profile.
+	IopsLimit               uint64 `xml:"iopsLimit,attr,omitempty"`               // IOPS limit for the storage profile.
+	NumberOfConditions      int    `xml:"numberOfConditions,attr,omitempty"`      // Number of conditions on the storage profile.
+	Vdc                     string `xml:"vdc,attr,omitempty"`                     // VDC reference or id.
+	VdcName                 string `xml:"vdcName,attr,omitempty"`                 // VDC name.
+	Org                     string `xml:"org,attr,omitempty"`                     // Organization reference or id.
+	VC                      string `xml:"vc,attr,omitempty"`                      // Virtual center reference or id.
+	StorageProfileMoref     string `xml:"storageProfileMoref,omitempty"`
+	// Elements
+	Link          []*Link          `xml:"Link,omitempty"`
+	MetadataEntry []*MetadataEntry `xml:"MetadataEntry,omitempty"`
 }
 
 // QueryResultVMWProviderVdcRecordType represents a Provider VDC as query result.
@@ -2532,9 +2770,9 @@ type ExternalNetworkReference struct {
 // Description: Represents the Managed Object Reference (MoRef) and the type of a vSphere object.
 // Since: 0.9
 type VimObjectRef struct {
-	VimServerRef  *Reference `xml:"VimServerRef"`
-	MoRef         string     `xml:"MoRef"`
-	VimObjectType string     `xml:"VimObjectType"`
+	VimServerRef  *Reference `xml:"VimServerRef" json:"vimServerRef"`
+	MoRef         string     `xml:"MoRef" json:"moRef"`
+	VimObjectType string     `xml:"VimObjectType" json:"vimObjectType"`
 }
 
 // Type: VimObjectRefsType
@@ -2543,7 +2781,7 @@ type VimObjectRef struct {
 // Description: List of VimObjectRef elements.
 // Since: 0.9
 type VimObjectRefs struct {
-	VimObjectRef []*VimObjectRef `xml:"VimObjectRef"`
+	VimObjectRef []*VimObjectRef `xml:"VimObjectRef" json:"vimObjectRef"`
 }
 
 // Type: VMWExternalNetworkType
@@ -2924,6 +3162,7 @@ type CatalogRecord struct {
 	Description             string    `xml:"description,attr,omitempty"`
 	IsPublished             bool      `xml:"isPublished,attr,omitempty"`
 	IsShared                bool      `xml:"isShared,attr,omitempty"`
+	IsLocal                 bool      `xml:"isLocal,attr,omitempty"`
 	CreationDate            string    `xml:"creationDate,attr,omitempty"`
 	OrgName                 string    `xml:"orgName,attr,omitempty"`
 	OwnerName               string    `xml:"ownerName,attr,omitempty"`
@@ -3035,10 +3274,116 @@ type UpdateVdcStorageProfiles struct {
 	RemoveStorageProfile *Reference                      `xml:"RemoveStorageProfile,omitempty"`
 }
 
+// Token is used for managing VCD API Tokens for a User in an Org
+type Token struct {
+	ID    string            `json:"id,omitempty"`
+	Name  string            `json:"name,omitempty"`
+	Owner *OpenApiReference `json:"owner,omitempty"`
+	Org   *OpenApiReference `json:"org,omitempty"`
+	Type  string            `json:"type,omitempty"`
+}
+
+// ServiceAccount is used for managing a Service Account that belongs to a specific Org
+type ServiceAccount struct {
+	ID              string            `json:"id,omitempty"`
+	Name            string            `json:"name,omitempty"`
+	SoftwareID      string            `json:"softwareId,omitempty"`
+	SoftwareVersion string            `json:"softwareVersion,omitempty"`
+	Role            *OpenApiReference `json:"role,omitempty"`
+	URI             string            `json:"uri,omitempty"`
+	Org             *OpenApiReference `json:"org,omitempty"`
+	Status          string            `json:"status,omitempty"`
+}
+
 // ApiTokenRefresh contains the access token resulting from a refresh_token operation
 type ApiTokenRefresh struct {
-	AccessToken  string      `json:"access_token"`
-	TokenType    string      `json:"token_type"`
-	ExpiresIn    int         `json:"expires_in"`
-	RefreshToken interface{} `json:"refresh_token"`
+	AccessToken  string `json:"access_token,omitempty"`
+	TokenType    string `json:"token_type,omitempty"`
+	ExpiresIn    int    `json:"expires_in,omitempty"`
+	RefreshToken string `json:"refresh_token,omitempty"`
+	UpdatedBy    string `json:"updated_by,omitempty"`
+	UpdatedOn    string `json:"updated_on,omitempty"`
+}
+
+// ApiTokenParams contains the parameters required and returned by oauth/register operation
+type ApiTokenParams struct {
+	ClientName              string   `json:"client_name"`
+	ClientID                string   `json:"client_id,omitempty"`
+	GrantTypes              []string `json:"grant_types,omitempty"`
+	TokenEndpointAuthMethod string   `json:"token_endpoint_auth_method,omitempty"`
+	ClientURI               string   `json:"client_uri,omitempty"`
+	SoftwareID              string   `json:"software_id,omitempty"`
+	SoftwareVersion         string   `json:"software_version,omitempty"`
+	Scope                   string   `json:"scope,omitempty"`
+}
+
+// ServiceAccountAuthParams is used to store the generated user code and device code that
+// are needed for granting and activating a Service Account
+type ServiceAccountAuthParams struct {
+	DeviceCode      string `json:"device_code,omitempty"`
+	UserCode        string `json:"user_code"`
+	VerificationURI string `json:"verification_uri,omitempty"`
+	ExpiresIn       int    `json:"expires_in,omitempty"`
+	Interval        int    `json:"interval,omitempty"`
+}
+
+/**/
+type QueryResultTaskRecordType struct {
+	HREF             string    `xml:"href,attr,omitempty"`             // Contains the URI to the resource.
+	ID               string    `xml:"id,attr,omitempty"`               //	The resource identifier, expressed in URN format. The value of this attribute uniquely identifies the resource, persists for the life of the resource, and is never reused. 	Yes 	Yes
+	Type             string    `xml:"type,attr,omitempty"`             //	Contains the type of the resource.
+	Org              string    `xml:"org,attr,omitempty"`              //	Organization reference or id
+	OrgName          string    `xml:"orgName,attr,omitempty"`          //	Organization name
+	Name             string    `xml:"name,attr,omitempty"`             //	The name of this task.
+	OperationFull    string    `xml:"operationFull,attr,omitempty"`    //	The full human-readable name of this task.
+	Message          string    `xml:"message,attr,omitempty"`          //	message
+	StartDate        string    `xml:"startDate,attr,omitempty"`        //	Start date
+	EndDate          string    `xml:"endDate,attr,omitempty"`          //	End date
+	Status           string    `xml:"status,attr,omitempty"`           //	Status
+	Progress         int       `xml:"progress,attr,omitempty"`         //	Progress of the task, expressed as a percentage.
+	OwnerName        string    `xml:"ownerName,attr,omitempty"`        //	Owner name
+	Object           string    `xml:"object,attr,omitempty"`           //	Object
+	ObjectType       string    `xml:"objectType,attr,omitempty"`       //	Object
+	ObjectName       string    `xml:"objectName,attr,omitempty"`       //	Object name
+	ServiceNamespace string    `xml:"serviceNamespace,attr,omitempty"` //	Service name space
+	Link             *Link     `xml:"Link,omitempty"`
+	Metadata         *Metadata `xml:"Metadata,omitempty"`
+}
+
+// ProviderVdcCreation contains the data needed to create a provider VDC.
+// Note that this is a subset of the full structure of a provider VDC.
+type ProviderVdcCreation struct {
+	Name                            string         `json:"name"`
+	Description                     string         `json:"description"`
+	ResourcePoolRefs                *VimObjectRefs `json:"resourcePoolRefs"`
+	HighestSupportedHardwareVersion string         `json:"highestSupportedHardwareVersion"`
+	IsEnabled                       bool           `json:"isEnabled"`
+	VimServer                       []*Reference   `json:"vimServer"`
+	StorageProfile                  []string       `json:"storageProfile"`
+	NsxTManagerReference            *Reference     `json:"nsxTManagerReference"`
+	NetworkPool                     *Reference     `json:"networkPool"`
+	AutoCreateNetworkPool           bool           `json:"autoCreateNetworkPool"`
+}
+
+// AddResourcePool is used to add one or more resource pools to a provider VDC
+type AddResourcePool struct {
+	VimObjectRef []*VimObjectRef `xml:"AddItem" json:"addItem"`
+}
+
+// DeleteResourcePool is used to remove one or more resource pools from a provider VDC
+type DeleteResourcePool struct {
+	ResourcePoolRefs []*Reference `xml:"DeleteItem" json:"deleteItem"`
+}
+
+// AddStorageProfiles is used to add storage profiles to an existing provider VDC
+type AddStorageProfiles struct {
+	AddStorageProfile []string `json:"addStorageProfile"`
+}
+
+type EnableStorageProfile struct {
+	Enabled bool `json:"enabled"`
+}
+
+type RemoveStorageProfile struct {
+	RemoveStorageProfile []*Reference `json:"removeStorageProfile"`
 }

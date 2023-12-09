@@ -7,6 +7,7 @@ package govcd
 import (
 	"crypto/tls"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"os"
@@ -91,7 +92,20 @@ func (vcdClient *VCDClient) vcdCloudApiAuthorize(user, pass, org string) (*http.
 		return nil, err
 	}
 
-	defer resp.Body.Close()
+	defer func(Body io.ReadCloser) {
+		err := Body.Close()
+		if err != nil {
+			util.Logger.Printf("error closing response Body [vcdCloudApiAuthorize]: %s", err)
+		}
+	}(resp.Body)
+
+	// Catch HTTP 401 (Status Unauthorized) to return an error as otherwise this library would return
+	// odd errors while doing lookup of resources and confuse user.
+	if resp.StatusCode == http.StatusUnauthorized {
+		return nil, fmt.Errorf("received response HTTP %d (Unauthorized). Please check if your credentials are valid",
+			resp.StatusCode)
+	}
+
 	// Store the authorization header
 	vcdClient.Client.VCDToken = resp.Header.Get(BearerTokenHeader)
 	vcdClient.Client.VCDAuthHeader = BearerTokenHeader
@@ -102,10 +116,10 @@ func (vcdClient *VCDClient) vcdCloudApiAuthorize(user, pass, org string) (*http.
 	return resp, nil
 }
 
-// NewVCDClient initializes VMware vCloud Director client with reasonable defaults.
+// NewVCDClient initializes VMware VMware Cloud Director client with reasonable defaults.
 // It accepts functions of type VCDClientOption for adjusting defaults.
 func NewVCDClient(vcdEndpoint url.URL, insecure bool, options ...VCDClientOption) *VCDClient {
-	minVcdApiVersion := "35.0" // supported by 10.2+
+	minVcdApiVersion := "36.0" // supported by 10.3+
 	userDefinedApiVersion := os.Getenv("GOVCD_API_VERSION")
 	if userDefinedApiVersion != "" {
 		_, err := semver.NewVersion(userDefinedApiVersion)
@@ -118,9 +132,10 @@ func NewVCDClient(vcdEndpoint url.URL, insecure bool, options ...VCDClientOption
 	}
 
 	// Setting defaults
+	// #nosec G402 -- InsecureSkipVerify: insecure - This allows connecting to VCDs with self-signed certificates
 	vcdClient := &VCDClient{
 		Client: Client{
-			APIVersion: minVcdApiVersion, // supported by 10.2+
+			APIVersion: minVcdApiVersion,
 			// UserAgent cannot embed exact version by default because this is source code and is supposed to be used by programs,
 			// but any client can customize or disable it at all using WithHttpUserAgent() configuration options function.
 			UserAgent: "go-vcloud-director",
@@ -151,7 +166,7 @@ func NewVCDClient(vcdEndpoint url.URL, insecure bool, options ...VCDClientOption
 	return vcdClient
 }
 
-// Authenticate is a helper function that performs a login in vCloud Director.
+// Authenticate is a helper function that performs a login in VMware Cloud Director.
 func (vcdClient *VCDClient) Authenticate(username, password, org string) error {
 	_, err := vcdClient.GetAuthResponse(username, password, org)
 	return err
@@ -240,7 +255,7 @@ func (vcdClient *VCDClient) SetToken(org, authHeader, token string) error {
 	return nil
 }
 
-// Disconnect performs a disconnection from the vCloud Director API endpoint.
+// Disconnect performs a disconnection from the VMware Cloud Director API endpoint.
 func (vcdClient *VCDClient) Disconnect() error {
 	if vcdClient.Client.VCDToken == "" && vcdClient.Client.VCDAuthHeader == "" {
 		return fmt.Errorf("cannot disconnect, client is not authenticated")
@@ -251,7 +266,7 @@ func (vcdClient *VCDClient) Disconnect() error {
 	// Set Authorization Header
 	req.Header.Add(vcdClient.Client.VCDAuthHeader, vcdClient.Client.VCDToken)
 	if _, err := checkResp(vcdClient.Client.Http.Do(req)); err != nil {
-		return fmt.Errorf("error processing session delete for vCloud Director: %s", err)
+		return fmt.Errorf("error processing session delete for VMware Cloud Director: %s", err)
 	}
 	return nil
 }
@@ -297,7 +312,7 @@ func WithSamlAdfs(useSaml bool, customAdfsRptId string) VCDClientOption {
 }
 
 // WithHttpUserAgent allows to specify HTTP user-agent which can be useful for statistics tracking.
-// By default User-Agent is set to "go-vcloud-director". It can be unset by supplying empty value.
+// By default User-Agent is set to "go-vcloud-director". It can be unset by supplying an empty value.
 func WithHttpUserAgent(userAgent string) VCDClientOption {
 	return func(vcdClient *VCDClient) error {
 		vcdClient.Client.UserAgent = userAgent
@@ -320,6 +335,16 @@ func WithHttpHeader(options map[string]string) VCDClientOption {
 		for k, v := range options {
 			vcdClient.Client.customHeader.Add(k, v)
 		}
+		return nil
+	}
+}
+
+// WithIgnoredMetadata allows specifying metadata entries to be ignored when using metadata_v2 methods.
+// It can be unset by supplying an empty value.
+// See the documentation of the IgnoredMetadata structure for more information.
+func WithIgnoredMetadata(ignoredMetadata []IgnoredMetadata) VCDClientOption {
+	return func(vcdClient *VCDClient) error {
+		vcdClient.Client.IgnoredMetadata = ignoredMetadata
 		return nil
 	}
 }

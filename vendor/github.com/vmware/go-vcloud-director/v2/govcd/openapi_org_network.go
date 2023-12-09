@@ -132,6 +132,14 @@ func (vdcGroup *VdcGroup) CreateOpenApiOrgVdcNetwork(orgVdcNetworkConfig *types.
 	return createOpenApiOrgVdcNetwork(vdcGroup.client, orgVdcNetworkConfig)
 }
 
+// UpdateDhcp updates DHCP configuration for specific Org VDC network
+func (orgVdcNet *OpenApiOrgVdcNetwork) UpdateDhcp(orgVdcNetworkDhcpConfig *types.OpenApiOrgVdcNetworkDhcp) (*OpenApiOrgVdcNetworkDhcp, error) {
+	if orgVdcNet.client == nil || orgVdcNet.OpenApiOrgVdcNetwork == nil || orgVdcNet.OpenApiOrgVdcNetwork.ID == "" {
+		return nil, fmt.Errorf("error - Org VDC network structure must be set and have ID field available")
+	}
+	return updateOrgNetworkDhcp(orgVdcNet.client, orgVdcNet.OpenApiOrgVdcNetwork.ID, orgVdcNetworkDhcpConfig)
+}
+
 // Update allows to update Org VDC network
 func (orgVdcNet *OpenApiOrgVdcNetwork) Update(OrgVdcNetworkConfig *types.OpenApiOrgVdcNetwork) (*OpenApiOrgVdcNetwork, error) {
 	endpoint := types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointOrgVdcNetworks
@@ -211,6 +219,34 @@ func (orgVdcNet *OpenApiOrgVdcNetwork) IsImported() bool {
 // IsDirect returns true if the network type is direct (NSX-V only)
 func (orgVdcNet *OpenApiOrgVdcNetwork) IsDirect() bool {
 	return orgVdcNet.GetType() == types.OrgVdcNetworkTypeDirect
+}
+
+// IsNsxt returns true if the network is backed by NSX-T
+func (orgVdcNet *OpenApiOrgVdcNetwork) IsNsxt() bool {
+
+	// orgVdcNet.OpenApiOrgVdcNetwork.OrgVdcIsNsxTBacked returns `true` only if network is a member
+	// of VDC (not VDC Group) therefore an additional check for `BackingNetworkType` is required
+
+	return orgVdcNet.OpenApiOrgVdcNetwork.OrgVdcIsNsxTBacked ||
+		orgVdcNet.OpenApiOrgVdcNetwork.BackingNetworkType == types.OpenApiOrgVdcNetworkBackingTypeNsxt
+}
+
+// IsDhcpEnabled returns true if DHCP is enabled for NSX-T Org VDC network, false otherwise
+func (orgVdcNet *OpenApiOrgVdcNetwork) IsDhcpEnabled() bool {
+	if !orgVdcNet.IsNsxt() {
+		return false
+	}
+
+	dhcpConfig, err := orgVdcNet.GetOpenApiOrgVdcNetworkDhcp()
+	if err != nil {
+		return false
+	}
+
+	if dhcpConfig == nil || dhcpConfig.OpenApiOrgVdcNetworkDhcp == nil || dhcpConfig.OpenApiOrgVdcNetworkDhcp.Enabled == nil || !*dhcpConfig.OpenApiOrgVdcNetworkDhcp.Enabled {
+		return false
+	}
+
+	return true
 }
 
 // getOpenApiOrgVdcNetworkById is a private parent for wrapped functions:
