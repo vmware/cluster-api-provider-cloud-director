@@ -906,11 +906,6 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		}
 	}
 
-	err = capvcdRdeManager.AddToEventSet(ctx, capisdk.RdeAvailable, infraID, "", "", skipRDEEventUpdates)
-	if err != nil {
-		log.Error(err, "failed to add RdeAvailable event", "rdeID", infraID)
-	}
-
 	if err := validateDerivedRDEProperties(vcdCluster, infraID, rdeVersionInUseByCluster); err != nil {
 		log.Error(err, "Error validating derived infraID and RDE version")
 		return ctrl.Result{}, errors.Wrapf(err, "error validating derived infraID and RDE version with VCDCluster status")
