@@ -201,7 +201,7 @@ func getVcdResourceFromVcdCluster(vcdCluster *infrav1beta3.VCDCluster, vcdResour
 // Todo: Yan - Implement this function in the future
 // Update the existing vcdResource into vcdcluster.status.VcdResourceMap.
 // It should be the uniform function for all the types - org, ovdc, catalog, etc
-func updateVcdResourceToVcdCluster(vcdCluster *infrav1beta3.VCDCluster, vcdResourceType string, resourceID string, resourceName string) error {
+func updateVdcResourceToVcdCluster(vcdCluster *infrav1beta3.VCDCluster, vcdResourceType string, resourceID string, resourceName string) error {
 	switch vcdResourceType {
 	case ResourceTypeOvdc:
 		resourceList := vcdCluster.Status.VcdResourceMap.Ovdcs

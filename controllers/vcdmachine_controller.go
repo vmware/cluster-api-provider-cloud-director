@@ -62,9 +62,6 @@ type CloudInitScriptInput struct {
 }
 
 const (
-	ReclaimPolicyDelete = "Delete"
-	ReclaimPolicyRetain = "Retain"
-
 	VcdResourceTypeVM = "virtual-machine"
 )
 
@@ -239,14 +236,14 @@ func strInSlice(findStr string, arr []string) bool {
 const phaseSecondTimeout = 600
 
 func (r *VCDMachineReconciler) waitForPostCustomizationPhase(ctx context.Context,
-	workloadVCDClient *vcdsdk.Client, vm *govcd.VM, phase string) error {
+	vcdClient *vcdsdk.Client, vm *govcd.VM, phase string) error {
 	log := ctrl.LoggerFrom(ctx)
 
 	startTime := time.Now()
 	possibleStatuses := []string{"", "in_progress", "successful"}
 	currentStatus := possibleStatuses[0]
-	vdcManager, err := vcdsdk.NewVDCManager(workloadVCDClient, workloadVCDClient.ClusterOrgName,
-		workloadVCDClient.ClusterOVDCName)
+	vdcManager, err := vcdsdk.NewVDCManager(vcdClient, vcdClient.ClusterOrgName,
+		vcdClient.ClusterOVDCName)
 	if err != nil {
 		return errors.Wrapf(err, "failed to create a vdc manager object when waiting for post customization phase of VM")
 	}
@@ -337,29 +334,29 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	// To avoid spamming RDEs with updates, only update the RDE with events when machine creation is ongoing
 	skipRDEEventUpdates := machine.Status.BootstrapReady
 
-	workloadVCDClient, err := createVCDClientFromSecrets(ctx, r.Client, vcdCluster)
+	vcdClient, err := createVCDClientFromSecrets(ctx, r.Client, vcdCluster)
 	if err != nil {
 		return ctrl.Result{}, errors.Wrapf(err, "Error creating VCD client to reconcile Cluster [%s] infrastructure", vcdCluster.Name)
 	}
 
 	// close all idle connections when reconciliation is done
 	defer func() {
-		if workloadVCDClient != nil && workloadVCDClient.VCDClient != nil {
-			workloadVCDClient.VCDClient.Client.Http.CloseIdleConnections()
-			log.Info(fmt.Sprintf("closed connection to the http client [%#v]", workloadVCDClient.VCDClient.Client.Http))
+		if vcdClient != nil && vcdClient.VCDClient != nil {
+			vcdClient.VCDClient.Client.Http.CloseIdleConnections()
+			log.Info(fmt.Sprintf("closed connection to the http client [%#v]", vcdClient.VCDClient.Client.Http))
 		}
 	}()
 
-	if workloadVCDClient.VDC == nil || workloadVCDClient.VDC.Vdc == nil {
+	if vcdClient.VDC == nil || vcdClient.VDC.Vdc == nil {
 		return ctrl.Result{}, errors.Wrapf(err, "failed to get the Organization VDC (OVDC) from the VCD client for reconciling infrastructure of Cluster [%s]", vcdCluster.Name)
 	}
 
-	err = updateVcdResourceToVcdCluster(vcdCluster, ResourceTypeOvdc, workloadVCDClient.VDC.Vdc.ID, workloadVCDClient.VDC.Vdc.Name)
+	err = updateVdcResourceToVcdCluster(vcdCluster, ResourceTypeOvdc, vcdClient.VDC.Vdc.ID, vcdClient.VDC.Vdc.Name)
 	if err != nil {
 		return ctrl.Result{}, errors.Wrapf(err, "Error updating vcdResource into vcdcluster.status to reconcile Cluster [%s] infrastructure", vcdCluster.Name)
 	}
 
-	capvcdRdeManager := capisdk.NewCapvcdRdeManager(workloadVCDClient, vcdCluster.Status.InfraId)
+	capvcdRdeManager := capisdk.NewCapvcdRdeManager(vcdClient, vcdCluster.Status.InfraId)
 	if conditions.IsFalse(machine, clusterv1.MachineHealthCheckSucceededCondition) {
 		err := capvcdRdeManager.AddToEventSet(ctx, capisdk.NodeHealthCheckFailed, getVMIDFromProviderID(vcdMachine.Status.ProviderID), machine.Name, conditions.GetMessage(machine, clusterv1.MachineHealthCheckSucceededCondition), false)
 		if err != nil {
@@ -423,8 +420,8 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	if err != nil {
 		log.Error(err, "failed to remove CAPVCDObjectPatchError from RDE", "rdeID", vcdCluster.Status.InfraId)
 	}
-	vdcManager, err := vcdsdk.NewVDCManager(workloadVCDClient, workloadVCDClient.ClusterOrgName,
-		workloadVCDClient.ClusterOVDCName)
+	vdcManager, err := vcdsdk.NewVDCManager(vcdClient, vcdClient.ClusterOrgName,
+		vcdClient.ClusterOVDCName)
 	if err != nil {
 		updatedErr := capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDMachineError, "", machine.Name, fmt.Sprintf("%v", err))
 		if updatedErr != nil {
@@ -622,7 +619,7 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		},
 	}
 
-	gateway, err := vcdsdk.NewGatewayManager(ctx, workloadVCDClient, vcdCluster.Spec.OvdcNetwork, vcdCluster.Spec.LoadBalancerConfigSpec.VipSubnet, vcdCluster.Spec.Ovdc)
+	gateway, err := vcdsdk.NewGatewayManager(ctx, vcdClient, vcdCluster.Spec.OvdcNetwork, vcdCluster.Spec.LoadBalancerConfigSpec.VipSubnet, vcdCluster.Spec.Ovdc)
 	if err != nil {
 		updatedErr := capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDMachineCreationError, "", machine.Name, fmt.Sprintf("%v", err))
 		if updatedErr != nil {
@@ -815,7 +812,7 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 			return ctrl.Result{}, errors.Wrapf(err, "Error while deploying infra for the machine [%s/%s]; unable to refresh vapp after VM power-on", vAppName, vm.VM.Name)
 		}
 	}
-	if hasCloudInitFailedBefore, err := r.hasCloudInitExecutionFailedBefore(ctx, workloadVCDClient, vm); hasCloudInitFailedBefore {
+	if hasCloudInitFailedBefore, err := r.hasCloudInitExecutionFailedBefore(ctx, vcdClient, vm); hasCloudInitFailedBefore {
 		err1 := capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDMachineScriptExecutionError, "", machine.Name, fmt.Sprintf("%v", err))
 		if err1 != nil {
 			log.Error(err1, "failed to add VCDMachineScriptExecutionError into RDE", "rdeID", vcdCluster.Status.InfraId)
@@ -854,7 +851,7 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 					vAppName, vm.VM.Name)
 		}
 		log.Info(fmt.Sprintf("Start: waiting for the bootstrapping phase [%s] to complete", phase))
-		if err = r.waitForPostCustomizationPhase(ctx, workloadVCDClient, vm, phase); err != nil {
+		if err = r.waitForPostCustomizationPhase(ctx, vcdClient, vm, phase); err != nil {
 			log.Error(err, fmt.Sprintf("Error waiting for the bootstrapping phase [%s] to complete", phase))
 			err1 := capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDMachineScriptExecutionError, "", machine.Name, fmt.Sprintf("%v", err))
 			if err1 != nil {
@@ -1090,38 +1087,39 @@ func (r *VCDMachineReconciler) reconcileDelete(ctx context.Context, cluster *clu
 		return ctrl.Result{}, nil
 	}
 
-	workloadVCDClient, err := createVCDClientFromSecrets(ctx, r.Client, vcdCluster)
+	vcdClient, err := createVCDClientFromSecrets(ctx, r.Client, vcdCluster)
 	if err != nil {
 		return ctrl.Result{}, errors.Wrapf(err, "Error creating VCD client to reconcile Cluster [%s] infrastructure", vcdCluster.Name)
 	}
 
 	// close all idle connections when reconciliation is done
 	defer func() {
-		if workloadVCDClient != nil && workloadVCDClient.VCDClient != nil {
-			workloadVCDClient.VCDClient.Client.Http.CloseIdleConnections()
-			log.Info(fmt.Sprintf("closed connection to the http client [%#v]", workloadVCDClient.VCDClient.Client.Http))
+		if vcdClient != nil && vcdClient.VCDClient != nil {
+			vcdClient.VCDClient.Client.Http.CloseIdleConnections()
+			log.Info(fmt.Sprintf("closed connection to the http client [%#v]", vcdClient.VCDClient.Client.Http))
 		}
 	}()
 
-	if workloadVCDClient.VDC == nil || workloadVCDClient.VDC.Vdc == nil {
+	if vcdClient.VDC == nil || vcdClient.VDC.Vdc == nil {
 		return ctrl.Result{}, errors.Wrapf(err, "failed to get the Organization VDC (OVDC) from the VCD client for reconciling infrastructure of Cluster [%s]", vcdCluster.Name)
 	}
 
-	err = updateVcdResourceToVcdCluster(vcdCluster, ResourceTypeOvdc, workloadVCDClient.VDC.Vdc.ID, workloadVCDClient.VDC.Vdc.Name)
+	err = updateVdcResourceToVcdCluster(vcdCluster, ResourceTypeOvdc, vcdClient.VDC.Vdc.ID, vcdClient.VDC.Vdc.Name)
 	if err != nil {
 		return ctrl.Result{}, errors.Wrapf(err, "Error updating vcdResource into vcdcluster.status to reconcile Cluster [%s] infrastructure", vcdCluster.Name)
 	}
 
-	capvcdRdeManager := capisdk.NewCapvcdRdeManager(workloadVCDClient, vcdCluster.Status.InfraId)
+	capvcdRdeManager := capisdk.NewCapvcdRdeManager(vcdClient, vcdCluster.Status.InfraId)
 	if err != nil {
 		return ctrl.Result{}, errors.Wrapf(err, "Unable to create VCD client to reconcile infrastructure for the Machine [%s]", machine.Name)
 	}
-	err = updateClientWithVDC(vcdCluster, workloadVCDClient)
+	err = updateClientWithVDC(vcdCluster, vcdClient)
 	if err != nil {
 		return ctrl.Result{}, errors.Wrapf(err, "Error updating VCD client with VDC to reconcile Cluster [%s] infrastructure", vcdCluster.Name)
 	}
 
-	gateway, err := vcdsdk.NewGatewayManager(ctx, workloadVCDClient, vcdCluster.Spec.OvdcNetwork, vcdCluster.Spec.LoadBalancerConfigSpec.VipSubnet, vcdCluster.Spec.Ovdc)
+	gateway, err := vcdsdk.NewGatewayManager(ctx, vcdClient, vcdCluster.Spec.OvdcNetwork,
+		vcdCluster.Spec.LoadBalancerConfigSpec.VipSubnet, vcdCluster.Spec.Ovdc)
 	if err != nil {
 		updatedErr := capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDMachineCreationError, "", machine.Name, fmt.Sprintf("%v", err))
 		if updatedErr != nil {
@@ -1203,8 +1201,8 @@ func (r *VCDMachineReconciler) reconcileDelete(ctx context.Context, cluster *clu
 		}
 	}
 
-	vdcManager, err := vcdsdk.NewVDCManager(workloadVCDClient, workloadVCDClient.ClusterOrgName,
-		workloadVCDClient.ClusterOVDCName)
+	vdcManager, err := vcdsdk.NewVDCManager(vcdClient, vcdClient.ClusterOrgName,
+		vcdClient.ClusterOVDCName)
 	if err != nil {
 		updatedErr := capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDMachineError, "", machine.Name, fmt.Sprintf("failed to get vdcmanager: %v", err))
 		if updatedErr != nil {
@@ -1345,7 +1343,7 @@ func (r *VCDMachineReconciler) reconcileDelete(ctx context.Context, cluster *clu
 		}
 	}
 	// Remove VM from VCDResourceSet of RDE
-	rdeManager := vcdsdk.NewRDEManager(workloadVCDClient, vcdCluster.Status.InfraId, capisdk.StatusComponentNameCAPVCD, release.Version)
+	rdeManager := vcdsdk.NewRDEManager(vcdClient, vcdCluster.Status.InfraId, capisdk.StatusComponentNameCAPVCD, release.Version)
 	err = rdeManager.RemoveFromVCDResourceSet(ctx, vcdsdk.ComponentCAPVCD, VcdResourceTypeVM, machine.Name)
 	if err != nil {
 		log.Error(fmt.Errorf("error occurred when removing VM [%s] from VCD resource set: [%v]", machine.Name, err),
@@ -1436,9 +1434,9 @@ func (r *VCDMachineReconciler) VCDClusterToVCDMachines(o client.Object) []ctrl.R
 	return result
 }
 func (r *VCDMachineReconciler) hasCloudInitExecutionFailedBefore(ctx context.Context,
-	workloadVCDClient *vcdsdk.Client, vm *govcd.VM) (bool, error) {
-	vdcManager, err := vcdsdk.NewVDCManager(workloadVCDClient, workloadVCDClient.ClusterOrgName,
-		workloadVCDClient.ClusterOVDCName)
+	vcdClient *vcdsdk.Client, vm *govcd.VM) (bool, error) {
+	vdcManager, err := vcdsdk.NewVDCManager(vcdClient, vcdClient.ClusterOrgName,
+		vcdClient.ClusterOVDCName)
 	if err != nil {
 		return false, errors.Wrapf(err, "failed to create a vdc manager object while checking cloud init failures")
 	}
