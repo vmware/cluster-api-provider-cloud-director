@@ -37,7 +37,6 @@ const (
 	DefaultRollingWindowSize      = 20
 
 	// VCDCluster Events
-	RdeAvailable          = "RdeAvailable"
 	RdeUpgraded           = "RdeUpgraded"
 	LoadBalancerAvailable = "LoadBalancerAvailable"
 	InfraVappAvailable    = "InfraVappAvailable"
