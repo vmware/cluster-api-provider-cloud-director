@@ -2,7 +2,7 @@
  * Copyright 2021 VMware, Inc.  All rights reserved.  Licensed under the Apache v2 License.
  */
 
-// Package govcd provides a simple binding for vCloud Director REST APIs.
+// Package govcd provides a simple binding for VMware Cloud Director REST APIs.
 package govcd
 
 import (
@@ -11,11 +11,11 @@ import (
 	"encoding/xml"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/url"
 	"os"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -23,7 +23,7 @@ import (
 	"github.com/vmware/go-vcloud-director/v2/util"
 )
 
-// Client provides a client to vCloud Director, values can be populated automatically using the Authenticate method.
+// Client provides a client to VMware Cloud Director, values can be populated automatically using the Authenticate method.
 type Client struct {
 	APIVersion       string      // The API version required
 	VCDToken         string      // Access Token (authorization header)
@@ -35,7 +35,7 @@ type Client struct {
 	UsingAccessToken bool        // flag if client is using an API token
 
 	// MaxRetryTimeout specifies a time limit (in seconds) for retrying requests made by the SDK
-	// where vCloud director may take time to respond and retry mechanism is needed.
+	// where VMware Cloud Director may take time to respond and retry mechanism is needed.
 	// This must be >0 to avoid instant timeout errors.
 	MaxRetryTimeout int
 
@@ -53,6 +53,9 @@ type Client struct {
 	// "User-Agent: <product> / <product-version> <comment>"
 	UserAgent string
 
+	// IgnoredMetadata allows to ignore metadata entries when using the methods defined in metadata_v2.go
+	IgnoredMetadata []IgnoredMetadata
+
 	supportedVersions SupportedVersions // Versions from /api/versions endpoint
 	customHeader      http.Header
 }
@@ -61,6 +64,7 @@ type Client struct {
 const AuthorizationHeader = "X-Vcloud-Authorization"
 
 // BearerTokenHeader is the header key containing a bearer token
+// #nosec G101 -- This is not a credential, it's just the header key
 const BearerTokenHeader = "X-Vmware-Vcloud-Access-Token"
 
 const ApiTokenHeader = "API-token"
@@ -68,9 +72,10 @@ const ApiTokenHeader = "API-token"
 // General purpose error to be used whenever an entity is not found from a "GET" request
 // Allows a simpler checking of the call result
 // such as
-// if err == ErrorEntityNotFound {
-//    // do what is needed in case of not found
-// }
+//
+//	if err == ErrorEntityNotFound {
+//	   // do what is needed in case of not found
+//	}
 var errorEntityNotFoundMessage = "[ENF] entity not found"
 var ErrorEntityNotFound = fmt.Errorf(errorEntityNotFoundMessage)
 
@@ -79,12 +84,14 @@ var debugShowRequestEnabled = os.Getenv("GOVCD_SHOW_REQ") != ""
 var debugShowResponseEnabled = os.Getenv("GOVCD_SHOW_RESP") != ""
 
 // Enables the debugging hook to show requests as they are processed.
+//
 //lint:ignore U1000 this function is used on request for debugging purposes
 func enableDebugShowRequest() {
 	debugShowRequestEnabled = true
 }
 
 // Disables the debugging hook to show requests as they are processed.
+//
 //lint:ignore U1000 this function is used on request for debugging purposes
 func disableDebugShowRequest() {
 	debugShowRequestEnabled = false
@@ -95,12 +102,14 @@ func disableDebugShowRequest() {
 }
 
 // Enables the debugging hook to show responses as they are processed.
+//
 //lint:ignore U1000 this function is used on request for debugging purposes
 func enableDebugShowResponse() {
 	debugShowResponseEnabled = true
 }
 
 // Disables the debugging hook to show responses as they are processed.
+//
 //lint:ignore U1000 this function is used on request for debugging purposes
 func disableDebugShowResponse() {
 	debugShowResponseEnabled = false
@@ -149,9 +158,10 @@ func debugShowResponse(resp *http.Response, body []byte) {
 
 // IsNotFound is a convenience function, similar to os.IsNotExist that checks whether a given error
 // is a "Not found" error, such as
-// if isNotFound(err) {
-//    // do what is needed in case of not found
-// }
+//
+//	if isNotFound(err) {
+//	   // do what is needed in case of not found
+//	}
 func IsNotFound(err error) bool {
 	return err != nil && err == ErrorEntityNotFound
 }
@@ -203,7 +213,7 @@ func (client *Client) newRequest(params map[string]string, notEncodedParams map[
 	var readBody []byte
 	var err error
 	if body != nil {
-		readBody, err = ioutil.ReadAll(body)
+		readBody, err = io.ReadAll(body)
 		if err != nil {
 			util.Logger.Printf("[DEBUG - newRequest] error reading body: %s", err)
 		}
@@ -231,12 +241,12 @@ func (client *Client) newRequest(params map[string]string, notEncodedParams map[
 		req.Header.Add("Authorization", "bearer "+client.VCDToken)
 	}
 
-	// Merge in additional headers before logging if any where specified in additionalHeader
+	// Merge in additional headers before logging if anywhere specified in additionalHeader
 	// parameter
 	if len(additionalHeader) > 0 {
 		for headerName, headerValueSlice := range additionalHeader {
 			for _, singleHeaderValue := range headerValueSlice {
-				req.Header.Add(headerName, singleHeaderValue)
+				req.Header.Set(headerName, singleHeaderValue)
 			}
 		}
 	}
@@ -294,7 +304,7 @@ func ParseErr(bodyType types.BodyType, resp *http.Response, errType error) error
 
 // decodeBody is used to decode a response body of types.BodyType
 func decodeBody(bodyType types.BodyType, resp *http.Response, out interface{}) error {
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 
 	// In case of JSON, body does not have indents in response therefore it must be indented
 	if bodyType == types.BodyTypeJSON {
@@ -599,12 +609,12 @@ func (client *Client) ExecuteParamRequestWithCustomError(pathURL string, params 
 	// read from resp.Body io.Reader for debug output if it has body
 	var bodyBytes []byte
 	if resp.Body != nil {
-		bodyBytes, err = ioutil.ReadAll(resp.Body)
+		bodyBytes, err = io.ReadAll(resp.Body)
 		if err != nil {
 			return &http.Response{}, fmt.Errorf("could not read response body: %s", err)
 		}
 		// Restore the io.ReadCloser to its original state with no-op closer
-		resp.Body = ioutil.NopCloser(bytes.NewBuffer(bodyBytes))
+		resp.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
 	}
 
 	util.ProcessResponseOutput(util.FuncNameCallStack(), resp, string(bodyBytes))
@@ -680,18 +690,11 @@ func combinedTaskErrorMessage(task *types.Task, err error) string {
 	return extendedError
 }
 
-func takeBoolPointer(value bool) *bool {
-	return &value
-}
-
-// takeIntAddress is a helper that returns the address of an `int`
-func takeIntAddress(x int) *int {
-	return &x
-}
-
-// takeStringPointer is a helper that returns the address of a `string`
-func takeStringPointer(x string) *string {
-	return &x
+// addrOf is a generic function to return the address of a variable
+// Note. It is mainly meant for converting literal values to pointers (e.g. `addrOf(true)`)
+// and not getting the address of a variable (e.g. `addrOf(variable)`)
+func addrOf[T any](variable T) *T {
+	return &variable
 }
 
 // IsUuid returns true if the identifier is a bare UUID
@@ -768,6 +771,117 @@ func (client *Client) RemoveProvidedCustomHeaders(values map[string]string) {
 	}
 }
 
+// Retrieves the administrator URL of a given HREF
+func getAdminURL(href string) string {
+	adminApi := "/api/admin/"
+	if strings.Contains(href, adminApi) {
+		return href
+	}
+	return strings.ReplaceAll(href, "/api/", adminApi)
+}
+
+// Retrieves the admin extension URL of a given HREF
+func getAdminExtensionURL(href string) string {
+	adminExtensionApi := "/api/admin/extension/"
+	if strings.Contains(href, adminExtensionApi) {
+		return href
+	}
+	return strings.ReplaceAll(getAdminURL(href), "/api/admin/", adminExtensionApi)
+}
+
+// TestConnection calls API to test a connection against a VCD, including SSL handshake and hostname verification.
+func (client *Client) TestConnection(testConnection types.TestConnection) (*types.TestConnectionResult, error) {
+	endpoint := types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointTestConnection
+
+	apiVersion, err := client.getOpenApiHighestElevatedVersion(endpoint)
+	if err != nil {
+		return nil, err
+	}
+
+	urlRef, err := client.OpenApiBuildEndpoint(endpoint)
+	if err != nil {
+		return nil, err
+	}
+
+	returnTestConnectionResult := &types.TestConnectionResult{
+		TargetProbe: &types.ProbeResult{},
+		ProxyProbe:  &types.ProbeResult{},
+	}
+
+	err = client.OpenApiPostItem(apiVersion, urlRef, nil, testConnection, returnTestConnectionResult, nil)
+	if err != nil {
+		return nil, fmt.Errorf("error performing test connection: %s", err)
+	}
+
+	return returnTestConnectionResult, nil
+}
+
+// TestConnectionWithDefaults calls TestConnection given a subscriptionURL. The rest of parameters are set as default.
+// It returns whether it could reach the server and establish SSL connection or not.
+func (client *Client) TestConnectionWithDefaults(subscriptionURL string) (bool, error) {
+	if subscriptionURL == "" {
+		return false, fmt.Errorf("TestConnectionWithDefaults needs to be passed a host. i.e. my-host.vmware.com")
+	}
+
+	url, err := url.Parse(subscriptionURL)
+	if err != nil {
+		return false, fmt.Errorf("unable to parse URL - %s", err)
+	}
+
+	// Get port
+	var port int
+	if v := url.Port(); v != "" {
+		port, err = strconv.Atoi(v)
+		if err != nil {
+			return false, fmt.Errorf("couldn't parse port provided - %s", err)
+		}
+	} else {
+		switch url.Scheme {
+		case "http":
+			port = 80
+		case "https":
+			port = 443
+		}
+	}
+
+	testConnectionConfig := types.TestConnection{
+		Host:    url.Hostname(),
+		Port:    port,
+		Secure:  addrOf(true), // Default value used by VCD UI
+		Timeout: 30,           // Default value used by VCD UI
+	}
+
+	testConnectionResult, err := client.TestConnection(testConnectionConfig)
+	if err != nil {
+		return false, err
+	}
+
+	if !testConnectionResult.TargetProbe.CanConnect {
+		return false, fmt.Errorf("the remote host is not reachable")
+	}
+
+	if !testConnectionResult.TargetProbe.SSLHandshake {
+		return true, fmt.Errorf("unsupported or unrecognized SSL message")
+	}
+
+	return true, nil
+}
+
+// buildUrl uses the Client base URL to create a customised URL
+func (client *Client) buildUrl(elements ...string) (string, error) {
+	baseUrl := client.VCDHREF.String()
+	if !IsValidUrl(baseUrl) {
+		return "", fmt.Errorf("incorrect URL %s", client.VCDHREF.String())
+	}
+	if strings.HasSuffix(baseUrl, "/") {
+		baseUrl = strings.TrimRight(baseUrl, "/")
+	}
+	if strings.HasSuffix(baseUrl, "/api") {
+		baseUrl = strings.TrimRight(baseUrl, "/api")
+	}
+	return url.JoinPath(baseUrl, elements...)
+}
+
 // ---------------------------------------------------------------------
 // The following functions are needed to avoid strict Coverity warnings
 // ---------------------------------------------------------------------
@@ -779,4 +893,20 @@ func urlParseRequestURI(href string) *url.URL {
 		util.Logger.Printf("[DEBUG - urlParseRequestURI] error parsing request URI: %s", err)
 	}
 	return apiEndpoint
+}
+
+// safeClose closes a file and logs the error, if any. This can be used instead of file.Close()
+func safeClose(file *os.File) {
+	if err := file.Close(); err != nil {
+		util.Logger.Printf("Error closing file: %s\n", err)
+	}
+}
+
+// isSuccessStatus returns true if the given status code is between 200 and 300
+func isSuccessStatus(statusCode int) bool {
+	if statusCode >= http.StatusOK && // 200
+		statusCode < http.StatusMultipleChoices { // 300
+		return true
+	}
+	return false
 }

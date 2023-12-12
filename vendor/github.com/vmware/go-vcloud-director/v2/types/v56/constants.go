@@ -1,5 +1,5 @@
 /*
- * Copyright 2021 VMware, Inc.  All rights reserved.  Licensed under the Apache v2 License.
+ * Copyright 2023 VMware, Inc.  All rights reserved.  Licensed under the Apache v2 License.
  */
 
 package types
@@ -101,6 +101,8 @@ const (
 	MimeVM = "application/vnd.vmware.vcloud.vm+xml"
 	// Mime for instantiate vApp template params
 	MimeInstantiateVappTemplateParams = "application/vnd.vmware.vcloud.instantiateVAppTemplateParams+xml"
+	// Mime for clone vApp template params
+	MimeCloneVapp = "application/vnd.vmware.vcloud.cloneVAppParams+xml"
 	// Mime for product section
 	MimeProductSection = "application/vnd.vmware.vcloud.productSections+xml"
 	// Mime for metadata
@@ -137,6 +139,17 @@ const (
 	MimeLeaseSettingSection = "application/vnd.vmware.vcloud.leaseSettingsSection+xml"
 	// Mime to publish external catalog
 	PublishExternalCatalog = "application/vnd.vmware.admin.publishExternalCatalogParams+xml"
+	// Mime to subscribe to an external catalog
+	MimeSubscribeToExternalCatalog = "application/vnd.vmware.admin.externalCatalogSubscriptionParams+json"
+	// Mime to identify a media item
+	MimeMediaItem = "application/vnd.vmware.vcloud.media+xml"
+	// Mime to identify a provider VDC
+	MimeProviderVdc = "application/vnd.vmware.admin.vmwprovidervdc+xml"
+	// Mime to identify SAML metadata
+	MimeSamlMetadata = "application/samlmetadata+xml"
+	// Mime to identify organization federation settings (SAML) XML and JSON
+	MimeFederationSettingsXml  = "application/vnd.vmware.admin.organizationFederationSettings+xml"
+	MimeFederationSettingsJson = "application/vnd.vmware.admin.organizationFederationSettings+json"
 )
 
 const (
@@ -242,22 +255,29 @@ const (
 
 const (
 	// The Qt* (Query Type) constants are the names used with Query requests to retrieve the corresponding entities
-	QtVappTemplate      = "vAppTemplate"      // vApp template
-	QtAdminVappTemplate = "adminVAppTemplate" // vApp template as admin
-	QtEdgeGateway       = "edgeGateway"       // edge gateway
-	QtOrgVdcNetwork     = "orgVdcNetwork"     // Org VDC network
-	QtCatalog           = "catalog"           // catalog
-	QtAdminCatalog      = "adminCatalog"      // catalog as admin
-	QtCatalogItem       = "catalogItem"       // catalog item
-	QtAdminCatalogItem  = "adminCatalogItem"  // catalog item as admin
-	QtAdminMedia        = "adminMedia"        // media item as admin
-	QtMedia             = "media"             // media item
-	QtVm                = "vm"                // Virtual machine
-	QtAdminVm           = "adminVM"           // Virtual machine as admin
-	QtVapp              = "vApp"              // vApp
-	QtAdminVapp         = "adminVApp"         // vApp as admin
-	QtOrgVdc            = "orgVdc"            // Org VDC
-	QtAdminOrgVdc       = "adminOrgVdc"       // Org VDC as admin
+	QtVappTemplate              = "vAppTemplate"              // vApp template
+	QtAdminVappTemplate         = "adminVAppTemplate"         // vApp template as admin
+	QtEdgeGateway               = "edgeGateway"               // edge gateway
+	QtOrgVdcNetwork             = "orgVdcNetwork"             // Org VDC network
+	QtCatalog                   = "catalog"                   // catalog
+	QtAdminCatalog              = "adminCatalog"              // catalog as admin
+	QtCatalogItem               = "catalogItem"               // catalog item
+	QtAdminCatalogItem          = "adminCatalogItem"          // catalog item as admin
+	QtAdminMedia                = "adminMedia"                // media item as admin
+	QtMedia                     = "media"                     // media item
+	QtVm                        = "vm"                        // Virtual machine
+	QtAdminVm                   = "adminVM"                   // Virtual machine as admin
+	QtVapp                      = "vApp"                      // vApp
+	QtAdminVapp                 = "adminVApp"                 // vApp as admin
+	QtOrgVdc                    = "orgVdc"                    // Org VDC
+	QtAdminOrgVdc               = "adminOrgVdc"               // Org VDC as admin
+	QtOrgVdcStorageProfile      = "orgVdcStorageProfile"      // StorageProfile of VDC
+	QtAdminOrgVdcStorageProfile = "adminOrgVdcStorageProfile" // StorageProfile of VDC as admin
+	QtTask                      = "task"                      // Task
+	QtAdminTask                 = "adminTask"                 // Task as admin
+	QtResourcePool              = "resourcePool"              // Resource Pool
+	QtNetworkPool               = "networkPool"               // Network Pool
+	QtProviderVdcStorageProfile = "providerVdcStorageProfile" // StorageProfile of Provider VDC
 )
 
 // AdminQueryTypes returns the corresponding "admin" query type for each regular type
@@ -340,6 +360,7 @@ const (
 // future.
 const (
 	OpenApiPathVersion1_0_0                           = "1.0.0/"
+	OpenApiPathVersion2_0_0                           = "2.0.0/"
 	OpenApiEndpointRoles                              = "roles/"
 	OpenApiEndpointGlobalRoles                        = "globalRoles/"
 	OpenApiEndpointRights                             = "rights/"
@@ -348,16 +369,25 @@ const (
 	OpenApiEndpointAuditTrail                         = "auditTrail/"
 	OpenApiEndpointImportableTier0Routers             = "nsxTResources/importableTier0Routers"
 	OpenApiEndpointImportableSwitches                 = "/network/orgvdcnetworks/importableswitches"
+	OpenApiEndpointImportableDvpgs                    = "virtualCenters/resources/importableDvpgs"
 	OpenApiEndpointEdgeClusters                       = "nsxTResources/edgeClusters"
+	OpenApiEndpointQosProfiles                        = "nsxTResources/gatewayQoSProfiles"
 	OpenApiEndpointExternalNetworks                   = "externalNetworks/"
 	OpenApiEndpointVdcComputePolicies                 = "vdcComputePolicies/"
 	OpenApiEndpointVdcAssignedComputePolicies         = "vdcs/%s/computePolicies"
 	OpenApiEndpointVdcCapabilities                    = "vdcs/%s/capabilities"
+	OpenApiEndpointVdcNetworkProfile                  = "vdcs/%s/networkProfile"
 	OpenApiEndpointEdgeGateways                       = "edgeGateways/"
+	OpenApiEndpointEdgeGatewayQos                     = "edgeGateways/%s/qos"
+	OpenApiEndpointEdgeGatewayDhcpForwarder           = "edgeGateways/%s/dhcpForwarder"
+	OpenApiEndpointEdgeGatewaySlaacProfile            = "edgeGateways/%s/slaacProfile"
+	OpenApiEndpointEdgeGatewayStaticRoutes            = "edgeGateways/%s/routing/staticRoutes/"
+	OpenApiEndpointEdgeGatewayUsedIpAddresses         = "edgeGateways/%s/usedIpAddresses"
 	OpenApiEndpointNsxtFirewallRules                  = "edgeGateways/%s/firewall/rules"
 	OpenApiEndpointFirewallGroups                     = "firewallGroups/"
 	OpenApiEndpointOrgVdcNetworks                     = "orgVdcNetworks/"
 	OpenApiEndpointOrgVdcNetworksDhcp                 = "orgVdcNetworks/%s/dhcp"
+	OpenApiEndpointOrgVdcNetworksDhcpBindings         = "orgVdcNetworks/%s/dhcp/bindings/"
 	OpenApiEndpointNsxtNatRules                       = "edgeGateways/%s/nat/rules/"
 	OpenApiEndpointAppPortProfiles                    = "applicationPortProfiles/"
 	OpenApiEndpointIpSecVpnTunnel                     = "edgeGateways/%s/ipsec/tunnels/"
@@ -371,7 +401,45 @@ const (
 	OpenApiEndpointVdcGroupsDfwPolicies               = "vdcGroups/%s/dfwPolicies"
 	OpenApiEndpointVdcGroupsDfwDefaultPolicies        = "vdcGroups/%s/dfwPolicies/default"
 	OpenApiEndpointVdcGroupsDfwRules                  = "vdcGroups/%s/dfwPolicies/%s/rules"
+	OpenApiEndpointLogicalVmGroups                    = "logicalVmGroups/"
 	OpenApiEndpointNetworkContextProfiles             = "networkContextProfiles"
+	OpenApiEndpointSecurityTags                       = "securityTags"
+	OpenApiEndpointNsxtRouteAdvertisement             = "edgeGateways/%s/routing/advertisement"
+	OpenApiEndpointTestConnection                     = "testConnection/"
+	OpenApiEndpointEdgeBgpNeighbor                    = "edgeGateways/%s/routing/bgp/neighbors/"   // '%s' is NSX-T Edge Gateway ID
+	OpenApiEndpointEdgeBgpConfigPrefixLists           = "edgeGateways/%s/routing/bgp/prefixLists/" // '%s' is NSX-T Edge Gateway ID
+	OpenApiEndpointEdgeBgpConfig                      = "edgeGateways/%s/routing/bgp"              // '%s' is NSX-T Edge Gateway ID
+	OpenApiEndpointRdeInterfaces                      = "interfaces/"
+	OpenApiEndpointRdeInterfaceBehaviors              = "interfaces/%s/behaviors/"
+	OpenApiEndpointRdeEntityTypes                     = "entityTypes/"
+	OpenApiEndpointRdeTypeBehaviors                   = "entityTypes/%s/behaviors/"
+	OpenApiEndpointRdeTypeBehaviorAccessControls      = "entityTypes/%s/behaviorAccessControls"
+	OpenApiEndpointRdeEntities                        = "entities/"
+	OpenApiEndpointRdeEntitiesTypes                   = "entities/types/"
+	OpenApiEndpointRdeEntitiesResolve                 = "entities/%s/resolve"
+	OpenApiEndpointRdeEntitiesBehaviorsInvocations    = "entities/%s/behaviors/%s/invocations"
+	OpenApiEndpointVirtualCenters                     = "virtualCenters"
+	OpenApiEndpointResourcePools                      = "virtualCenters/%s/resourcePools/browse"    // '%s' is vCenter ID
+	OpenApiEndpointResourcePoolsBrowseAll             = "virtualCenters/%s/resourcePools/browseAll" // '%s' is vCenter ID
+	OpenApiEndpointResourcePoolHardware               = "virtualCenters/%s/resourcePools/%s/hwv"    // first '%s' is vCenter ID. Second one is Resource Pool MoRef
+	OpenApiEndpointNetworkPools                       = "networkPools/"
+	OpenApiEndpointNetworkPoolSummaries               = "networkPools/networkPoolSummaries"
+	OpenApiEndpointStorageProfiles                    = "virtualCenters/%s/storageProfiles" // '%s' is vCenter ID
+	OpenApiEndpointExtensionsUi                       = "extensions/ui/"
+	OpenApiEndpointExtensionsUiPlugin                 = "extensions/ui/%s/plugin"
+	OpenApiEndpointExtensionsUiTenants                = "extensions/ui/%s/tenants"
+	OpenApiEndpointExtensionsUiTenantsPublishAll      = "extensions/ui/%s/tenants/publishAll"
+	OpenApiEndpointExtensionsUiTenantsPublish         = "extensions/ui/%s/tenants/publish"
+	OpenApiEndpointExtensionsUiTenantsUnpublishAll    = "extensions/ui/%s/tenants/unpublishAll"
+	OpenApiEndpointExtensionsUiTenantsUnpublish       = "extensions/ui/%s/tenants/unpublish"
+
+	// IP Spaces
+	OpenApiEndpointIpSpaces               = "ipSpaces/"
+	OpenApiEndpointIpSpaceSummaries       = "ipSpaces/summaries"
+	OpenApiEndpointIpSpaceUplinks         = "ipSpaceUplinks/"
+	OpenApiEndpointIpSpaceUplinksAllocate = "ipSpaces/%s/allocate"     // '%s' is IP Space ID
+	OpenApiEndpointIpSpaceIpAllocations   = "ipSpaces/%s/allocations/" // '%s' is IP Space ID
+	OpenApiEndpointIpSpaceOrgAssignments  = "ipSpaces/orgAssignments/" // '%s' is IP Space ID
 
 	// NSX-T ALB related endpoints
 
@@ -390,6 +458,11 @@ const (
 	OpenApiEndpointAlbVirtualServiceSummaries       = "edgeGateways/%s/loadBalancer/virtualServiceSummaries" // %s contains edge gateway
 	OpenApiEndpointAlbServiceEngineGroupAssignments = "loadBalancer/serviceEngineGroups/assignments/"
 	OpenApiEndpointAlbEdgeGateway                   = "edgeGateways/%s/loadBalancer"
+
+	// OpenApiEndpointServiceAccountGrant is needed for granting a Service Account
+	OpenApiEndpointServiceAccountGrant = "deviceLookup/grant"
+	OpenApiEndpointTokens              = "tokens/"
+	OpenApiEndpointServiceAccounts     = "serviceAccounts/"
 )
 
 // Header keys to run operations in tenant context
@@ -418,10 +491,19 @@ const (
 	OrgVdcNetworkTypeRouted = "NAT_ROUTED"
 	// OrgVdcNetworkTypeIsolated can be used to create NSX-T or NSX-V isolated Org Vdc network
 	OrgVdcNetworkTypeIsolated = "ISOLATED"
-	// OrgVdcNetworkTypeOpaque type is used to create NSX-T imported Org Vdc network
-	OrgVdcNetworkTypeOpaque = "OPAQUE"
 	// OrgVdcNetworkTypeDirect can be used to create NSX-V direct Org Vdc network
 	OrgVdcNetworkTypeDirect = "DIRECT"
+	// OrgVdcNetworkTypeOpaque type is used to create NSX-T imported Org Vdc network
+	OrgVdcNetworkTypeOpaque = "OPAQUE"
+)
+
+const (
+	// OrgVdcNetworkBackingTypeVirtualWire matches Org VDC network backing type for NSX-V
+	OrgVdcNetworkBackingTypeVirtualWire = "VIRTUAL_WIRE"
+	// OrgVdcNetworkBackingTypeNsxtFlexibleSegment matches Org VDC network backing type for NSX-T networks
+	OrgVdcNetworkBackingTypeNsxtFlexibleSegment = "NSXT_FLEXIBLE_SEGMENT"
+	// OrgVdcNetworkBackingTypeDvPortgroup matches Org VDC network backing type for NSX-T Imported network backed by DV Portgroup
+	OrgVdcNetworkBackingTypeDvPortgroup = "DV_PORTGROUP"
 )
 
 const (
@@ -432,12 +514,16 @@ const (
 )
 
 const (
-	// FirewallGroupTypeSecurityGroup can be used in types.NsxtFirewallGroup for 'type' field to
-	// create Security Group
+	// FirewallGroupTypeSecurityGroup can be used in types.NsxtFirewallGroup for 'TypeValue' field
+	// to create Security Group
 	FirewallGroupTypeSecurityGroup = "SECURITY_GROUP"
-	// FirewallGroupTypeIpSet can be used in types.NsxtFirewallGroup for 'type' field to create IP
-	// Set
+	// FirewallGroupTypeIpSet can be used in types.NsxtFirewallGroup for 'TypeValue' field to create
+	// IP Set
 	FirewallGroupTypeIpSet = "IP_SET"
+
+	// FirewallGroupTypeVmCriteria can be used in types.NsxtFirewallGroup for 'TypeValue' field to
+	// create Dynamic Security Group (VCD 10.3+)
+	FirewallGroupTypeVmCriteria = "VM_CRITERIA"
 )
 
 // These constants can be used to pick type of NSX-T NAT Rule
@@ -496,9 +582,109 @@ const (
 	MetadataNumberValue   string = "MetadataNumberValue"
 	MetadataDateTimeValue string = "MetadataDateTimeValue"
 	MetadataBooleanValue  string = "MetadataBooleanValue"
+
+	MetadataReadOnlyVisibility  string = "READONLY"
+	MetadataHiddenVisibility    string = "PRIVATE"
+	MetadataReadWriteVisibility string = "READWRITE"
 )
 
 const (
 	// DistributedFirewallPolicyDefault is a constant for "default" Distributed Firewall Policy
 	DistributedFirewallPolicyDefault = "default"
+)
+
+// NSX-V distributed firewall
+
+// Protocols
+const (
+	DFWProtocolTcp  = "TCP"
+	DFWProtocolUdp  = "UDP"
+	DFWProtocolIcmp = "ICMP"
+)
+
+// Action types
+const (
+	DFWActionAllow = "allow"
+	DFWActionDeny  = "deny"
+)
+
+// Directions
+const (
+	DFWDirectionIn    = "in"
+	DFWDirectionOut   = "out"
+	DFWDirectionInout = "inout"
+)
+
+// Types of packet
+const (
+	DFWPacketAny  = "any"
+	DFWPacketIpv4 = "ipv4"
+	DFWPacketIpv6 = "ipv6"
+)
+
+// Elements of Source, Destination, and Applies-To
+const (
+	DFWElementVdc            = "VDC"
+	DFWElementVirtualMachine = "VirtualMachine"
+	DFWElementNetwork        = "Network"
+	DFWElementEdge           = "Edge"
+	DFWElementIpSet          = "IPSet"
+	DFWElementIpv4           = "Ipv4Address"
+)
+
+// Types of service
+const (
+	DFWServiceTypeApplication      = "Application"
+	DFWServiceTypeApplicationGroup = "ApplicationGroup"
+)
+
+var NsxvProtocolCodes = map[string]int{
+	DFWProtocolTcp:  6,
+	DFWProtocolUdp:  17,
+	DFWProtocolIcmp: 1,
+}
+
+// NSX-T DHCP Binding Type
+const (
+	NsxtDhcpBindingTypeIpv4 = "IPV4"
+	NsxtDhcpBindingTypeIpv6 = "IPV6"
+)
+
+// NSX-T IPSec VPN authentication modes
+const (
+	NsxtIpSecVpnAuthenticationModePSK         = "PSK"
+	NsxtIpSecVpnAuthenticationModeCertificate = "CERTIFICATE"
+)
+
+// Org VDC network backing types
+const (
+	OpenApiOrgVdcNetworkBackingTypeNsxv = "VIRTUAL_WIRE"
+	OpenApiOrgVdcNetworkBackingTypeNsxt = "NSXT_FLEXIBLE_SEGMENT"
+)
+
+// IP Space types
+const (
+	IpSpaceShared  = "SHARED_SERVICES"
+	IpSpacePublic  = "PUBLIC"
+	IpSpacePrivate = "PRIVATE"
+)
+
+// IP Space IP Allocation Reservation Types
+const (
+	IpSpaceIpAllocationUsedManual = "USED_MANUAL"
+	IpSpaceIpAllocationUsed       = "USED"
+	IpSpaceIpAllocationUnused     = "UNUSED"
+)
+
+// IP Space IP Allocation Types
+const (
+	IpSpaceIpAllocationTypeFloatingIp = "FLOATING_IP"
+	IpSpaceIpAllocationTypeIpPrefix   = "IP_PREFIX"
+)
+
+// Values used for SAML metadata normalization and validation
+const (
+	SamlNamespaceMd     = "urn:oasis:names:tc:SAML:2.0:metadata"
+	SamlNamespaceDs     = "http://www.w3.org/2000/09/xmldsig#"
+	SamlNamespaceHoksso = "urn:oasis:names:tc:SAML:2.0:profiles:holder-of-key:SSO:browser"
 )

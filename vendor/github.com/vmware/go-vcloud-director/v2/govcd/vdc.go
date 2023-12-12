@@ -1,5 +1,5 @@
 /*
- * Copyright 2021 VMware, Inc.  All rights reserved.  Licensed under the Apache v2 License.
+ * Copyright 2023 VMware, Inc.  All rights reserved.  Licensed under the Apache v2 License.
  */
 
 package govcd
@@ -909,7 +909,9 @@ func (vdc *Vdc) QueryMediaList() ([]*types.MediaRecordType, error) {
 	return getExistingMedia(vdc)
 }
 
-// QueryVappVmTemplate Finds VM template using catalog name, vApp template name, VN name in template. Returns types.QueryResultVMRecordType
+// QueryVappVmTemplate Finds VM template using catalog name, vApp template name, VN name in template.
+// Returns types.QueryResultVMRecordType if it finds the VM. Returns ErrorEntityNotFound
+// if it's not found. Returns other error if it finds more than one or the search fails.
 func (vdc *Vdc) QueryVappVmTemplate(catalogName, vappTemplateName, vmNameInTemplate string) (*types.QueryResultVMRecordType, error) {
 
 	queryType := "vm"
@@ -942,6 +944,44 @@ func (vdc *Vdc) QueryVappVmTemplate(catalogName, vappTemplateName, vmNameInTempl
 	}
 
 	return vmResults[0], nil
+}
+
+// QueryVappSynchronizedVmTemplate Finds a catalog-synchronized VM inside a vApp Template using catalog name, vApp template name, VN name in template.
+// Returns types.QueryResultVMRecordType if it finds the VM and it's synchronized in the catalog. Returns ErrorEntityNotFound
+// if it's not found. Returns other error if it finds more than one or the search fails.
+func (vdc *Vdc) QueryVappSynchronizedVmTemplate(catalogName, vappTemplateName, vmNameInTemplate string) (*types.QueryResultVMRecordType, error) {
+	vmRecord, err := vdc.QueryVappVmTemplate(catalogName, vappTemplateName, vmNameInTemplate)
+	if err != nil {
+		return nil, err
+	}
+	if vmRecord.Status == "LOCAL_COPY_UNAVAILABLE" {
+		return nil, ErrorEntityNotFound
+	}
+	return vmRecord, nil
+}
+
+// GetVAppTemplateByName finds a VAppTemplate by Name
+// On success, returns a pointer to the VAppTemplate structure and a nil error
+// On failure, returns a nil pointer and an error
+func (vdc *Vdc) GetVAppTemplateByName(vAppTemplateName string) (*VAppTemplate, error) {
+	vAppTemplateQueryResult, err := vdc.QueryVappTemplateWithName(vAppTemplateName)
+	if err != nil {
+		return nil, err
+	}
+	return getVAppTemplateByHref(vdc.client, vAppTemplateQueryResult.HREF)
+}
+
+// GetVAppTemplateByNameOrId finds a vApp Template by Name or ID.
+// On success, returns a pointer to the VAppTemplate structure and a nil error
+// On failure, returns a nil pointer and an error
+func (vdc *Vdc) GetVAppTemplateByNameOrId(identifier string, refresh bool) (*VAppTemplate, error) {
+	getByName := func(name string, refresh bool) (interface{}, error) { return vdc.GetVAppTemplateByName(name) }
+	getById := func(id string, refresh bool) (interface{}, error) { return getVAppTemplateById(vdc.client, id) }
+	entity, err := getEntityByNameOrIdSkipNonId(getByName, getById, identifier, refresh)
+	if entity == nil {
+		return nil, err
+	}
+	return entity.(*VAppTemplate), err
 }
 
 // getLinkHref returns a link HREF for a wanted combination of rel and type
@@ -1231,4 +1271,74 @@ func (vdc *Vdc) getParentOrg() (organization, error) {
 		}
 	}
 	return nil, fmt.Errorf("no parent found for VDC %s", vdc.Vdc.Name)
+}
+
+// CreateVappFromTemplate instantiates a new vApp from a vApp template
+// The template argument must contain at least:
+// * Name
+// * Source (a reference to the source vApp template)
+func (vdc *Vdc) CreateVappFromTemplate(template *types.InstantiateVAppTemplateParams) (*VApp, error) {
+	vdcHref, err := url.ParseRequestURI(vdc.Vdc.HREF)
+	if err != nil {
+		return nil, fmt.Errorf("error getting VDC href: %s", err)
+	}
+	vdcHref.Path += "/action/instantiateVAppTemplate"
+
+	vapp := NewVApp(vdc.client)
+
+	template.Xmlns = types.XMLNamespaceVCloud
+	template.Ovf = types.XMLNamespaceOVF
+	template.Deploy = true
+
+	_, err = vdc.client.ExecuteRequest(vdcHref.String(), http.MethodPost,
+		types.MimeInstantiateVappTemplateParams, "error instantiating a new vApp from Template: %s", template, vapp.VApp)
+	if err != nil {
+		return nil, err
+	}
+
+	task := NewTask(vdc.client)
+	for _, taskItem := range vapp.VApp.Tasks.Task {
+		task.Task = taskItem
+		err = task.WaitTaskCompletion()
+		if err != nil {
+			return nil, fmt.Errorf("error performing task: %s", err)
+		}
+	}
+	err = vapp.Refresh()
+	return vapp, err
+}
+
+// CloneVapp makes a copy of a vApp into a new one
+// The sourceVapp argument must contain at least:
+// * Name
+// * Source (a reference to the source vApp)
+func (vdc *Vdc) CloneVapp(sourceVapp *types.CloneVAppParams) (*VApp, error) {
+	vdcHref, err := url.ParseRequestURI(vdc.Vdc.HREF)
+	if err != nil {
+		return nil, fmt.Errorf("error getting VDC href: %s", err)
+	}
+	vdcHref.Path += "/action/cloneVApp"
+
+	vapp := NewVApp(vdc.client)
+
+	sourceVapp.Xmlns = types.XMLNamespaceVCloud
+	sourceVapp.Ovf = types.XMLNamespaceOVF
+	sourceVapp.Deploy = true
+
+	_, err = vdc.client.ExecuteRequest(vdcHref.String(), http.MethodPost,
+		types.MimeCloneVapp, "error cloning a vApp : %s", sourceVapp, vapp.VApp)
+	if err != nil {
+		return nil, err
+	}
+
+	task := NewTask(vdc.client)
+	for _, taskItem := range vapp.VApp.Tasks.Task {
+		task.Task = taskItem
+		err = task.WaitTaskCompletion()
+		if err != nil {
+			return nil, fmt.Errorf("error performing task: %s", err)
+		}
+	}
+	err = vapp.Refresh()
+	return vapp, err
 }
