@@ -714,7 +714,7 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		if len(diskSettings) != 0 && diskSettings[0].SizeMb < diskSize {
 			log.Info(
 				fmt.Sprintf("resizing hard disk on VM for machine [%s] of cluster [%s]; resizing from [%dMB] to [%dMB]",
-					vm.VM.Name, vApp.VApp.Name, diskSettings[0].SizeMb, diskSize))
+					machine.Name, vApp.VApp.Name, diskSettings[0].SizeMb, diskSize))
 
 			diskSettings[0].SizeMb = diskSize
 			vm.VM.VmSpecSection.DiskSection.DiskSettings = diskSettings
@@ -725,7 +725,9 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 					log.Error(err1, "failed to add VCDMachineCreationError into RDE", "rdeID", vcdCluster.Status.InfraId)
 				}
 				return ctrl.Result{},
-					errors.Wrapf(err, "Error while provisioning the infrastructure VM for the machine [%s] of the cluster [%s]; failed to resize hard disk", vm.VM.Name, vApp.VApp.Name)
+					errors.Wrapf(err,
+						"Error while provisioning the infrastructure VM for the machine [%s] of the cluster [%s];"+
+							" failed to resize hard disk", machine.Name, vApp.VApp.Name)
 			}
 		}
 		if err = capvcdRdeManager.RdeManager.RemoveErrorByNameOrIdFromErrorSet(ctx, vcdsdk.ComponentCAPVCD, capisdk.VCDMachineCreationError, "", ""); err != nil {
