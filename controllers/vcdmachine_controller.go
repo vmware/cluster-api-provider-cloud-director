@@ -763,14 +763,6 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		log.Error(err, "failed to remove VCDMachineCreationError from RDE")
 	}
 
-	// Collect OvdcNetwork to populate ignition metadata
-	OrgVdcNetwork, err := vdcManager.Vdc.GetOrgVdcNetworkByName(vcdCluster.Spec.OvdcNetwork, true)
-
-	// Convert netmask to CIDR notation for ignition
-	netmask := net.ParseIP(OrgVdcNetwork.OrgVDCNetwork.Configuration.IPScopes.IPScope[0].Netmask)
-	netmaskCidr, _ := net.IPMask(netmask.To4()).Size()
-	ignitionAddress := fmt.Sprint(machineAddress) + "/" + fmt.Sprint(netmaskCidr)
-
 	if vmStatus != "POWERED_ON" {
 		// try to power on the VM
 		b64BootstrapData := b64.StdEncoding.EncodeToString([]byte(bootstrapData))
@@ -783,6 +775,13 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 				"disk.enableUUID":             "1",
 			}
 		} else if bootstrapFormat == BootstrapFormatIgnition {
+			// Collect OvdcNetwork to populate ignition metadata
+			OrgVdcNetwork, err := vdcManager.Vdc.GetOrgVdcNetworkByName(vcdCluster.Spec.OvdcNetwork, true)
+
+			// Convert netmask to CIDR notation for ignition
+			netmask := net.ParseIP(OrgVdcNetwork.OrgVDCNetwork.Configuration.IPScopes.IPScope[0].Netmask)
+			netmaskCidr, _ := net.IPMask(netmask.To4()).Size()
+			ignitionAddress := fmt.Sprint(machineAddress) + "/" + fmt.Sprint(netmaskCidr)
 			keyVals = map[string]string{
 				"guestinfo.ignition.config.data":          b64BootstrapData,
 				"guestinfo.ignition.config.data.encoding": "base64",
