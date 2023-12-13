@@ -775,13 +775,33 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 				"disk.enableUUID":             "1",
 			}
 		} else if bootstrapFormat == BootstrapFormatIgnition {
-			// Collect OvdcNetwork to populate ignition metadata
-			OrgVdcNetwork, err := vdcManager.Vdc.GetOrgVdcNetworkByName(vcdCluster.Spec.OvdcNetwork, true)
+			// Process NIC
+			var networkMetadata strings.Builder
+			// Process Networks
+			for _, network := range vm.VM.NetworkConnectionSection.NetworkConnection {
+				// Name NIC ignition file after the network it connects to
+				networkMetadata.WriteString("- name: " + network.Network + ".network\n")
+				// Process NIC network properties and subnet CIDR
+				OrgVdcNetwork, err := vdcManager.Vdc.GetOrgVdcNetworkByName(network.Network, true)
+				IpScope := OrgVdcNetwork.OrgVDCNetwork.Configuration.IPScopes.IPScope[0]
+				netmask := net.ParseIP(IpScope.Netmask)
+				netmaskCidr, _ := net.IPMask(netmask.To4()).Size()
+				ignitionAddress := fmt.Sprint(network.IPAddress) + "/" + fmt.Sprint(netmaskCidr)
+				// Write details to NIC ignition
+				networkMetadata.WriteString("  contents: |\n  [Match]\n  MACAddress=" + network.MACAddress + "\n")
+				networkMetadata.WriteString("    [Network]\n  Address=" + ignitionAddress + "\n")
+				// Add gateway and DNS only for primary NIC
+				if network.NetworkConnectionIndex == vm.VM.NetworkConnectionSection.PrimaryNetworkConnectionIndex {
+					networkMetadata.WriteString("    Gateway=" + IpScope.Gateway + "\n")
+					if Scope.DNS1 != "" {
+					  networkMetadata.WriteString("    DNS1=" + IpScope.DNS1 + "\n")
+					}
+					if IpScope.DNS2 != "" {
+					networkMetadata.WriteString("    DNS2=" + IpScope.DNS2 + "\n")
+					}
+				}
+			}
 
-			// Convert netmask to CIDR notation for ignition
-			netmask := net.ParseIP(OrgVdcNetwork.OrgVDCNetwork.Configuration.IPScopes.IPScope[0].Netmask)
-			netmaskCidr, _ := net.IPMask(netmask.To4()).Size()
-			ignitionAddress := fmt.Sprint(machineAddress) + "/" + fmt.Sprint(netmaskCidr)
 			keyVals = map[string]string{
 				"guestinfo.ignition.config.data":          b64BootstrapData,
 				"guestinfo.ignition.config.data.encoding": "base64",
@@ -791,6 +811,7 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 				"guestinfo.ignition.dns1":                 OrgVdcNetwork.OrgVDCNetwork.Configuration.IPScopes.IPScope[0].DNS1,
 				"guestinfo.ignition.dns2":                 OrgVdcNetwork.OrgVDCNetwork.Configuration.IPScopes.IPScope[0].DNS2,
 				"disk.enableUUID":                         "1",
+				"guestinfo.test":                          networkMetadata,
 			}
 		}
 
