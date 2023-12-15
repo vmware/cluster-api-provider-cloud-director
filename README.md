@@ -24,7 +24,7 @@ Note: The Kubernetes versions mentioned are what we have qualified with.
 | [0.5.1](https://github.com/vmware/cluster-api-provider-cloud-director/tree/0.5.1)  |           36.0+           | 10.3.1+ <br/>(10.3.1 needs hot-patch to prevent VCD cell crashes in multi-cell environments) |                                          [0.4.7](https://github.com/kubernetes-sigs/cluster-api/releases/tag/v0.4.7)                                           | <ul><li>1.21</li><li>1.20</li></ul>                                                                               |
 | [0.5.0](https://github.com/vmware/cluster-api-provider-cloud-director/tree/0.5.0)  |           36.0+           | 10.3.1+ <br/>(10.3.1 needs hot-patch to prevent VCD cell crashes in multi-cell environments) |                                          [0.4.7](https://github.com/kubernetes-sigs/cluster-api/releases/tag/v0.4.7)                                           | <ul><li>1.21</li><li>1.20</li></ul>                                                                               |
 
-Cluster API versions:
+CAPVCD API version - Cluster API version:
 
 |                          | v1alpha4 (v1.0) | v1beta1 (v1.4) |
 |--------------------------| --------------  |----------------|
