@@ -1273,7 +1273,7 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 }
 
 func (r *VCDClusterReconciler) deleteLB(ctx context.Context, vcdClient *vcdsdk.Client, vcdCluster *infrav1beta3.VCDCluster,
-	ovdcNetworkName string, ovdcName string, controlPlaneHost string, controlPlanePort int) error {
+	ovdcNetworkName string, ovdcName string, controlPlanePort int) error {
 
 	log := ctrl.LoggerFrom(ctx)
 
@@ -1353,7 +1353,7 @@ func (r *VCDClusterReconciler) deleteLB(ctx context.Context, vcdClient *vcdsdk.C
 	return nil
 }
 
-func (r *VCDClusterReconciler) reconcileDeleteSingleVApp(ctx context.Context, orgName string, ovdcName string,
+func (r *VCDClusterReconciler) reconcileDeleteSingleVApp(ctx context.Context, ovdcName string,
 	vAppName string, vcdClient *vcdsdk.Client, capvcdRdeManager *capisdk.CapvcdRdeManager,
 	vcdCluster *infrav1beta3.VCDCluster) (ctrl.Result, error) {
 
@@ -1487,7 +1487,7 @@ func (r *VCDClusterReconciler) reconcileDeleteVApps(ctx context.Context,
 	log := ctrl.LoggerFrom(ctx)
 	capvcdRDEManager := capisdk.NewCapvcdRdeManager(vcdClient, vcdCluster.Status.InfraId)
 
-	result, err := r.reconcileDeleteSingleVApp(ctx, vcdCluster.Spec.Org, vcdCluster.Spec.Ovdc, vcdCluster.Name,
+	result, err := r.reconcileDeleteSingleVApp(ctx, vcdCluster.Spec.Ovdc, vcdCluster.Name,
 		vcdClient, capvcdRDEManager, vcdCluster)
 	if err != nil {
 		// this is potentially an irrecoverable FATAL error
@@ -1619,7 +1619,7 @@ func (r *VCDClusterReconciler) reconcileDelete(ctx context.Context,
 	if controlPlanePort == 0 {
 		controlPlanePort = TcpPort
 	}
-	if err = r.deleteLB(ctx, vcdClient, vcdCluster, ovdcNetworkName, ovdcName, controlPlaneHost, controlPlanePort); err != nil {
+	if err = r.deleteLB(ctx, vcdClient, vcdCluster, ovdcNetworkName, ovdcName, controlPlanePort); err != nil {
 		return ctrl.Result{}, errors.Wrapf(err,
 			"unable to delete LB with control plane host [%s], port[%d] in ovdc [%s] and network [%s]: [%v]",
 			controlPlaneHost, controlPlanePort, ovdcName, ovdcNetworkName, err)

@@ -172,7 +172,7 @@ func (r *VCDMachineReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 
 	// Handle deleted machines
 	if machineBeingDeleted {
-		return r.reconcileDelete(ctx, cluster, machine, vcdMachine, vcdCluster)
+		return r.reconcileDelete(ctx, machine, vcdMachine, vcdCluster)
 	}
 
 	// Handle non-deleted machines
@@ -460,8 +460,7 @@ func (r *VCDMachineReconciler) reconcileVAppCreation(ctx context.Context, vcdCli
 }
 
 func (r *VCDMachineReconciler) reconcileCreateVM(ctx context.Context, vcdClient *vcdsdk.Client, vdcManager *vcdsdk.VdcManager,
-	vApp *govcd.VApp, machine *clusterv1.Machine, vcdMachine *infrav1beta3.VCDMachine, vmName string, ovdcName string,
-	ovdcNetworkName string, vcdCluster *infrav1beta3.VCDCluster) (res ctrl.Result, vm *govcd.VM, machineAddress string, retErr error) {
+	vApp *govcd.VApp, machine *clusterv1.Machine, vcdMachine *infrav1beta3.VCDMachine, vmName string, ovdcNetworkName string, vcdCluster *infrav1beta3.VCDCluster) (res ctrl.Result, vm *govcd.VM, machineAddress string, retErr error) {
 
 	log := ctrl.LoggerFrom(ctx, "machine", machine.Name, "cluster", vcdCluster.Name)
 	capvcdRdeManager := capisdk.NewCapvcdRdeManager(vcdClient, vcdCluster.Status.InfraId)
@@ -835,7 +834,7 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	}
 
 	result, vm, machineAddress, err := r.reconcileCreateVM(ctx, vcdClient, vdcManager, vApp, machine, vcdMachine,
-		vmName, ovdcName, ovdcNetworkName, vcdCluster)
+		vmName, ovdcNetworkName, vcdCluster)
 	if err != nil {
 		return result, errors.Wrapf(err, "unable to provision infrastructure for VM [%s/%s] in ovdc[%s] with network [%s]",
 			vAppName, vmName, ovdcName, ovdcNetworkName)
@@ -1018,7 +1017,7 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 			return ctrl.Result{}, errors.Wrapf(err, "Error while deploying infra for the machine [%s/%s]; unable to refresh vapp after VM power-on", vAppName, vm.VM.Name)
 		}
 	}
-	if hasCloudInitFailedBefore, err := r.hasCloudInitExecutionFailedBefore(ctx, vcdClient, vm); hasCloudInitFailedBefore {
+	if hasCloudInitFailedBefore, err := r.hasCloudInitExecutionFailedBefore(vcdClient, vm); hasCloudInitFailedBefore {
 		err1 := capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDMachineScriptExecutionError, "", machine.Name, fmt.Sprintf("%v", err))
 		if err1 != nil {
 			log.Error(err1, "failed to add VCDMachineScriptExecutionError into RDE", "rdeID", vcdCluster.Status.InfraId)
@@ -1282,7 +1281,7 @@ func (r *VCDMachineReconciler) getBootstrapData(ctx context.Context, machine *cl
 	return string(value), nil
 }
 
-func (r *VCDMachineReconciler) reconcileDelete(ctx context.Context, cluster *clusterv1.Cluster, machine *clusterv1.Machine,
+func (r *VCDMachineReconciler) reconcileDelete(ctx context.Context, machine *clusterv1.Machine,
 	vcdMachine *infrav1beta3.VCDMachine, vcdCluster *infrav1beta3.VCDCluster) (ctrl.Result, error) {
 	log := ctrl.LoggerFrom(ctx, "machine", machine.Name, "cluster", vcdCluster.Name)
 
@@ -1648,8 +1647,7 @@ func (r *VCDMachineReconciler) VCDClusterToVCDMachines(o client.Object) []ctrl.R
 
 	return result
 }
-func (r *VCDMachineReconciler) hasCloudInitExecutionFailedBefore(ctx context.Context,
-	vcdClient *vcdsdk.Client, vm *govcd.VM) (bool, error) {
+func (r *VCDMachineReconciler) hasCloudInitExecutionFailedBefore(vcdClient *vcdsdk.Client, vm *govcd.VM) (bool, error) {
 	vdcManager, err := vcdsdk.NewVDCManager(vcdClient, vcdClient.ClusterOrgName,
 		vcdClient.ClusterOVDCName)
 	if err != nil {
