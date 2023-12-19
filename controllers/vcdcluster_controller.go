@@ -432,6 +432,15 @@ func (r *VCDClusterReconciler) reconcileRDE(ctx context.Context, cluster *cluste
 	vcdCluster *infrav1beta3.VCDCluster, vcdClient *vcdsdk.Client, vappID string, updateExternalID bool) error {
 	log := ctrl.LoggerFrom(ctx)
 
+	// skip RDE reconciliation if the Infra ID has NoRdePrefix
+	if strings.HasPrefix(vcdCluster.Status.InfraId, NoRdePrefix) {
+		// skip rde reconciliation
+		log.Info("Skipping RDE reconciliation as the infra ID indicates that the RDE ID is generated",
+			"InfraID", vcdCluster.Status.InfraId,
+			"NoRDEPrefix", NoRdePrefix)
+		return nil
+	}
+
 	org, err := vcdClient.VCDClient.GetOrgByName(vcdCluster.Spec.Org)
 	if err != nil {
 		return fmt.Errorf("failed to get org by name [%s]", vcdCluster.Spec.Org)
@@ -702,10 +711,10 @@ func (r *VCDClusterReconciler) reconcileInfraID(ctx context.Context, cluster *cl
 	infraID := vcdCluster.Status.InfraId
 	capvcdRdeManager := capisdk.NewCapvcdRdeManager(vcdClient, infraID)
 
-	if err := capvcdRdeManager.RdeManager.RemoveErrorByNameOrIdFromErrorSet(ctx, vcdsdk.ComponentCAPVCD,
-		capisdk.VCDClusterError, "", vcdCluster.Name); err != nil {
-		log.Error(err, "failed to remove VCDClusterError from RDE", "rdeID", vcdCluster.Status.InfraId)
-	}
+	//if err := capvcdRdeManager.RdeManager.RemoveErrorByNameOrIdFromErrorSet(ctx, vcdsdk.ComponentCAPVCD,
+	//	capisdk.VCDClusterError, "", vcdCluster.Name); err != nil {
+	//	log.Error(err, "failed to remove VCDClusterError from RDE", "rdeID", vcdCluster.Status.InfraId)
+	//}
 	specInfraID := vcdCluster.Spec.RDEId
 
 	if infraID == "" {
@@ -1134,15 +1143,14 @@ func (r *VCDClusterReconciler) reconcileVApp(ctx context.Context, cluster *clust
 		}
 		return ctrl.Result{}, errors.Wrapf(err, "found nil value for VApp [%s]", vcdCluster.Name)
 	}
-	if !strings.HasPrefix(vcdCluster.Status.InfraId, NoRdePrefix) {
-		if err := r.reconcileRDE(ctx, cluster, vcdCluster, vcdClient, clusterVApp.VApp.ID, true); err != nil {
-			log.Error(err, "failed to add VApp ID to RDE", "rdeID", vcdCluster.Status.InfraId,
-				"vappID", clusterVApp.VApp.ID)
-		} else {
-			// err is nil; means rde was updated with the vapp ID
-			log.Info("successfully updated external ID of RDE with VApp ID", "infraID",
-				vcdCluster.Status.InfraId, "vAppID", clusterVApp.VApp.ID)
-		}
+
+	if err := r.reconcileRDE(ctx, cluster, vcdCluster, vcdClient, clusterVApp.VApp.ID, true); err != nil {
+		log.Error(err, "failed to add VApp ID to RDE", "rdeID", vcdCluster.Status.InfraId,
+			"vappID", clusterVApp.VApp.ID)
+	} else {
+		// err is nil; means rde was updated with the vapp ID
+		log.Info("successfully updated external ID of RDE with VApp ID", "infraID",
+			vcdCluster.Status.InfraId, "vAppID", clusterVApp.VApp.ID)
 	}
 
 	if metadataMap != nil && len(metadataMap) > 0 && !vcdCluster.Status.VAppMetadataUpdated {
@@ -1237,33 +1245,8 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 			vcdCluster.Name, vcdCluster.Status.InfraId)
 	}
 
-	if !strings.HasPrefix(vcdCluster.Status.InfraId, NoRdePrefix) {
-		org, err := vcdClient.VCDClient.GetOrgByName(vcdClient.ClusterOrgName)
-		if err != nil {
-			return ctrl.Result{}, errors.Wrapf(errors.New("failed to get org by name"), "error getting org by name for org [%s]: [%v]", vcdClient.ClusterOrgName, err)
-		}
-		if org == nil || org.Org == nil {
-			return ctrl.Result{}, errors.Wrapf(errors.New("invalid org ref obtained"),
-				"obtained nil org when getting org by name [%s]", vcdClient.ClusterOrgName)
-		}
-		_, resp, _, err := vcdClient.APIClient.DefinedEntityApi.GetDefinedEntity(ctx, vcdCluster.Status.InfraId, org.Org.ID)
-		if err == nil && resp != nil && resp.StatusCode == http.StatusOK {
-			if err = r.reconcileRDE(ctx, cluster, vcdCluster, vcdClient, "", false); err != nil {
-				log.Error(err, "Error occurred during RDE reconciliation",
-					"InfraId", vcdCluster.Status.InfraId)
-			}
-		} else {
-			log.Error(err, "Unexpected error retrieving RDE for the cluster from VCD",
-				"InfraId", vcdCluster.Status.InfraId)
-			// Some additional checks to log non-sensitive content safely.
-			if resp == nil {
-				log.Error(nil, "Error retrieving RDE for the cluster from VCD; obtained an empty response",
-					"InfraId", vcdCluster.Status.InfraId)
-			} else if resp.StatusCode != http.StatusOK {
-				log.Error(nil, "Error retrieving RDE for the cluster from VCD",
-					"InfraId", vcdCluster.Status.InfraId)
-			}
-		}
+	if err := r.reconcileRDE(ctx, cluster, vcdCluster, vcdClient, "", false); err != nil {
+		log.Error(err, "Error occurred during RDE reconciliation", "InfraId", vcdCluster.Status.InfraId)
 	}
 
 	// create VApp
@@ -1287,6 +1270,312 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	}
 
 	return ctrl.Result{}, nil
+}
+
+func (r *VCDClusterReconciler) deleteLB(ctx context.Context, vcdClient *vcdsdk.Client, vcdCluster *infrav1beta3.VCDCluster,
+	ovdcNetworkName string, ovdcName string, controlPlaneHost string, controlPlanePort int) error {
+
+	log := ctrl.LoggerFrom(ctx)
+
+	// AMK: multiAZ TODO this is probably not needed since we don't create the VDC here
+	//err = updateVcdResourceToVcdCluster(vcdCluster, ResourceTypeOvdc, vcdClient.VDC.Vdc.ID, vcdClient.VDC.Vdc.Name)
+	//if err != nil {
+	//	return errors.Wrapf(err,
+	//		"Error updating vcdResource into vcdcluster.status to reconcile Cluster [%s] infrastructure",
+	//		vcdCluster.Name)
+	//}
+
+	capvcdRdeManager := capisdk.NewCapvcdRdeManager(vcdClient, vcdCluster.Status.InfraId)
+	gateway, err := vcdsdk.NewGatewayManager(ctx, vcdClient, ovdcNetworkName,
+		vcdCluster.Spec.LoadBalancerConfigSpec.VipSubnet, ovdcName)
+	if err != nil {
+		updatedErr := capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDClusterError, "", vcdCluster.Name,
+			fmt.Sprintf("failed to create new gateway manager: [%v]", err))
+		if updatedErr != nil {
+			log.Error(updatedErr, "failed to add VCDClusterError into RDE",
+				"rdeID", vcdCluster.Status.InfraId)
+		}
+		return errors.Wrapf(err,
+			"failed to create gateway manager using the workload client to reconcile cluster [%s]",
+			vcdCluster.Name)
+	}
+	if err = capvcdRdeManager.RdeManager.RemoveErrorByNameOrIdFromErrorSet(ctx, vcdsdk.ComponentCAPVCD,
+		capisdk.VCDClusterError, "", ""); err != nil {
+		log.Error(err, "failed to remove VCDClusterError from RDE")
+	}
+
+	// Delete the load balancer components
+	virtualServiceNamePrefix := capisdk.GetVirtualServiceNamePrefix(vcdCluster.Name, vcdCluster.Status.InfraId)
+	lbPoolNamePrefix := capisdk.GetVirtualServiceNamePrefix(vcdCluster.Name, vcdCluster.Status.InfraId)
+
+	var oneArm *vcdsdk.OneArm = nil
+	if vcdCluster.Spec.LoadBalancerConfigSpec.UseOneArm {
+		oneArm = &OneArmDefault
+	}
+	resourcesAllocated := &vcdsdkutil.AllocatedResourcesMap{}
+	_, err = gateway.DeleteLoadBalancer(ctx, virtualServiceNamePrefix, lbPoolNamePrefix,
+		[]vcdsdk.PortDetails{
+			{
+				Protocol:     "TCP",
+				PortSuffix:   "tcp",
+				ExternalPort: int32(controlPlanePort),
+				InternalPort: int32(controlPlanePort),
+			},
+		}, oneArm, resourcesAllocated)
+	if err != nil {
+		err1 := capvcdRdeManager.AddToErrorSet(ctx, capisdk.LoadBalancerError, "", virtualServiceNamePrefix,
+			fmt.Sprintf("%v", err))
+		if err1 != nil {
+			log.Error(err1, "failed to add LoadBalancerError into RDE", "rdeID", vcdCluster.Status.InfraId)
+		}
+		return errors.Wrapf(err,
+			"Error occurred during cluster [%s] deletion; unable to delete the load balancer [%s]: [%v]",
+			vcdCluster.Name, virtualServiceNamePrefix, err)
+	}
+	log.Info("Deleted the load balancer components (virtual service, lb pool, dnat rule) of the cluster",
+		"virtual service", virtualServiceNamePrefix, "lb pool", lbPoolNamePrefix)
+	err = capvcdRdeManager.AddToEventSet(ctx, capisdk.LoadbalancerDeleted, virtualServiceNamePrefix,
+		"", "", true)
+	if err != nil {
+		log.Error(err, "failed to add LoadBalancerDeleted event into RDE", "rdeID", vcdCluster.Status.InfraId)
+	}
+	err = capvcdRdeManager.RdeManager.RemoveErrorByNameOrIdFromErrorSet(ctx, vcdsdk.ComponentCAPVCD,
+		capisdk.LoadBalancerError, "", "")
+	if err != nil {
+		log.Error(err, "failed to remove LoadBalancerError from RDE", "rdeID", vcdCluster.Status.InfraId)
+	}
+
+	if err = capvcdRdeManager.RdeManager.RemoveErrorByNameOrIdFromErrorSet(ctx, vcdsdk.ComponentCAPVCD,
+		capisdk.VCDClusterError, "", vcdCluster.Name); err != nil {
+		log.Error(err, "failed to remove VCDClusterError from RDE", "rdeID", vcdCluster.Status.InfraId)
+	}
+
+	return nil
+}
+
+func (r *VCDClusterReconciler) reconcileDeleteSingleVApp(ctx context.Context, orgName string, ovdcName string,
+	vAppName string, vcdClient *vcdsdk.Client, capvcdRdeManager *capisdk.CapvcdRdeManager,
+	vcdCluster *infrav1beta3.VCDCluster) (ctrl.Result, error) {
+
+	log := ctrl.LoggerFrom(ctx)
+	vdcManager, err := vcdsdk.NewVDCManager(vcdClient, vcdClient.ClusterOrgName,
+		ovdcName)
+	if err != nil {
+		updatedErr := capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDClusterError,
+			"", vcdCluster.Name, fmt.Sprintf("failed to get vdcManager: [%v]", err))
+		if updatedErr != nil {
+			log.Error(updatedErr, "failed to add VCDClusterError into RDE", "rdeID", vcdCluster.Status.InfraId)
+		}
+		return ctrl.Result{}, errors.Wrapf(err,
+			"Error creating vdc manager to to reconcile vcd infrastructure for cluster [%s]", vcdCluster.Name)
+	}
+
+	vApp, err := vdcManager.Vdc.GetVAppByName(vAppName, true)
+	if err != nil && err != govcd.ErrorEntityNotFound {
+		log.Error(err, fmt.Sprintf("Error occurred during vApp deletion; vApp [%s] not found",
+			vAppName))
+		return ctrl.Result{}, errors.Wrapf(err, "Error occurred during vApp deletion")
+	}
+	if err == govcd.ErrorEntityNotFound {
+		log.Info("vApp with name [%s] not found in OVDC [%s]", vAppName, ovdcName)
+		return ctrl.Result{}, nil
+	}
+
+	if vApp == nil {
+		log.Info("nil vApp found for vApp name [%s] in OVDC [%s]", vAppName, ovdcName)
+		return ctrl.Result{}, nil
+	}
+
+	//Delete the vApp if and only if rdeId (matches) present in the vApp
+	if !vcdCluster.Status.VAppMetadataUpdated {
+		err1 := capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDClusterError, "", vAppName,
+			fmt.Sprintf("rdeId is not presented in vApp metadata"))
+		if err1 != nil {
+			log.Error(err1, "failed to add VCDClusterError into RDE",
+				"rdeID", vcdCluster.Status.InfraId)
+		}
+		return ctrl.Result{}, errors.Errorf(
+			"Error occurred during cluster deletion; Field [VAppMetadataUpdated] is %t",
+			vcdCluster.Status.VAppMetadataUpdated)
+	}
+	metadataInfraId, err := vdcManager.GetMetadataByKey(vApp, CapvcdInfraId)
+	if err != nil {
+		err1 := capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDClusterError, "", vAppName,
+			fmt.Sprintf("%v", err))
+		if err1 != nil {
+			log.Error(err1, "failed to add VCDClusterError into RDE", "rdeID", vcdCluster.Status.InfraId)
+		}
+		return ctrl.Result{}, errors.Errorf("Error occurred during fetching metadata in vApp")
+	}
+	// checking the metadata value and vcdCluster.Status.InfraId are equal or not
+	if metadataInfraId != vcdCluster.Status.InfraId {
+		err1 := capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDClusterError,
+			"", vAppName, fmt.Sprintf("%v", err))
+		if err1 != nil {
+			log.Error(err1, "failed to add VCDClusterError into RDE", "rdeID", vcdCluster.Status.InfraId)
+		}
+		return ctrl.Result{},
+			errors.Errorf("error occurred during cluster deletion; failed to delete vApp [%s]",
+				vcdCluster.Name)
+	}
+	err = capvcdRdeManager.RdeManager.RemoveErrorByNameOrIdFromErrorSet(ctx, vcdsdk.ComponentCAPVCD,
+		capisdk.VCDClusterError, "", "")
+	if err != nil {
+		log.Error(err, "failed to remove VCDClusterError from RDE",
+			"rdeID", vcdCluster.Status.InfraId)
+	}
+	if vApp.VApp.Children != nil {
+		updatedErr := capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDClusterVappDeleteError, "", vcdCluster.Name, fmt.Sprintf(
+			"Error occurred during cluster deletion; %d VMs detected in the vApp %s",
+			len(vApp.VApp.Children.VM), vcdCluster.Name))
+		if updatedErr != nil {
+			log.Error(updatedErr, "failed to add VCDClusterVappDeleteError into RDE", "rdeID", vcdCluster.Status.InfraId)
+		}
+		return ctrl.Result{}, errors.Errorf(
+			"Error occurred during cluster deletion; %d VMs detected in the vApp %s",
+			len(vApp.VApp.Children.VM), vcdCluster.Name)
+	} else {
+		log.Info("Deleting vApp of the cluster", "vAppName", vcdCluster.Name)
+		err = vdcManager.DeleteVApp(vAppName)
+		if err != nil {
+			err1 := capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDClusterVappDeleteError,
+				"", vAppName, fmt.Sprintf("%v", err))
+			if err1 != nil {
+				log.Error(err1, "failed to add VCDClusterVappDeleteError into RDE",
+					"rdeID", vcdCluster.Status.InfraId)
+			}
+			return ctrl.Result{}, errors.Wrapf(err,
+				"Error occurred during cluster deletion; failed to delete vApp [%s]", vAppName)
+		}
+		log.Info("Successfully deleted vApp of the cluster", "vAppName", vAppName)
+	}
+
+	// Remove vapp from VCDResourceSet in the RDE
+	rdeManager := vcdsdk.NewRDEManager(vcdClient, vcdCluster.Status.InfraId,
+		capisdk.StatusComponentNameCAPVCD, release.Version)
+	err = rdeManager.RemoveFromVCDResourceSet(ctx, vcdsdk.ComponentCAPVCD, VCDResourceVApp, vcdCluster.Name)
+	if err != nil {
+		log.Error(
+			fmt.Errorf("failed to remove VCD resource [%s] from VCD resource set of RDE [%s]: [%v]",
+				VCDResourceVApp, vcdCluster.Status.InfraId, err),
+			"error occurred while removing VCD resource from VCD resource set in RDE")
+		updatedErr := capvcdRdeManager.AddToErrorSet(ctx, capisdk.RdeError, "", vcdCluster.Name,
+			fmt.Sprintf("failed to delete VCD Resource [%s] of type [%s] from VCDResourceSet of RDE [%s]: [%v]",
+				vcdCluster.Name, VCDResourceVApp, vcdCluster.Status.InfraId, err))
+		if updatedErr != nil {
+			log.Error(updatedErr, "failed to add RdeError into RDE", "rdeID", vcdCluster.Status.InfraId)
+		}
+	}
+	if err = capvcdRdeManager.RdeManager.RemoveErrorByNameOrIdFromErrorSet(ctx, vcdsdk.ComponentCAPVCD, capisdk.RdeError, "", vcdCluster.Name); err != nil {
+		log.Error(err, "failed to remove RdeError from RDE", "rdeID", vcdCluster.Status.InfraId)
+	}
+	err = capvcdRdeManager.AddToEventSet(ctx, capisdk.VappDeleted, "", "", "", true)
+	if err != nil {
+		log.Error(err, "failed to add vAppDeleted event into RDE", "rdeID", vcdCluster.Status.InfraId)
+	}
+	err = capvcdRdeManager.RdeManager.RemoveErrorByNameOrIdFromErrorSet(ctx, vcdsdk.ComponentCAPVCD, capisdk.VCDClusterVappDeleteError, "", "")
+	if err != nil {
+		log.Error(err, "failed to remove vAppDeleteError from RDE", "rdeID", vcdCluster.Status.InfraId)
+	}
+
+	return ctrl.Result{}, nil
+}
+
+func (r *VCDClusterReconciler) reconcileDeleteVApps(ctx context.Context,
+	vcdCluster *infrav1beta3.VCDCluster, vcdClient *vcdsdk.Client) (ctrl.Result, error) {
+
+	log := ctrl.LoggerFrom(ctx)
+	capvcdRDEManager := capisdk.NewCapvcdRdeManager(vcdClient, vcdCluster.Status.InfraId)
+
+	result, err := r.reconcileDeleteSingleVApp(ctx, vcdCluster.Spec.Org, vcdCluster.Spec.Ovdc, vcdCluster.Name,
+		vcdClient, capvcdRDEManager, vcdCluster)
+	if err != nil {
+		// this is potentially an irrecoverable FATAL error
+		log.Error(err, "unable to delete single vApp",
+			"orgName", vcdClient.ClusterOrgName, "ovdcName", vcdCluster.Spec.Ovdc,
+			"vAppName", vcdCluster.Name)
+		return result, errors.Wrapf(err,
+			"unable to get delete single vApp [%s] in Org [%s], OVDC [%s]", vcdCluster.Name,
+			vcdClient.ClusterOrgName, vcdCluster.Spec.Ovdc)
+	}
+	log.Info("Successfully deleted vApp [%s] in Org [%s], OVDC [%s]", vcdCluster.Name,
+		vcdClient.ClusterOrgName, vcdCluster.Spec.Ovdc)
+	return ctrl.Result{}, nil
+}
+
+func (r *VCDClusterReconciler) reconcileDeleteRDE(ctx context.Context, vcdClient *vcdsdk.Client, vcdCluster *infrav1beta3.VCDCluster) error {
+
+	log := ctrl.LoggerFrom(ctx)
+	log.Info("Deleting RDE for the cluster", "InfraID", vcdCluster.Status.InfraId)
+	// TODO: If RDE deletion fails, should we throw an error during reconciliation?
+	// Delete RDE
+	capvcdRdeManager := capisdk.NewCapvcdRdeManager(vcdClient, vcdCluster.Status.InfraId)
+
+	if vcdCluster.Status.InfraId != "" && !strings.HasPrefix(vcdCluster.Status.InfraId, NoRdePrefix) {
+		org, err := vcdClient.VCDClient.GetOrgByName(vcdClient.ClusterOrgName)
+		if err != nil {
+			return errors.Wrapf(errors.New("failed to get org by name"), "error getting org by name for org [%s]: [%v]", vcdClient.ClusterOrgName, err)
+		}
+		if org == nil || org.Org == nil {
+			return errors.Wrapf(errors.New("invalid org ref obtained"),
+				"obtained nil org when getting org by name [%s]", vcdClient.ClusterOrgName)
+		}
+		definedEntities, resp, err := vcdClient.APIClient.DefinedEntityApi.GetDefinedEntitiesByEntityType(ctx,
+			capisdk.CAPVCDTypeVendor, capisdk.CAPVCDTypeNss, capisdk.CAPVCDEntityTypeDefaultMajorVersion, org.Org.ID, 1, 25,
+			&swagger.DefinedEntityApiGetDefinedEntitiesByEntityTypeOpts{
+				Filter: optional.NewString(fmt.Sprintf("id==%s", vcdCluster.Status.InfraId)),
+			})
+		if err != nil {
+			err1 := capvcdRdeManager.AddToErrorSet(ctx, capisdk.RdeError, "", "", fmt.Sprintf("failed to get RDE [%s]: %v", vcdCluster.Status.InfraId, err))
+			if err1 != nil {
+				log.Error(err1, "failed to add RdeError into RDE", "rdeID", vcdCluster.Status.InfraId)
+			}
+			return errors.Wrapf(err, "Error occurred during RDE deletion; failed to fetch defined entities by entity type [%s] and ID [%s] for cluster [%s]", CAPVCDEntityTypeID, vcdCluster.Status.InfraId, vcdCluster.Name)
+		}
+		if resp != nil && resp.StatusCode != http.StatusOK {
+			err1 := capvcdRdeManager.AddToErrorSet(ctx, capisdk.RdeError, "", "", fmt.Sprintf("Got wrong status code while fetching RDE [%s]: %v", vcdCluster.Status.InfraId, err))
+			if err1 != nil {
+				log.Error(err1, "failed to add RdeError into RDE", "rdeID", vcdCluster.Status.InfraId)
+			}
+			return errors.Errorf("Error occurred during RDE deletion; error while fetching defined entities by entity type [%s] and ID [%s] for cluster [%s]", CAPVCDEntityTypeID, vcdCluster.Status.InfraId, vcdCluster.Name)
+		}
+		if len(definedEntities.Values) > 0 {
+			// resolve defined entity before deleting
+			entityState, resp, err := vcdClient.APIClient.DefinedEntityApi.ResolveDefinedEntity(ctx,
+				vcdCluster.Status.InfraId, org.Org.ID)
+			if err != nil {
+				err1 := capvcdRdeManager.AddToErrorSet(ctx, capisdk.RdeError, "", "", fmt.Sprintf("failed to resolve entity: [%v]", err))
+				if err1 != nil {
+					log.Error(err1, "failed to add RdeError into RDE", "rdeID", vcdCluster.Status.InfraId)
+				}
+				return errors.Wrapf(err, "Error occurred during RDE deletion; error occurred while resolving defined entity [%s] with ID [%s] before deleting", vcdCluster.Name, vcdCluster.Status.InfraId)
+			}
+			if resp.StatusCode != http.StatusOK {
+				log.Error(nil, "Error occurred during RDE deletion; failed to resolve RDE with ID [%s] for cluster [%s]: [%s]", vcdCluster.Status.InfraId, vcdCluster.Name, entityState.Message)
+			}
+			resp, err = vcdClient.APIClient.DefinedEntityApi.DeleteDefinedEntity(ctx,
+				vcdCluster.Status.InfraId, org.Org.ID, nil)
+			if err != nil {
+				err1 := capvcdRdeManager.AddToErrorSet(ctx, capisdk.RdeError, "", "", fmt.Sprintf("%v", err))
+				if err1 != nil {
+					log.Error(err1, "failed to add RdeError into RDE", "rdeID", vcdCluster.Status.InfraId)
+				}
+				return errors.Wrapf(err, "error occurred during RDE deletion; failed to execute delete defined entity call for RDE with ID [%s]", vcdCluster.Status.InfraId)
+			}
+			if resp.StatusCode != http.StatusNoContent {
+				err1 := capvcdRdeManager.AddToErrorSet(ctx, capisdk.RdeError, "", "", fmt.Sprintf("%v", err))
+				if err1 != nil {
+					log.Error(err1, "failed to add RdeError into RDE", "rdeID", vcdCluster.Status.InfraId)
+				}
+				return errors.Errorf("Error occurred during RDE deletion; error deleting defined entity associated with the cluster. RDE id: [%s]", vcdCluster.Status.InfraId)
+			}
+			log.Info("Successfully deleted the (RDE) defined entity of the cluster")
+		} else {
+			log.Info("Attempted deleting the RDE, but corresponding defined entity is not found", "RDEId", vcdCluster.Status.InfraId)
+		}
+	}
+
+	return nil
 }
 
 func (r *VCDClusterReconciler) reconcileDelete(ctx context.Context,
@@ -1323,233 +1612,39 @@ func (r *VCDClusterReconciler) reconcileDelete(ctx context.Context,
 		return ctrl.Result{}, errors.Wrapf(err, "failed to get the Organization VDC (OVDC) from the VCD client for reconciling infrastructure of Cluster [%s]", vcdCluster.Name)
 	}
 
+	ovdcName := vcdCluster.Spec.Ovdc
+	ovdcNetworkName := vcdCluster.Spec.OvdcNetwork
+	controlPlaneHost := vcdCluster.Spec.ControlPlaneEndpoint.Host
+	controlPlanePort := vcdCluster.Spec.ControlPlaneEndpoint.Port
+	if controlPlanePort == 0 {
+		controlPlanePort = TcpPort
+	}
+	if err = r.deleteLB(ctx, vcdClient, vcdCluster, ovdcNetworkName, ovdcName, controlPlaneHost, controlPlanePort); err != nil {
+		return ctrl.Result{}, errors.Wrapf(err,
+			"unable to delete LB with control plane host [%s], port[%d] in ovdc [%s] and network [%s]: [%v]",
+			controlPlaneHost, controlPlanePort, ovdcName, ovdcNetworkName, err)
+	}
+
 	err = updateVdcResourceToVcdCluster(vcdCluster, ResourceTypeOvdc, vcdClient.VDC.Vdc.ID, vcdClient.VDC.Vdc.Name)
 	if err != nil {
 		return ctrl.Result{}, errors.Wrapf(err, "Error updating vcdResource into vcdcluster.status to reconcile Cluster [%s] infrastructure", vcdCluster.Name)
 	}
 
-	capvcdRdeManager := capisdk.NewCapvcdRdeManager(vcdClient, vcdCluster.Status.InfraId)
-
-	gateway, err := vcdsdk.NewGatewayManager(ctx, vcdClient, vcdCluster.Spec.OvdcNetwork,
-		vcdCluster.Spec.LoadBalancerConfigSpec.VipSubnet, vcdCluster.Spec.Ovdc)
-	if err != nil {
-		updatedErr := capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDClusterError, "", vcdCluster.Name, fmt.Sprintf("failed to create new gateway manager: [%v]", err))
-		if updatedErr != nil {
-			log.Error(updatedErr, "failed to add VCDClusterError into RDE", "rdeID", vcdCluster.Status.InfraId)
-		}
-		return ctrl.Result{}, errors.Wrapf(err, "failed to create gateway manager using the workload client to reconcile cluster [%s]", vcdCluster.Name)
-	}
-	if err = capvcdRdeManager.RdeManager.RemoveErrorByNameOrIdFromErrorSet(ctx, vcdsdk.ComponentCAPVCD, capisdk.VCDClusterError, "", ""); err != nil {
-		log.Error(err, "failed to remove VCDClusterError from RDE")
-	}
-
-	// Delete the load balancer components
-	virtualServiceNamePrefix := capisdk.GetVirtualServiceNamePrefix(vcdCluster.Name, vcdCluster.Status.InfraId)
-	lbPoolNamePrefix := capisdk.GetLoadBalancerPoolNamePrefix(vcdCluster.Name, vcdCluster.Status.InfraId)
-
-	controlPlanePort := vcdCluster.Spec.ControlPlaneEndpoint.Port
-	if controlPlanePort == 0 {
-		controlPlanePort = TcpPort
-	}
-	var oneArm *vcdsdk.OneArm = nil
-	if vcdCluster.Spec.LoadBalancerConfigSpec.UseOneArm {
-		oneArm = &OneArmDefault
-	}
-	resourcesAllocated := &vcdsdkutil.AllocatedResourcesMap{}
-	_, err = gateway.DeleteLoadBalancer(ctx, virtualServiceNamePrefix, lbPoolNamePrefix,
-		[]vcdsdk.PortDetails{
-			{
-				Protocol:     "TCP",
-				PortSuffix:   "tcp",
-				ExternalPort: int32(controlPlanePort),
-				InternalPort: int32(controlPlanePort),
-			},
-		}, oneArm, resourcesAllocated)
-	if err != nil {
-		err1 := capvcdRdeManager.AddToErrorSet(ctx, capisdk.LoadBalancerError, "", virtualServiceNamePrefix, fmt.Sprintf("%v", err))
-		if err1 != nil {
-			log.Error(err1, "failed to add LoadBalancerError into RDE", "rdeID", vcdCluster.Status.InfraId)
-		}
-		return ctrl.Result{}, errors.Wrapf(err,
-			"Error occurred during cluster [%s] deletion; unable to delete the load balancer [%s]: [%v]",
-			vcdCluster.Name, virtualServiceNamePrefix, err)
-	}
-	log.Info("Deleted the load balancer components (virtual service, lb pool, dnat rule) of the cluster",
-		"virtual service", virtualServiceNamePrefix, "lb pool", lbPoolNamePrefix)
-	err = capvcdRdeManager.AddToEventSet(ctx, capisdk.LoadbalancerDeleted, virtualServiceNamePrefix, "", "", true)
-	if err != nil {
-		log.Error(err, "failed to add LoadBalancerDeleted event into RDE", "rdeID", vcdCluster.Status.InfraId)
-	}
-	err = capvcdRdeManager.RdeManager.RemoveErrorByNameOrIdFromErrorSet(ctx, vcdsdk.ComponentCAPVCD, capisdk.LoadBalancerError, "", "")
-	if err != nil {
-		log.Error(err, "failed to remove LoadBalancerError from RDE", "rdeID", vcdCluster.Status.InfraId)
-	}
-
-	vdcManager, err := vcdsdk.NewVDCManager(vcdClient, vcdClient.ClusterOrgName,
-		vcdClient.ClusterOVDCName)
-	if err != nil {
-		updatedErr := capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDClusterError, "", vcdCluster.Name, fmt.Sprintf("failed to get vdcManager: [%v]", err))
-		if updatedErr != nil {
-			log.Error(updatedErr, "failed to add VCDClusterError into RDE", "rdeID", vcdCluster.Status.InfraId)
-		}
-		return ctrl.Result{}, errors.Wrapf(err, "Error creating vdc manager to to reconcile vcd infrastructure for cluster [%s]", vcdCluster.Name)
-	}
-	if err = capvcdRdeManager.RdeManager.RemoveErrorByNameOrIdFromErrorSet(ctx, vcdsdk.ComponentCAPVCD, capisdk.VCDClusterError, "", vcdCluster.Name); err != nil {
-		log.Error(err, "failed to remove VCDClusterError from RDE", "rdeID", vcdCluster.Status.InfraId)
-	}
 	// Delete vApp
-	vApp, err := vcdClient.VDC.GetVAppByName(vcdCluster.Name, true)
+	result, err := r.reconcileDeleteVApps(ctx, vcdCluster, vcdClient)
 	if err != nil {
-		log.Error(err, fmt.Sprintf("Error occurred during cluster deletion; vApp [%s] not found", vcdCluster.Name))
-	}
-	if vApp != nil {
-		//Delete the vApp if and only if rdeId (matches) present in the vApp
-		if !vcdCluster.Status.VAppMetadataUpdated {
-			err1 := capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDClusterError, "", vcdCluster.Name, fmt.Sprintf("rdeId is not presented in vApp metadata"))
-			if err1 != nil {
-				log.Error(err1, "failed to add VCDClusterError into RDE", "rdeID", vcdCluster.Status.InfraId)
-			}
-			return ctrl.Result{}, errors.Errorf("Error occurred during cluster deletion; Field [VAppMetadataUpdated] is %t", vcdCluster.Status.VAppMetadataUpdated)
-		}
-		metadataInfraId, err := vdcManager.GetMetadataByKey(vApp, CapvcdInfraId)
-		if err != nil {
-			err1 := capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDClusterError, "", vcdCluster.Name, fmt.Sprintf("%v", err))
-			if err1 != nil {
-				log.Error(err1, "failed to add VCDClusterError into RDE", "rdeID", vcdCluster.Status.InfraId)
-			}
-			return ctrl.Result{}, errors.Errorf("Error occurred during fetching metadata in vApp")
-		}
-		// checking the metadata value and vcdCluster.Status.InfraId are equal or not
-		if metadataInfraId != vcdCluster.Status.InfraId {
-			err1 := capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDClusterError, "", vcdCluster.Name, fmt.Sprintf("%v", err))
-			if err1 != nil {
-				log.Error(err1, "failed to add VCDClusterError into RDE", "rdeID", vcdCluster.Status.InfraId)
-			}
-			return ctrl.Result{},
-				errors.Errorf("error occurred during cluster deletion; failed to delete vApp [%s]",
-					vcdCluster.Name)
-		}
-		err = capvcdRdeManager.RdeManager.RemoveErrorByNameOrIdFromErrorSet(ctx, vcdsdk.ComponentCAPVCD, capisdk.VCDClusterError, "", "")
-		if err != nil {
-			log.Error(err, "failed to remove VCDClusterError from RDE", "rdeID", vcdCluster.Status.InfraId)
-		}
-		if vApp.VApp.Children != nil {
-			updatedErr := capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDClusterVappDeleteError, "", vcdCluster.Name, fmt.Sprintf(
-				"Error occurred during cluster deletion; %d VMs detected in the vApp %s",
-				len(vApp.VApp.Children.VM), vcdCluster.Name))
-			if updatedErr != nil {
-				log.Error(updatedErr, "failed to add VCDClusterVappDeleteError into RDE", "rdeID", vcdCluster.Status.InfraId)
-			}
-			return ctrl.Result{}, errors.Errorf(
-				"Error occurred during cluster deletion; %d VMs detected in the vApp %s",
-				len(vApp.VApp.Children.VM), vcdCluster.Name)
-		} else {
-			log.Info("Deleting vApp of the cluster", "vAppName", vcdCluster.Name)
-			err = vdcManager.DeleteVApp(vcdCluster.Name)
-			if err != nil {
-				err1 := capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDClusterVappDeleteError, "", vcdCluster.Name, fmt.Sprintf("%v", err))
-				if err1 != nil {
-					log.Error(err1, "failed to add VCDClusterVappDeleteError into RDE", "rdeID", vcdCluster.Status.InfraId)
-				}
-				return ctrl.Result{}, errors.Wrapf(err,
-					"Error occurred during cluster deletion; failed to delete vApp [%s]", vcdCluster.Name)
-			}
-			log.Info("Successfully deleted vApp of the cluster", "vAppName", vcdCluster.Name)
-		}
-	}
-	// Remove vapp from VCDResourceSet in the RDE
-	rdeManager := vcdsdk.NewRDEManager(vcdClient, vcdCluster.Status.InfraId,
-		capisdk.StatusComponentNameCAPVCD, release.Version)
-	err = rdeManager.RemoveFromVCDResourceSet(ctx, vcdsdk.ComponentCAPVCD, VCDResourceVApp, vcdCluster.Name)
-	if err != nil {
-		log.Error(
-			fmt.Errorf("failed to remove VCD resource [%s] from VCD resource set of RDE [%s]: [%v]",
-				VCDResourceVApp, vcdCluster.Status.InfraId, err),
-			"error occurred while removing VCD resource from VCD resource set in RDE")
-		updatedErr := capvcdRdeManager.AddToErrorSet(ctx, capisdk.RdeError, "", vcdCluster.Name,
-			fmt.Sprintf("failed to delete VCD Resource [%s] of type [%s] from VCDResourceSet of RDE [%s]: [%v]",
-				vcdCluster.Name, VCDResourceVApp, vcdCluster.Status.InfraId, err))
-		if updatedErr != nil {
-			log.Error(updatedErr, "failed to add RdeError into RDE", "rdeID", vcdCluster.Status.InfraId)
-		}
-	}
-	if err = capvcdRdeManager.RdeManager.RemoveErrorByNameOrIdFromErrorSet(ctx, vcdsdk.ComponentCAPVCD, capisdk.RdeError, "", vcdCluster.Name); err != nil {
-		log.Error(err, "failed to remove RdeError from RDE", "rdeID", vcdCluster.Status.InfraId)
-	}
-	err = capvcdRdeManager.AddToEventSet(ctx, capisdk.VappDeleted, "", "", "", true)
-	if err != nil {
-		log.Error(err, "failed to add vAppDeleted event into RDE", "rdeID", vcdCluster.Status.InfraId)
-	}
-	err = capvcdRdeManager.RdeManager.RemoveErrorByNameOrIdFromErrorSet(ctx, vcdsdk.ComponentCAPVCD, capisdk.VCDClusterVappDeleteError, "", "")
-	if err != nil {
-		log.Error(err, "failed to remove vAppDeleteError from RDE", "rdeID", vcdCluster.Status.InfraId)
+		log.Error(err, "unable to delete vApps of cluster", "cluster", vcdCluster.Name)
+		return result, errors.Wrapf(err, "error occurred during cluster deletion; failed to delete vApp [%s]",
+			vcdCluster.Name)
 	}
 
-	// TODO: If RDE deletion fails, should we throw an error during reconciliation?
 	// Delete RDE
-	if vcdCluster.Status.InfraId != "" && !strings.HasPrefix(vcdCluster.Status.InfraId, NoRdePrefix) {
-		org, err := vcdClient.VCDClient.GetOrgByName(vcdClient.ClusterOrgName)
-		if err != nil {
-			return ctrl.Result{}, errors.Wrapf(errors.New("failed to get org by name"), "error getting org by name for org [%s]: [%v]", vcdClient.ClusterOrgName, err)
-		}
-		if org == nil || org.Org == nil {
-			return ctrl.Result{}, errors.Wrapf(errors.New("invalid org ref obtained"),
-				"obtained nil org when getting org by name [%s]", vcdClient.ClusterOrgName)
-		}
-		definedEntities, resp, err := vcdClient.APIClient.DefinedEntityApi.GetDefinedEntitiesByEntityType(ctx,
-			capisdk.CAPVCDTypeVendor, capisdk.CAPVCDTypeNss, capisdk.CAPVCDEntityTypeDefaultMajorVersion, org.Org.ID, 1, 25,
-			&swagger.DefinedEntityApiGetDefinedEntitiesByEntityTypeOpts{
-				Filter: optional.NewString(fmt.Sprintf("id==%s", vcdCluster.Status.InfraId)),
-			})
-		if err != nil {
-			err1 := capvcdRdeManager.AddToErrorSet(ctx, capisdk.RdeError, "", "", fmt.Sprintf("failed to get RDE [%s]: %v", vcdCluster.Status.InfraId, err))
-			if err1 != nil {
-				log.Error(err1, "failed to add RdeError into RDE", "rdeID", vcdCluster.Status.InfraId)
-			}
-			return ctrl.Result{}, errors.Wrapf(err, "Error occurred during RDE deletion; failed to fetch defined entities by entity type [%s] and ID [%s] for cluster [%s]", CAPVCDEntityTypeID, vcdCluster.Status.InfraId, vcdCluster.Name)
-		}
-		if resp != nil && resp.StatusCode != http.StatusOK {
-			err1 := capvcdRdeManager.AddToErrorSet(ctx, capisdk.RdeError, "", "", fmt.Sprintf("Got wrong status code while fetching RDE [%s]: %v", vcdCluster.Status.InfraId, err))
-			if err1 != nil {
-				log.Error(err1, "failed to add RdeError into RDE", "rdeID", vcdCluster.Status.InfraId)
-			}
-			return ctrl.Result{}, errors.Errorf("Error occurred during RDE deletion; error while fetching defined entities by entity type [%s] and ID [%s] for cluster [%s]", CAPVCDEntityTypeID, vcdCluster.Status.InfraId, vcdCluster.Name)
-		}
-		if len(definedEntities.Values) > 0 {
-			// resolve defined entity before deleting
-			entityState, resp, err := vcdClient.APIClient.DefinedEntityApi.ResolveDefinedEntity(ctx,
-				vcdCluster.Status.InfraId, org.Org.ID)
-			if err != nil {
-				err1 := capvcdRdeManager.AddToErrorSet(ctx, capisdk.RdeError, "", "", fmt.Sprintf("failed to resolve entity: [%v]", err))
-				if err1 != nil {
-					log.Error(err1, "failed to add RdeError into RDE", "rdeID", vcdCluster.Status.InfraId)
-				}
-				return ctrl.Result{}, errors.Wrapf(err, "Error occurred during RDE deletion; error occurred while resolving defined entity [%s] with ID [%s] before deleting", vcdCluster.Name, vcdCluster.Status.InfraId)
-			}
-			if resp.StatusCode != http.StatusOK {
-				log.Error(nil, "Error occurred during RDE deletion; failed to resolve RDE with ID [%s] for cluster [%s]: [%s]", vcdCluster.Status.InfraId, vcdCluster.Name, entityState.Message)
-			}
-			resp, err = vcdClient.APIClient.DefinedEntityApi.DeleteDefinedEntity(ctx,
-				vcdCluster.Status.InfraId, org.Org.ID, nil)
-			if err != nil {
-				err1 := capvcdRdeManager.AddToErrorSet(ctx, capisdk.RdeError, "", "", fmt.Sprintf("%v", err))
-				if err1 != nil {
-					log.Error(err1, "failed to add RdeError into RDE", "rdeID", vcdCluster.Status.InfraId)
-				}
-				return ctrl.Result{}, errors.Wrapf(err, "error occurred during RDE deletion; failed to execute delete defined entity call for RDE with ID [%s]", vcdCluster.Status.InfraId)
-			}
-			if resp.StatusCode != http.StatusNoContent {
-				err1 := capvcdRdeManager.AddToErrorSet(ctx, capisdk.RdeError, "", "", fmt.Sprintf("%v", err))
-				if err1 != nil {
-					log.Error(err1, "failed to add RdeError into RDE", "rdeID", vcdCluster.Status.InfraId)
-				}
-				return ctrl.Result{}, errors.Errorf("Error occurred during RDE deletion; error deleting defined entity associated with the cluster. RDE id: [%s]", vcdCluster.Status.InfraId)
-			}
-			log.Info("Successfully deleted the (RDE) defined entity of the cluster")
-		} else {
-			log.Info("Attempted deleting the RDE, but corresponding defined entity is not found", "RDEId", vcdCluster.Status.InfraId)
-		}
+	if deleteErr := r.reconcileDeleteRDE(ctx, vcdClient, vcdCluster); deleteErr != nil {
+		log.Error(err, "Error occurred while deleting RDE: [%v]", deleteErr)
+		return ctrl.Result{}, errors.Wrapf(err, "error occurred during deleting RDE for the cluster [%s]",
+			vcdCluster.Status.InfraId)
 	}
+
 	log.Info("Successfully deleted all the infra resources of the cluster")
 	// Cluster is deleted so remove the finalizer.
 	controllerutil.RemoveFinalizer(vcdCluster, infrav1beta3.ClusterFinalizer)
