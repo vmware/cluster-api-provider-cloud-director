@@ -11,17 +11,18 @@ import (
 	_ "embed" // this needs go 1.16+
 	b64 "encoding/base64"
 	"fmt"
-	swagger "github.com/vmware/cloud-provider-for-cloud-director/pkg/vcdswaggerclient_36_0"
-	"github.com/vmware/cluster-api-provider-cloud-director/common"
-	vcdutil "github.com/vmware/cluster-api-provider-cloud-director/pkg/util"
 	"math"
 	"math/rand"
 	"reflect"
-	"sigs.k8s.io/yaml"
 	"strconv"
 	"strings"
 	"text/template"
 	"time"
+
+	swagger "github.com/vmware/cloud-provider-for-cloud-director/pkg/vcdswaggerclient_36_0"
+	"github.com/vmware/cluster-api-provider-cloud-director/common"
+	vcdutil "github.com/vmware/cluster-api-provider-cloud-director/pkg/util"
+	"sigs.k8s.io/yaml"
 
 	"github.com/Masterminds/sprig/v3"
 	"github.com/go-logr/logr"
@@ -384,7 +385,12 @@ func GetMachineDeploymentName(ctx context.Context, cli client.Client, vcdCluster
 	machine *clusterv1.Machine) (string, error) {
 
 	machineList := &clusterv1.MachineList{}
-	machineListLabels := map[string]string{clusterv1.ClusterNameLabel: vcdCluster.Name}
+	clusterName, ok := vcdCluster.GetLabels()[clusterv1.ClusterNameLabel]
+	if !ok {
+		return "", fmt.Errorf("unable to get cluster name from the vcdCluster object [%s]", vcdCluster.Name)
+	}
+
+	machineListLabels := map[string]string{clusterv1.ClusterNameLabel: clusterName}
 	if err := cli.List(ctx, machineList, client.InNamespace(vcdCluster.Namespace),
 		client.MatchingLabels(machineListLabels)); err != nil {
 		return "", fmt.Errorf("error getting MachineList object for cluster [%s]: [%v]", vcdCluster.Name, err)
