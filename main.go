@@ -101,7 +101,7 @@ func main() {
 		SyncPeriod:             &syncPeriod,
 		HealthProbeBindAddress: probeAddr,
 		LeaderElection:         enableLeaderElection,
-		LeaderElectionID:       "cluster.x-k8s.io",
+		LeaderElectionID:       "capvcd-controller-manager-leader-election",
 	})
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
