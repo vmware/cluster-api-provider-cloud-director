@@ -10,7 +10,7 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     cert-manager.io/inject-ca-from: capvcd-system/capvcd-serving-cert
-    controller-gen.kubebuilder.io/version: v0.4.1
+    controller-gen.kubebuilder.io/version: v0.13.0
   labels:
     cluster.x-k8s.io/provider: infrastructure-vcd
     cluster.x-k8s.io/v1alpha4: v1alpha4
@@ -248,6 +248,7 @@ spec:
                           secret name must be unique.
                         type: string
                     type: object
+                    x-kubernetes-map-type: atomic
                   username:
                     type: string
                 type: object
@@ -460,6 +461,7 @@ spec:
                           secret name must be unique.
                         type: string
                     type: object
+                    x-kubernetes-map-type: atomic
                   username:
                     type: string
                 type: object
@@ -694,6 +696,7 @@ spec:
                           secret name must be unique.
                         type: string
                     type: object
+                    x-kubernetes-map-type: atomic
                   username:
                     type: string
                 type: object
@@ -839,19 +842,12 @@ spec:
     storage: true
     subresources:
       status: {}
-status:
-  acceptedNames:
-    kind: ""
-    plural: ""
-  conditions: []
-  storedVersions: []
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.4.1
-  creationTimestamp: null
+    controller-gen.kubebuilder.io/version: v0.13.0
   labels:
     cluster.x-k8s.io/provider: infrastructure-vcd
     cluster.x-k8s.io/v1alpha4: v1alpha4
@@ -968,6 +964,7 @@ spec:
                                   the secret name must be unique.
                                 type: string
                             type: object
+                            x-kubernetes-map-type: atomic
                           username:
                             type: string
                         type: object
@@ -989,19 +986,13 @@ spec:
     storage: true
     subresources:
       status: {}
-status:
-  acceptedNames:
-    kind: ""
-    plural: ""
-  conditions: []
-  storedVersions: []
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
     cert-manager.io/inject-ca-from: capvcd-system/capvcd-serving-cert
-    controller-gen.kubebuilder.io/version: v0.4.1
+    controller-gen.kubebuilder.io/version: v0.13.0
   labels:
     cluster.x-k8s.io/provider: infrastructure-vcd
     cluster.x-k8s.io/v1alpha4: v1alpha4
@@ -1671,19 +1662,13 @@ spec:
     storage: true
     subresources:
       status: {}
-status:
-  acceptedNames:
-    kind: ""
-    plural: ""
-  conditions: []
-  storedVersions: []
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
     cert-manager.io/inject-ca-from: capvcd-system/capvcd-serving-cert
-    controller-gen.kubebuilder.io/version: v0.4.1
+    controller-gen.kubebuilder.io/version: v0.13.0
   labels:
     cluster.x-k8s.io/provider: infrastructure-vcd
     cluster.x-k8s.io/v1alpha4: v1alpha4
@@ -2090,12 +2075,6 @@ spec:
     storage: true
     subresources:
       status: {}
-status:
-  acceptedNames:
-    kind: ""
-    plural: ""
-  conditions: []
-  storedVersions: []
 ---
 apiVersion: v1
 kind: ServiceAccount
@@ -2148,7 +2127,6 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  creationTimestamp: null
   labels:
     cluster.x-k8s.io/provider: infrastructure-vcd
   name: capvcd-manager-role
@@ -2461,7 +2439,7 @@ webhooks:
       namespace: capvcd-system
       path: /mutate-infrastructure-cluster-x-k8s-io-v1beta3-vcdcluster
   failurePolicy: Fail
-  name: mvcdcluster.kb.io
+  name: mutation.vcdcluster.infrastructure.cluster.x-k8s.io
   rules:
   - apiGroups:
     - infrastructure.cluster.x-k8s.io
@@ -2481,52 +2459,12 @@ webhooks:
       namespace: capvcd-system
       path: /mutate-infrastructure-cluster-x-k8s-io-v1beta3-vcdmachine
   failurePolicy: Fail
-  name: mvcdmachine.kb.io
-  rules:
-  - apiGroups:
-    - infrastructure.cluster.x-k8s.io
-    apiVersions:
-    - v1beta3
-    operations:
-    - CREATE
-    - UPDATE
-    resources:
-    - vcdmachines
-  sideEffects: None
-- admissionReviewVersions:
-  - v1
-  clientConfig:
-    service:
-      name: capvcd-webhook-service
-      namespace: capvcd-system
-      path: /mutate-infrastructure-cluster-x-k8s-io-v1beta2-vcdcluster
-  failurePolicy: Fail
-  name: mutation.vcdcluster.infrastructure.cluster.x-k8s.io
-  rules:
-  - apiGroups:
-    - infrastructure.cluster.x-k8s.io
-    apiVersions:
-    - v1beta2
-    operations:
-    - CREATE
-    - UPDATE
-    resources:
-    - vcdclusters
-  sideEffects: None
-- admissionReviewVersions:
-  - v1
-  clientConfig:
-    service:
-      name: capvcd-webhook-service
-      namespace: capvcd-system
-      path: /mutate-infrastructure-cluster-x-k8s-io-v1beta2-vcdmachine
-  failurePolicy: Fail
   name: mutation.vcdmachine.infrastructure.cluster.x-k8s.io
   rules:
   - apiGroups:
     - infrastructure.cluster.x-k8s.io
     apiVersions:
-    - v1beta2
+    - v1beta3
     operations:
     - CREATE
     - UPDATE
@@ -2551,7 +2489,7 @@ webhooks:
       namespace: capvcd-system
       path: /validate-infrastructure-cluster-x-k8s-io-v1beta3-vcdcluster
   failurePolicy: Fail
-  name: vvcdcluster.kb.io
+  name: validation.vcdcluster.infrastructure.cluster.x-k8s.io
   rules:
   - apiGroups:
     - infrastructure.cluster.x-k8s.io
@@ -2571,52 +2509,12 @@ webhooks:
       namespace: capvcd-system
       path: /validate-infrastructure-cluster-x-k8s-io-v1beta3-vcdmachine
   failurePolicy: Fail
-  name: vvcdmachine.kb.io
-  rules:
-  - apiGroups:
-    - infrastructure.cluster.x-k8s.io
-    apiVersions:
-    - v1beta3
-    operations:
-    - CREATE
-    - UPDATE
-    resources:
-    - vcdmachines
-  sideEffects: None
-- admissionReviewVersions:
-  - v1
-  clientConfig:
-    service:
-      name: capvcd-webhook-service
-      namespace: capvcd-system
-      path: /validate-infrastructure-cluster-x-k8s-io-v1beta2-vcdcluster
-  failurePolicy: Fail
-  name: validation.vcdcluster.infrastructure.cluster.x-k8s.io
-  rules:
-  - apiGroups:
-    - infrastructure.cluster.x-k8s.io
-    apiVersions:
-    - v1beta2
-    operations:
-    - CREATE
-    - UPDATE
-    resources:
-    - vcdclusters
-  sideEffects: None
-- admissionReviewVersions:
-  - v1
-  clientConfig:
-    service:
-      name: capvcd-webhook-service
-      namespace: capvcd-system
-      path: /validate-infrastructure-cluster-x-k8s-io-v1beta2-vcdmachine
-  failurePolicy: Fail
   name: validation.vcdmachine.infrastructure.cluster.x-k8s.io
   rules:
   - apiGroups:
     - infrastructure.cluster.x-k8s.io
     apiVersions:
-    - v1beta2
+    - v1beta3
     operations:
     - CREATE
     - UPDATE
