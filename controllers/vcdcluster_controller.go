@@ -280,7 +280,7 @@ func createVCDClientFromSecrets(ctx context.Context, client client.Client, vcdCl
 	}
 	vcdClient, err := vcdsdk.NewVCDClientFromSecrets(vcdCluster.Spec.Site, vcdCluster.Spec.Org,
 		vcdCluster.Spec.Ovdc, vcdCluster.Spec.Org, userCreds.Username, userCreds.Password, userCreds.RefreshToken,
-		true, false)
+		true, true)
 	if err != nil {
 		return nil, fmt.Errorf("error creating VCD client from secrets to reconcile Cluster [%s] infrastructure: [%v]", vcdCluster.Name, err)
 	}
@@ -397,13 +397,27 @@ func (r *VCDClusterReconciler) constructCapvcdRDE(ctx context.Context, cluster *
 	return rde, nil
 }
 
-func (r *VCDClusterReconciler) constructAndCreateRDEFromCluster(ctx context.Context, vcdClient *vcdsdk.Client, cluster *clusterv1.Cluster, vcdCluster *infrav1beta3.VCDCluster) (string, error) {
+func (r *VCDClusterReconciler) constructAndCreateRDEFromCluster(ctx context.Context, vcdClient *vcdsdk.Client,
+	cluster *clusterv1.Cluster, vcdCluster *infrav1beta3.VCDCluster) (string, error) {
+
 	log := ctrl.LoggerFrom(ctx)
+
+	if vcdClient == nil {
+		return "", fmt.Errorf("vcdClient is nil")
+	}
+
+	if vcdClient.VDC == nil || vcdClient.VDC.Vdc == nil {
+		return "", fmt.Errorf("VDC client in vcdClient object is nil")
+	}
 
 	org, err := getOrgByName(vcdClient, vcdCluster.Spec.Org)
 	if err != nil {
 		return "", fmt.Errorf("error occurred while constructing RDE from cluster [%s]", vcdCluster.Status.InfraId)
 	}
+	if org == nil || org.Org == nil {
+		return "", fmt.Errorf("unable to get the org by name [%s]", vcdCluster.Spec.Org)
+	}
+
 	rde, err := r.constructCapvcdRDE(ctx, cluster, vcdCluster, vcdClient.VDC.Vdc, org.Org)
 	if err != nil {
 		return "", fmt.Errorf("error occurred while constructing RDE payload for the cluster [%s]: [%v]", vcdCluster.Name, err)
@@ -431,6 +445,10 @@ func (r *VCDClusterReconciler) constructAndCreateRDEFromCluster(ctx context.Cont
 func (r *VCDClusterReconciler) reconcileRDE(ctx context.Context, cluster *clusterv1.Cluster,
 	vcdCluster *infrav1beta3.VCDCluster, vcdClient *vcdsdk.Client, vappID string, updateExternalID bool) error {
 	log := ctrl.LoggerFrom(ctx)
+
+	if vcdClient == nil {
+		return fmt.Errorf("vcdClient is nil")
+	}
 
 	// skip RDE reconciliation if the Infra ID has NoRdePrefix
 	if strings.HasPrefix(vcdCluster.Status.InfraId, NoRdePrefix) {
@@ -706,6 +724,10 @@ func (r *VCDClusterReconciler) reconcileInfraID(ctx context.Context, cluster *cl
 
 	log := ctrl.LoggerFrom(ctx)
 
+	if vcdClient == nil {
+		return fmt.Errorf("vcdClient is nil")
+	}
+
 	// General note on RDE operations, always ensure CAPVCD cluster reconciliation progress
 	//is not affected by any RDE operation failures.
 	infraID := vcdCluster.Status.InfraId
@@ -933,6 +955,10 @@ func (r *VCDClusterReconciler) reconcileLoadBalancer(ctx context.Context, vcdClu
 	virtualServiceNamePrefix := capisdk.GetVirtualServiceNamePrefix(vcdCluster.Name, vcdCluster.Status.InfraId)
 	lbPoolNamePrefix := capisdk.GetLoadBalancerPoolNamePrefix(vcdCluster.Name, vcdCluster.Status.InfraId)
 
+	if vcdClient == nil {
+		return ctrl.Result{}, fmt.Errorf("vcdClient is nil")
+	}
+
 	var oneArm *vcdsdk.OneArm = nil
 	if vcdCluster.Spec.LoadBalancerConfigSpec.UseOneArm {
 		oneArm = &OneArmDefault
@@ -1093,6 +1119,10 @@ func (r *VCDClusterReconciler) reconcileVApp(ctx context.Context, cluster *clust
 
 	log := ctrl.LoggerFrom(ctx)
 
+	if vcdClient == nil {
+		return ctrl.Result{}, fmt.Errorf("vcdClient is nil")
+	}
+
 	capvcdRdeManager := capisdk.NewCapvcdRdeManager(vcdClient, vcdCluster.Status.InfraId)
 	vdcManager, err := vcdsdk.NewVDCManager(vcdClient, orgName, ovdcName)
 	if err != nil {
@@ -1249,12 +1279,6 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		log.Error(err, "Error occurred during RDE reconciliation", "InfraId", vcdCluster.Status.InfraId)
 	}
 
-	// create VApp
-	if result, err := r.reconcileVApp(ctx, cluster, vcdCluster, vcdClient, vcdCluster.Spec.Org, vcdCluster.Spec.Ovdc,
-		skipRDEEventUpdates); err != nil {
-		return result, err
-	}
-
 	// Update the vcdCluster resource with updated information
 	// TODO Check if updating ovdcNetwork, Org and Vdc should be done somewhere earlier in the code.
 	vcdCluster.Status.Ready = true
@@ -1276,6 +1300,10 @@ func (r *VCDClusterReconciler) deleteLB(ctx context.Context, vcdClient *vcdsdk.C
 	ovdcNetworkName string, ovdcName string, controlPlanePort int) error {
 
 	log := ctrl.LoggerFrom(ctx)
+
+	if vcdClient == nil {
+		return fmt.Errorf("vcdClient is nil")
+	}
 
 	// AMK: multiAZ TODO this is probably not needed since we don't create the VDC here
 	//err = updateVcdResourceToVcdCluster(vcdCluster, ResourceTypeOvdc, vcdClient.VDC.Vdc.ID, vcdClient.VDC.Vdc.Name)
@@ -1358,6 +1386,11 @@ func (r *VCDClusterReconciler) reconcileDeleteSingleVApp(ctx context.Context, ov
 	vcdCluster *infrav1beta3.VCDCluster) (ctrl.Result, error) {
 
 	log := ctrl.LoggerFrom(ctx)
+
+	if vcdClient == nil {
+		return ctrl.Result{}, fmt.Errorf("vcdClient is nil")
+	}
+
 	vdcManager, err := vcdsdk.NewVDCManager(vcdClient, vcdClient.ClusterOrgName,
 		ovdcName)
 	if err != nil {
@@ -1386,18 +1419,19 @@ func (r *VCDClusterReconciler) reconcileDeleteSingleVApp(ctx context.Context, ov
 		return ctrl.Result{}, nil
 	}
 
+	// TODO: remove the usages of VCDCluster.Status.VAppMetadataUpdated
 	//Delete the vApp if and only if rdeId (matches) present in the vApp
-	if !vcdCluster.Status.VAppMetadataUpdated {
-		err1 := capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDClusterError, "", vAppName,
-			fmt.Sprintf("rdeId is not presented in vApp metadata"))
-		if err1 != nil {
-			log.Error(err1, "failed to add VCDClusterError into RDE",
-				"rdeID", vcdCluster.Status.InfraId)
-		}
-		return ctrl.Result{}, errors.Errorf(
-			"Error occurred during cluster deletion; Field [VAppMetadataUpdated] is %t",
-			vcdCluster.Status.VAppMetadataUpdated)
-	}
+	//if !vcdCluster.Status.VAppMetadataUpdated {
+	//	err1 := capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDClusterError, "", vAppName,
+	//		fmt.Sprintf("rdeId is not presented in vApp metadata"))
+	//	if err1 != nil {
+	//		log.Error(err1, "failed to add VCDClusterError into RDE",
+	//			"rdeID", vcdCluster.Status.InfraId)
+	//	}
+	//	return ctrl.Result{}, errors.Errorf(
+	//		"Error occurred during cluster deletion; Field [VAppMetadataUpdated] is %t",
+	//		vcdCluster.Status.VAppMetadataUpdated)
+	//}
 	metadataInfraId, err := vdcManager.GetMetadataByKey(vApp, CapvcdInfraId)
 	if err != nil {
 		err1 := capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDClusterError, "", vAppName,
@@ -1485,6 +1519,11 @@ func (r *VCDClusterReconciler) reconcileDeleteVApps(ctx context.Context,
 	vcdCluster *infrav1beta3.VCDCluster, vcdClient *vcdsdk.Client) (ctrl.Result, error) {
 
 	log := ctrl.LoggerFrom(ctx)
+
+	if vcdClient == nil {
+		return ctrl.Result{}, fmt.Errorf("vcdClient is nil")
+	}
+
 	capvcdRDEManager := capisdk.NewCapvcdRdeManager(vcdClient, vcdCluster.Status.InfraId)
 
 	result, err := r.reconcileDeleteSingleVApp(ctx, vcdCluster.Spec.Ovdc, vcdCluster.Name,
@@ -1498,14 +1537,19 @@ func (r *VCDClusterReconciler) reconcileDeleteVApps(ctx context.Context,
 			"unable to get delete single vApp [%s] in Org [%s], OVDC [%s]", vcdCluster.Name,
 			vcdClient.ClusterOrgName, vcdCluster.Spec.Ovdc)
 	}
-	log.Info("Successfully deleted vApp [%s] in Org [%s], OVDC [%s]", vcdCluster.Name,
-		vcdClient.ClusterOrgName, vcdCluster.Spec.Ovdc)
+	log.Info("Successfully deleted vApp", "vAppName", vcdCluster.Name,
+		"org", vcdClient.ClusterOrgName, "ovdc", vcdCluster.Spec.Ovdc)
 	return ctrl.Result{}, nil
 }
 
 func (r *VCDClusterReconciler) reconcileDeleteRDE(ctx context.Context, vcdClient *vcdsdk.Client, vcdCluster *infrav1beta3.VCDCluster) error {
 
 	log := ctrl.LoggerFrom(ctx)
+
+	if vcdClient == nil {
+		return fmt.Errorf("vcdClient is nil")
+	}
+
 	log.Info("Deleting RDE for the cluster", "InfraID", vcdCluster.Status.InfraId)
 	// TODO: If RDE deletion fails, should we throw an error during reconciliation?
 	// Delete RDE

@@ -424,6 +424,8 @@ func (r *VCDMachineReconciler) reconcileVAppCreation(ctx context.Context, vcdCli
 				vAppName, err)
 		}
 
+		// The following requires a patch to the vcdCluster object.
+		// TODO: evaluate if VCDCluster.VAppMetadataUpdated is required
 		vcdCluster.Status.VAppMetadataUpdated = true
 	}
 
@@ -1447,13 +1449,15 @@ func (r *VCDMachineReconciler) reconcileDelete(ctx context.Context, machine *clu
 	}
 	if vApp != nil {
 		// Delete the VM if and only if rdeId (matches) present in the vApp
-		if !vcdCluster.Status.VAppMetadataUpdated {
-			updatedErr := capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDMachineError, "", machine.Name, fmt.Sprintf("rdeId is not presented in the vApp [%s]: %v", vcdCluster.Name, err))
-			if updatedErr != nil {
-				log.Error(updatedErr, "failed to add VCDMachineError into RDE", "rdeID", vcdCluster.Status.InfraId)
-			}
-			return ctrl.Result{}, errors.Errorf("Error occurred during the machine deletion; Metadata not found in vApp")
-		}
+		// TODO: remove usages of VCDCluster.Status.VAppMetadataUpdated because VApp Metadata will be updated in VCDMachine controller but
+		//   we don't updated the VCDCluster object from within VCDMachine controller.
+		//if !vcdCluster.Status.VAppMetadataUpdated {
+		//	updatedErr := capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDMachineError, "", machine.Name, fmt.Sprintf("rdeId is not presented in the vApp [%s]: %v", vcdCluster.Name, err))
+		//	if updatedErr != nil {
+		//		log.Error(updatedErr, "failed to add VCDMachineError into RDE", "rdeID", vcdCluster.Status.InfraId)
+		//	}
+		//	return ctrl.Result{}, errors.Errorf("Error occurred during the machine deletion; Metadata not found in vApp")
+		//}
 		metadataInfraId, err := vdcManager.GetMetadataByKey(vApp, CapvcdInfraId)
 		if err != nil {
 			updatedErr := capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDMachineError, "", machine.Name, fmt.Sprintf("failed to get metadata by key [%s]: %v", CapvcdInfraId, err))
