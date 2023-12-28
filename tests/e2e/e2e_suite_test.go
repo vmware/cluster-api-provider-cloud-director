@@ -10,6 +10,7 @@ import (
 var (
 	PathToMngmntClusterKubecfg     string
 	PathToWorkloadClusterCapiYaml  string
+	PathToAntreaYaml               string
 	TargetTKGVersionForUpgradeTest string
 	TargetK8SVersionForUpgradeTest string
 )
@@ -17,6 +18,7 @@ var (
 func init() {
 	flag.StringVar(&PathToMngmntClusterKubecfg, "PathToMngmntClusterKubecfg", "", "path to find the Kubeconfig. It is used to retrieve the cluster")
 	flag.StringVar(&PathToWorkloadClusterCapiYaml, "PathToWorkloadClusterCapiYaml", "", "path to find the capi Yaml. It is used to generate the vcd cluster")
+	flag.StringVar(&PathToAntreaYaml, "PathToAntreaYaml", "", "directory path to antrea yaml to install antrea CNI on the cluster")
 	flag.StringVar(&TargetTKGVersionForUpgradeTest, "TargetTKGVersionForUpgradeTest", "", "target TKG version for upgrade test")
 	flag.StringVar(&TargetK8SVersionForUpgradeTest, "TargetK8SVersionForUpgradeTest", "", "target Kubernetes version for upgrade test")
 }

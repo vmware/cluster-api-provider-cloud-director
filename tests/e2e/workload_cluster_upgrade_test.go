@@ -8,6 +8,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/vmware/cloud-provider-for-cloud-director/pkg/testingsdk"
 	infrav2 "github.com/vmware/cluster-api-provider-cloud-director/api/v1beta2"
+	infrav1beta3 "github.com/vmware/cluster-api-provider-cloud-director/api/v1beta3"
 	"github.com/vmware/cluster-api-provider-cloud-director/tests/e2e/utils"
 	"github.com/vmware/go-vcloud-director/v2/types/v56"
 	"io/ioutil"
@@ -40,7 +41,7 @@ var _ = Describe("Workload Cluster Life cycle management", func() {
 			workloadClientSet *kubernetes.Clientset
 			clusterName       string
 			clusterNameSpace  string
-			vcdCluster        *infrav2.VCDCluster
+			vcdCluster        *infrav1beta3.VCDCluster
 			rdeID             string
 		)
 
@@ -73,7 +74,7 @@ var _ = Describe("Workload Cluster Life cycle management", func() {
 			ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to create runtime client")
 		})
 
-		It("CAPVCD should be able to create the workload cluster", func() {
+		It("CAPVCD should create cluster before upgrade", func() {
 			var err error
 			By("Getting the clusterName and namespace")
 			clusterName, clusterNameSpace, err = utils.GetClusterNameAndNamespaceFromCAPIYaml(capiYaml)
@@ -81,16 +82,16 @@ var _ = Describe("Workload Cluster Life cycle management", func() {
 			ExpectWithOffset(1, clusterName).NotTo(BeEmpty(), "Cluster name is empty")
 			ExpectWithOffset(1, clusterNameSpace).NotTo(BeEmpty(), "Cluster namespace is empty")
 
-			//By("Creating the namespace when necessary")
-			//err = utils.CreateOrGetNameSpace(ctx, cs, clusterNameSpace)
-			//ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to create or get namespace")
-			//
-			//By("Applying the CAPI YAML in the CAPVCD mgmt cluster")
-			//err = utils.ApplyCAPIYaml(ctx, runtimeClient, capiYaml)
-			//ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to apply CAPI YAML")
-			//
-			//err = utils.WaitForClusterProvisioned(ctx, runtimeClient, clusterName, clusterNameSpace)
-			//ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to wait for cluster provisioned")
+			By("Creating the namespace when necessary")
+			err = utils.CreateOrGetNameSpace(ctx, cs, clusterNameSpace)
+			ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to create or get namespace")
+
+			By("Applying the CAPI YAML in the CAPVCD mgmt cluster")
+			err = utils.ApplyCAPIYaml(ctx, runtimeClient, capiYaml)
+			ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to apply CAPI YAML")
+
+			err = utils.WaitForClusterProvisioned(ctx, runtimeClient, clusterName, clusterNameSpace)
+			ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to wait for cluster provisioned")
 
 			By("Retrieving the kube config of the workload cluster")
 			kubeConfigBytes, err := kcfg.FromSecret(ctx, runtimeClient, runtimeclient.ObjectKey{
@@ -110,17 +111,26 @@ var _ = Describe("Workload Cluster Life cycle management", func() {
 			ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to get VCDCluster from the cluster")
 			ExpectWithOffset(1, vcdCluster).NotTo(BeNil(), "VCDCluster is nil")
 
+			fmt.Println("Getting the antrea YAML!")
+			antreaYamlBytes, err := os.ReadFile(PathToAntreaYaml)
+			ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to read Antrea YAML")
+			ExpectWithOffset(1, capiYaml).NotTo(BeEmpty(), "Antre YAML is empty")
+
+			By("Installing antera from yaml")
+			err = utils.InstallAntreaFromYaml(ctx, kubeConfigBytes, antreaYamlBytes)
+			ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to install antrea using antrea yaml")
+
 			By("Getting the rdeID from the vcdCluster")
 			rdeID = vcdCluster.Status.InfraId
 			ExpectWithOffset(1, rdeID).NotTo(BeZero(), "rdeID is empty")
 
 			By("Creating the cluster resource sets")
-			//err = utils.CreateWorkloadClusterResources(ctx, workloadClientSet, string(capiYaml), rdeID, vcdCluster)
-			//ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to create cluster Resource Set")
-			//
-			//By("Waiting for the cluster machines to become running state")
-			//err = utils.WaitForMachinesRunning(ctx, runtimeClient, clusterName, clusterNameSpace)
-			//ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to wait for machines running")
+			err = utils.CreateWorkloadClusterResources(ctx, workloadClientSet, string(capiYaml), rdeID, vcdCluster)
+			ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to create cluster Resource Set")
+
+			By("Waiting for the cluster machines to become running state")
+			err = utils.WaitForMachinesRunning(ctx, runtimeClient, clusterName, clusterNameSpace)
+			ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to wait for machines running")
 		})
 
 		It("should be able to upgrade successfully given a valid OVA to upgrade to is installed", func() {
