@@ -1,11 +1,12 @@
 package v1alpha4
 
 import (
+	"strings"
+
 	"github.com/vmware/cloud-provider-for-cloud-director/pkg/vcdsdk"
 	"github.com/vmware/cluster-api-provider-cloud-director/api/v1beta3"
 	utilconversion "sigs.k8s.io/cluster-api/util/conversion"
 	"sigs.k8s.io/controller-runtime/pkg/conversion"
-	"strings"
 )
 
 // ConvertTo converts this (v1alpha4) VCDCluster to the Hub version (v1beta3).
