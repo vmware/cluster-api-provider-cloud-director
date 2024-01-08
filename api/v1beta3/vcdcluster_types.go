@@ -17,6 +17,7 @@ limitations under the License.
 package v1beta3
 
 import (
+	"github.com/vmware/cluster-api-provider-cloud-director/common"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
@@ -79,6 +80,43 @@ type LoadBalancerConfig struct {
 	VipSubnet string `json:"vipSubnet,omitempty"`
 }
 
+// Zone is an Availability Zone in VCD
+type Zone struct {
+	Name            string `json:"name"`
+	OVDCName        string `json:"ovdcName"`
+	OVDCNetworkName string `json:"ovdcNetworkName"`
+
+	//+kubebuilder:default=false
+	ControlPlaneZone bool `json:"controlPlaneZone"`
+
+	// +optional
+	LoadBalancerIP string `json:"loadBalancerIP,omitempty"`
+	// +optional
+	LoadBalancerPort int `json:"loadBalancerPort,omitempty"`
+}
+
+// ZoneDetailsSpec is a detailed summary of the zones in the cluster as well as the ZoneType used
+type ZoneDetailsSpec struct {
+	// +optional
+	ZoneType common.ZoneType `json:"zoneType,omitempty"`
+	// +optional
+	UserSpecifiedEdgeGatewayZone string `json:"userSpecifiedEdgeGatewayZone"`
+	// +optional
+	Zones []Zone `json:"zones,omitempty"`
+}
+
+// ZoneDetailsStatus
+type ZoneDetailsStatus struct {
+	// +optional
+	ZoneType common.ZoneType `json:"zoneType,omitempty"`
+	// +optional
+	UserSpecifiedEdgeGateway string `json:"userSpecifiedEdgeGateway"`
+	// +optional
+	UserSpecifiedEdgeGatewayZone string `json:"userSpecifiedEdgeGatewayZone"`
+	// +optional
+	Zones []Zone `json:"zones,omitempty"`
+}
+
 // VCDClusterSpec defines the desired state of VCDCluster
 type VCDClusterSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
@@ -107,6 +145,10 @@ type VCDClusterSpec struct {
 	ProxyConfigSpec ProxyConfig `json:"proxyConfigSpec,omitempty"`
 	// +optional
 	LoadBalancerConfigSpec LoadBalancerConfig `json:"loadBalancerConfigSpec,omitempty"`
+	// +optional
+	ZoneDetails ZoneDetailsSpec `json:"zoneDetails,omitempty"`
+	// +optional
+	ZonesConfigMapName string `json:"zonesConfigMapName,omitempty"`
 }
 
 // VCDClusterStatus defines the observed state of VCDCluster
@@ -159,6 +201,12 @@ type VCDClusterStatus struct {
 
 	// +optional
 	LoadBalancerConfig LoadBalancerConfig `json:"loadBalancerConfig,omitempty"`
+
+	// +optional
+	FailureDomains clusterv1.FailureDomains `json:"failureDomains,omitempty"`
+
+	// +optional
+	ZoneDetails ZoneDetailsStatus `json:"zoneDetails,omitempty"`
 }
 
 // +kubebuilder:object:root=true
