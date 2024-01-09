@@ -23,7 +23,7 @@ import (
 	vcdsdkutil "github.com/vmware/cloud-provider-for-cloud-director/pkg/util"
 	"github.com/vmware/cloud-provider-for-cloud-director/pkg/vcdsdk"
 	swagger "github.com/vmware/cloud-provider-for-cloud-director/pkg/vcdswaggerclient_36_0"
-	infrav1beta3 "github.com/vmware/cluster-api-provider-cloud-director/api/v1beta3"
+	infrav1 "github.com/vmware/cluster-api-provider-cloud-director/api/v1beta2"
 	"github.com/vmware/cluster-api-provider-cloud-director/pkg/capisdk"
 	vcdutil "github.com/vmware/cluster-api-provider-cloud-director/pkg/util"
 	"github.com/vmware/cluster-api-provider-cloud-director/release"
@@ -95,7 +95,7 @@ type VCDClusterReconciler struct {
 func (r *VCDClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctrl.Result, rerr error) {
 	log := ctrl.LoggerFrom(ctx)
 	// Fetch the VCDCluster instance
-	vcdCluster := &infrav1beta3.VCDCluster{}
+	vcdCluster := &infrav1.VCDCluster{}
 	// remove the trailing '/'
 	vcdCluster.Spec.Site = strings.TrimRight(vcdCluster.Spec.Site, "/")
 	if err := r.Client.Get(ctx, req.NamespacedName, vcdCluster); err != nil {
@@ -134,8 +134,8 @@ func (r *VCDClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		log.V(3).Info("Cleanly patched VCD cluster.", "infra ID", vcdCluster.Status.InfraId)
 	}()
 
-	if !controllerutil.ContainsFinalizer(vcdCluster, infrav1beta3.ClusterFinalizer) {
-		controllerutil.AddFinalizer(vcdCluster, infrav1beta3.ClusterFinalizer)
+	if !controllerutil.ContainsFinalizer(vcdCluster, infrav1.ClusterFinalizer) {
+		controllerutil.AddFinalizer(vcdCluster, infrav1.ClusterFinalizer)
 		return ctrl.Result{}, nil
 	}
 
@@ -146,7 +146,7 @@ func (r *VCDClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	return r.reconcileNormal(ctx, cluster, vcdCluster)
 }
 
-func patchVCDCluster(ctx context.Context, patchHelper *patch.Helper, vcdCluster *infrav1beta3.VCDCluster) error {
+func patchVCDCluster(ctx context.Context, patchHelper *patch.Helper, vcdCluster *infrav1.VCDCluster) error {
 	conditions.SetSummary(vcdCluster,
 		conditions.WithConditions(
 			LoadBalancerAvailableCondition,
@@ -192,7 +192,7 @@ func addLBResourcesToVCDResourceSet(ctx context.Context, rdeManager *vcdsdk.RDEM
 // CAPVCD version makes use of a higher RDE version.
 // Derived values for infraID and rdeVersionInUse are essentially the final computed values - i.e either created or picked from the VCDCluster object.
 // validateDerivedRDEProperties makes sure the infra ID and the RDE version in-use doesn't change to unexpected values over different reconciliations.
-func validateDerivedRDEProperties(vcdCluster *infrav1beta3.VCDCluster, infraID string, rdeVersionInUse string) error {
+func validateDerivedRDEProperties(vcdCluster *infrav1.VCDCluster, infraID string, rdeVersionInUse string) error {
 	// If the RDEVersionInUse is NO_RDE_ then there RDEVersionInUse cannot change
 	// If the RDEVersionInUse is a semantic version, RDEVersionInUse can only be upgraded to a higher version
 	// InfraID is not expected to change
@@ -245,7 +245,7 @@ func validateDerivedRDEProperties(vcdCluster *infrav1beta3.VCDCluster, infraID s
 
 // updateClientWithVDC is to add the latest VDC into vcdClient.
 // Reminder: Although vcdcluster provides array for vcdResourceMap[ovdc], vcdcluster should use use only one OVDC in CAPVCD 1.1
-func updateClientWithVDC(vcdCluster *infrav1beta3.VCDCluster, client *vcdsdk.Client) error {
+func updateClientWithVDC(vcdCluster *infrav1.VCDCluster, client *vcdsdk.Client) error {
 	log := ctrl.LoggerFrom(context.Background())
 	orgName := vcdCluster.Spec.Org
 	ovdcName := vcdCluster.Spec.Ovdc
@@ -273,7 +273,7 @@ func updateClientWithVDC(vcdCluster *infrav1beta3.VCDCluster, client *vcdsdk.Cli
 	return nil
 }
 
-func createVCDClientFromSecrets(ctx context.Context, client client.Client, vcdCluster *infrav1beta3.VCDCluster) (*vcdsdk.Client, error) {
+func createVCDClientFromSecrets(ctx context.Context, client client.Client, vcdCluster *infrav1.VCDCluster) (*vcdsdk.Client, error) {
 	userCreds, err := getUserCredentialsForCluster(ctx, client, vcdCluster.Spec.UserCredentialsContext)
 	if err != nil {
 		return nil, fmt.Errorf("error getting client credentials to reconcile Cluster [%s] infrastructure: [%v]", vcdCluster.Name, err)
@@ -292,7 +292,7 @@ func createVCDClientFromSecrets(ctx context.Context, client client.Client, vcdCl
 
 // TODO: Remove uncommented code when decision to only keep capi.yaml as part of RDE spec is finalized
 func (r *VCDClusterReconciler) constructCapvcdRDE(ctx context.Context, cluster *clusterv1.Cluster,
-	vcdCluster *infrav1beta3.VCDCluster, vdc *types.Vdc, vcdOrg *types.Org) (*swagger.DefinedEntity, error) {
+	vcdCluster *infrav1.VCDCluster, vdc *types.Vdc, vcdOrg *types.Org) (*swagger.DefinedEntity, error) {
 
 	if vdc == nil {
 		return nil, fmt.Errorf("VDC cannot be nil")
@@ -400,7 +400,7 @@ func (r *VCDClusterReconciler) constructCapvcdRDE(ctx context.Context, cluster *
 	return rde, nil
 }
 
-func (r *VCDClusterReconciler) constructAndCreateRDEFromCluster(ctx context.Context, workloadVCDClient *vcdsdk.Client, cluster *clusterv1.Cluster, vcdCluster *infrav1beta3.VCDCluster) (string, error) {
+func (r *VCDClusterReconciler) constructAndCreateRDEFromCluster(ctx context.Context, workloadVCDClient *vcdsdk.Client, cluster *clusterv1.Cluster, vcdCluster *infrav1.VCDCluster) (string, error) {
 	log := ctrl.LoggerFrom(ctx)
 
 	org, err := getOrgByName(workloadVCDClient, vcdCluster.Spec.Org)
@@ -432,7 +432,7 @@ func (r *VCDClusterReconciler) constructAndCreateRDEFromCluster(ctx context.Cont
 }
 
 func (r *VCDClusterReconciler) reconcileRDE(ctx context.Context, cluster *clusterv1.Cluster,
-	vcdCluster *infrav1beta3.VCDCluster, workloadVCDClient *vcdsdk.Client, vappID string, updateExternalID bool) error {
+	vcdCluster *infrav1.VCDCluster, workloadVCDClient *vcdsdk.Client, vappID string, updateExternalID bool) error {
 	log := ctrl.LoggerFrom(ctx)
 
 	org, err := workloadVCDClient.VCDClient.GetOrgByName(vcdCluster.Spec.Org)
@@ -698,7 +698,7 @@ func (r *VCDClusterReconciler) reconcileRDE(ctx context.Context, cluster *cluste
 }
 
 func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clusterv1.Cluster,
-	vcdCluster *infrav1beta3.VCDCluster) (ctrl.Result, error) {
+	vcdCluster *infrav1.VCDCluster) (ctrl.Result, error) {
 	log := ctrl.LoggerFrom(ctx)
 
 	// To avoid spamming RDEs with updates, only update the RDE with events when machine creation is ongoing
@@ -1066,7 +1066,7 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		virtualServiceHref = resourcesAllocated.Get(vcdsdk.VcdResourceVirtualService)[0].Id
 	}
 
-	vcdCluster.Spec.ControlPlaneEndpoint = infrav1beta3.APIEndpoint{
+	vcdCluster.Spec.ControlPlaneEndpoint = infrav1.APIEndpoint{
 		Host: controlPlaneNodeIP,
 		Port: controlPlanePort,
 	}
@@ -1210,7 +1210,7 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 }
 
 func (r *VCDClusterReconciler) reconcileDelete(ctx context.Context,
-	vcdCluster *infrav1beta3.VCDCluster) (ctrl.Result, error) {
+	vcdCluster *infrav1.VCDCluster) (ctrl.Result, error) {
 
 	log := ctrl.LoggerFrom(ctx)
 	patchHelper, err := patch.NewHelper(vcdCluster, r.Client)
@@ -1471,7 +1471,7 @@ func (r *VCDClusterReconciler) reconcileDelete(ctx context.Context,
 	}
 	log.Info("Successfully deleted all the infra resources of the cluster")
 	// Cluster is deleted so remove the finalizer.
-	controllerutil.RemoveFinalizer(vcdCluster, infrav1beta3.ClusterFinalizer)
+	controllerutil.RemoveFinalizer(vcdCluster, infrav1.ClusterFinalizer)
 
 	return ctrl.Result{}, nil
 }
@@ -1479,7 +1479,7 @@ func (r *VCDClusterReconciler) reconcileDelete(ctx context.Context,
 // SetupWithManager sets up the controller with the Manager.
 func (r *VCDClusterReconciler) SetupWithManager(mgr ctrl.Manager, options controller.Options) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&infrav1beta3.VCDCluster{}).
+		For(&infrav1.VCDCluster{}).
 		WithOptions(options).
 		Complete(r)
 }

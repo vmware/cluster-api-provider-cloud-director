@@ -1,5 +1,5 @@
 commonLabels:
-  cluster.x-k8s.io/v1beta1: v1beta3
+  cluster.x-k8s.io/v1beta1: v1beta2
   cluster.x-k8s.io/v1alpha4: v1alpha4
   clusterctl.cluster.x-k8s.io: ""
   clusterctl.cluster.x-k8s.io/move: ""
@@ -20,6 +20,9 @@ patchesStrategicMerge:
 - patches/webhook_in_vcdmachines.yaml
 - patches/webhook_in_vcdclusters.yaml
 - patches/webhook_in_vcdmachinetemplates.yaml
+#- patches/webhook_in_vcdmachines.yaml
+#- patches/webhook_in_vcdclusters.yaml
+#- patches/webhook_in_vcdmachinetemplates.yaml
 #- patches/webhook_in_vcdclustertemplates.yaml
 #+kubebuilder:scaffold:crdkustomizewebhookpatch
 
@@ -28,6 +31,9 @@ patchesStrategicMerge:
 - patches/cainjection_in_vcdmachines.yaml
 - patches/cainjection_in_vcdclusters.yaml
 - patches/cainjection_in_vcdmachinetemplates.yaml
+#- patches/cainjection_in_vcdmachines.yaml
+#- patches/cainjection_in_vcdclusters.yaml
+#- patches/cainjection_in_vcdmachinetemplates.yaml
 #- patches/cainjection_in_vcdclustertemplates.yaml
 #+kubebuilder:scaffold:crdkustomizecainjectionpatch
 

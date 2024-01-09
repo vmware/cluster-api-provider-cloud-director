@@ -161,8 +161,10 @@ type VCDClusterStatus struct {
 	LoadBalancerConfig LoadBalancerConfig `json:"loadBalancerConfig,omitempty"`
 }
 
-// +kubebuilder:object:root=true
-// +kubebuilder:subresource:status
+//+kubebuilder:object:root=true
+//+kubebuilder:subresource:status
+//+kubebuilder:storageversion
+
 // VCDCluster is the Schema for the vcdclusters API
 type VCDCluster struct {
 	metav1.TypeMeta   `json:",inline"`
