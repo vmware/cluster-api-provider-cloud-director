@@ -938,7 +938,7 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	// we do it in one place for simplicity.
 	// TODO: should we add a field in VCDMachine to store the VApp name used for the machine ?
 	vAppName := CreateFullVAppName(vcdCluster)
-	log.Info("Using VApp name [%s] for the machine [%s]", vAppName, machine.Name)
+	log.Info(fmt.Sprintf("Using VApp name [%s] for the machine [%s]", vAppName, machine.Name))
 
 	ovdcName, ovdcNetworkName, err := r.getOVDCDetailsForMachine(vcdCluster)
 	if err != nil {
@@ -969,7 +969,7 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		return ctrl.Result{}, errors.Wrapf(err, "unable to get VM [%s] by name for cluster [%s]",
 			machine.Name, vcdCluster.Name)
 	}
-	log.Info("Using VM name [%s] in VApp [%s] for the machine [%s]", vmName, vAppName, machine.Name)
+	log.Info(fmt.Sprintf("Using VM name [%s] in VApp [%s] for the machine [%s]", vmName, vAppName, machine.Name))
 
 	result, vm, machineAddress, err := r.reconcileVM(ctx, vcdClient, vdcManager, vApp, machine, vcdMachine,
 		vmName, ovdcNetworkName, vcdCluster)
