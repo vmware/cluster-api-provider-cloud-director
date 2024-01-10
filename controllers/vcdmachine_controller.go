@@ -330,7 +330,7 @@ func (r *VCDMachineReconciler) reconcileCloudInitScript(ctx context.Context, vcd
 	machine *clusterv1.Machine, cluster *clusterv1.Cluster, vcdMachine *infrav1beta3.VCDMachine,
 	vcdCluster *infrav1beta3.VCDCluster, vAppName, vmName string, skipRDEEventUpdates bool) ([]byte, bool, bool, error) {
 
-	log := ctrl.LoggerFrom(ctx, "cluster", vcdCluster.Name, "machine", machine.Name)
+	log := ctrl.LoggerFrom(ctx, "cluster", vcdCluster.Name, "machine", machine.Name, "vAppName", vAppName)
 	capvcdRdeManager := capisdk.NewCapvcdRdeManager(vcdClient, vcdCluster.Status.InfraId)
 
 	bootstrapJinjaScript, err := r.getBootstrapData(ctx, machine)
@@ -397,7 +397,10 @@ func (r *VCDMachineReconciler) reconcileVMBoostrap(ctx context.Context, vcdClien
 	vcdCluster *infrav1beta3.VCDCluster, machine *clusterv1.Machine,
 	isInitialControlPlane, isResizedControlPlane, skipRDEEventUpdates bool) error {
 
-	log := ctrl.LoggerFrom(ctx, "cluster", vcdCluster.Name, "machine", machine.Name)
+	if vApp == nil || vApp.VApp == nil {
+		return fmt.Errorf("reconcileVMBootstrap is called with a nil VAPP")
+	}
+	log := ctrl.LoggerFrom(ctx, "cluster", vcdCluster.Name, "machine", machine.Name, "vAppName", vApp.VApp.Name)
 	capvcdRdeManager := capisdk.NewCapvcdRdeManager(vcdClient, vcdCluster.Status.InfraId)
 
 	vmStatus, err := vm.GetStatus()
@@ -551,7 +554,7 @@ func (r *VCDMachineReconciler) reconcileVAppCreation(ctx context.Context, vcdCli
 	machineName string, vcdCluster *infrav1beta3.VCDCluster,
 	vAppName string, ovdcNetworkName string, skipRDEEventUpdates bool) (ctrl.Result, error) {
 
-	log := ctrl.LoggerFrom(ctx, "machine", machineName, "cluster", vcdCluster.Name)
+	log := ctrl.LoggerFrom(ctx, "machine", machineName, "cluster", vcdCluster.Name, "vAppName", vAppName)
 	capvcdRdeManager := capisdk.NewCapvcdRdeManager(vcdClient, vcdCluster.Status.InfraId)
 	rdeManager := vcdsdk.NewRDEManager(vcdClient, vcdCluster.Status.InfraId, capisdk.StatusComponentNameCAPVCD,
 		release.Version)
@@ -649,9 +652,13 @@ func (r *VCDMachineReconciler) reconcileVM(
 	vmName string, ovdcNetworkName string,
 	vcdCluster *infrav1beta3.VCDCluster) (res ctrl.Result, vm *govcd.VM, machineAddress string, retErr error) {
 
-	log := ctrl.LoggerFrom(ctx, "machine", machine.Name, "cluster", vcdCluster.Name)
-	capvcdRdeManager := capisdk.NewCapvcdRdeManager(vcdClient, vcdCluster.Status.InfraId)
+	if vApp == nil || vApp.VApp == nil {
+		return ctrl.Result{}, nil, "", errors.New("reconcileVM is called with nil vApp")
+	}
+
 	vAppName := vApp.VApp.Name
+	log := ctrl.LoggerFrom(ctx, "machine", machine.Name, "cluster", vcdCluster.Name, "vAppName", vAppName)
+	capvcdRdeManager := capisdk.NewCapvcdRdeManager(vcdClient, vcdCluster.Status.InfraId)
 
 	vmExists := true
 	vm, err := vApp.GetVMByName(vmName, true)
@@ -930,6 +937,7 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	// since new zones could be added dynamically. In the non-AZ case, it can be done in the vcdCluster controller. However,
 	// we do it in one place for simplicity.
 	vAppName := CreateFullVAppName(vcdCluster)
+	log.Info("Using VApp name [%s] for the machine [%s]", vAppName, machine.Name)
 
 	ovdcName, ovdcNetworkName, err := r.getOVDCDetailsForMachine(vcdCluster)
 	if err != nil {
@@ -960,6 +968,7 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		return ctrl.Result{}, errors.Wrapf(err, "unable to get VM [%s] by name for cluster [%s]",
 			machine.Name, vcdCluster.Name)
 	}
+	log.Info("Using VM name [%s] in VApp [%s] for the machine [%s]", vmName, vAppName, machine.Name)
 
 	result, vm, machineAddress, err := r.reconcileVM(ctx, vcdClient, vdcManager, vApp, machine, vcdMachine,
 		vmName, ovdcNetworkName, vcdCluster)
