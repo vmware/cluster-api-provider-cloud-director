@@ -936,6 +936,7 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	// Create the vApp if it doesn't already exist. In the multi-AZ case, this has to be done in the machine controller
 	// since new zones could be added dynamically. In the non-AZ case, it can be done in the vcdCluster controller. However,
 	// we do it in one place for simplicity.
+	// TODO: should we add a field in VCDMachine to store the VApp name used for the machine ?
 	vAppName := CreateFullVAppName(vcdCluster)
 	log.Info("Using VApp name [%s] for the machine [%s]", vAppName, machine.Name)
 
