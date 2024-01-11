@@ -419,6 +419,61 @@ func VerifyVappMetadataForCluster(vcdClient *vcdsdk.Client, vcdCluster *v1beta3.
 	return nil
 }
 
+// VerifyRDEUpgradeSection verifies if the RDE upgrade section is as expected
+func VerifyRDEUpgradeSection(ctx context.Context, vcdClient *vcdsdk.Client, rdeID string,
+	expectedCurrentK8sVersionStr string) error {
+
+	// get entity
+	definedEntity, resp, _, err := vcdClient.APIClient.DefinedEntityApi.GetDefinedEntity(ctx, rdeID, "")
+	if err != nil {
+		return fmt.Errorf("error occurred while getting defined entity by ID: [%s]", rdeID)
+	}
+	if resp == nil {
+		return fmt.Errorf("nil response while getting defined entity by ID [%s]", rdeID)
+	} else if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("unexpected response code while getting defined entity by ID [%s]", rdeID)
+	}
+
+	capvcdEntity, err := util.ConvertMapToCAPVCDEntity(definedEntity.Entity)
+	if err != nil {
+		return fmt.Errorf("error converting RDE.entity to CAPVCD entity: [%v]", err)
+	}
+
+	if capvcdEntity.Status.CAPVCDStatus.Upgrade.Current.K8sVersion == expectedCurrentK8sVersionStr &&
+		capvcdEntity.Status.CAPVCDStatus.Upgrade.Ready {
+		return nil
+	}
+	return fmt.Errorf("expected current k8s version [%s] doesn't match the actual version in RDE [%s] or RDE upgrade is not marked complete",
+		capvcdEntity.Status.CAPVCDStatus.Upgrade.Current.K8sVersion, expectedCurrentK8sVersionStr)
+}
+
+func VerifyRDEWorkerPools(ctx context.Context, vcdClient *vcdsdk.Client, rdeID string,
+	machineDeploymentName string, desiredWorkerNodeCount int32) (bool, error) {
+	// get entity
+	definedEntity, resp, _, err := vcdClient.APIClient.DefinedEntityApi.GetDefinedEntity(ctx, rdeID, "")
+	if err != nil {
+		return false, fmt.Errorf("error occurred while getting defined entity by ID: [%s]", rdeID)
+	}
+	if resp == nil {
+		return false, fmt.Errorf("nil response while getting defined entity by ID [%s]", rdeID)
+	} else if resp.StatusCode != http.StatusOK {
+		return false, fmt.Errorf("unexpected response code while getting defined entity by ID [%s]", rdeID)
+	}
+
+	capvcdEntity, err := util.ConvertMapToCAPVCDEntity(definedEntity.Entity)
+	if err != nil {
+		return false, fmt.Errorf("error converting RDE.entity to CAPVCD entity: [%v]", err)
+	}
+
+	nodePools := capvcdEntity.Status.CAPVCDStatus.NodePool
+	for _, nodePool := range nodePools {
+		if nodePool.Name == machineDeploymentName {
+			return nodePool.DesiredReplicas == desiredWorkerNodeCount, nil
+		}
+	}
+	return false, fmt.Errorf("failed to find machine deployment by name [%s]", machineDeploymentName)
+}
+
 func VerifyRDEContents(ctx context.Context, runtimeClient runtimeclient.Client,
 	vcdClient *vcdsdk.Client, vcdCluster *v1beta3.VCDCluster, capiYaml string) error {
 
@@ -532,7 +587,7 @@ func verifyRDENodePools(ctx context.Context, runtimeClient runtimeclient.Client,
 	}
 
 	if len(mdList.Items)+len(kcpList.Items) != totalNodePoolsInCapiYaml {
-		return fmt.Errorf("expected number of node pools [%s]; Found [%d] node pools in the RDE CAPVCD status",
+		return fmt.Errorf("expected number of node pools [%d]; Found [%d] node pools in the RDE CAPVCD status",
 			len(mdList.Items)+len(kcpList.Items), totalNodePoolsInCapiYaml)
 	}
 
@@ -561,7 +616,7 @@ func verifyRDENodePools(ctx context.Context, runtimeClient runtimeclient.Client,
 		// the following condition checks if all the nodes have been created
 		if k8sPool.replicasInStatus != rdeNodePool.DesiredReplicas {
 			return fmt.Errorf("expected replicas [%d] but found [%d] replicas in RDE status for node pool [%s]",
-				k8sPool.replicasInStatus, rdeNodePool.DesiredReplicas)
+				k8sPool.replicasInStatus, rdeNodePool.DesiredReplicas, rdeNodePool.Name)
 		}
 	}
 

@@ -18,6 +18,7 @@ import (
 	kcpv1beta1 "sigs.k8s.io/cluster-api/controlplane/kubeadm/api/v1beta1"
 	kcfg "sigs.k8s.io/cluster-api/util/kubeconfig"
 	runtimeclient "sigs.k8s.io/controller-runtime/pkg/client"
+	"time"
 )
 
 var _ = Describe("Workload Cluster Life cycle management", func() {
@@ -64,8 +65,8 @@ var _ = Describe("Workload Cluster Life cycle management", func() {
 			utilruntime.Must(kcpv1beta1.AddToScheme(testScheme))
 			utilruntime.Must(infrav1beta3.AddToScheme(testScheme))
 			runtimeClient, err = runtimeclient.New(restConfig, runtimeclient.Options{Scheme: testScheme})
-			ExpectWithOffset(1, runtimeClient).NotTo(BeNil(), "Failed to create runtime client")
 			ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to create runtime client")
+			ExpectWithOffset(1, runtimeClient).NotTo(BeNil(), "Failed to create runtime client")
 		})
 
 		It("CAPVCD should create cluster before resize", func() {
@@ -172,6 +173,11 @@ var _ = Describe("Workload Cluster Life cycle management", func() {
 			ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to get VCDCluster from the cluster")
 			ExpectWithOffset(1, vcdCluster).NotTo(BeNil(), "VCDCluster is nil")
 
+			testClient, err := utils.ConstructCAPVCDTestClient(ctx, vcdCluster, workloadClientSet,
+				string(capiYaml), clusterNameSpace, clusterName, vcdCluster.Status.InfraId, true)
+			ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to construct CAPVCD test client")
+			ExpectWithOffset(1, testClient).NotTo(BeNil(), "Test client is nil")
+
 			By("Retrieving the kube config of the workload cluster")
 			kubeConfigBytes, err := kcfg.FromSecret(ctx, runtimeClient, runtimeclient.ObjectKey{
 				Namespace: clusterNameSpace,
@@ -200,7 +206,9 @@ var _ = Describe("Workload Cluster Life cycle management", func() {
 			desiredWorkerNodeCount = int64(initialNodeCount + 2)
 
 			By("Resizing the node pool in the workload cluster")
-			err = utils.ScaleNodePool(ctx, runtimeClient, desiredWorkerNodeCount, clusterName, clusterNameSpace)
+			machineDeploymentName := fmt.Sprintf("%s-md-0", clusterName)
+			err = utils.ScaleNodePool(ctx, runtimeClient, desiredWorkerNodeCount, clusterName, clusterNameSpace,
+				machineDeploymentName)
 			ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to scale node pool")
 
 			By(fmt.Sprintf("Monitoring the status of machines inside the CAPVCD cluster after increasing the node pool from %d to %d", initialNodeCount, len(workerPoolNodes)))
@@ -211,6 +219,14 @@ var _ = Describe("Workload Cluster Life cycle management", func() {
 			// We cannot say for certain that Node pools in the RDE has been updated because the Node pool counts are
 			// reconciled in vcdcluster controller but not in vcdmachine controller. Hence it is not possible to add this
 			// test case yet.
+			// 15 minute sleep is needed because the sync time for CAPVCD is 10 minutes and waiting for 15 mins will give
+			// additional time for vcdcluster controller to update the RDE
+			time.Sleep(time.Minute * 15)
+			successfulVerification, err := utils.VerifyRDEWorkerPools(ctx, testClient.VcdClient, rdeID,
+				machineDeploymentName, int32(desiredWorkerNodeCount))
+			ExpectWithOffset(1, err).NotTo(HaveOccurred(), "failed to verify if worker pool has desired number of nodes")
+			Expect(successfulVerification).To(BeTrue(),
+				"Desired node count in the RDE status does not match the actual desired node count for the machine deployment")
 
 			By(fmt.Sprintf("Verifying the final number of worker nodes after increasing the node pool to %d", len(workerPoolNodes)))
 			workerPoolNodes, err = testClient.GetWorkerNodes(context.Background())
@@ -221,12 +237,18 @@ var _ = Describe("Workload Cluster Life cycle management", func() {
 			desiredWorkerNodeCount = int64(len(workerPoolNodes) - 2)
 
 			By("Resizing the node pool in the workload cluster")
-			err = utils.ScaleNodePool(ctx, runtimeClient, desiredWorkerNodeCount, clusterName, clusterNameSpace)
+			err = utils.ScaleNodePool(ctx, runtimeClient, desiredWorkerNodeCount, clusterName, clusterNameSpace, machineDeploymentName)
 			ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to scale node pool")
 
 			By(fmt.Sprintf("Monitoring the status of machines inside the CAPVCD cluster after decreasing the node pool from %d to %d", initialNodeCount, desiredWorkerNodeCount))
 			err = utils.MonitorK8sNodePools(testClient, runtimeClient, desiredWorkerNodeCount)
 			ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to monitor K8s node pools")
+
+			time.Sleep(time.Minute * 15)
+			successfulVerification, err = utils.VerifyRDEWorkerPools(ctx, testClient.VcdClient, rdeID,
+				machineDeploymentName, int32(desiredWorkerNodeCount))
+			ExpectWithOffset(1, err).NotTo(HaveOccurred(), "failed to verify if worker pool has desired number of nodes")
+			Expect(successfulVerification).To(BeTrue())
 
 			By(fmt.Sprintf("Verifying the final number of worker nodes after decreasing the node pool to %d", len(workerPoolNodes)))
 			workerPoolNodes, err = testClient.GetWorkerNodes(context.Background())
@@ -240,8 +262,24 @@ var _ = Describe("Workload Cluster Life cycle management", func() {
 		})
 
 		It("CAPVCD should be able to delete the workload cluster", func() {
+			By("Getting the clusterName and namespace")
+			clusterName, clusterNameSpace, err := utils.GetClusterNameAndNamespaceFromCAPIYaml(capiYaml)
+			ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to get cluster name and namespace")
+			ExpectWithOffset(1, clusterName).NotTo(BeEmpty(), "Cluster name is empty")
+			ExpectWithOffset(1, clusterNameSpace).NotTo(BeEmpty(), "Cluster namespace is empty")
+
+			By("Getting the vcdcluster of the CAPVCD cluster - management cluster")
+			vcdCluster, err := utils.GetVCDClusterFromCluster(ctx, runtimeClient, clusterNameSpace, clusterName)
+			ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to get VCDCluster from the cluster")
+			ExpectWithOffset(1, vcdCluster).NotTo(BeNil(), "VCDCluster is nil")
+
+			testClient, err = utils.ConstructCAPVCDTestClient(ctx, vcdCluster, workloadClientSet,
+				string(capiYaml), clusterNameSpace, clusterName, vcdCluster.Status.InfraId, true)
+			ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to construct CAPVCD test client")
+			ExpectWithOffset(1, testClient).NotTo(BeNil(), "Test client is nil")
+
 			By("Deleting the workload cluster")
-			err := utils.DeleteCAPIYaml(ctx, runtimeClient, capiYaml)
+			err = utils.DeleteCAPIYaml(ctx, runtimeClient, capiYaml)
 			ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to delete CAPI YAML")
 
 			By("Monitoring the cluster get deleted")
