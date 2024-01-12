@@ -329,6 +329,21 @@ func checkIfMachineNodeIsUnhealthy(machine *clusterv1.Machine) bool {
 	return false
 }
 
+func (r *VCDMachineReconciler) loginVCD(ctx context.Context, vcdCluster *infrav1beta3.VCDCluster) (*vcdsdk.Client, error) {
+	workloadVCDClient, err := createVCDClientFromSecrets(ctx, r.Client, vcdCluster)
+	if err != nil {
+		return nil, errors.Wrapf(err, "Error creating VCD client to reconcile Cluster [%s] infrastructure", vcdCluster.Name)
+	}
+	if workloadVCDClient.VDC == nil || workloadVCDClient.VDC.Vdc == nil {
+		return workloadVCDClient, errors.Wrapf(err, "failed to get the Organization VDC (OVDC) from the VCD client for reconciling infrastructure of Cluster [%s]", vcdCluster.Name)
+	}
+	err = updateVcdResourceToVcdCluster(vcdCluster, ResourceTypeOvdc, workloadVCDClient.VDC.Vdc.ID, workloadVCDClient.VDC.Vdc.Name)
+	if err != nil {
+		return workloadVCDClient, errors.Wrapf(err, "Error updating vcdResource into vcdcluster.status to reconcile Cluster [%s] infrastructure", vcdCluster.Name)
+	}
+	return workloadVCDClient, nil
+}
+
 func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clusterv1.Cluster,
 	machine *clusterv1.Machine, vcdMachine *infrav1beta3.VCDMachine, vcdCluster *infrav1beta3.VCDCluster) (res ctrl.Result, retErr error) {
 
@@ -337,11 +352,43 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	// To avoid spamming RDEs with updates, only update the RDE with events when machine creation is ongoing
 	skipRDEEventUpdates := machine.Status.BootstrapReady
 
-	workloadVCDClient, err := createVCDClientFromSecrets(ctx, r.Client, vcdCluster)
-	if err != nil {
-		return ctrl.Result{}, errors.Wrapf(err, "Error creating VCD client to reconcile Cluster [%s] infrastructure", vcdCluster.Name)
+	if vcdMachine.Spec.ProviderID != nil && vcdMachine.Status.ProviderID != nil {
+		vcdMachine.Status.Ready = true
+		conditions.MarkTrue(vcdMachine, ContainerProvisionedCondition)
+
+		if checkIfMachineNodeIsUnhealthy(machine) {
+			// Create the workload client only if the machine is unhealthy because we would have to add an event to the RDE.
+			// Else there is no need to login to VCD
+			workloadVCDClient, err := r.loginVCD(ctx, vcdCluster)
+			// close all idle connections when reconciliation is done
+			defer func() {
+				if workloadVCDClient != nil && workloadVCDClient.VCDClient != nil {
+					workloadVCDClient.VCDClient.Client.Http.CloseIdleConnections()
+					log.Info(fmt.Sprintf("closed connection to the http client [%#v]", workloadVCDClient.VCDClient.Client.Http))
+				}
+			}()
+			if err != nil {
+				log.Error(err, "error occurred while logging in to VCD")
+				return ctrl.Result{}, errors.Wrapf(err, "error occurred while logging in to VCD: [%v]", err)
+			}
+
+			capvcdRdeManager := capisdk.NewCapvcdRdeManager(workloadVCDClient, vcdCluster.Status.InfraId)
+			if conditions.IsFalse(machine, clusterv1.MachineHealthCheckSucceededCondition) {
+				err := capvcdRdeManager.AddToEventSet(ctx, capisdk.NodeHealthCheckFailed, getVMIDFromProviderID(vcdMachine.Status.ProviderID), machine.Name, conditions.GetMessage(machine, clusterv1.MachineHealthCheckSucceededCondition), false)
+				if err != nil {
+					log.Error(err, fmt.Sprintf("failed to add %s event into RDE", capisdk.NodeHealthCheckFailed), "rdeID", vcdCluster.Status.InfraId)
+				}
+			}
+			err = capvcdRdeManager.AddToEventSet(ctx, capisdk.NodeUnhealthy, getVMIDFromProviderID(vcdMachine.Status.ProviderID), machine.Name, conditions.GetMessage(machine, clusterv1.MachineNodeHealthyCondition), false)
+			if err != nil {
+				log.Error(err, fmt.Sprintf("failed to add %s event into RDE", capisdk.NodeUnhealthy), "rdeID", vcdCluster.Status.InfraId)
+			}
+		}
+
+		return ctrl.Result{}, nil
 	}
 
+	workloadVCDClient, err := r.loginVCD(ctx, vcdCluster)
 	// close all idle connections when reconciliation is done
 	defer func() {
 		if workloadVCDClient != nil && workloadVCDClient.VCDClient != nil {
@@ -349,14 +396,9 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 			log.Info(fmt.Sprintf("closed connection to the http client [%#v]", workloadVCDClient.VCDClient.Client.Http))
 		}
 	}()
-
-	if workloadVCDClient.VDC == nil || workloadVCDClient.VDC.Vdc == nil {
-		return ctrl.Result{}, errors.Wrapf(err, "failed to get the Organization VDC (OVDC) from the VCD client for reconciling infrastructure of Cluster [%s]", vcdCluster.Name)
-	}
-
-	err = updateVcdResourceToVcdCluster(vcdCluster, ResourceTypeOvdc, workloadVCDClient.VDC.Vdc.ID, workloadVCDClient.VDC.Vdc.Name)
 	if err != nil {
-		return ctrl.Result{}, errors.Wrapf(err, "Error updating vcdResource into vcdcluster.status to reconcile Cluster [%s] infrastructure", vcdCluster.Name)
+		log.Error(err, "error occurred while logging in to VCD")
+		return ctrl.Result{}, errors.Wrapf(err, "error occurred while logging in to VCD: [%v]", err)
 	}
 
 	capvcdRdeManager := capisdk.NewCapvcdRdeManager(workloadVCDClient, vcdCluster.Status.InfraId)
@@ -371,15 +413,6 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		if err != nil {
 			log.Error(err, fmt.Sprintf("failed to add %s event into RDE", capisdk.NodeUnhealthy), "rdeID", vcdCluster.Status.InfraId)
 		}
-	}
-	if vcdMachine.Spec.ProviderID != nil && vcdMachine.Status.ProviderID != nil {
-		vcdMachine.Status.Ready = true
-		conditions.MarkTrue(vcdMachine, ContainerProvisionedCondition)
-		err = capvcdRdeManager.AddToEventSet(ctx, capisdk.InfraVmBootstrapped, "", machine.Name, "", skipRDEEventUpdates)
-		if err != nil {
-			log.Error(err, "failed to add InfraVmBootstrapped event into RDE", "rdeID", vcdCluster.Status.InfraId)
-		}
-		return ctrl.Result{}, nil
 	}
 
 	if machine.Spec.Bootstrap.DataSecretName == nil {
