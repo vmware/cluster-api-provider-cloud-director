@@ -25,7 +25,7 @@ import (
 	"github.com/pkg/errors"
 	cpiutil "github.com/vmware/cloud-provider-for-cloud-director/pkg/util"
 	"github.com/vmware/cloud-provider-for-cloud-director/pkg/vcdsdk"
-	infrav1beta3 "github.com/vmware/cluster-api-provider-cloud-director/api/v1beta3"
+	infrav1 "github.com/vmware/cluster-api-provider-cloud-director/api/v1beta2"
 	"github.com/vmware/cluster-api-provider-cloud-director/pkg/capisdk"
 	"github.com/vmware/cluster-api-provider-cloud-director/release"
 	"github.com/vmware/go-vcloud-director/v2/govcd"
@@ -88,7 +88,7 @@ func (r *VCDMachineReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	log := ctrl.LoggerFrom(ctx)
 
 	// Fetch the VCDMachine instance.
-	vcdMachine := &infrav1beta3.VCDMachine{}
+	vcdMachine := &infrav1.VCDMachine{}
 	if err := r.Client.Get(ctx, req.NamespacedName, vcdMachine); err != nil {
 		if apierrors.IsNotFound(err) {
 			return ctrl.Result{}, nil
@@ -129,7 +129,7 @@ func (r *VCDMachineReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	machineBeingDeleted := !vcdMachine.ObjectMeta.DeletionTimestamp.IsZero()
 
 	// Fetch the VCD Cluster.
-	vcdCluster := &infrav1beta3.VCDCluster{}
+	vcdCluster := &infrav1.VCDCluster{}
 	vcdClusterName := client.ObjectKey{
 		Namespace: vcdMachine.Namespace,
 		Name:      cluster.Spec.InfrastructureRef.Name,
@@ -159,8 +159,8 @@ func (r *VCDMachineReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	}()
 
 	// Add finalizer first if not exist to avoid the race condition between init and delete
-	if !controllerutil.ContainsFinalizer(vcdMachine, infrav1beta3.MachineFinalizer) {
-		controllerutil.AddFinalizer(vcdMachine, infrav1beta3.MachineFinalizer)
+	if !controllerutil.ContainsFinalizer(vcdMachine, infrav1.MachineFinalizer) {
+		controllerutil.AddFinalizer(vcdMachine, infrav1.MachineFinalizer)
 		return ctrl.Result{}, nil
 	}
 
@@ -182,7 +182,7 @@ func (r *VCDMachineReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	return r.reconcileNormal(ctx, cluster, machine, vcdMachine, vcdCluster)
 }
 
-func patchVCDMachine(ctx context.Context, patchHelper *patch.Helper, vcdMachine *infrav1beta3.VCDMachine) error {
+func patchVCDMachine(ctx context.Context, patchHelper *patch.Helper, vcdMachine *infrav1.VCDMachine) error {
 	conditions.SetSummary(vcdMachine,
 		conditions.WithConditions(
 			ContainerProvisionedCondition,
@@ -330,7 +330,7 @@ func checkIfMachineNodeIsUnhealthy(machine *clusterv1.Machine) bool {
 }
 
 func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clusterv1.Cluster,
-	machine *clusterv1.Machine, vcdMachine *infrav1beta3.VCDMachine, vcdCluster *infrav1beta3.VCDCluster) (res ctrl.Result, retErr error) {
+	machine *clusterv1.Machine, vcdMachine *infrav1.VCDMachine, vcdCluster *infrav1.VCDCluster) (res ctrl.Result, retErr error) {
 
 	log := ctrl.LoggerFrom(ctx, "machine", machine.Name, "cluster", vcdCluster.Name)
 
@@ -899,7 +899,7 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	vcdMachine.Spec.Bootstrapped = true
 	conditions.MarkTrue(vcdMachine, BootstrapExecSucceededCondition)
 	// Set ProviderID so the Cluster API Machine Controller can pull it
-	providerID := fmt.Sprintf("%s://%s", infrav1beta3.VCDProviderID, vm.VM.ID)
+	providerID := fmt.Sprintf("%s://%s", infrav1.VCDProviderID, vm.VM.ID)
 	vcdMachine.Spec.ProviderID = &providerID
 	vcdMachine.Status.Ready = true
 	vcdMachine.Status.Template = vcdMachine.Spec.Template
@@ -911,7 +911,7 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	return ctrl.Result{}, nil
 }
 
-func getVMName(machine *clusterv1.Machine, vcdMachine *infrav1beta3.VCDMachine, log logr.Logger) (string, error) {
+func getVMName(machine *clusterv1.Machine, vcdMachine *infrav1.VCDMachine, log logr.Logger) (string, error) {
 	if vcdMachine.Spec.VmNamingTemplate == "" {
 		return machine.Name, nil
 	}
@@ -1071,7 +1071,7 @@ func (r *VCDMachineReconciler) getBootstrapData(ctx context.Context, machine *cl
 }
 
 func (r *VCDMachineReconciler) reconcileDelete(ctx context.Context, cluster *clusterv1.Cluster, machine *clusterv1.Machine,
-	vcdMachine *infrav1beta3.VCDMachine, vcdCluster *infrav1beta3.VCDCluster) (ctrl.Result, error) {
+	vcdMachine *infrav1.VCDMachine, vcdCluster *infrav1.VCDCluster) (ctrl.Result, error) {
 	log := ctrl.LoggerFrom(ctx, "machine", machine.Name, "cluster", vcdCluster.Name)
 
 	patchHelper, err := patch.NewHelper(vcdMachine, r.Client)
@@ -1086,7 +1086,7 @@ func (r *VCDMachineReconciler) reconcileDelete(ctx context.Context, cluster *clu
 	}
 
 	if vcdCluster.Spec.Site == "" {
-		controllerutil.RemoveFinalizer(vcdMachine, infrav1beta3.MachineFinalizer)
+		controllerutil.RemoveFinalizer(vcdMachine, infrav1.MachineFinalizer)
 		return ctrl.Result{}, nil
 	}
 
@@ -1364,7 +1364,7 @@ func (r *VCDMachineReconciler) reconcileDelete(ctx context.Context, cluster *clu
 		log.Error(err, "failed to remove RdeError from RDE", "rdeID", vcdCluster.Status.InfraId)
 	}
 
-	controllerutil.RemoveFinalizer(vcdMachine, infrav1beta3.MachineFinalizer)
+	controllerutil.RemoveFinalizer(vcdMachine, infrav1.MachineFinalizer)
 	return ctrl.Result{}, nil
 }
 
@@ -1372,22 +1372,22 @@ func (r *VCDMachineReconciler) reconcileDelete(ctx context.Context, cluster *clu
 func (r *VCDMachineReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager,
 	options controller.Options) error {
 	clusterToVCDMachines, err := util.ClusterToObjectsMapper(mgr.GetClient(),
-		&infrav1beta3.VCDMachineList{}, mgr.GetScheme())
+		&infrav1.VCDMachineList{}, mgr.GetScheme())
 	if err != nil {
 		return err
 	}
 
 	c, err := ctrl.NewControllerManagedBy(mgr).
-		For(&infrav1beta3.VCDMachine{}).
+		For(&infrav1.VCDMachine{}).
 		WithOptions(options).
 		WithEventFilter(predicates.ResourceNotPaused(ctrl.LoggerFrom(ctx))).
 		Watches(
 			&source.Kind{Type: &clusterv1.Machine{}},
 			handler.EnqueueRequestsFromMapFunc(
-				util.MachineToInfrastructureMapFunc(infrav1beta3.GroupVersion.WithKind("VCDMachine"))),
+				util.MachineToInfrastructureMapFunc(infrav1.GroupVersion.WithKind("VCDMachine"))),
 		).
 		Watches(
-			&source.Kind{Type: &infrav1beta3.VCDCluster{}},
+			&source.Kind{Type: &infrav1.VCDCluster{}},
 			handler.EnqueueRequestsFromMapFunc(r.VCDClusterToVCDMachines),
 		).
 		Build(r)
@@ -1405,7 +1405,7 @@ func (r *VCDMachineReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Ma
 // requests for reconciliation of VCDMachines.
 func (r *VCDMachineReconciler) VCDClusterToVCDMachines(o client.Object) []ctrl.Request {
 	var result []ctrl.Request
-	c, ok := o.(*infrav1beta3.VCDCluster)
+	c, ok := o.(*infrav1.VCDCluster)
 	if !ok {
 		klog.Errorf("Expected a VCDCluster found [%T]", o)
 		return nil

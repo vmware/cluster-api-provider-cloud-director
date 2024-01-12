@@ -127,8 +127,10 @@ type VCDMachineStatus struct {
 	Conditions clusterv1.Conditions `json:"conditions,omitempty"`
 }
 
-// +kubebuilder:object:root=true
-// +kubebuilder:subresource:status
+//+kubebuilder:object:root=true
+//+kubebuilder:subresource:status
+//+kubebuilder:storageversion
+
 // VCDMachine is the Schema for the vcdmachines API
 type VCDMachine struct {
 	metav1.TypeMeta   `json:",inline"`

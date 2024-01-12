@@ -1,15 +1,15 @@
 package v1alpha4
 
 import (
-	"github.com/vmware/cluster-api-provider-cloud-director/api/v1beta3"
+	"github.com/vmware/cluster-api-provider-cloud-director/api/v1beta2"
 	utilconversion "sigs.k8s.io/cluster-api/util/conversion"
 	"sigs.k8s.io/controller-runtime/pkg/conversion"
 )
 
-// ConvertTo converts this (v1alpha4) VCDMachine to the Hub version (v1beta3).
+// ConvertTo converts this (v1alpha4) VCDMachine to the Hub version (v1beta2).
 func (src *VCDMachine) ConvertTo(dstRaw conversion.Hub) error {
-	dst := dstRaw.(*v1beta3.VCDMachine)
-	if err := Convert_v1alpha4_VCDMachine_To_v1beta3_VCDMachine(src, dst, nil); err != nil {
+	dst := dstRaw.(*v1beta2.VCDMachine)
+	if err := Convert_v1alpha4_VCDMachine_To_v1beta2_VCDMachine(src, dst, nil); err != nil {
 		return err
 	}
 
@@ -19,9 +19,9 @@ func (src *VCDMachine) ConvertTo(dstRaw conversion.Hub) error {
 	dst.Status.ProviderID = src.Spec.ProviderID
 
 	// manually restore data
-	restored := &v1beta3.VCDMachine{}
+	restored := &v1beta2.VCDMachine{}
 	if ok, err := utilconversion.UnmarshalData(src, restored); err != nil || !ok {
-		// in the case of missing v1beta3 annotation, the return value of UnmarshalData() would be (false, nil)
+		// in the case of missing v1beta2 annotation, the return value of UnmarshalData() would be (false, nil)
 		// so the return value would be nil NOT err
 		return err
 	}
@@ -45,10 +45,10 @@ func (src *VCDMachine) ConvertTo(dstRaw conversion.Hub) error {
 	return nil
 }
 
-// ConvertFrom converts from the Hub version (v1beta3) to this version (v1alpha4).
+// ConvertFrom converts from the Hub version (v1beta2) to this version (v1alpha4).
 func (dst *VCDMachine) ConvertFrom(srcRaw conversion.Hub) error {
-	src := srcRaw.(*v1beta3.VCDMachine)
-	if err := Convert_v1beta3_VCDMachine_To_v1alpha4_VCDMachine(src, dst, nil); err != nil {
+	src := srcRaw.(*v1beta2.VCDMachine)
+	if err := Convert_v1beta2_VCDMachine_To_v1alpha4_VCDMachine(src, dst, nil); err != nil {
 		return err
 	}
 
@@ -57,14 +57,14 @@ func (dst *VCDMachine) ConvertFrom(srcRaw conversion.Hub) error {
 	return utilconversion.MarshalData(src, dst)
 }
 
-// ConvertTo converts this VCDMachineList to the Hub version (v1beta3).
+// ConvertTo converts this VCDMachineList to the Hub version (v1beta2).
 func (src *VCDMachineList) ConvertTo(dstRaw conversion.Hub) error {
-	dst := dstRaw.(*v1beta3.VCDMachineList)
-	return Convert_v1alpha4_VCDMachineList_To_v1beta3_VCDMachineList(src, dst, nil)
+	dst := dstRaw.(*v1beta2.VCDMachineList)
+	return Convert_v1alpha4_VCDMachineList_To_v1beta2_VCDMachineList(src, dst, nil)
 }
 
-// ConvertFrom converts from the Hub version (v1beta3) to this version (v1alpha4).
+// ConvertFrom converts from the Hub version (v1beta2) to this version (v1alpha4).
 func (dst *VCDMachineList) ConvertFrom(srcRaw conversion.Hub) error {
-	src := srcRaw.(*v1beta3.VCDMachineList)
-	return Convert_v1beta3_VCDMachineList_To_v1alpha4_VCDMachineList(src, dst, nil)
+	src := srcRaw.(*v1beta2.VCDMachineList)
+	return Convert_v1beta2_VCDMachineList_To_v1alpha4_VCDMachineList(src, dst, nil)
 }
