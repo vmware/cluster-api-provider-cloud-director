@@ -13,7 +13,7 @@ import (
 	"github.com/antihax/optional"
 	"github.com/peterhellberg/link"
 	"github.com/vmware/cloud-provider-for-cloud-director/pkg/util"
-	swaggerClient "github.com/vmware/cloud-provider-for-cloud-director/pkg/vcdswaggerclient_36_0"
+	swaggerClient "github.com/vmware/cloud-provider-for-cloud-director/pkg/vcdswaggerclient_37_2"
 	"github.com/vmware/go-vcloud-director/v2/govcd"
 	"github.com/vmware/go-vcloud-director/v2/types/v56"
 	"k8s.io/klog"
@@ -1712,7 +1712,7 @@ func (gm *GatewayManager) CreateLoadBalancer(ctx context.Context, virtualService
 			// return  plain error if vcdsdk.VirtualServicePendingError is returned. Helps the caller recognize that the
 			// error is because VirtualService is still in Pending state.
 			if _, ok := err.(*VirtualServicePendingError); ok {
-				resourcesAllocated.Insert("virtualService", virtualServiceRef)
+				resourcesAllocated.Insert(VcdResourceVirtualService, virtualServiceRef)
 				klog.Infof("Load Balancer with virtual service [%v], pool [%v] on gateway [%s] is pending\n",
 					virtualServiceRef, lbPoolRef, gm.GatewayRef.Name)
 				continue

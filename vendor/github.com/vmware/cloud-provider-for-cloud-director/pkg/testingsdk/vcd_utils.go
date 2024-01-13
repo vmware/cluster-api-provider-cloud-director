@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/vmware/cloud-provider-for-cloud-director/pkg/vcdsdk"
-	swaggerClient "github.com/vmware/cloud-provider-for-cloud-director/pkg/vcdswaggerclient_36_0"
+	swaggerClient "github.com/vmware/cloud-provider-for-cloud-director/pkg/vcdswaggerclient_37_2"
 	"github.com/vmware/go-vcloud-director/v2/types/v56"
 )
 
@@ -29,7 +29,7 @@ func getRdeById(ctx context.Context, client *vcdsdk.Client, rdeId string) (*swag
 	if clusterOrg == nil || clusterOrg.Org == nil {
 		return nil, fmt.Errorf("retrieved org is nil for [%s]", client.ClusterOrgName)
 	}
-	rde, _, _, err := client.APIClient.DefinedEntityApi.GetDefinedEntity(ctx, rdeId, clusterOrg.Org.ID)
+	rde, _, _, err := client.APIClient.DefinedEntityApi.GetDefinedEntity(ctx, rdeId, clusterOrg.Org.ID, nil)
 	if err != nil {
 		return nil, fmt.Errorf("error retrieving RDE [%s]: [%v]", rdeId, err)
 	}

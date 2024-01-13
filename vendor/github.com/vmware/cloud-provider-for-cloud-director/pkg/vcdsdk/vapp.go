@@ -17,9 +17,7 @@ import (
 	"net/http"
 	"net/url"
 	"reflect"
-	"strconv"
 	"strings"
-	"sync"
 	"time"
 )
 
@@ -340,7 +338,7 @@ func (vdc *VdcManager) FindVMByUUID(VAppName string, vcdVmUUID string) (*govcd.V
 	klog.Infof("Trying to find vm [%s] in vApp [%s] by UUID", vcdVmUUID, VAppName)
 	vmUUID := strings.TrimPrefix(vcdVmUUID, VCDVMIDPrefix)
 
-	vApp, err := vdc.Client.VDC.GetVAppByName(VAppName, true)
+	vApp, err := vdc.Vdc.GetVAppByName(VAppName, true)
 	if err != nil {
 		return nil, fmt.Errorf("unable to find vApp [%s] by name: [%v]", VAppName, err)
 	}
@@ -421,16 +419,22 @@ func (vdc *VdcManager) getTaskFromResponse(resp *http.Response) (*govcd.Task, er
 	return task, nil
 }
 
-func (vdc *VdcManager) SetVmExtraConfigKeyValue(vm *govcd.VM, key string, value string, required bool) error {
+func (vdc *VdcManager) SetMultiVmExtraConfigKeyValuePairs(vm *govcd.VM, extraConfigMap map[string]string,
+	required bool) (govcd.Task, error) {
 	_, extraConfigVm, err := vdc.getVmExtraConfigs(vm)
 	if err != nil {
-		return fmt.Errorf("error retrieving vm extra configs: [%v]", err)
+		return govcd.Task{}, fmt.Errorf("error retrieving vm extra configs: [%v]", err)
 	}
-	newExtraConfig := make([]*ExtraConfigMarshal, 1)
-	newExtraConfig[0] = &ExtraConfigMarshal{
-		Key:      key,
-		Value:    value,
-		Required: required,
+
+	newExtraConfig := make([]*ExtraConfigMarshal, len(extraConfigMap))
+	idx := 0
+	for key, val := range extraConfigMap {
+		newExtraConfig[idx] = &ExtraConfigMarshal{
+			Key:      key,
+			Value:    val,
+			Required: required,
+		}
+		idx = idx + 1
 	}
 
 	// form request
@@ -485,15 +489,16 @@ func (vdc *VdcManager) SetVmExtraConfigKeyValue(vm *govcd.VM, key string, value 
 			Link:                          extraConfigVm.NetworkConnectionSection.Link,
 		},
 	}
+
 	marshaledXml, err := xml.MarshalIndent(vmMarshal, "", "    ")
 	if err != nil {
-		return fmt.Errorf("error marshalling vm data: [%v]", err)
+		return govcd.Task{}, fmt.Errorf("error marshalling vm data: [%v]", err)
 	}
 	standaloneXmlHeader := strings.Replace(xml.Header, "?>", " standalone=\"yes\"?>", 1)
 	reqBody := bytes.NewBufferString(standaloneXmlHeader + string(marshaledXml))
 	parsedUrl, err := url.ParseRequestURI(vm.VM.HREF + "/action/reconfigureVm")
 	if err != nil {
-		return fmt.Errorf("error parsing request uri [%s]: [%v]", vm.VM.HREF+"/action/reconfigureVm", err)
+		return govcd.Task{}, fmt.Errorf("error parsing request uri [%s]: [%v]", vm.VM.HREF+"/action/reconfigureVm", err)
 	}
 	req := vdc.Client.VCDClient.Client.NewRequest(map[string]string{}, http.MethodPost, *parsedUrl, reqBody)
 	req.Header.Add("Content-Type", types.MimeVM)
@@ -501,55 +506,68 @@ func (vdc *VdcManager) SetVmExtraConfigKeyValue(vm *govcd.VM, key string, value 
 	// parse response
 	resp, err := vdc.Client.VCDClient.Client.Http.Do(req)
 	if err != nil {
-		return fmt.Errorf("error making request: [%v]", err)
+		return govcd.Task{}, fmt.Errorf("error making request: [%v]", err)
 	}
 	if resp.StatusCode != http.StatusAccepted {
 		respBody, err := ioutil.ReadAll(resp.Body)
 		defer resp.Body.Close()
 
 		if err != nil {
-			return fmt.Errorf("status code is: [%d], error reading response body: [%v]", resp.StatusCode, err)
+			return govcd.Task{}, fmt.Errorf("status code is: [%d], error reading response body: [%v]", resp.StatusCode, err)
 		}
-		return fmt.Errorf("status code is [%d], response body: [%s]", resp.StatusCode, string(respBody))
+		return govcd.Task{}, fmt.Errorf("status code is [%d], response body: [%s]", resp.StatusCode, string(respBody))
 	}
 
 	// wait on task to finish
 	task, err := vdc.getTaskFromResponse(resp)
 	if err != nil {
-		return fmt.Errorf("error getting task: [%v]", err)
+		return govcd.Task{}, fmt.Errorf("error getting task: [%v]", err)
 	}
 	if task == nil {
-		return fmt.Errorf("nil task returned")
+		return govcd.Task{}, fmt.Errorf("nil task returned")
 	}
-	err = task.WaitTaskCompletion()
-	if err != nil {
-		return fmt.Errorf("error waiting for task completion after reconfiguring vm: [%v]", err)
-	}
-	return nil
+
+	return *task, nil
 }
 
-// AddNewMultipleVM will create vmNum VMs in parallel, including recompose VApp of all VMs settings,
-// power on VMs and join the cluster with hardcoded script
-func (vdc *VdcManager) AddNewMultipleVM(vapp *govcd.VApp, vmNamePrefix string, vmNum int,
-	catalogName string, templateName string, placementPolicyName string, computePolicyName string,
-	storageProfileName string, guestCustScript string, acceptAllEulas bool, powerOn bool) (govcd.Task, error) {
+func (vdc *VdcManager) AddNewTkgVM(vmNamePrefix string, VAppName string, catalogName string, templateName string,
+	placementPolicyName string, computePolicyName string, storageProfileName string) (govcd.Task, error) {
 
-	klog.V(3).Infof("start adding %d VMs\n", vmNum)
+	// In TKG >= 1.6.0, there is a missing file at /etc/cloud/cloud.cfg.d/
+	// that tells cloud-init the datasource. Without this file, a file prefixed with 90-*
+	// lists possible sources and causes cloud-init to read from OVF.
+	// This file is present in TKG < 1.6.0 and lists the datasource as "VMwareGuestInfo".
+	// In TKG < 1.6.0, this file has the 99-* prefix (the higher the value, the higher the priority)
+	// For TKG >= 1.6.0, this datasource name is "VMware". In order for this added file not to conflict
+	// with the datasource file in TKG < 1.6.0, we prefix the file with 98-*, and we specify the datasource
+	// as "VMware". We use guest customization to add this file.
+	guestCustScript := `
+#!/usr/bin/env bash
+cat > /etc/cloud/cloud.cfg.d/98-cse-vmware-datasource.cfg <<EOF
+datasource_list: [ "VMware" ]
+EOF
+`
 
-	orgManager, err := NewOrgManager(vdc.Client, vdc.Client.ClusterOrgName)
+	task, err := vdc.AddNewVM(vmNamePrefix, VAppName, catalogName, templateName, placementPolicyName,
+		computePolicyName, storageProfileName, guestCustScript)
 	if err != nil {
-		return govcd.Task{}, fmt.Errorf("error creating orgManager: [%v]", err)
+		return govcd.Task{}, fmt.Errorf("error for adding TKG VM to vApp[%s]: [%v]", VAppName, err)
 	}
+	return task, nil
+}
+
+func (vdc *VdcManager) getTemplateHREFFromName(orgManager *OrgManager,
+	catalogName string, templateName string) (string, error) {
 
 	catalog, err := orgManager.GetCatalogByName(catalogName)
 	if err != nil {
-		return govcd.Task{}, fmt.Errorf("unable to find catalog [%s] in org [%s]: [%v]",
+		return "", fmt.Errorf("unable to find catalog [%s] in org [%s]: [%v]",
 			catalogName, vdc.OrgName, err)
 	}
 
 	vAppTemplateList, err := catalog.QueryVappTemplateList()
 	if err != nil {
-		return govcd.Task{}, fmt.Errorf("unable to query templates of catalog [%s]: [%v]", catalogName, err)
+		return "", fmt.Errorf("unable to query templates of catalog [%s]: [%v]", catalogName, err)
 	}
 
 	var queryVAppTemplate *types.QueryResultVappTemplateType = nil
@@ -560,34 +578,30 @@ func (vdc *VdcManager) AddNewMultipleVM(vapp *govcd.VApp, vmNamePrefix string, v
 		}
 	}
 	if queryVAppTemplate == nil {
-		return govcd.Task{}, fmt.Errorf("unable to get template of name [%s] in catalog [%s]",
+		return "", fmt.Errorf("unable to get template of name [%s] in catalog [%s]",
 			templateName, catalogName)
 	}
-
 	vAppTemplate := govcd.NewVAppTemplate(&vdc.Client.VCDClient.Client)
-	_, err = vdc.Client.VCDClient.Client.ExecuteRequest(queryVAppTemplate.HREF, http.MethodGet,
+	resp, err := vdc.Client.VCDClient.Client.ExecuteRequest(queryVAppTemplate.HREF, http.MethodGet,
 		"", "error retrieving vApp template: %s", nil, vAppTemplate.VAppTemplate)
 	if err != nil {
-		return govcd.Task{}, fmt.Errorf("unable to issue get for template with HREF [%s]: [%v]",
-			queryVAppTemplate.HREF, err)
+		return "", fmt.Errorf("unable to issue get for template with HREF [%s]: [%v], resp = [%v]",
+			queryVAppTemplate.HREF, err, resp)
 	}
-
 	templateHref := vAppTemplate.VAppTemplate.HREF
 	if vAppTemplate.VAppTemplate.Children != nil && len(vAppTemplate.VAppTemplate.Children.VM) != 0 {
 		templateHref = vAppTemplate.VAppTemplate.Children.VM[0].HREF
 	}
-	// Status 8 means The object is resolved and powered off.
-	// https://vdc-repo.vmware.com/vmwb-repository/dcr-public/94b8bd8d-74ff-4fe3-b7a4-41ae31516ed7/1b42f3b5-8b31-4279-8b3f-547f6c7c5aa8/doc/GUID-843BE3AD-5EF6-4442-B864-BCAE44A51867.html
-	if vAppTemplate.VAppTemplate.Status != 8 {
-		return govcd.Task{}, fmt.Errorf("vApp Template status [%d] is not ok", vAppTemplate.VAppTemplate.Status)
-	}
 
+	return templateHref, nil
+}
+
+func (vdc *VdcManager) getComputePolicy(orgManager *OrgManager, computePolicyName string, placementPolicyName string) (*types.ComputePolicy, error) {
 	var computePolicy *types.ComputePolicy = nil
-
 	if placementPolicyName != "" {
 		vmPlacementPolicy, err := orgManager.GetComputePolicyDetailsFromName(placementPolicyName)
 		if err != nil {
-			return govcd.Task{}, fmt.Errorf("unable to find placement policy [%s]: [%v]", placementPolicyName, err)
+			return nil, fmt.Errorf("unable to find placement policy [%s]: [%v]", placementPolicyName, err)
 		}
 		if computePolicy == nil {
 			computePolicy = &types.ComputePolicy{}
@@ -600,7 +614,7 @@ func (vdc *VdcManager) AddNewMultipleVM(vapp *govcd.VApp, vmNamePrefix string, v
 	if computePolicyName != "" {
 		vmComputePolicy, err := orgManager.GetComputePolicyDetailsFromName(computePolicyName)
 		if err != nil {
-			return govcd.Task{}, fmt.Errorf("unable to find compute policy [%s]: [%v]", computePolicyName, err)
+			return nil, fmt.Errorf("unable to find compute policy [%s]: [%v]", computePolicyName, err)
 		}
 		if computePolicy == nil {
 			computePolicy = &types.ComputePolicy{}
@@ -610,280 +624,135 @@ func (vdc *VdcManager) AddNewMultipleVM(vapp *govcd.VApp, vmNamePrefix string, v
 		}
 	}
 
-	var storageProfile *types.Reference = nil
-
-	if storageProfileName != "" {
-		storageProfiles := vdc.Client.VDC.Vdc.VdcStorageProfiles.VdcStorageProfile
-		for _, profile := range storageProfiles {
-			if profile.Name == storageProfileName {
-				storageProfile = profile
-				break
-			}
-		}
-
-		if storageProfile == nil {
-			return govcd.Task{}, fmt.Errorf("storage profile [%s] chosen to create the VM in vApp [%s] does not exist", storageProfileName, vapp.VApp.Name)
-		}
-	}
-
-	// for loop to create vms with same settings and append to the sourcedItemList
-	sourcedItemList := make([]*types.SourcedCompositionItemParam, vmNum)
-	for i := 0; i < vmNum; i++ {
-		vmName := vmNamePrefix
-		if vmNum != 1 {
-			vmName = vmNamePrefix + strconv.Itoa(i)
-		}
-
-		passwd, err := password.Generate(15, 5, 3, false, false)
-		if err != nil {
-			return govcd.Task{}, fmt.Errorf("failed to generate a password to create a VM in the VApp [%s]", vapp.VApp.Name)
-		}
-		sourcedItemList = append(sourcedItemList,
-			&types.SourcedCompositionItemParam{
-				Source: &types.Reference{
-					HREF: templateHref,
-					Name: vmName,
-				},
-				// add this to enable Customization
-				VMGeneralParams: &types.VMGeneralParams{
-					Name:               vmName,
-					Description:        "Auto-created VM",
-					NeedsCustomization: true,
-					RegenerateBiosUuid: true,
-				},
-				VAppScopedLocalID: vmName,
-				InstantiationParams: &types.InstantiationParams{
-					GuestCustomizationSection: &types.GuestCustomizationSection{
-						Enabled:               &trueVar,
-						AdminPasswordEnabled:  &trueVar,
-						AdminPasswordAuto:     &falseVar,
-						AdminPassword:         passwd,
-						ResetPasswordRequired: &falseVar,
-						ComputerName:          vmName,
-						CustomizationScript:   guestCustScript,
-					},
-					NetworkConnectionSection: &types.NetworkConnectionSection{
-						NetworkConnection: []*types.NetworkConnection{
-							{
-								Network:                 vapp.VApp.NetworkConfigSection.NetworkNames()[0],
-								NeedsCustomization:      false,
-								IsConnected:             true,
-								IPAddressAllocationMode: "POOL",
-								NetworkAdapterType:      "VMXNET3",
-							},
-						},
-					},
-				},
-				StorageProfile: storageProfile,
-				ComputePolicy:  computePolicy,
-			},
-		)
-	}
-
-	// vAppComposition consolidates information of VMs which will be sent as ONE request to the VCD API
-	vAppComposition := &ComposeVAppWithVMs{
-		Ovf:              types.XMLNamespaceOVF,
-		Xsi:              types.XMLNamespaceXSI,
-		Xmlns:            types.XMLNamespaceVCloud,
-		Deploy:           false,
-		Name:             vapp.VApp.Name,
-		PowerOn:          false,
-		Description:      vapp.VApp.Description,
-		SourcedItemList:  sourcedItemList,
-		AllEULAsAccepted: acceptAllEulas,
-	}
-
-	apiEndpoint, _ := url.ParseRequestURI(vapp.VApp.HREF)
-	apiEndpoint.Path += "/action/recomposeVApp"
-
-	// execute the task to recomposeVApp
-	klog.V(3).Infof("start to compose VApp [%s] with VMs prefix [%s]", vapp.VApp.Name, vmNamePrefix)
-	task, err := vdc.Client.VCDClient.Client.ExecuteTaskRequest(apiEndpoint.String(),
-		http.MethodPost, types.MimeRecomposeVappParams, "error instantiating a new VM: %s",
-		vAppComposition)
-	if err != nil {
-		return govcd.Task{}, fmt.Errorf("unable to issue call to create VM [%s] in vApp [%s] with template [%s/%s]: [%v]",
-			vmNamePrefix, vapp.VApp.Name, catalogName, templateName, err)
-	}
-	if err = task.WaitTaskCompletion(); err != nil {
-		return govcd.Task{}, fmt.Errorf("failed to wait for task [%v] created to add new VM of name [%s]: [%v]",
-			task.Task, vmNamePrefix, err)
-	}
-
-	vAppRefreshed, err := vdc.Vdc.GetVAppByName(vapp.VApp.Name, true)
-	if err != nil {
-		return govcd.Task{}, fmt.Errorf("unable to get refreshed vapp by name [%s]: [%v]", vapp.VApp.Name, err)
-	}
-
-	if !powerOn {
-		return govcd.Task{}, nil
-	}
-
-	// once recomposeVApp is done, execute PowerOnAndForceCustomization in go routine to power on VMs in parallel
-	// after waitGroup all done, wait 2-3 mins and `kubectl get nodes` in the master to check the nodes
-
-	waitGroup := sync.WaitGroup{}
-
-	vmList := vAppRefreshed.VApp.Children.VM
-	klog.V(3).Infof("VApp [%v] has [%v] VMs in total", vAppRefreshed.VApp.Name, len(vmList))
-	var vmPowerOnList []*types.Vm
-	for i := 0; i < len(vmList); i++ {
-		if strings.HasPrefix(vmList[i].Name, vmNamePrefix) {
-			vmPowerOnList = append(vmPowerOnList, vmList[i])
-		}
-	}
-	klog.V(3).Infof("VApp [%v] will power on [%v] VMs with prefix [%v], suffix from [%v] to [%v]", vAppRefreshed.VApp.Name, vmNum, vmNamePrefix, 0, len(vmPowerOnList)-1)
-
-	waitGroup.Add(len(vmPowerOnList))
-
-	// TODO: propagate errors here cleanly (create a channel or pass a list of errors and get back a list) or something like `errList := make(error, len(vmPowerOnList))`
-	for i := 0; i < len(vmPowerOnList); i++ {
-		go func(waitGroup *sync.WaitGroup, i int) {
-
-			defer waitGroup.Done()
-			startTime := time.Now()
-			klog.V(3).Infof("start powering on vm [%s] at time [%v]\n", vmPowerOnList[i].Name, startTime.Format("2006-01-02 15:04:05"))
-
-			govcdVM, err := vAppRefreshed.GetVMByName(vmPowerOnList[i].Name, false)
-			if err != nil {
-				klog.V(3).Infof("unable to find vm [%s] in vApp [%s]: [%v]",
-					vmList[i].Name, vAppRefreshed.VApp.Name, err)
-			}
-			for govcdVM == nil {
-				klog.V(3).Infof("wait to get vm [%s] in recompose VApp [%s]", vmPowerOnList[i].Name, vapp.VApp.Name)
-				govcdVM, err = vAppRefreshed.GetVMByName(vmPowerOnList[i].Name, false)
-				if err != nil {
-					klog.V(3).Infof("unable to find vm [%s] in vApp [%s]: [%v]",
-						vmList[i].Name, vAppRefreshed.VApp.Name, err)
-				}
-			}
-
-			vmStatus, err := govcdVM.GetStatus()
-			if err != nil {
-				fmt.Printf("unable to get vm [%s] status before powering on: [%v]", govcdVM.VM.Name, err)
-			}
-			klog.V(3).Infof("recompose VApp done, vm [%v] status [%v] before powering on, href [%v]", govcdVM.VM.Name, vmStatus, govcdVM.VM.HREF)
-
-			if err := govcdVM.PowerOnAndForceCustomization(); err != nil {
-				klog.V(3).Infof("unable to power on and force customization vm [%s]: [%v]", govcdVM.VM.Name, err)
-			}
-
-			vmStatus, err = govcdVM.GetStatus()
-			if err != nil {
-				klog.V(3).Infof("unable to get vm [%s] status after powering on: [%v]", govcdVM.VM.Name, err)
-			}
-			for vmStatus == "POWERED_OFF" || vmStatus == "PARTIALLY_POWERED_OFF" {
-				klog.V(3).Infof("wait powering on vm [%s] current status [%s]", govcdVM.VM.Name, vmStatus)
-				vmStatus, err = govcdVM.GetStatus()
-				if err != nil {
-					klog.V(3).Infof("unable to get vm [%s] status after powering on: [%v]", govcdVM.VM.Name, err)
-				}
-			}
-
-			endTime := time.Now()
-			klog.V(3).Infof("end powering on vm [%s] status [%s] at time [%v]", govcdVM.VM.Name, vmStatus, endTime.Format("2006-01-02 15:04:05"))
-			if vmStatus == "POWERED_ON" {
-				klog.V(3).Infof("succeed to power on vm [%s] took seconds [%v]", govcdVM.VM.Name, endTime.Sub(startTime).Seconds())
-			} else {
-				klog.V(3).Infof("fail to power on vm [%s] status [%s]", govcdVM.VM.Name, vmStatus)
-			}
-
-		}(&waitGroup, i)
-
-	}
-	waitGroup.Wait()
-
-	return govcd.Task{}, nil
+	return computePolicy, nil
 }
 
-func (vdc *VdcManager) AddNewTkgVM(vmNamePrefix string, VAppName string, vmNum int,
-	catalogName string, templateName string, placementPolicyName string, computePolicyName string,
-	storageProfileName string, powerOn bool) error {
-
-	// In TKG >= 1.6.0, there is a missing file at /etc/cloud/cloud.cfg.d/
-	// that tells cloud-init the datasource. Without this file, a file prefixed with 90-*
-	// lists possible sources and causes cloud-init to read from OVF.
-	// This file is present in TKG < 1.6.0 and lists the datasource as "VMwareGuestInfo".
-	// In TKG < 1.6.0, this file has the 99-* prefix (the higher the value, the higher the priority)
-	// For TKG >= 1.6.0, this datasource name is "VMware". In order for this added file not to conflict
-	// with the datasource file in TKG < 1.6.0, we prefix the file with 98-*, and we specify the datasource
-	// as "VMware". We use guest customization to add this file.
-	guestCustScript := `#!/usr/bin/env bash
-cat > /etc/cloud/cloud.cfg.d/98-cse-vmware-datasource.cfg <<EOF
-datasource_list: [ "VMware" ]
-EOF`
-
-	err := vdc.AddNewVM(vmNamePrefix, VAppName, vmNum, catalogName, templateName, placementPolicyName,
-		computePolicyName, storageProfileName, guestCustScript, powerOn)
-	if err != nil {
-		return fmt.Errorf("error for adding TKG VM to vApp[%s]: [%v]", VAppName, err)
+func (vdc *VdcManager) getStorageProfile(storageProfileName string) (*types.Reference, error) {
+	if storageProfileName == "" {
+		return nil, nil
 	}
-	return nil
+
+	for _, profile := range vdc.Vdc.Vdc.VdcStorageProfiles.VdcStorageProfile {
+		if profile.Name == storageProfileName {
+			return profile, nil
+		}
+	}
+
+	return nil, fmt.Errorf("storage profile [%s] could not be found", storageProfileName)
 }
 
-func (vdc *VdcManager) AddNewVM(vmNamePrefix string, VAppName string, vmNum int,
-	catalogName string, templateName string, placementPolicyName string, computePolicyName string,
-	storageProfileName string, guestCustScript string, powerOn bool) error {
+func (vdc *VdcManager) AddNewVM(vmName string, VAppName string, catalogName string, templateName string,
+	placementPolicyName string, computePolicyName string, storageProfileName string, guestCustScript string) (govcd.Task, error) {
 
 	if vdc.Vdc == nil {
-		return fmt.Errorf("no Vdc created with name [%s]", vdc.VdcName)
+		return govcd.Task{}, fmt.Errorf("no Vdc created with name [%s]", vdc.VdcName)
 	}
 
 	vApp, err := vdc.Vdc.GetVAppByName(VAppName, true)
 	if err != nil {
-		return fmt.Errorf("unable to get vApp [%s] from Vdc [%s]: [%v]",
+		return govcd.Task{}, fmt.Errorf("unable to get vApp [%s] from Vdc [%s]: [%v]",
 			VAppName, vdc.VdcName, err)
 	}
 
 	orgManager, err := NewOrgManager(vdc.Client, vdc.Client.ClusterOrgName)
 	if err != nil {
-		return fmt.Errorf("error creating an orgManager object: [%v]", err)
+		return govcd.Task{}, fmt.Errorf("error creating an orgManager object: [%v]", err)
 	}
 
-	catalog, err := orgManager.GetCatalogByName(catalogName)
+	templateHREF, err := vdc.getTemplateHREFFromName(orgManager, catalogName, templateName)
 	if err != nil {
-		return fmt.Errorf("unable to find catalog [%s] in org [%s]: [%v]",
-			catalogName, vdc.OrgName, err)
+		return govcd.Task{}, fmt.Errorf("unable to get catalog/template [%s/%s] in org [%s]: [%v]",
+			catalogName, templateName, vdc.OrgName, err)
 	}
 
-	vAppTemplateList, err := catalog.QueryVappTemplateList()
+	computePolicy, err := vdc.getComputePolicy(orgManager, computePolicyName, placementPolicyName)
 	if err != nil {
-		return fmt.Errorf("unable to query templates of catalog [%s]: [%v]", catalogName, err)
+		return govcd.Task{}, fmt.Errorf("unable to get policies from computePolicy [%s], placementPolicy [%s] in org [%s]: [%v]",
+			computePolicyName, placementPolicyName, vdc.OrgName, err)
 	}
 
-	var queryVAppTemplate *types.QueryResultVappTemplateType = nil
-	for _, template := range vAppTemplateList {
-		if template.Name == templateName {
-			queryVAppTemplate = template
-			break
-		}
-	}
-	if queryVAppTemplate == nil {
-		return fmt.Errorf("unable to get template of name [%s] in catalog [%s]",
-			templateName, catalogName)
-	}
-
-	vAppTemplate := govcd.NewVAppTemplate(&vdc.Client.VCDClient.Client)
-	_, err = vdc.Client.VCDClient.Client.ExecuteRequest(queryVAppTemplate.HREF, http.MethodGet,
-		"", "error retrieving vApp template: %s", nil, vAppTemplate.VAppTemplate)
+	storageProfile, err := vdc.getStorageProfile(storageProfileName)
 	if err != nil {
-		return fmt.Errorf("unable to issue get for template with HREF [%s]: [%v]",
-			queryVAppTemplate.HREF, err)
+		return govcd.Task{}, fmt.Errorf("unable to find storage Profile [%s] in ovdc [%s]: [%v]", storageProfileName,
+			vdc.VdcName, err)
 	}
 
-	_, err = vdc.AddNewMultipleVM(vApp, vmNamePrefix, vmNum, catalogName, templateName, placementPolicyName,
-		computePolicyName, storageProfileName, guestCustScript, true, powerOn)
+	passwd, err := password.Generate(15, 5, 3, false, false)
 	if err != nil {
-		return fmt.Errorf(
-			"unable to issue call to create VMs with prefix [%s] in vApp [%s] with template [%s/%s]: [%v]",
-			vmNamePrefix, VAppName, catalogName, templateName, err)
+		return govcd.Task{}, fmt.Errorf("failed to generate a password to create a VM in the VApp [%s]", vApp.VApp.Name)
 	}
 
-	return nil
+	vmDef := &types.ReComposeVAppParams{
+		Ovf:                 types.XMLNamespaceOVF,
+		Xsi:                 types.XMLNamespaceXSI,
+		Xmlns:               types.XMLNamespaceVCloud,
+		Name:                vApp.VApp.Name,
+		Deploy:              false,
+		PowerOn:             false,
+		LinkedClone:         false,
+		Description:         vApp.VApp.Description,
+		VAppParent:          nil,
+		InstantiationParams: nil,
+		SourcedItem: &types.SourcedCompositionItemParam{
+			Source: &types.Reference{
+				HREF: templateHREF,
+				Name: vmName,
+			},
+			// add this to enable Customization
+			VMGeneralParams: &types.VMGeneralParams{
+				Name:               vmName,
+				Description:        "Auto-created VM",
+				NeedsCustomization: true,
+				RegenerateBiosUuid: true,
+			},
+			VAppScopedLocalID: vmName,
+			InstantiationParams: &types.InstantiationParams{
+				GuestCustomizationSection: &types.GuestCustomizationSection{
+					Enabled:               &trueVar,
+					AdminPasswordEnabled:  &trueVar,
+					AdminPasswordAuto:     &falseVar,
+					AdminPassword:         passwd,
+					ResetPasswordRequired: &falseVar,
+					ComputerName:          vmName,
+					CustomizationScript:   guestCustScript,
+				},
+				NetworkConnectionSection: &types.NetworkConnectionSection{
+					NetworkConnection: []*types.NetworkConnection{
+						{
+							Network:                 vApp.VApp.NetworkConfigSection.NetworkNames()[0],
+							NeedsCustomization:      false,
+							IsConnected:             true,
+							IPAddressAllocationMode: "POOL",
+							NetworkAdapterType:      "VMXNET3",
+						},
+					},
+				},
+			},
+			StorageProfile: storageProfile,
+			ComputePolicy:  computePolicy,
+		},
+		AllEULAsAccepted: true,
+		DeleteItem:       nil,
+	}
+
+	apiEndpoint, _ := url.ParseRequestURI(vApp.VApp.HREF)
+	apiEndpoint.Path += "/action/recomposeVApp"
+
+	// execute the task to recomposeVApp
+	klog.V(3).Infof("START to compose VApp [%s] with VMs prefix [%s]", vApp.VApp.Name, vmName)
+	task, err := vdc.Client.VCDClient.Client.ExecuteTaskRequest(apiEndpoint.String(),
+		http.MethodPost, types.MimeRecomposeVappParams, "error instantiating a new VM: [%s]",
+		vmDef)
+	if err != nil {
+		return govcd.Task{}, fmt.Errorf("unable to issue call to create VM [%s] in vApp [%s] with template [%s/%s]: [%v]",
+			vmName, vApp.VApp.Name, catalogName, templateName, err)
+	}
+
+	return task, nil
 }
 
 func (vdc *VdcManager) DeleteVM(VAppName, vmName string) error {
-	vApp, err := vdc.Client.VDC.GetVAppByName(VAppName, true)
+	vApp, err := vdc.Vdc.GetVAppByName(VAppName, true)
 	if err != nil {
 		return fmt.Errorf("unable to find vApp from name [%s]: [%v]", VAppName, err)
 	}
@@ -915,7 +784,7 @@ func (vdc *VdcManager) GetVAppNameFromVMName(VAppName string, vmName string) (st
 }
 
 func (vdc *VdcManager) WaitForGuestScriptCompletion(VAppName, vmName string) error {
-	vApp, err := vdc.Client.VDC.GetVAppByName(VAppName, true)
+	vApp, err := vdc.Vdc.GetVAppByName(VAppName, true)
 	if err != nil {
 		return fmt.Errorf("unable to get vApp [%s] from Vdc [%s]: [%v]",
 			VAppName, vdc.Client.ClusterOVDCName, err)
