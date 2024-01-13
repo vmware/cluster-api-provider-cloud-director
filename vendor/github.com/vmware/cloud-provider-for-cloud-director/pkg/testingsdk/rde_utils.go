@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"github.com/blang/semver"
 	"github.com/vmware/cloud-provider-for-cloud-director/pkg/vcdsdk"
-	swagger36 "github.com/vmware/cloud-provider-for-cloud-director/pkg/vcdswaggerclient_36_0"
+	swaggerClient "github.com/vmware/cloud-provider-for-cloud-director/pkg/vcdswaggerclient_37_2"
 	"github.com/vmware/go-vcloud-director/v2/govcd"
 	"io"
 	"net/http"
@@ -109,11 +109,11 @@ func getDecryptedRDE(ctx context.Context, client *vcdsdk.Client, rdeID, clusterN
 	if client.VCDClient.Client.APIVCDMaxVersionIs(fmt.Sprintf("<%s", vcdsdk.VCloudApiVersion_37_2)) {
 		return nil, fmt.Errorf("skipping decrypt RDE for cluster [%s(%s)] as VCD API version is less than [%s]", clusterName, rdeID, vcdsdk.VCloudApiVersion_37_2)
 	}
-	if client.APIClient37_2 == nil {
+	if client.APIClient == nil {
 		return nil, fmt.Errorf("unable to decrypt RDE for cluster [%s(%s)] as API client for VCD API version [%s] is missing", clusterName, rdeID, vcdsdk.VCloudApiVersion_37_2)
 	}
 
-	resp, err := client.APIClient37_2.DefinedInterfaceBehaviorsApi.InvokeDefinedEntityBehavior(ctx, rdeID, NoOpDecryptBehaviorID, nil)
+	resp, err := client.APIClient.DefinedInterfaceBehaviorsApi.InvokeDefinedEntityBehavior(ctx, rdeID, NoOpDecryptBehaviorID, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to call decrypt behavior on RDE for cluster [%s(%s)]: [%v]", clusterName, rdeID, err)
 	}
@@ -196,7 +196,7 @@ func getKubeconfigFromDecryptedRDE(ctx context.Context, client *vcdsdk.Client, c
 	return getKubeconfigFromCapvcdStatus(capvcdStatusMap, clusterId)
 }
 
-func getRDEVersion(rde *swagger36.DefinedEntity) string {
+func getRDEVersion(rde *swaggerClient.DefinedEntity) string {
 	entiyTypeSplitArr := strings.Split(rde.EntityType, ":")
 	// last item of the array will be the version string
 	return entiyTypeSplitArr[len(entiyTypeSplitArr)-1]

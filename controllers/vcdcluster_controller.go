@@ -22,8 +22,8 @@ import (
 	"github.com/pkg/errors"
 	vcdsdkutil "github.com/vmware/cloud-provider-for-cloud-director/pkg/util"
 	"github.com/vmware/cloud-provider-for-cloud-director/pkg/vcdsdk"
-	swagger "github.com/vmware/cloud-provider-for-cloud-director/pkg/vcdswaggerclient_36_0"
 	infrav1 "github.com/vmware/cluster-api-provider-cloud-director/api/v1beta2"
+	swagger "github.com/vmware/cloud-provider-for-cloud-director/pkg/vcdswaggerclient_37_2"
 	"github.com/vmware/cluster-api-provider-cloud-director/pkg/capisdk"
 	vcdutil "github.com/vmware/cluster-api-provider-cloud-director/pkg/util"
 	"github.com/vmware/cluster-api-provider-cloud-director/release"
@@ -1090,7 +1090,7 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 			return ctrl.Result{}, errors.Wrapf(errors.New("invalid org ref obtained"),
 				"obtained nil org when getting org by name [%s]", workloadVCDClient.ClusterOrgName)
 		}
-		_, resp, _, err := workloadVCDClient.APIClient.DefinedEntityApi.GetDefinedEntity(ctx, vcdCluster.Status.InfraId, org.Org.ID)
+		_, resp, _, err := workloadVCDClient.APIClient.DefinedEntityApi.GetDefinedEntity(ctx, vcdCluster.Status.InfraId, org.Org.ID, nil)
 		if err == nil && resp != nil && resp.StatusCode == http.StatusOK {
 			if err = r.reconcileRDE(ctx, cluster, vcdCluster, workloadVCDClient, "", false); err != nil {
 				log.Error(err, "Error occurred during RDE reconciliation",
