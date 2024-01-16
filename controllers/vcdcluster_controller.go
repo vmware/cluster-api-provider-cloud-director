@@ -164,6 +164,21 @@ func patchVCDCluster(ctx context.Context, patchHelper *patch.Helper, vcdCluster 
 	)
 }
 
+func loginVCD(ctx context.Context, cli client.Client, vcdCluster *infrav1beta3.VCDCluster) (*vcdsdk.Client, error) {
+	workloadVCDClient, err := createVCDClientFromSecrets(ctx, cli, vcdCluster)
+	if err != nil {
+		return nil, errors.Wrapf(err, "Error creating VCD client to reconcile Cluster [%s] infrastructure", vcdCluster.Name)
+	}
+	if workloadVCDClient.VDC == nil || workloadVCDClient.VDC.Vdc == nil {
+		return workloadVCDClient, errors.Wrapf(err, "failed to get the Organization VDC (OVDC) from the VCD client for reconciling infrastructure of Cluster [%s]", vcdCluster.Name)
+	}
+	err = updateVdcResourceToVcdCluster(vcdCluster, ResourceTypeOvdc, workloadVCDClient.VDC.Vdc.ID, workloadVCDClient.VDC.Vdc.Name)
+	if err != nil {
+		return workloadVCDClient, errors.Wrapf(err, "Error updating vcdResource into vcdcluster.status to reconcile Cluster [%s] infrastructure", vcdCluster.Name)
+	}
+	return workloadVCDClient, nil
+}
+
 func addLBResourcesToVCDResourceSet(ctx context.Context, rdeManager *vcdsdk.RDEManager, resourcesAllocated *vcdsdkutil.AllocatedResourcesMap, externalIP string) error {
 	for _, key := range []string{vcdsdk.VcdResourceDNATRule, vcdsdk.VcdResourceVirtualService,
 		vcdsdk.VcdResourceLoadBalancerPool, vcdsdk.VcdResourceAppPortProfile} {
@@ -1080,11 +1095,9 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 
 	// To avoid spamming RDEs with updates, only update the RDE with events when machine creation is ongoing
 	skipRDEEventUpdates := clusterv1.ClusterPhase(cluster.Status.Phase) == clusterv1.ClusterPhaseProvisioned
-	vcdClient, err := createVCDClientFromSecrets(ctx, r.Client, vcdCluster)
-	if err != nil {
-		return ctrl.Result{}, errors.Wrapf(err, "Error creating VCD client to reconcile Cluster [%s] infrastructure",
-			vcdCluster.Name)
-	}
+
+	vcdClient, err := loginVCD(ctx, r.Client, vcdCluster)
+
 	// close all idle connections when reconciliation is done
 	defer func() {
 		if vcdClient != nil && vcdClient.VCDClient != nil {
@@ -1093,6 +1106,11 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 				vcdClient.VCDClient.Client.Http))
 		}
 	}()
+	if err != nil {
+		log.Error(err, "error occurred while logging in to VCD")
+		return ctrl.Result{}, errors.Wrapf(err, "Error creating VCD client to reconcile Cluster [%s] infrastructure",
+			vcdCluster.Name)
+	}
 
 	// updating the VCD cluster resource with any VDC name changes to is necessary in VCD cluster controller because
 	// the OVDC name is used to get the OVDC network
@@ -1446,11 +1464,7 @@ func (r *VCDClusterReconciler) reconcileDelete(ctx context.Context,
 		return ctrl.Result{}, errors.Wrap(err, "Error occurred during cluster deletion; failed to patch VCDCluster")
 	}
 
-	vcdClient, err := createVCDClientFromSecrets(ctx, r.Client, vcdCluster)
-	if err != nil {
-		return ctrl.Result{}, errors.Wrapf(err, "Error creating VCD client to reconcile Cluster [%s] infrastructure", vcdCluster.Name)
-	}
-
+	vcdClient, err := loginVCD(ctx, r.Client, vcdCluster)
 	// close all idle connections when reconciliation is done
 	defer func() {
 		if vcdClient != nil && vcdClient.VCDClient != nil {
@@ -1458,13 +1472,8 @@ func (r *VCDClusterReconciler) reconcileDelete(ctx context.Context,
 			log.Info(fmt.Sprintf("closed connection to the http client [%#v]", vcdClient.VCDClient.Client.Http))
 		}
 	}()
-
-	if vcdClient.VDC == nil || vcdClient.VDC.Vdc == nil {
-		return ctrl.Result{}, errors.Wrapf(err, "failed to get the Organization VDC (OVDC) from the VCD client for reconciling infrastructure of Cluster [%s]", vcdCluster.Name)
-	}
-	err = updateVdcResourceToVcdCluster(vcdCluster, ResourceTypeOvdc, vcdClient.VDC.Vdc.ID, vcdClient.VDC.Vdc.Name)
 	if err != nil {
-		return ctrl.Result{}, errors.Wrapf(err, "Error updating vcdResource into vcdcluster.status to reconcile Cluster [%s] infrastructure", vcdCluster.Name)
+		return ctrl.Result{}, errors.Wrapf(err, "Error creating VCD client to reconcile Cluster [%s] infrastructure", vcdCluster.Name)
 	}
 
 	ovdcName := vcdCluster.Spec.Ovdc
