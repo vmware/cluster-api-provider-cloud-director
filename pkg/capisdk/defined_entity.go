@@ -741,7 +741,10 @@ func (capvcdRdeManager *CapvcdRdeManager) CheckForEmptyRDEAndUpdateCreatedByVers
 	return nil
 }
 
-func (capvcdRdeManager *CapvcdRdeManager) AddToErrorSet(ctx context.Context, errorName, vcdResourceId, vcdResourceName, detailedErrorMsg string) error {
+func (capvcdRdeManager *CapvcdRdeManager) AddToErrorSet(ctx context.Context,
+	errorName, vcdResourceId, vcdResourceName, detailedErrorMsg string) {
+
+	// Note: Adding error to the RDE should not stop CAPVCD reconciliation
 	backendErr := vcdsdk.BackendError{
 		Name:            errorName,
 		OccurredAt:      time.Now(),
@@ -751,13 +754,20 @@ func (capvcdRdeManager *CapvcdRdeManager) AddToErrorSet(ctx context.Context, err
 	if detailedErrorMsg != "" {
 		backendErr.AdditionalDetails = map[string]interface{}{"error": detailedErrorMsg}
 	}
-	return capvcdRdeManager.RdeManager.AddToErrorSet(ctx, vcdsdk.ComponentCAPVCD, backendErr, DefaultRollingWindowSize)
+	err := capvcdRdeManager.RdeManager.AddToErrorSet(ctx, vcdsdk.ComponentCAPVCD, backendErr, DefaultRollingWindowSize)
+	if err != nil {
+		klog.Errorf(
+			"failed to update RDE with Error; errorName: [%s], vcdResource: [%s], vcdResourceName: [%s]; RDE update error: [%v]",
+			errorName, vcdResourceId, vcdResourceName, err)
+	}
 }
 
-func (capvcdRdeManager *CapvcdRdeManager) AddToEventSet(ctx context.Context, eventName, vcdResourceId, vcdResourceName, detailedEventMsg string, skipRDEEventUpdates bool) error {
+func (capvcdRdeManager *CapvcdRdeManager) AddToEventSet(ctx context.Context,
+	eventName, vcdResourceId, vcdResourceName, detailedEventMsg string, skipRDEEventUpdates bool) {
+
+	// Note: Adding event to the RDE should not stop CAPVCD reconciliation
 	if skipRDEEventUpdates {
 		klog.V(4).Infof("skipping updates to event set as value for skipRDEEventUpdates is [%t] for RDE [%s]", skipRDEEventUpdates, capvcdRdeManager.RdeManager.ClusterID)
-		return nil
 	}
 	backendEvent := vcdsdk.BackendEvent{
 		Name:            eventName,
@@ -768,5 +778,10 @@ func (capvcdRdeManager *CapvcdRdeManager) AddToEventSet(ctx context.Context, eve
 	if detailedEventMsg != "" {
 		backendEvent.AdditionalDetails = map[string]interface{}{"event": detailedEventMsg}
 	}
-	return capvcdRdeManager.RdeManager.AddToEventSet(ctx, vcdsdk.ComponentCAPVCD, backendEvent, DefaultRollingWindowSize)
+	err := capvcdRdeManager.RdeManager.AddToEventSet(ctx, vcdsdk.ComponentCAPVCD, backendEvent, DefaultRollingWindowSize)
+	if err != nil {
+		klog.Errorf(
+			"failed to update RDE with Event; eventName: [%s], vcdResource: [%s], vcdResourceName: [%s]; RDE update error: [%v]",
+			eventName, vcdResourceId, vcdResourceName, err)
+	}
 }

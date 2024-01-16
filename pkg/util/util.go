@@ -10,15 +10,16 @@ import (
 	"encoding/json"
 	"encoding/xml"
 	"fmt"
-	"github.com/vmware/go-vcloud-director/v2/types/v56"
-	"github.com/vmware/go-vcloud-director/v2/util"
 	"io/ioutil"
 	"net/http"
 	"strings"
+
+	"github.com/vmware/go-vcloud-director/v2/types/v56"
+	"github.com/vmware/go-vcloud-director/v2/util"
 )
 
-// indentJsonBody indents raw JSON body for easier readability
-func indentJsonBody(body []byte) ([]byte, error) {
+// indentJSONBody indents raw JSON body for easier readability
+func indentJSONBody(body []byte) ([]byte, error) {
 	var prettyJSON bytes.Buffer
 	err := json.Indent(&prettyJSON, body, "", "  ")
 	if err != nil {
@@ -34,13 +35,13 @@ func DecodeXMLBody(bodyType types.BodyType, resp *http.Response, out interface{}
 
 	// In case of JSON, body does not have indents in response therefore it must be indented
 	if bodyType == types.BodyTypeJSON {
-		body, err = indentJsonBody(body)
+		body, err = indentJSONBody(body)
 		if err != nil {
 			return err
 		}
 	}
 
-	util.ProcessResponseOutput(util.FuncNameCallStack(), resp, fmt.Sprintf("%s", body))
+	util.ProcessResponseOutput(util.FuncNameCallStack(), resp, string(body))
 	if err != nil {
 		return err
 	}

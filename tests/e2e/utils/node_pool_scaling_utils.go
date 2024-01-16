@@ -12,10 +12,10 @@ import (
 	"time"
 )
 
-func ScaleNodePool(ctx context.Context, r runtimeclient.Client, desiredNodePoolSize int64, clusterName, clusterNameSpace string) error {
+func ScaleNodePool(ctx context.Context, r runtimeclient.Client, desiredNodePoolSize int64, clusterName, clusterNameSpace,
+	machineDeploymentName string) error {
 	fmt.Printf("Scaling node pool to %d\n", desiredNodePoolSize)
 
-	machineDeploymentName := fmt.Sprintf("%s-md-0", clusterName)
 	machineDeployment := &clusterv1.MachineDeployment{}
 	if err := r.Get(ctx, runtimeclient.ObjectKey{
 		Namespace: clusterNameSpace,

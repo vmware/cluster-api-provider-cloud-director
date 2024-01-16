@@ -7,7 +7,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/vmware/cloud-provider-for-cloud-director/pkg/testingsdk"
-	infrav2 "github.com/vmware/cluster-api-provider-cloud-director/api/v1beta2"
+	infrav1beta3 "github.com/vmware/cluster-api-provider-cloud-director/api/v1beta3"
 	"github.com/vmware/cluster-api-provider-cloud-director/tests/e2e/utils"
 	"github.com/vmware/go-vcloud-director/v2/types/v56"
 	"io/ioutil"
@@ -22,6 +22,7 @@ import (
 	kcfg "sigs.k8s.io/cluster-api/util/kubeconfig"
 	runtimeclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"strings"
+	"time"
 )
 
 const (
@@ -32,7 +33,6 @@ var _ = Describe("Workload Cluster Life cycle management", func() {
 	When("create, upgrade, and delete the workload cluster", func() {
 		var (
 			runtimeClient     runtimeclient.Client
-			testClient        *testingsdk.TestClient
 			ctx               context.Context
 			kubeConfig        []byte
 			capiYaml          []byte
@@ -40,7 +40,7 @@ var _ = Describe("Workload Cluster Life cycle management", func() {
 			workloadClientSet *kubernetes.Clientset
 			clusterName       string
 			clusterNameSpace  string
-			vcdCluster        *infrav2.VCDCluster
+			vcdCluster        *infrav1beta3.VCDCluster
 			rdeID             string
 		)
 
@@ -67,13 +67,19 @@ var _ = Describe("Workload Cluster Life cycle management", func() {
 
 			utilruntime.Must(scheme.AddToScheme(testScheme))
 			utilruntime.Must(clusterv1beta1.AddToScheme(testScheme))
-			utilruntime.Must(infrav2.AddToScheme(testScheme))
+			utilruntime.Must(infrav1beta3.AddToScheme(testScheme))
 			runtimeClient, err = runtimeclient.New(restConfig, runtimeclient.Options{Scheme: testScheme})
-			ExpectWithOffset(1, runtimeClient).NotTo(BeNil(), "Failed to create runtime client")
 			ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to create runtime client")
+			ExpectWithOffset(1, runtimeClient).NotTo(BeNil(), "Failed to create runtime client")
+
+			By("Getting the clusterName and namespace")
+			clusterName, clusterNameSpace, err = utils.GetClusterNameAndNamespaceFromCAPIYaml(capiYaml)
+			ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to get cluster name and namespace")
+			ExpectWithOffset(1, clusterName).NotTo(BeEmpty(), "Cluster name is empty")
+			ExpectWithOffset(1, clusterNameSpace).NotTo(BeEmpty(), "Cluster namespace is empty")
 		})
 
-		It("CAPVCD should be able to create the workload cluster", func() {
+		It("CAPVCD should create cluster before upgrade", func() {
 			var err error
 			By("Getting the clusterName and namespace")
 			clusterName, clusterNameSpace, err = utils.GetClusterNameAndNamespaceFromCAPIYaml(capiYaml)
@@ -81,16 +87,16 @@ var _ = Describe("Workload Cluster Life cycle management", func() {
 			ExpectWithOffset(1, clusterName).NotTo(BeEmpty(), "Cluster name is empty")
 			ExpectWithOffset(1, clusterNameSpace).NotTo(BeEmpty(), "Cluster namespace is empty")
 
-			//By("Creating the namespace when necessary")
-			//err = utils.CreateOrGetNameSpace(ctx, cs, clusterNameSpace)
-			//ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to create or get namespace")
-			//
-			//By("Applying the CAPI YAML in the CAPVCD mgmt cluster")
-			//err = utils.ApplyCAPIYaml(ctx, runtimeClient, capiYaml)
-			//ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to apply CAPI YAML")
-			//
-			//err = utils.WaitForClusterProvisioned(ctx, runtimeClient, clusterName, clusterNameSpace)
-			//ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to wait for cluster provisioned")
+			By("Creating the namespace when necessary")
+			err = utils.CreateOrGetNameSpace(ctx, cs, clusterNameSpace)
+			ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to create or get namespace")
+
+			By("Applying the CAPI YAML in the CAPVCD mgmt cluster")
+			err = utils.ApplyCAPIYaml(ctx, runtimeClient, capiYaml)
+			ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to apply CAPI YAML")
+
+			err = utils.WaitForClusterProvisioned(ctx, runtimeClient, clusterName, clusterNameSpace)
+			ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to wait for cluster provisioned")
 
 			By("Retrieving the kube config of the workload cluster")
 			kubeConfigBytes, err := kcfg.FromSecret(ctx, runtimeClient, runtimeclient.ObjectKey{
@@ -110,17 +116,26 @@ var _ = Describe("Workload Cluster Life cycle management", func() {
 			ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to get VCDCluster from the cluster")
 			ExpectWithOffset(1, vcdCluster).NotTo(BeNil(), "VCDCluster is nil")
 
+			fmt.Println("Getting the antrea YAML!")
+			antreaYamlBytes, err := os.ReadFile(PathToAntreaYaml)
+			ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to read Antrea YAML")
+			ExpectWithOffset(1, capiYaml).NotTo(BeEmpty(), "Antre YAML is empty")
+
+			By("Installing antera from yaml")
+			err = utils.InstallAntreaFromYaml(ctx, kubeConfigBytes, antreaYamlBytes)
+			ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to install antrea using antrea yaml")
+
 			By("Getting the rdeID from the vcdCluster")
 			rdeID = vcdCluster.Status.InfraId
 			ExpectWithOffset(1, rdeID).NotTo(BeZero(), "rdeID is empty")
 
 			By("Creating the cluster resource sets")
-			//err = utils.CreateWorkloadClusterResources(ctx, workloadClientSet, string(capiYaml), rdeID, vcdCluster)
-			//ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to create cluster Resource Set")
-			//
-			//By("Waiting for the cluster machines to become running state")
-			//err = utils.WaitForMachinesRunning(ctx, runtimeClient, clusterName, clusterNameSpace)
-			//ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to wait for machines running")
+			err = utils.CreateWorkloadClusterResources(ctx, workloadClientSet, string(capiYaml), rdeID, vcdCluster)
+			ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to create cluster Resource Set")
+
+			By("Waiting for the cluster machines to become running state")
+			err = utils.WaitForMachinesRunning(ctx, runtimeClient, clusterName, clusterNameSpace)
+			ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to wait for machines running")
 		})
 
 		It("should be able to upgrade successfully given a valid OVA to upgrade to is installed", func() {
@@ -133,6 +148,26 @@ var _ = Describe("Workload Cluster Life cycle management", func() {
 				k8sVersion        *version.Info
 				allVappTemplates  []*types.QueryResultVappTemplateType
 			)
+
+			By("Getting the vcdcluster of the CAPVCD cluster - management cluster")
+			vcdCluster, err = utils.GetVCDClusterFromCluster(ctx, runtimeClient, clusterNameSpace, clusterName)
+			ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to get VCDCluster from the cluster")
+			ExpectWithOffset(1, vcdCluster).NotTo(BeNil(), "VCDCluster is nil")
+
+			rdeID = vcdCluster.Status.InfraId
+
+			By("Retrieving the kube config of the workload cluster")
+			kubeConfigBytes, err := kcfg.FromSecret(ctx, runtimeClient, runtimeclient.ObjectKey{
+				Namespace: clusterNameSpace,
+				Name:      clusterName,
+			})
+			ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to retrieve kube config")
+			ExpectWithOffset(1, kubeConfigBytes).NotTo(BeNil(), "Kube config is nil")
+
+			By("Validating the kube config of the workload cluster")
+			workloadClientSet, err = utils.ValidateKubeConfig(ctx, kubeConfigBytes)
+			ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to validate kube config")
+			ExpectWithOffset(1, workloadClientSet).NotTo(BeNil(), "Workload client set is nil")
 
 			testClient, err := utils.ConstructCAPVCDTestClient(ctx, vcdCluster, workloadClientSet, string(capiYaml), clusterNameSpace, clusterName, rdeID, true)
 			ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to construct CAPVCD test client")
@@ -167,11 +202,44 @@ var _ = Describe("Workload Cluster Life cycle management", func() {
 			By("confirming all nodes have been upgraded to the new k8s version")
 			err = utils.MonitorK8sUpgrade(testClient, runtimeClient, updatedK8sVersion)
 			ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to monitor Kubernetes upgrade")
+
+			waitDuration := 15 * time.Minute
+			fmt.Printf("Waiting for [%s] for vcdcluster reconciliation\n", waitDuration.String())
+			time.Sleep(waitDuration)
+
+			By("verify RDE upgrade section after upgrade")
+			err = utils.VerifyRDEUpgradeSection(ctx, testClient.VcdClient, rdeID, k8sVersionStr)
+			ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Error verifying RDE upgrade section")
 		})
 
 		It("CAPVCD should be able to delete the workload cluster", func() {
+
+			By("Getting the vcdcluster of the CAPVCD cluster - management cluster")
+			vcdCluster, err := utils.GetVCDClusterFromCluster(ctx, runtimeClient, clusterNameSpace, clusterName)
+			ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to get VCDCluster from the cluster")
+			ExpectWithOffset(1, vcdCluster).NotTo(BeNil(), "VCDCluster is nil")
+
+			rdeID = vcdCluster.Status.InfraId
+
+			By("Retrieving the kube config of the workload cluster")
+			kubeConfigBytes, err := kcfg.FromSecret(ctx, runtimeClient, runtimeclient.ObjectKey{
+				Namespace: clusterNameSpace,
+				Name:      clusterName,
+			})
+			ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to retrieve kube config")
+			ExpectWithOffset(1, kubeConfigBytes).NotTo(BeNil(), "Kube config is nil")
+
+			By("Validating the kube config of the workload cluster")
+			workloadClientSet, err = utils.ValidateKubeConfig(ctx, kubeConfigBytes)
+			ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to validate kube config")
+			ExpectWithOffset(1, workloadClientSet).NotTo(BeNil(), "Workload client set is nil")
+
+			testClient, err := utils.ConstructCAPVCDTestClient(ctx, vcdCluster, workloadClientSet, string(capiYaml), clusterNameSpace, clusterName, rdeID, true)
+			ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to construct CAPVCD test client")
+			ExpectWithOffset(1, testClient).NotTo(BeNil(), "Test client is nil")
+
 			By("Deleting the workload cluster")
-			err := utils.DeleteCAPIYaml(ctx, runtimeClient, capiYaml)
+			err = utils.DeleteCAPIYaml(ctx, runtimeClient, capiYaml)
 			ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to delete CAPI YAML")
 
 			By("Monitoring the cluster get deleted")

@@ -5,6 +5,7 @@
   - The management cluster can be accessible.
   - The management cluster has CAPI controller and CAPVCD controller.
   - User prepares the completed cluster yaml. See [clusterctl template flavors](../../docs/CLUSTERCTL.md#template_flavors) for the details.
+  - User provides the path to the antrea.yaml to be installed on the cluster
   
 Note: **You can also use [setup script](setup_kind_cluster.sh) to set up the kind cluster**. 
 1. The script only works for mac OS. 
@@ -14,8 +15,9 @@ Note: **You can also use [setup script](setup_kind_cluster.sh) to set up the kin
 - Test input
   - PathToKubeconfigOfManagementCluster (absolute path to find the file)
   - PathToCapiYamlOfWorkloadCluster (absolute path to find the file)
-  - [optional] TargetTKGVersion
-  - [optional] TargetK8SVersion
+  - PathToAntreaYaml (absolute path to the antrea.yaml to be installed on the workload cluster)
+  - [optional] TargetTKGVersionForUpgradeTest
+  - [optional] TargetK8SVersionForUpgradeTest
   
 
 ### Cluster Resize Test
@@ -27,12 +29,16 @@ Note: **You can also use [setup script](setup_kind_cluster.sh) to set up the kin
     - Wait for the cluster becomes `provisioned` and all the machine states become `provisioned`
     - Validate the kubeConfig of the workload cluster
     - Apply the CRS of CNI/CPI/CSI
+    - Apply the Antrea YAML on the cluster
     - Wait for all the machine states become `running`
+    - Verify if the infra ID of the cluster is set on the VApp metadata
   - Resize the workload cluster
     - increase the worker pool node count of the workload cluster
     - monitor the new machine show up and then become running
+    - Verify if the RDE node pools section reflect the correct node count
     - decrease the worker pool node count of the workload cluster
     - monitor the replicas of machines become correct
+    - Verify if the RDE node pools section reflect the correct node count
   - delete the workload cluster
     - delete all the objects from capiYaml except `secret`
     - Ensure the workload cluster is deleted
@@ -48,9 +54,11 @@ Note: **You can also use [setup script](setup_kind_cluster.sh) to set up the kin
   - Validate the kubeConfig of the workload cluster
   - Apply the CRS of CNI/CPI/CSI
   - Wait for all the machine states become `running`
+  - Verify if the infra ID of the cluster is set on the VApp metadata
 - Upgrade the workload cluster
   - upgrade the cluster to the targetK8sVersion and targetTKGVersion
   - monitor the new machine show up and then become running
+  - Verify if the RDE upgrade section shows the correct target kubernetes version after upgrade
 - delete the workload cluster
   - delete all the objects from capiYaml except `secret`
   - Ensure the workload cluster is deleted
