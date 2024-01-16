@@ -165,18 +165,18 @@ func patchVCDCluster(ctx context.Context, patchHelper *patch.Helper, vcdCluster 
 }
 
 func loginVCD(ctx context.Context, cli client.Client, vcdCluster *infrav1beta3.VCDCluster) (*vcdsdk.Client, error) {
-	workloadVCDClient, err := createVCDClientFromSecrets(ctx, cli, vcdCluster)
+	vcdClient, err := createVCDClientFromSecrets(ctx, cli, vcdCluster)
 	if err != nil {
 		return nil, errors.Wrapf(err, "Error creating VCD client to reconcile Cluster [%s] infrastructure", vcdCluster.Name)
 	}
-	if workloadVCDClient.VDC == nil || workloadVCDClient.VDC.Vdc == nil {
-		return workloadVCDClient, errors.Wrapf(err, "failed to get the Organization VDC (OVDC) from the VCD client for reconciling infrastructure of Cluster [%s]", vcdCluster.Name)
+	if vcdClient.VDC == nil || vcdClient.VDC.Vdc == nil {
+		return vcdClient, errors.Wrapf(err, "failed to get the Organization VDC (OVDC) from the VCD client for reconciling infrastructure of Cluster [%s]", vcdCluster.Name)
 	}
-	err = updateVdcResourceToVcdCluster(vcdCluster, ResourceTypeOvdc, workloadVCDClient.VDC.Vdc.ID, workloadVCDClient.VDC.Vdc.Name)
+	err = updateVdcResourceToVcdCluster(vcdCluster, ResourceTypeOvdc, vcdClient.VDC.Vdc.ID, vcdClient.VDC.Vdc.Name)
 	if err != nil {
-		return workloadVCDClient, errors.Wrapf(err, "Error updating vcdResource into vcdcluster.status to reconcile Cluster [%s] infrastructure", vcdCluster.Name)
+		return vcdClient, errors.Wrapf(err, "Error updating vcdResource into vcdcluster.status to reconcile Cluster [%s] infrastructure", vcdCluster.Name)
 	}
-	return workloadVCDClient, nil
+	return vcdClient, nil
 }
 
 func addLBResourcesToVCDResourceSet(ctx context.Context, rdeManager *vcdsdk.RDEManager, resourcesAllocated *vcdsdkutil.AllocatedResourcesMap, externalIP string) error {
