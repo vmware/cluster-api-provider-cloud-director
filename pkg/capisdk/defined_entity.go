@@ -7,7 +7,7 @@ import (
 	"github.com/blang/semver"
 	"github.com/pkg/errors"
 	"github.com/vmware/cloud-provider-for-cloud-director/pkg/vcdsdk"
-	swagger "github.com/vmware/cloud-provider-for-cloud-director/pkg/vcdswaggerclient_36_0"
+	swagger "github.com/vmware/cloud-provider-for-cloud-director/pkg/vcdswaggerclient_37_2"
 	"github.com/vmware/cluster-api-provider-cloud-director/pkg/util"
 	"github.com/vmware/cluster-api-provider-cloud-director/pkg/vcdtypes/rde_type_1_0_0"
 	"github.com/vmware/cluster-api-provider-cloud-director/pkg/vcdtypes/rde_type_1_1_0"
@@ -207,7 +207,7 @@ func (capvcdRdeManager *CapvcdRdeManager) PatchRDE(ctx context.Context, specPatc
 		return nil, fmt.Errorf("obtained nil org when getting org by name [%s]", client.ClusterOrgName)
 	}
 	for retries := 0; retries < MaxUpdateRetries; retries++ {
-		rde, resp, etag, err := client.APIClient.DefinedEntityApi.GetDefinedEntity(ctx, rdeID, org.Org.ID)
+		rde, resp, etag, err := client.APIClient.DefinedEntityApi.GetDefinedEntity(ctx, rdeID, org.Org.ID, nil)
 		if err != nil {
 			return nil, fmt.Errorf("failed to call get defined entity RDE with ID [%s]: [%s]", rdeID, err)
 		}
@@ -288,7 +288,7 @@ func (capvcdRdeManager *CapvcdRdeManager) GetCAPVCDEntity(ctx context.Context, r
 	if org == nil || org.Org == nil {
 		return nil, nil, nil, nil, fmt.Errorf("obtained nil org when getting org by name [%s]", client.ClusterOrgName)
 	}
-	rde, resp, _, err := client.APIClient.DefinedEntityApi.GetDefinedEntity(ctx, rdeID, org.Org.ID)
+	rde, resp, _, err := client.APIClient.DefinedEntityApi.GetDefinedEntity(ctx, rdeID, org.Org.ID, nil)
 	if err != nil {
 		return nil, nil, nil, nil, fmt.Errorf("failed to get defined entity with ID [%s]: [%v]", rdeID, err)
 	}
@@ -311,7 +311,7 @@ func (capvcdRdeManager *CapvcdRdeManager) GetRDEVersion(ctx context.Context, rde
 	if org == nil || org.Org == nil {
 		return nil, "", fmt.Errorf("obtained nil org when getting org by name [%s]", client.ClusterOrgName)
 	}
-	definedEntity, resp, _, err := capvcdRdeManager.Client.APIClient.DefinedEntityApi.GetDefinedEntity(ctx, rdeID, org.Org.ID)
+	definedEntity, resp, _, err := capvcdRdeManager.Client.APIClient.DefinedEntityApi.GetDefinedEntity(ctx, rdeID, org.Org.ID, nil)
 	if err != nil {
 		var responseMessageBytes []byte
 		if gsErr, ok := err.(swagger.GenericSwaggerError); ok {
@@ -350,7 +350,7 @@ func (capvcdRdeManager *CapvcdRdeManager) IsVCDKECluster(ctx context.Context, rd
 		return false
 	}
 
-	rde, resp, _, err := client.APIClient.DefinedEntityApi.GetDefinedEntity(ctx, rdeID, org.Org.ID)
+	rde, resp, _, err := client.APIClient.DefinedEntityApi.GetDefinedEntity(ctx, rdeID, org.Org.ID, nil)
 	if err != nil {
 		klog.Errorf("failed to get defined entity with ID [%s]: [%v]", rdeID, err)
 		return false
@@ -460,7 +460,7 @@ func (capvcdRdeManager *CapvcdRdeManager) convertFrom110Format(ctx context.Conte
 			srcRde.Name, srcRde.Id, rde_type_1_1_0.CapvcdRDETypeVersion, rdeType.CapvcdRDETypeVersion)
 	}
 	for retries := 0; retries < MaxUpdateRetries; retries++ {
-		srcCapvcdEntity, resp, etag, err := capvcdRdeManager.Client.APIClient.DefinedEntityApi.GetDefinedEntity(ctx, srcRde.Id, org.Org.ID)
+		srcCapvcdEntity, resp, etag, err := capvcdRdeManager.Client.APIClient.DefinedEntityApi.GetDefinedEntity(ctx, srcRde.Id, org.Org.ID, nil)
 		if err != nil {
 			var responseMessageBytes []byte
 			if gsErr, ok := err.(swagger.GenericSwaggerError); ok {
@@ -563,7 +563,7 @@ func (capvcdRdeManager *CapvcdRdeManager) convertFrom100Format(ctx context.Conte
 		return nil, fmt.Errorf("obtained nil org when getting org by name [%s]", client.ClusterOrgName)
 	}
 	for retries := 0; retries < MaxUpdateRetries; retries++ {
-		srcCapvcdEntity, resp, etag, err := capvcdRdeManager.Client.APIClient.DefinedEntityApi.GetDefinedEntity(ctx, srcRde.Id, org.Org.ID)
+		srcCapvcdEntity, resp, etag, err := capvcdRdeManager.Client.APIClient.DefinedEntityApi.GetDefinedEntity(ctx, srcRde.Id, org.Org.ID, nil)
 		if err != nil {
 			var responseMessageBytes []byte
 			if gsErr, ok := err.(swagger.GenericSwaggerError); ok {
@@ -708,7 +708,7 @@ func (capvcdRdeManager *CapvcdRdeManager) CheckForEmptyRDEAndUpdateCreatedByVers
 	if org == nil || org.Org == nil {
 		return fmt.Errorf("obtained nil org when getting org by name [%s]", client.ClusterOrgName)
 	}
-	rde, resp, _, err := capvcdRdeManager.RdeManager.Client.APIClient.DefinedEntityApi.GetDefinedEntity(ctx, infraId, org.Org.ID)
+	rde, resp, _, err := capvcdRdeManager.RdeManager.Client.APIClient.DefinedEntityApi.GetDefinedEntity(ctx, infraId, org.Org.ID, nil)
 	if err != nil {
 		return fmt.Errorf("failed to call get defined entity RDE with ID [%s] to update RDE with createdBy version: [%s]", infraId, err)
 	} else if resp == nil {

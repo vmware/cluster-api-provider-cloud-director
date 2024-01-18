@@ -8,7 +8,6 @@ package vcdsdk
 import (
 	"crypto/tls"
 	"fmt"
-	swaggerClient "github.com/vmware/cloud-provider-for-cloud-director/pkg/vcdswaggerclient_36_0"
 	swaggerClient37 "github.com/vmware/cloud-provider-for-cloud-director/pkg/vcdswaggerclient_37_2"
 	"k8s.io/klog"
 	"net/http"
@@ -25,8 +24,7 @@ type Client struct {
 	ClusterOVDCName string
 	VCDClient       *govcd.VCDClient
 	VDC             *govcd.Vdc // TODO: Incrementally remove and test in tests
-	APIClient       *swaggerClient.APIClient
-	APIClient37_2   *swaggerClient37.APIClient // will only be set if API version 37.2 is supported in VCD
+	APIClient       *swaggerClient37.APIClient
 	RWLock          sync.RWMutex
 }
 
@@ -36,7 +34,7 @@ func GetUserAndOrg(fullUserName string, clusterOrg string, currentUserOrg string
 	// necessary rights to view the VMs on this org. Else if the username is
 	// specified as just user, the scenario is that the user is in the same org
 	// as the cluster.
-	parts := strings.Split(string(fullUserName), "/")
+	parts := strings.Split(fullUserName, "/")
 	if len(parts) > 2 {
 		return "", "", fmt.Errorf(
 			"invalid username format; expected at most two fields separated by /, obtained [%d]",
@@ -58,13 +56,13 @@ func GetUserAndOrg(fullUserName string, clusterOrg string, currentUserOrg string
 	return userOrg, userName, nil
 }
 
-// TODO: Make sure this function still works properly with no issues after refactor
+// RefreshBearerToken gets a new Bearer Token from an API token
 func (client *Client) RefreshBearerToken() error {
 	klog.Infof("Refreshing vcd client")
 
 	href := fmt.Sprintf("%s/api", client.VCDAuthConfig.Host)
 	// continue using API version 36 for GoVCD client
-	client.VCDClient.Client.APIVersion = VCloudApiVersion_36_0
+	client.VCDClient.Client.APIVersion = VCloudApiVersion_37_2
 
 	klog.Infof("Is user sysadmin: [%v]", client.VCDAuthConfig.IsSysAdmin)
 	if client.VCDAuthConfig.RefreshToken != "" {
@@ -109,7 +107,7 @@ func (client *Client) RefreshBearerToken() error {
 	}
 
 	// reset swagger client
-	swaggerConfig := swaggerClient.NewConfiguration()
+	swaggerConfig := swaggerClient37.NewConfiguration()
 	swaggerConfig.BasePath = fmt.Sprintf("%s/cloudapi", client.VCDAuthConfig.Host)
 	swaggerConfig.AddDefaultHeader("Authorization", fmt.Sprintf("Bearer %s", client.VCDClient.Client.VCDToken))
 	swaggerConfig.HTTPClient = &http.Client{
@@ -117,7 +115,7 @@ func (client *Client) RefreshBearerToken() error {
 			TLSClientConfig: &tls.Config{InsecureSkipVerify: client.VCDAuthConfig.Insecure},
 		},
 	}
-	client.APIClient = swaggerClient.NewAPIClient(swaggerConfig)
+	client.APIClient = swaggerClient37.NewAPIClient(swaggerConfig)
 
 	// initialize swagger client for API version 37.2 only if API version 37.2 is available
 	if client.VCDClient.Client.APIVCDMaxVersionIs(fmt.Sprintf(">=%s", VCloudApiVersion_37_2)) {
@@ -129,7 +127,7 @@ func (client *Client) RefreshBearerToken() error {
 				TLSClientConfig: &tls.Config{InsecureSkipVerify: client.VCDAuthConfig.Insecure},
 			},
 		}
-		client.APIClient37_2 = swaggerClient37.NewAPIClient(swaggerConfig37)
+		client.APIClient = swaggerClient37.NewAPIClient(swaggerConfig37)
 	}
 
 	klog.Info("successfully refreshed all clients")
@@ -160,7 +158,7 @@ func NewVCDClientFromSecrets(host string, orgName string, vdcName string, userOr
 
 	vcdAuthConfig := NewVCDAuthConfigFromSecrets(host, newUsername, password, refreshToken, newUserOrg, insecure) //
 
-	vcdClient, apiClient, apiClient37, err := vcdAuthConfig.GetSwaggerClientFromSecrets()
+	vcdClient, apiClient, err := vcdAuthConfig.GetSwaggerClientFromSecrets()
 	if err != nil {
 		return nil, fmt.Errorf("unable to get swagger client from secrets: [%v]", err)
 	}
@@ -185,7 +183,6 @@ func NewVCDClientFromSecrets(host string, orgName string, vdcName string, userOr
 		ClusterOVDCName: vdcName,
 		VCDClient:       vcdClient,
 		APIClient:       apiClient,
-		APIClient37_2:   apiClient37,
 	}
 
 	if getVdcClient {
