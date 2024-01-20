@@ -122,10 +122,14 @@ write_files:
     vmtoolsd --cmd "info-set guestinfo.postcustomization.proxy.setting.status successful" {{- end }}
 
     vmtoolsd --cmd "info-set {{ if .ControlPlane -}} guestinfo.postcustomization.kubeinit.status {{- else -}} guestinfo.postcustomization.kubeadm.node.join.status {{- end }} in_progress"
+
+    # Restart containerd
     systemctl restart containerd
-    set +e
+    # Option +e prevents the script to exit on any error
+    # Option +E prevents the trap set on err in the sub-functions. In other words, catch() will not be executed
+    set +eE
     wait_for_containerd_startup
-    set -e
+    set -eE
     set +x
     {
       {{ .BootstrapRunCmd }}
