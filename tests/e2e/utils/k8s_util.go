@@ -6,13 +6,14 @@ import (
 	"context"
 	_ "embed" // this needs go 1.16+
 	"fmt"
-	infrav2 "github.com/vmware/cluster-api-provider-cloud-director/api/v1beta2"
+	infrav1beta3 "github.com/vmware/cluster-api-provider-cloud-director/api/v1beta3"
 	"io"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/serializer/yaml"
 	k8syaml "k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/client-go/kubernetes"
 	runtimeclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -57,7 +58,7 @@ func ApplyCAPIYaml(ctx context.Context, r runtimeclient.Client, yamlContent []by
 			FieldManager: FieldManager,
 		})
 		if err != nil {
-			return err
+			fmt.Println("error occurred but continuing with applying the rest of the config", err)
 		}
 	}
 
@@ -225,8 +226,8 @@ func CreateCSIConfigMap(ctx context.Context, cs *kubernetes.Clientset, namespace
 	return createConfigMap(ctx, cs, configMap, namespace)
 }
 
-func getVCDCluster(ctx context.Context, r runtimeclient.Client, namespace, name string) (*infrav2.VCDCluster, error) {
-	vcdCluster := &infrav2.VCDCluster{}
+func getVCDCluster(ctx context.Context, r runtimeclient.Client, namespace, name string) (*infrav1beta3.VCDCluster, error) {
+	vcdCluster := &infrav1beta3.VCDCluster{}
 	err := r.Get(ctx, runtimeclient.ObjectKey{
 		Namespace: namespace,
 		Name:      name,
@@ -253,4 +254,29 @@ func createSecret(ctx context.Context, cs *kubernetes.Clientset, secret *corev1.
 		return fmt.Errorf("failed to create secret: %v", err)
 	}
 	return nil
+}
+
+func getObjectsFromYamlString(yamlStr string) ([]*unstructured.Unstructured, error) {
+	var decUnstructured = yaml.NewDecodingSerializer(unstructured.UnstructuredJSONScheme)
+	var objects []*unstructured.Unstructured
+	yamlReader := k8syaml.NewYAMLReader(bufio.NewReader(bytes.NewReader([]byte(fmt.Sprintf("%v", yamlStr)))))
+	var err error
+	for err == nil {
+		// Read single API object at a time from the CAPI Yaml
+		yamlBytes, err := yamlReader.Read()
+		if err == io.EOF {
+			break
+		} else if err != nil {
+			return nil, fmt.Errorf("error encountered while reading object: [%s]: [%v]", string(yamlBytes), err)
+		}
+
+		// Decode the yaml API object into unstructured format
+		obj := &unstructured.Unstructured{}
+		_, _, err = decUnstructured.Decode(yamlBytes, nil, obj)
+		if err != nil {
+			return nil, fmt.Errorf("error encountered while parsing object: [%s]: [%v]", string(yamlBytes), err)
+		}
+		objects = append(objects, obj)
+	}
+	return objects, nil
 }

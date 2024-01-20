@@ -349,7 +349,6 @@ func ApplyK8sVersionUpgrade(ctx context.Context, r runtimeclient.Client, capiYam
 				return "", fmt.Errorf("failed to patch %s: [%v]", KubeadmControlPlane, err)
 			}
 
-			break
 		case MachineDeployment:
 			specMap, err := testingsdk.GetMapBySpecName(unstructuredObj.Object, "spec", "MachineDeployment")
 			if err != nil {
@@ -403,7 +402,6 @@ func ApplyK8sVersionUpgrade(ctx context.Context, r runtimeclient.Client, capiYam
 			if executedErr != nil {
 				return "", fmt.Errorf("failed to patch %s: [%v]", VCDMachineTemplate, err)
 			}
-			break
 		}
 	}
 

@@ -62,9 +62,6 @@ type CloudInitScriptInput struct {
 }
 
 const (
-	ReclaimPolicyDelete = "Delete"
-	ReclaimPolicyRetain = "Retain"
-
 	VcdResourceTypeVM = "virtual-machine"
 )
 
@@ -175,7 +172,7 @@ func (r *VCDMachineReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 
 	// Handle deleted machines
 	if machineBeingDeleted {
-		return r.reconcileDelete(ctx, cluster, machine, vcdMachine, vcdCluster)
+		return r.reconcileDelete(ctx, machine, vcdMachine, vcdCluster)
 	}
 
 	// Handle non-deleted machines
@@ -239,14 +236,14 @@ func strInSlice(findStr string, arr []string) bool {
 const phaseSecondTimeout = 600
 
 func (r *VCDMachineReconciler) waitForPostCustomizationPhase(ctx context.Context,
-	workloadVCDClient *vcdsdk.Client, vm *govcd.VM, phase string) error {
+	vcdClient *vcdsdk.Client, vm *govcd.VM, phase string) error {
 	log := ctrl.LoggerFrom(ctx)
 
 	startTime := time.Now()
 	possibleStatuses := []string{"", "in_progress", "successful"}
 	currentStatus := possibleStatuses[0]
-	vdcManager, err := vcdsdk.NewVDCManager(workloadVCDClient, workloadVCDClient.ClusterOrgName,
-		workloadVCDClient.ClusterOVDCName)
+	vdcManager, err := vcdsdk.NewVDCManager(vcdClient, vcdClient.ClusterOrgName,
+		vcdClient.ClusterOVDCName)
 	if err != nil {
 		return errors.Wrapf(err, "failed to create a vdc manager object when waiting for post customization phase of VM")
 	}
@@ -329,6 +326,539 @@ func checkIfMachineNodeIsUnhealthy(machine *clusterv1.Machine) bool {
 	return false
 }
 
+func (r *VCDMachineReconciler) reconcileCloudInitScript(ctx context.Context, vcdClient *vcdsdk.Client,
+	machine *clusterv1.Machine, cluster *clusterv1.Cluster, vcdMachine *infrav1beta3.VCDMachine,
+	vcdCluster *infrav1beta3.VCDCluster, vAppName, vmName string, skipRDEEventUpdates bool) ([]byte, bool, bool, error) {
+
+	log := ctrl.LoggerFrom(ctx, "cluster", vcdCluster.Name, "machine", machine.Name, "vAppName", vAppName)
+	capvcdRdeManager := capisdk.NewCapvcdRdeManager(vcdClient, vcdCluster.Status.InfraId)
+
+	bootstrapJinjaScript, err := r.getBootstrapData(ctx, machine)
+	if err != nil {
+		capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDMachineScriptGenerationError, "", machine.Name, fmt.Sprintf("%v", err))
+
+		return nil, false, false, errors.Wrapf(err, "Error retrieving bootstrap data for machine [%s] of the cluster [%s]",
+			machine.Name, vcdCluster.Name)
+	}
+
+	// In a multimaster cluster, the initial control plane node runs `kubeadm init`; additional control plane nodes
+	// run `kubeadm join`. The joining control planes run `kubeadm join`, so these nodes use the join script.
+	// Although it is sufficient to just check if `kubeadm join` is in the bootstrap script, using the
+	// isControlPlaneMachine function is a simpler operation, so this function is called first.
+	isInitialControlPlane := util.IsControlPlaneMachine(machine) &&
+		!strings.Contains(bootstrapJinjaScript, "kubeadm join")
+
+	// Scaling up Control Plane initially creates the nodes as worker, which eventually joins the original control plane
+	// Hence we are checking if it contains the control plane label and has kubeadm join in the script
+	isResizedControlPlane := util.IsControlPlaneMachine(machine) && strings.Contains(bootstrapJinjaScript, "kubeadm join")
+
+	// Construct a CloudInitScriptInput struct to pass into template.Execute() function to generate the necessary
+	// cloud init script for the relevant node type, i.e. control plane or worker node
+	cloudInitInput := CloudInitScriptInput{
+		HTTPProxy:           vcdCluster.Spec.ProxyConfigSpec.HTTPProxy,
+		HTTPSProxy:          vcdCluster.Spec.ProxyConfigSpec.HTTPSProxy,
+		NoProxy:             vcdCluster.Spec.ProxyConfigSpec.NoProxy,
+		MachineName:         vmName,
+		VcdHostFormatted:    strings.ReplaceAll(vcdCluster.Spec.Site, "/", "\\/"),
+		NvidiaGPU:           false,
+		TKGVersion:          getTKGVersion(cluster),    // needed for both worker & control plane machines for metering
+		ClusterID:           vcdCluster.Status.InfraId, // needed for both worker & control plane machines for metering
+		ResizedControlPlane: isResizedControlPlane,
+	}
+	if !vcdMachine.Spec.Bootstrapped && isInitialControlPlane {
+		cloudInitInput.ControlPlane = true
+	}
+
+	mergedCloudInitBytes, err := MergeJinjaToCloudInitScript(cloudInitInput, bootstrapJinjaScript)
+	if err != nil {
+		capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDMachineScriptGenerationError, "", machine.Name, fmt.Sprintf("%v", err))
+
+		return nil, isInitialControlPlane, isResizedControlPlane, errors.Wrapf(err,
+			"Error merging bootstrap jinja script with the cloudInit script for [%s/%s] [%s]",
+			vAppName, machine.Name, bootstrapJinjaScript)
+	}
+
+	cloudInit := string(mergedCloudInitBytes)
+
+	// nothing is redacted in the cloud init script - please ensure no secrets are present
+	log.V(2).Info(fmt.Sprintf("Cloud init Script: [%s]", cloudInit))
+	capvcdRdeManager.AddToEventSet(ctx, capisdk.CloudInitScriptGenerated, "", machine.Name, "", skipRDEEventUpdates)
+
+	err = capvcdRdeManager.RdeManager.RemoveErrorByNameOrIdFromErrorSet(ctx, vcdsdk.ComponentCAPVCD, capisdk.VCDMachineScriptGenerationError, "", machine.Name)
+	if err != nil {
+		log.Error(err, "failed to remove VCDMachineScriptGenerationError from RDE", "rdeID", vcdCluster.Status.InfraId)
+	}
+
+	return mergedCloudInitBytes, isInitialControlPlane, isResizedControlPlane, nil
+}
+
+func (r *VCDMachineReconciler) reconcileVMBoostrap(ctx context.Context, vcdClient *vcdsdk.Client,
+	vdcManager *vcdsdk.VdcManager, vApp *govcd.VApp, vm *govcd.VM, mergedCloudInitBytes []byte,
+	vcdCluster *infrav1beta3.VCDCluster, machine *clusterv1.Machine,
+	isInitialControlPlane, isResizedControlPlane, skipRDEEventUpdates bool) error {
+
+	if vApp == nil || vApp.VApp == nil {
+		return fmt.Errorf("reconcileVMBootstrap is called with a nil VAPP")
+	}
+	log := ctrl.LoggerFrom(ctx, "cluster", vcdCluster.Name, "machine", machine.Name, "vAppName", vApp.VApp.Name)
+	capvcdRdeManager := capisdk.NewCapvcdRdeManager(vcdClient, vcdCluster.Status.InfraId)
+
+	vmStatus, err := vm.GetStatus()
+	if err != nil {
+		capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDMachineCreationError, "", machine.Name, fmt.Sprintf("%v", err))
+
+		return errors.Wrapf(err, "Error while provisioning the infrastructure VM for the machine [%s] of the cluster [%s]; failed to get status of vm", vm.VM.Name, vApp.VApp.Name)
+	}
+	if err = capvcdRdeManager.RdeManager.RemoveErrorByNameOrIdFromErrorSet(ctx, vcdsdk.ComponentCAPVCD, capisdk.VCDMachineCreationError, "", ""); err != nil {
+		log.Error(err, "failed to remove VCDMachineCreationError from RDE")
+	}
+	vAppName := CreateFullVAppName(vcdCluster)
+	if vmStatus != "POWERED_ON" {
+		// try to power on the VM
+		b64CloudInitScript := b64.StdEncoding.EncodeToString(mergedCloudInitBytes)
+		keyVals := map[string]string{
+			"guestinfo.userdata":          b64CloudInitScript,
+			"guestinfo.userdata.encoding": "base64",
+			"disk.enableUUID":             "1",
+		}
+
+		for key, val := range keyVals {
+			err = vdcManager.SetVmExtraConfigKeyValue(vm, key, val, true)
+			if err != nil {
+				capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDMachineCreationError, "", machine.Name, fmt.Sprintf("%v", err))
+
+				return errors.Wrapf(err, "Error while enabling cloudinit on the machine [%s/%s]; unable to set vm extra config key [%s] for vm ",
+					vcdCluster.Name, vm.VM.Name, key)
+			}
+
+			if err = vm.Refresh(); err != nil {
+				capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDMachineCreationError, "", machine.Name, fmt.Sprintf("Unable to refresh vm: %v", err))
+
+				return errors.Wrapf(err, "Error while enabling cloudinit on the machine [%s/%s]; unable to refresh vm", vcdCluster.Name, vm.VM.Name)
+			}
+
+			if err = vApp.Refresh(); err != nil {
+				capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDMachineCreationError, "", machine.Name, fmt.Sprintf("Unable to refresh vm: %v", err))
+
+				return errors.Wrapf(err, "Error while enabling cloudinit on the machine [%s/%s]; unable to refresh vapp", vAppName, vm.VM.Name)
+			}
+
+			err = capvcdRdeManager.RdeManager.RemoveErrorByNameOrIdFromErrorSet(ctx, vcdsdk.ComponentCAPVCD, capisdk.VCDMachineCreationError, "", machine.Name)
+			if err != nil {
+				log.Error(err, "failed to remove VCDMachineCreationError from RDE", "rdeID", vcdCluster.Status.InfraId)
+			}
+
+			log.Info(fmt.Sprintf("Configured the infra machine with variable [%s] to enable cloud-init", key))
+		}
+
+		task, err := vm.PowerOn()
+		if err != nil {
+			capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDMachineCreationError, "", machine.Name, fmt.Sprintf("%v", err))
+
+			return errors.Wrapf(err, "Error while deploying infra for the machine [%s/%s]; unable to power on VM", vcdCluster.Name, vm.VM.Name)
+		}
+		if err = task.WaitTaskCompletion(); err != nil {
+			capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDMachineCreationError, "", machine.Name, fmt.Sprintf("%v", err))
+
+			return errors.Wrapf(err, "Error while deploying infra for the machine [%s/%s]; error waiting for VM power-on task completion", vcdCluster.Name, vm.VM.Name)
+		}
+
+		if err = vApp.Refresh(); err != nil {
+			capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDMachineCreationError, "", machine.Name, fmt.Sprintf("%v", err))
+
+			return errors.Wrapf(err, "Error while deploying infra for the machine [%s/%s]; unable to refresh vapp after VM power-on", vAppName, vm.VM.Name)
+		}
+	}
+	if hasCloudInitFailedBefore, err := r.hasCloudInitExecutionFailedBefore(vcdClient, vm); hasCloudInitFailedBefore {
+		capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDMachineScriptExecutionError, "", machine.Name, fmt.Sprintf("%v", err))
+
+		return errors.Wrapf(err, "Error bootstrapping the machine [%s/%s]; machine is probably in unreconciliable state", vAppName, vm.VM.Name)
+	}
+	capvcdRdeManager.AddToEventSet(ctx, capisdk.InfraVmPoweredOn, "", machine.Name, "", skipRDEEventUpdates)
+
+	err = capvcdRdeManager.RdeManager.RemoveErrorByNameOrIdFromErrorSet(ctx, vcdsdk.ComponentCAPVCD, capisdk.VCDMachineCreationError, "", machine.Name)
+	if err != nil {
+		log.Error(err, "failed to remove VCDMachineCreationError from RDE", "rdeID", vcdCluster.Status.InfraId)
+	}
+
+	phases := postCustPhases
+	if isInitialControlPlane {
+		phases = append(phases, KubeadmInit)
+	} else {
+		phases = append(phases, KubeadmNodeJoin)
+	}
+
+	if vcdCluster.Spec.ProxyConfigSpec.HTTPSProxy == "" &&
+		vcdCluster.Spec.ProxyConfigSpec.HTTPProxy == "" {
+		phases = removeFromSlice(ProxyConfiguration, phases)
+	}
+
+	for _, phase := range phases {
+		if err = vApp.Refresh(); err != nil {
+			capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDMachineScriptExecutionError, "", machine.Name, fmt.Sprintf("%v", err))
+
+			return errors.Wrapf(err, "Error while bootstrapping the machine [%s/%s]; unable to refresh vapp",
+				vAppName, vm.VM.Name)
+		}
+		log.Info(fmt.Sprintf("Start: waiting for the bootstrapping phase [%s] to complete", phase))
+		if err = r.waitForPostCustomizationPhase(ctx, vcdClient, vm, phase); err != nil {
+			log.Error(err, fmt.Sprintf("Error waiting for the bootstrapping phase [%s] to complete", phase))
+			capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDMachineScriptExecutionError, "", machine.Name, fmt.Sprintf("%v", err))
+
+			return errors.Wrapf(err, "Error while bootstrapping the machine [%s/%s]; unable to wait for post customization phase [%s]",
+				vAppName, vm.VM.Name, phase)
+		}
+		log.Info(fmt.Sprintf("End: waiting for the bootstrapping phase [%s] to complete", phase))
+	}
+
+	err = capvcdRdeManager.RdeManager.RemoveErrorByNameOrIdFromErrorSet(ctx, vcdsdk.ComponentCAPVCD, capisdk.VCDMachineScriptExecutionError, "", "")
+	if err != nil {
+		log.Error(err, "failed to remove VCDMachineScriptExecutionError from RDE", "rdeID", vcdCluster.Status.InfraId)
+	}
+
+	log.Info("Successfully bootstrapped the machine")
+	capvcdRdeManager.AddToEventSet(ctx, capisdk.InfraVmBootstrapped, "", machine.Name, "", skipRDEEventUpdates)
+
+	if err = vm.Refresh(); err != nil {
+		capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDMachineCreationError, "", machine.Name, fmt.Sprintf("Unable to refresh vm: %v", err))
+
+		return errors.Wrapf(err, "Unexpected error after the machine [%s/%s] is bootstrapped; unable to refresh vm", vAppName, vm.VM.Name)
+	}
+	if err = vApp.Refresh(); err != nil {
+		capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDMachineCreationError, "", machine.Name, fmt.Sprintf("Unable to refresh vApp: %v", err))
+
+		return errors.Wrapf(err, "Unexpected error after the machine [%s/%s] is bootstrapped; unable to refresh vapp", vAppName, vm.VM.Name)
+	}
+
+	err = capvcdRdeManager.RdeManager.RemoveErrorByNameOrIdFromErrorSet(ctx, vcdsdk.ComponentCAPVCD, capisdk.VCDMachineCreationError, "", machine.Name)
+	if err != nil {
+		log.Error(err, "failed to remove VCDMachineCreationError from RDE", "rdeID", vcdCluster.Status.InfraId)
+	}
+	return nil
+}
+
+func (r *VCDMachineReconciler) getOVDCDetailsForMachine(vcdCluster *infrav1beta3.VCDCluster) (string, string, error) {
+
+	// TODO: update this function to get OVDC details for a zone
+
+	return vcdCluster.Spec.Ovdc, vcdCluster.Spec.OvdcNetwork, nil
+}
+
+func CreateFullVAppName(vcdCluster *infrav1beta3.VCDCluster) string {
+
+	// TODO: need to update this function after the introduction of zone related fields in VCDCluster object
+	return vcdCluster.Name
+}
+
+func (r *VCDMachineReconciler) reconcileVAppCreation(ctx context.Context, vcdClient *vcdsdk.Client,
+	machineName string, vcdCluster *infrav1beta3.VCDCluster,
+	vAppName string, ovdcNetworkName string, skipRDEEventUpdates bool) (ctrl.Result, error) {
+
+	log := ctrl.LoggerFrom(ctx, "machine", machineName, "cluster", vcdCluster.Name, "vAppName", vAppName)
+	capvcdRdeManager := capisdk.NewCapvcdRdeManager(vcdClient, vcdCluster.Status.InfraId)
+	rdeManager := vcdsdk.NewRDEManager(vcdClient, vcdCluster.Status.InfraId, capisdk.StatusComponentNameCAPVCD,
+		release.Version)
+	vdcManager, err := vcdsdk.NewVDCManager(vcdClient, vcdClient.ClusterOrgName, vcdClient.ClusterOVDCName)
+	if err != nil {
+		capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDClusterError, "", vcdCluster.Name,
+			fmt.Sprintf("failed to get vdcManager: [%v]", err))
+		return ctrl.Result{}, errors.Wrapf(err,
+			"Error creating vdc manager to reconcile vcd infrastructure for cluster [%s]", vcdCluster.Name)
+	}
+	metadataMap := map[string]string{
+		CapvcdInfraId: vcdCluster.Status.InfraId,
+	}
+	if vdcManager.Vdc == nil {
+		capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDClusterError, "",
+			vcdCluster.Name, fmt.Sprintf("%v", err))
+		return ctrl.Result{}, errors.Errorf("no Vdc created with vdc manager name [%s]", vdcManager.Client.ClusterOVDCName)
+	}
+	if err = capvcdRdeManager.RdeManager.RemoveErrorByNameOrIdFromErrorSet(ctx, vcdsdk.ComponentCAPVCD,
+		capisdk.VCDClusterError, "", ""); err != nil {
+		log.Error(err, "failed to remove VCDClusterError from RDE", "rdeID", vcdCluster.Status.InfraId)
+	}
+
+	_, err = vdcManager.Vdc.GetVAppByName(vAppName, true)
+	if err != nil && err == govcd.ErrorEntityNotFound {
+		vcdCluster.Status.VAppMetadataUpdated = false
+	}
+
+	clusterVApp, err := vdcManager.GetOrCreateVApp(vAppName, ovdcNetworkName)
+	if err != nil {
+		capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDClusterVappCreationError, "", vAppName,
+			fmt.Sprintf("%v", err))
+		return ctrl.Result{}, errors.Wrapf(err, "Error creating Infra vApp for the cluster [%s]: [%v]",
+			vcdCluster.Name, err)
+	}
+	if clusterVApp == nil || clusterVApp.VApp == nil {
+		capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDClusterVappCreationError, "",
+			vcdCluster.Name, fmt.Sprintf("%v", err))
+		return ctrl.Result{}, errors.Wrapf(err, "found nil value for VApp [%s]", vAppName)
+	}
+
+	// AMK: TODO: this is likely not needed since the resourceset will get added later.
+	//if !strings.HasPrefix(vcdCluster.Status.InfraId, NoRdePrefix) {
+	//	if err := r.reconcileRDE(ctx, cluster, vcdCluster, vcdClient, clusterVApp.VApp.ID, true); err != nil {
+	//		log.Error(err, "failed to add VApp ID to RDE", "rdeID", vcdCluster.Status.InfraId,
+	//			"vappID", clusterVApp.VApp.ID)
+	//		return ctrl.Result{}, errors.Wrapf(err, "failed to update RDE [%s] with VApp ID [%s]: [%v]",
+	//			vcdCluster.Status.InfraId, clusterVApp.VApp.ID, err)
+	//	}
+	//	log.Info("successfully updated external ID of RDE with VApp ID", "infraID", vcdCluster.Status.InfraId,
+	//		"vAppID", clusterVApp.VApp.ID)
+	//}
+
+	if metadataMap != nil && !vcdCluster.Status.VAppMetadataUpdated {
+		if err := vdcManager.AddMetadataToVApp(vAppName, metadataMap); err != nil {
+			capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDClusterError, "", vAppName,
+				fmt.Sprintf("failed to add metadata into vApp [%s]: [%v]", vcdCluster.Name, err))
+			return ctrl.Result{}, fmt.Errorf("unable to add metadata [%s] to vApp [%s]: [%v]", metadataMap,
+				vAppName, err)
+		}
+
+		// The following requires a patch to the vcdCluster object.
+		// TODO: evaluate if VCDCluster.VAppMetadataUpdated is required
+		vcdCluster.Status.VAppMetadataUpdated = true
+	}
+
+	// Add VApp to VCDResourceSet
+	err = rdeManager.AddToVCDResourceSet(ctx, vcdsdk.ComponentCAPVCD, VCDResourceVApp,
+		vAppName, clusterVApp.VApp.ID, nil)
+	if err != nil {
+		capvcdRdeManager.AddToErrorSet(ctx, capisdk.RdeError, "", vAppName,
+			fmt.Sprintf("failed to add VCD Resource [%s] of type [%s] from VCDResourceSet of RDE [%s]: [%v]",
+				vAppName, VcdResourceTypeVM, vcdCluster.Status.InfraId, err))
+		return ctrl.Result{}, errors.Wrapf(err,
+			"failed to add resource [%s] of type [%s] to VCDResourceSet of RDE [%s]: [%v]",
+			vAppName, VCDResourceVApp, vcdCluster.Status.InfraId, err)
+	}
+
+	capvcdRdeManager.AddToEventSet(ctx, capisdk.InfraVappAvailable, clusterVApp.VApp.ID, "",
+		"", skipRDEEventUpdates)
+
+	err = capvcdRdeManager.RdeManager.RemoveErrorByNameOrIdFromErrorSet(ctx, vcdsdk.ComponentCAPVCD,
+		capisdk.VCDClusterVappCreationError, clusterVApp.VApp.ID, vAppName)
+	if err != nil {
+		log.Error(err, "failed to remove VCDClusterVappCreationError from RDE",
+			"rdeID", vcdCluster.Status.InfraId)
+	}
+
+	return ctrl.Result{}, nil
+}
+
+func (r *VCDMachineReconciler) reconcileVM(
+	ctx context.Context, vcdClient *vcdsdk.Client, vdcManager *vcdsdk.VdcManager,
+	vApp *govcd.VApp, machine *clusterv1.Machine, vcdMachine *infrav1beta3.VCDMachine,
+	vmName string, ovdcNetworkName string,
+	vcdCluster *infrav1beta3.VCDCluster) (res ctrl.Result, vm *govcd.VM, machineAddress string, retErr error) {
+
+	if vApp == nil || vApp.VApp == nil {
+		return ctrl.Result{}, nil, "", errors.New("reconcileVM is called with nil vApp")
+	}
+
+	vAppName := vApp.VApp.Name
+	log := ctrl.LoggerFrom(ctx, "machine", machine.Name, "cluster", vcdCluster.Name, "vAppName", vAppName)
+	capvcdRdeManager := capisdk.NewCapvcdRdeManager(vcdClient, vcdCluster.Status.InfraId)
+
+	vmExists := true
+	vm, err := vApp.GetVMByName(vmName, true)
+	if err != nil && err != govcd.ErrorEntityNotFound {
+		capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDMachineCreationError, "",
+			machine.Name, fmt.Sprintf("%v", err))
+		return ctrl.Result{}, nil, "", errors.Wrapf(err,
+			"Error provisioning infrastructure for the machine; unable to query for VM [%s] in vApp [%s]",
+			machine.Name, vAppName)
+	} else if err == govcd.ErrorEntityNotFound {
+		vmExists = false
+	}
+	if !vmExists {
+		log.Info("Adding infra VM for the machine")
+
+		// vcda-4391 fixed
+		err = vdcManager.AddNewTkgVM(vmName, vAppName, 1,
+			vcdMachine.Spec.Catalog, vcdMachine.Spec.Template, vcdMachine.Spec.PlacementPolicy,
+			vcdMachine.Spec.SizingPolicy, vcdMachine.Spec.StorageProfile, false)
+		if err != nil {
+			capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDMachineCreationError, "", machine.Name,
+				fmt.Sprintf("%v", err))
+			return ctrl.Result{}, nil, "", errors.Wrapf(err,
+				"Error provisioning infrastructure for the machine; unable to create VM [%s] in vApp [%s]",
+				machine.Name, vAppName)
+		}
+		vm, err = vApp.GetVMByName(vmName, true)
+		if err != nil {
+			capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDMachineCreationError, "",
+				machine.Name, fmt.Sprintf("%v", err))
+			return ctrl.Result{}, nil, "", errors.Wrapf(err,
+				"Error provisioning infrastructure for the machine; unable to find newly created VM [%s] in vApp [%s]",
+				vm.VM.Name, vAppName)
+		}
+		if vm == nil || vm.VM == nil {
+			capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDMachineCreationError, "",
+				machine.Name, fmt.Sprintf("%v", err))
+			return ctrl.Result{}, nil, "", errors.Wrapf(err, "Obtained nil VM after creating VM [%s/%s]",
+				vAppName, machine.Name)
+		}
+
+		// NOTE: VMs are not added to VCDResourceSet intentionally as the VMs can be obtained from the VApp and
+		// 	VCDResourceSet can get bloated with VMs if the cluster contains a large number of worker nodes
+	}
+
+	desiredNetworks := []string{ovdcNetworkName}
+	if vcdMachine.Spec.ExtraOvdcNetworks != nil {
+		desiredNetworks = append([]string{ovdcNetworkName}, vcdMachine.Spec.ExtraOvdcNetworks...)
+	}
+	if err = r.reconcileVMNetworks(vdcManager, vApp, vm, desiredNetworks); err != nil {
+		log.Error(err, "Error while attaching networks to vApp and VMs")
+		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil, "", nil
+	}
+
+	// checks before setting address in machine status
+	if vm.VM == nil {
+		log.Error(nil, fmt.Sprintf("Requeuing...; vm.VM should not be nil: [%#v]", vm))
+		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil, "", nil
+	}
+	if vm.VM.NetworkConnectionSection == nil || len(vm.VM.NetworkConnectionSection.NetworkConnection) == 0 {
+		log.Error(nil, fmt.Sprintf("Requeuing...; network connection section was not found for vm [%s(%s)]: [%#v]", vm.VM.Name, vm.VM.ID, vm.VM))
+		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil, "", nil
+	}
+
+	primaryNetwork := getPrimaryNetwork(vm.VM)
+	if primaryNetwork == nil {
+		log.Error(nil, fmt.Sprintf(
+			"Requeuing...; failed to get existing network connection information for vm [%s(%s)]: [%#v]. "+
+				"NetworkConnection[0] should not be nil",
+			vm.VM.Name, vm.VM.ID, vm.VM.NetworkConnectionSection))
+		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil, "", nil
+	}
+
+	if primaryNetwork.IPAddress == "" {
+		log.Error(nil,
+			fmt.Sprintf("Requeuing...; NetworkConnection[0] IP Address should not be empty for vm [%s(%s)]: [%#v]",
+				vm.VM.Name, vm.VM.ID, *vm.VM.NetworkConnectionSection.NetworkConnection[0]))
+		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil, "", nil
+	}
+
+	// set address in machine status
+	machineAddress = primaryNetwork.IPAddress
+	vcdMachine.Status.Addresses = []clusterv1.MachineAddress{
+		{
+			Type:    clusterv1.MachineHostName,
+			Address: vm.VM.Name,
+		},
+		{
+			Type:    clusterv1.MachineInternalIP,
+			Address: machineAddress,
+		},
+		{
+			Type:    clusterv1.MachineExternalIP,
+			Address: machineAddress,
+		},
+	}
+
+	// only resize hard disk if the user has requested so by specifying such in the VCDMachineTemplate spec
+	// check isn't strictly required as we ensure that specified number is larger than what's in the template and left
+	// empty this will just be 0. However, this makes it clear from a standpoint of inspecting the code what we are doing
+	if !vcdMachine.Spec.DiskSize.IsZero() {
+		// go-vcd expects value in MB (2^10 = 1024 * 1024 bytes), so we scale it as such
+		diskSize, ok := vcdMachine.Spec.DiskSize.AsInt64()
+		if !ok {
+			capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDMachineCreationError,
+				"", machine.Name, fmt.Sprintf("%v", err))
+			return ctrl.Result{}, nil, "",
+				fmt.Errorf("error while provisioning the infrastructure VM for the machine [%s] of the cluster [%s]; "+
+					"failed to parse disk size quantity [%s]", vm.VM.Name, vApp.VApp.Name, vcdMachine.Spec.DiskSize.String())
+		}
+		diskSize = int64(math.Floor(float64(diskSize) / float64(Mebibyte)))
+		diskSettings := vm.VM.VmSpecSection.DiskSection.DiskSettings
+		// if the specified disk size is less than what is defined in the template, then we ignore the field
+		if len(diskSettings) != 0 && diskSettings[0].SizeMb < diskSize {
+			log.Info(
+				fmt.Sprintf("resizing hard disk on VM for machine [%s] of cluster [%s]; resizing from [%dMB] to [%dMB]",
+					vmName, vAppName, diskSettings[0].SizeMb, diskSize))
+
+			diskSettings[0].SizeMb = diskSize
+			vm.VM.VmSpecSection.DiskSection.DiskSettings = diskSettings
+
+			if _, err = vm.UpdateInternalDisks(vm.VM.VmSpecSection); err != nil {
+				capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDMachineCreationError, "",
+					machine.Name, fmt.Sprintf("%v", err))
+				return ctrl.Result{}, nil, "",
+					errors.Wrapf(err, "Error while provisioning the infrastructure VM for the machine [%s] "+
+						"of the cluster [%s]; failed to resize hard disk", vm.VM.Name, vApp.VApp.Name)
+			}
+		}
+		if err = capvcdRdeManager.RdeManager.RemoveErrorByNameOrIdFromErrorSet(ctx, vcdsdk.ComponentCAPVCD,
+			capisdk.VCDMachineCreationError, "", ""); err != nil {
+			log.Error(err, "failed to remove VCDMachineCreationError from RDE")
+		}
+	}
+
+	return ctrl.Result{}, vm, machineAddress, nil
+}
+
+func (r *VCDMachineReconciler) reconcileLBPool(ctx context.Context, machine *clusterv1.Machine, machineAddress string,
+	vcdCluster *infrav1beta3.VCDCluster, vcdClient *vcdsdk.Client, gateway *vcdsdk.GatewayManager) error {
+
+	log := ctrl.LoggerFrom(ctx, "cluster", vcdCluster.Name, "machine", machine.Name)
+	capvcdRdeManager := capisdk.NewCapvcdRdeManager(vcdClient, vcdCluster.Status.InfraId)
+
+	virtualServiceName := capisdk.GetVirtualServiceNameUsingPrefix(
+		capisdk.GetVirtualServiceNamePrefix(vcdCluster.Name, vcdCluster.Status.InfraId), "tcp")
+	lbPoolName := capisdk.GetLoadBalancerPoolNameUsingPrefix(
+		capisdk.GetLoadBalancerPoolNamePrefix(vcdCluster.Name, vcdCluster.Status.InfraId), "tcp")
+	lbPoolRef, err := gateway.GetLoadBalancerPool(ctx, lbPoolName)
+	if err != nil {
+		capvcdRdeManager.AddToErrorSet(ctx, capisdk.LoadBalancerError, "", machine.Name,
+			fmt.Sprintf("Error retrieving/updating load balancer pool [%s]: %v", lbPoolName, err))
+		return fmt.Errorf("unable to retrieve/update load balancer pool [%s] for the "+
+			"control plane machine [%s] of the cluster [%s]: [%v]", lbPoolName, machine.Name, vcdCluster.Name, err)
+	}
+	controlPlaneIPs, err := gateway.GetLoadBalancerPoolMemberIPs(ctx, lbPoolRef)
+	if err != nil {
+		capvcdRdeManager.AddToErrorSet(ctx, capisdk.LoadBalancerError,
+			"", machine.Name, fmt.Sprintf("Error retrieving/updating lpool members [%s]: %v", lbPoolName, err))
+		return fmt.Errorf("unable to retrieve/update load balancer pool members [%s] for the "+
+			"control plane machine [%s] of the cluster [%s]: [%v]", lbPoolName, machine.Name, vcdCluster.Name, err)
+	}
+
+	err = capvcdRdeManager.RdeManager.RemoveErrorByNameOrIdFromErrorSet(ctx, vcdsdk.ComponentCAPVCD,
+		capisdk.LoadBalancerError, "", "")
+	if err != nil {
+		log.Error(err, "failed to remove LoadBalancerError from RDE",
+			"rdeID", vcdCluster.Status.InfraId)
+	}
+
+	updatedIPs := append(controlPlaneIPs, machineAddress)
+	updatedUniqueIPs := cpiutil.NewSet(updatedIPs).GetElements()
+	resourcesAllocated := &cpiutil.AllocatedResourcesMap{}
+	var oneArm *vcdsdk.OneArm = nil
+	if vcdCluster.Spec.LoadBalancerConfigSpec.UseOneArm {
+		oneArm = &OneArmDefault
+	}
+
+	// At this point the vcdCluster.Spec.ControlPlaneEndpoint should have been set correctly.
+	// We are not using externalIp=vcdCluster.Spec.ControlPlaneEndpoint.Host because of a possible race between which controller picks ups according to the spec.
+	// 1. If vcdcluster controller picks up vcdCluster.Spec.ControlPlaneEndpoint.Host, there is no issue as it will retrieve it from existing VCD VirtualService.
+	// 2. If vcdmachine controller picks up first, then it would update the LB according to vcdCluster.Spec.ControlPlaneEndpoint.Host.
+	// We are deciding to pass externalIp="" in this case, as UpdateVirtualService() would see it's an empty string, so it would just update the VS Object with what's already present.
+	// Users should not be updating control plane IP after it has been created, so this is not a valid use case.
+	// TODO: CAFV-143 In the the future, ideally we should add ControlPlaneEndpoint.Host, ControlPlaneEndpoint.Port into VCDClusterStatus, and pass externalIp=vcdCluster.Status.ControlPlaneEndpoint.Host instead
+	_, err = gateway.UpdateLoadBalancer(ctx, lbPoolName, virtualServiceName, updatedUniqueIPs,
+		"", int32(vcdCluster.Spec.ControlPlaneEndpoint.Port), int32(vcdCluster.Spec.ControlPlaneEndpoint.Port),
+		oneArm, !vcdCluster.Spec.LoadBalancerConfigSpec.UseOneArm, "TCP", resourcesAllocated)
+	if err != nil {
+		capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDMachineCreationError, "",
+			machine.Name, fmt.Sprintf("%v", err))
+		return fmt.Errorf("unable to update LB pool [%s] for the control plane machine [%s] of the cluster [%s]: [%v]",
+			lbPoolName, machine.Name, vcdCluster.Name, err)
+	}
+	log.Info("Updated the load balancer pool with the control plane machine IP",
+		"lbpool", lbPoolName)
+
+	return nil
+}
+
 func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clusterv1.Cluster,
 	machine *clusterv1.Machine, vcdMachine *infrav1beta3.VCDMachine, vcdCluster *infrav1beta3.VCDCluster) (res ctrl.Result, retErr error) {
 
@@ -337,49 +867,135 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	// To avoid spamming RDEs with updates, only update the RDE with events when machine creation is ongoing
 	skipRDEEventUpdates := machine.Status.BootstrapReady
 
-	workloadVCDClient, err := createVCDClientFromSecrets(ctx, r.Client, vcdCluster)
-	if err != nil {
-		return ctrl.Result{}, errors.Wrapf(err, "Error creating VCD client to reconcile Cluster [%s] infrastructure", vcdCluster.Name)
-	}
-
-	// close all idle connections when reconciliation is done
-	defer func() {
-		if workloadVCDClient != nil && workloadVCDClient.VCDClient != nil {
-			workloadVCDClient.VCDClient.Client.Http.CloseIdleConnections()
-			log.Info(fmt.Sprintf("closed connection to the http client [%#v]", workloadVCDClient.VCDClient.Client.Http))
-		}
-	}()
-
-	if workloadVCDClient.VDC == nil || workloadVCDClient.VDC.Vdc == nil {
-		return ctrl.Result{}, errors.Wrapf(err, "failed to get the Organization VDC (OVDC) from the VCD client for reconciling infrastructure of Cluster [%s]", vcdCluster.Name)
-	}
-
-	err = updateVcdResourceToVcdCluster(vcdCluster, ResourceTypeOvdc, workloadVCDClient.VDC.Vdc.ID, workloadVCDClient.VDC.Vdc.Name)
-	if err != nil {
-		return ctrl.Result{}, errors.Wrapf(err, "Error updating vcdResource into vcdcluster.status to reconcile Cluster [%s] infrastructure", vcdCluster.Name)
-	}
-
-	capvcdRdeManager := capisdk.NewCapvcdRdeManager(workloadVCDClient, vcdCluster.Status.InfraId)
-	if conditions.IsFalse(machine, clusterv1.MachineHealthCheckSucceededCondition) {
-		err := capvcdRdeManager.AddToEventSet(ctx, capisdk.NodeHealthCheckFailed, getVMIDFromProviderID(vcdMachine.Status.ProviderID), machine.Name, conditions.GetMessage(machine, clusterv1.MachineHealthCheckSucceededCondition), false)
-		if err != nil {
-			log.Error(err, fmt.Sprintf("failed to add %s event into RDE", capisdk.NodeHealthCheckFailed), "rdeID", vcdCluster.Status.InfraId)
-		}
-	}
-	if checkIfMachineNodeIsUnhealthy(machine) {
-		err := capvcdRdeManager.AddToEventSet(ctx, capisdk.NodeUnhealthy, getVMIDFromProviderID(vcdMachine.Status.ProviderID), machine.Name, conditions.GetMessage(machine, clusterv1.MachineNodeHealthyCondition), false)
-		if err != nil {
-			log.Error(err, fmt.Sprintf("failed to add %s event into RDE", capisdk.NodeUnhealthy), "rdeID", vcdCluster.Status.InfraId)
-		}
-	}
 	if vcdMachine.Spec.ProviderID != nil && vcdMachine.Status.ProviderID != nil {
 		vcdMachine.Status.Ready = true
 		conditions.MarkTrue(vcdMachine, ContainerProvisionedCondition)
-		err = capvcdRdeManager.AddToEventSet(ctx, capisdk.InfraVmBootstrapped, "", machine.Name, "", skipRDEEventUpdates)
-		if err != nil {
-			log.Error(err, "failed to add InfraVmBootstrapped event into RDE", "rdeID", vcdCluster.Status.InfraId)
+
+		if checkIfMachineNodeIsUnhealthy(machine) {
+			// Create the workload client only if the machine is unhealthy because we would have to add an event to the RDE.
+			// Else there is no need to login to VCD
+			vcdClient, err := loginVCD(ctx, r.Client, vcdCluster)
+			// close all idle connections when reconciliation is done
+			defer func() {
+				if vcdClient != nil && vcdClient.VCDClient != nil {
+					vcdClient.VCDClient.Client.Http.CloseIdleConnections()
+					log.Info(fmt.Sprintf("closed connection to the http client [%#v]", vcdClient.VCDClient.Client.Http))
+				}
+			}()
+			if err != nil {
+				log.Error(err, "error occurred while logging in to VCD")
+				return ctrl.Result{}, errors.Wrapf(err, "error occurred while logging in to VCD: [%v]", err)
+			}
+
+			capvcdRdeManager := capisdk.NewCapvcdRdeManager(vcdClient, vcdCluster.Status.InfraId)
+			if conditions.IsFalse(machine, clusterv1.MachineHealthCheckSucceededCondition) {
+				capvcdRdeManager.AddToEventSet(ctx, capisdk.NodeHealthCheckFailed, getVMIDFromProviderID(vcdMachine.Status.ProviderID), machine.Name, conditions.GetMessage(machine, clusterv1.MachineHealthCheckSucceededCondition), false)
+			}
+			capvcdRdeManager.AddToEventSet(ctx, capisdk.NodeUnhealthy, getVMIDFromProviderID(vcdMachine.Status.ProviderID), machine.Name, conditions.GetMessage(machine, clusterv1.MachineNodeHealthyCondition), false)
 		}
+
 		return ctrl.Result{}, nil
+	}
+
+	vcdClient, err := loginVCD(ctx, r.Client, vcdCluster)
+	// close all idle connections when reconciliation is done
+	defer func() {
+		if vcdClient != nil && vcdClient.VCDClient != nil {
+			vcdClient.VCDClient.Client.Http.CloseIdleConnections()
+			log.Info(fmt.Sprintf("closed connection to the http client [%#v]", vcdClient.VCDClient.Client.Http))
+		}
+	}()
+	if err != nil {
+		log.Error(err, "error occurred while logging in to VCD")
+		return ctrl.Result{}, errors.Wrapf(err, "error occurred while logging in to VCD: [%v]", err)
+	}
+
+	capvcdRdeManager := capisdk.NewCapvcdRdeManager(vcdClient, vcdCluster.Status.InfraId)
+	if conditions.IsFalse(machine, clusterv1.MachineHealthCheckSucceededCondition) {
+		capvcdRdeManager.AddToEventSet(ctx, capisdk.NodeHealthCheckFailed, getVMIDFromProviderID(vcdMachine.Status.ProviderID), machine.Name, conditions.GetMessage(machine, clusterv1.MachineHealthCheckSucceededCondition), false)
+	}
+	if checkIfMachineNodeIsUnhealthy(machine) {
+		capvcdRdeManager.AddToEventSet(ctx, capisdk.NodeUnhealthy, getVMIDFromProviderID(vcdMachine.Status.ProviderID), machine.Name, conditions.GetMessage(machine, clusterv1.MachineNodeHealthyCondition), false)
+	}
+
+	patchHelper, err := patch.NewHelper(vcdMachine, r.Client)
+	if err != nil {
+		capvcdRdeManager.AddToErrorSet(ctx, capisdk.CAPVCDObjectPatchError, "", machine.Name, fmt.Sprintf("%v", err))
+		return ctrl.Result{}, errors.Wrapf(err, "Error patching VCDMachine [%s] of cluster [%s]", vcdMachine.Name, vcdCluster.Name)
+	}
+
+	if !conditions.Has(vcdMachine, BootstrapExecSucceededCondition) {
+		conditions.MarkFalse(vcdMachine, BootstrapExecSucceededCondition,
+			BootstrappingReason, clusterv1.ConditionSeverityInfo, "")
+		if err := patchVCDMachine(ctx, patchHelper, vcdMachine); err != nil {
+			capvcdRdeManager.AddToErrorSet(ctx, capisdk.CAPVCDObjectPatchError, "", machine.Name, fmt.Sprintf("%v", err))
+			return ctrl.Result{}, errors.Wrapf(err, "Error patching VCDMachine [%s] of cluster [%s]", vcdMachine.Name, vcdCluster.Name)
+		}
+	}
+	err = capvcdRdeManager.RdeManager.RemoveErrorByNameOrIdFromErrorSet(ctx, vcdsdk.ComponentCAPVCD, capisdk.CAPVCDObjectPatchError, "", machine.Name)
+	if err != nil {
+		log.Error(err, "failed to remove CAPVCDObjectPatchError from RDE", "rdeID", vcdCluster.Status.InfraId)
+	}
+	vdcManager, err := vcdsdk.NewVDCManager(vcdClient, vcdClient.ClusterOrgName,
+		vcdClient.ClusterOVDCName)
+	if err != nil {
+		capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDMachineError, "", machine.Name, fmt.Sprintf("%v", err))
+
+		return ctrl.Result{}, errors.Wrapf(err, "failed to create a vdc manager object when reconciling machine [%s]", vcdMachine.Name)
+	}
+	err = capvcdRdeManager.RdeManager.RemoveErrorByNameOrIdFromErrorSet(ctx, vcdsdk.ComponentCAPVCD, capisdk.VCDMachineError, "", machine.Name)
+	if err != nil {
+		log.Error(err, "failed to remove VCDMachineError from RDE", "rdeID", vcdCluster.Status.InfraId)
+	}
+
+	// Create the vApp if it doesn't already exist. In the multi-AZ case, this has to be done in the machine controller
+	// since new zones could be added dynamically. In the non-AZ case, it can be done in the vcdCluster controller. However,
+	// we do it in one place for simplicity.
+	// TODO: should we add a field in VCDMachine to store the VApp name used for the machine ?
+	vAppName := CreateFullVAppName(vcdCluster)
+	log.Info(fmt.Sprintf("Using VApp name [%s] for the machine [%s]", vAppName, machine.Name))
+
+	ovdcName, ovdcNetworkName, err := r.getOVDCDetailsForMachine(vcdCluster)
+	if err != nil {
+		log.Error(err, "Unable to get OVDC details of machine")
+		return ctrl.Result{}, errors.Wrapf(err, "unable to get OVDC details of machine [%s]", vcdMachine.Name)
+	}
+
+	result, err := r.reconcileVAppCreation(ctx, vcdClient, machine.Name, vcdCluster, vAppName, ovdcNetworkName, false)
+	if err != nil {
+		log.Error(err, "failed to reconcile vApp", "vAppName", vAppName)
+		return result, errors.Wrapf(err, "unable to reconcile vApp [%s] for cluster [%s]", vAppName, vcdCluster.Name)
+	}
+
+	vApp, err := vdcManager.Vdc.GetVAppByName(vAppName, true)
+	if err != nil {
+		capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDClusterVappCreationError, "", machine.Name, fmt.Sprintf("%v", err))
+		return ctrl.Result{}, errors.Wrapf(err,
+			"Error provisioning infrastructure VApp for the machine [%s] of the cluster [%s]",
+			machine.Name, vcdCluster.Name)
+	}
+	err = capvcdRdeManager.RdeManager.RemoveErrorByNameOrIdFromErrorSet(ctx, vcdsdk.ComponentCAPVCD, capisdk.VCDClusterVappCreationError, "", "")
+	if err != nil {
+		log.Error(err, "failed to remove VCDClusterVappCreationError from RDE", "rdeID", vcdCluster.Status.InfraId)
+	}
+
+	vmName, err := getVMName(machine, vcdMachine, log)
+	if err != nil {
+		return ctrl.Result{}, errors.Wrapf(err, "unable to get VM [%s] by name for cluster [%s]",
+			machine.Name, vcdCluster.Name)
+	}
+	log.Info(fmt.Sprintf("Using VM name [%s] in VApp [%s] for the machine [%s]", vmName, vAppName, machine.Name))
+
+	result, vm, machineAddress, err := r.reconcileVM(ctx, vcdClient, vdcManager, vApp, machine, vcdMachine,
+		vmName, ovdcNetworkName, vcdCluster)
+	if err != nil {
+		capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDMachineError, "", machine.Name, fmt.Sprintf("%v", err))
+		return result, errors.Wrapf(err, "unable to provision infrastructure for VM [%s/%s] in ovdc[%s] with network [%s]",
+			vAppName, vmName, ovdcName, ovdcNetworkName)
+	} else if result.Requeue || result.RequeueAfter > 0 {
+		log.Info("Re queuing the request",
+			"result.Requeue", result.Requeue, "result.RequeueAfter", result.RequeueAfter.String())
+		return result, nil
 	}
 
 	if machine.Spec.Bootstrap.DataSecretName == nil {
@@ -397,503 +1013,40 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 			WaitingForBootstrapDataReason, clusterv1.ConditionSeverityInfo, "")
 		return ctrl.Result{}, nil
 	}
-
-	patchHelper, err := patch.NewHelper(vcdMachine, r.Client)
-	if err != nil {
-		updatedErr := capvcdRdeManager.AddToErrorSet(ctx, capisdk.CAPVCDObjectPatchError, "", machine.Name, fmt.Sprintf("%v", err))
-		if updatedErr != nil {
-			log.Error(updatedErr, "failed to add CAPVCDObjectPatchError into RDE", "rdeID", vcdCluster.Status.InfraId)
-		}
-		return ctrl.Result{}, errors.Wrapf(err, "Error patching VCDMachine [%s] of cluster [%s]", vcdMachine.Name, vcdCluster.Name)
-	}
 	conditions.MarkTrue(vcdMachine, ContainerProvisionedCondition)
 
-	if !conditions.Has(vcdMachine, BootstrapExecSucceededCondition) {
-		conditions.MarkFalse(vcdMachine, BootstrapExecSucceededCondition,
-			BootstrappingReason, clusterv1.ConditionSeverityInfo, "")
-		if err := patchVCDMachine(ctx, patchHelper, vcdMachine); err != nil {
-			updatedErr := capvcdRdeManager.AddToErrorSet(ctx, capisdk.CAPVCDObjectPatchError, "", machine.Name, fmt.Sprintf("%v", err))
-			if updatedErr != nil {
-				log.Error(updatedErr, "failed to add CAPVCDObjectPatchError into RDE", "rdeID", vcdCluster.Status.InfraId)
-			}
-			return ctrl.Result{}, errors.Wrapf(err, "Error patching VCDMachine [%s] of cluster [%s]", vcdMachine.Name, vcdCluster.Name)
-		}
-	}
-	err = capvcdRdeManager.RdeManager.RemoveErrorByNameOrIdFromErrorSet(ctx, vcdsdk.ComponentCAPVCD, capisdk.CAPVCDObjectPatchError, "", machine.Name)
+	mergedCloudInitBytes, isInitialControlPlane, isResizedControlPlane, err := r.reconcileCloudInitScript(
+		ctx, vcdClient, machine, cluster, vcdMachine, vcdCluster, vAppName, vmName, skipRDEEventUpdates)
+
+	gateway, err := vcdsdk.NewGatewayManager(ctx, vcdClient, vcdCluster.Spec.OvdcNetwork, vcdCluster.Spec.LoadBalancerConfigSpec.VipSubnet, vcdCluster.Spec.Ovdc)
 	if err != nil {
-		log.Error(err, "failed to remove CAPVCDObjectPatchError from RDE", "rdeID", vcdCluster.Status.InfraId)
-	}
-	vdcManager, err := vcdsdk.NewVDCManager(workloadVCDClient, workloadVCDClient.ClusterOrgName,
-		workloadVCDClient.ClusterOVDCName)
-	if err != nil {
-		updatedErr := capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDMachineError, "", machine.Name, fmt.Sprintf("%v", err))
-		if updatedErr != nil {
-			log.Error(updatedErr, "failed to add VCDMachineError into RDE", "rdeID", vcdCluster.Status.InfraId)
-		}
-		return ctrl.Result{}, errors.Wrapf(err, "failed to create a vdc manager object when reconciling machine [%s]", vcdMachine.Name)
-	}
-	err = capvcdRdeManager.RdeManager.RemoveErrorByNameOrIdFromErrorSet(ctx, vcdsdk.ComponentCAPVCD, capisdk.VCDMachineError, "", machine.Name)
-	if err != nil {
-		log.Error(err, "failed to remove VCDMachineError from RDE", "rdeID", vcdCluster.Status.InfraId)
-	}
-	// The vApp should have already been created, so this is more of a Get of the vApp
-	vAppName := vcdCluster.Name
-	vmName, err := getVMName(machine, vcdMachine, log)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
+		capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDMachineCreationError, "", machine.Name, fmt.Sprintf("%v", err))
 
-	vApp, err := vdcManager.Vdc.GetVAppByName(vAppName, true)
-	if err != nil {
-		updatedErr := capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDClusterVappCreationError, "", machine.Name, fmt.Sprintf("%v", err))
-		if updatedErr != nil {
-			log.Error(updatedErr, "failed to add VCDClusterVappCreationError into RDE", "rdeID", vcdCluster.Status.InfraId)
-		}
-		return ctrl.Result{}, errors.Wrapf(err,
-			"Error provisioning infrastructure for the machine [%s] of the cluster [%s]",
-			machine.Name, vcdCluster.Name)
-	}
-	err = capvcdRdeManager.RdeManager.RemoveErrorByNameOrIdFromErrorSet(ctx, vcdsdk.ComponentCAPVCD, capisdk.VCDClusterVappCreationError, "", "")
-	if err != nil {
-		log.Error(err, "failed to remove VCDClusterVappCreationError from RDE", "rdeID", vcdCluster.Status.InfraId)
-	}
-	bootstrapJinjaScript, err := r.getBootstrapData(ctx, machine)
-	if err != nil {
-		err1 := capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDMachineScriptGenerationError, "", machine.Name, fmt.Sprintf("%v", err))
-		if err1 != nil {
-			log.Error(err1, "failed to add VCDMachineScriptGenerationError into RDE", "rdeID", vcdCluster.Status.InfraId)
-		}
-		return ctrl.Result{}, errors.Wrapf(err, "Error retrieving bootstrap data for machine [%s] of the cluster [%s]",
-			machine.Name, vcdCluster.Name)
-	}
-
-	// In a multimaster cluster, the initial control plane node runs `kubeadm init`; additional control plane nodes
-	// run `kubeadm join`. The joining control planes run `kubeadm join`, so these nodes use the join script.
-	// Although it is sufficient to just check if `kubeadm join` is in the bootstrap script, using the
-	// isControlPlaneMachine function is a simpler operation, so this function is called first.
-	useControlPlaneScript := util.IsControlPlaneMachine(machine) &&
-		!strings.Contains(bootstrapJinjaScript, "kubeadm join")
-
-	// Scaling up Control Plane initially creates the nodes as worker, which eventually joins the original control plane
-	// Hence we are checking if it contains the control plane label and has kubeadm join in the script
-	isResizedControlPlane := util.IsControlPlaneMachine(machine) && strings.Contains(bootstrapJinjaScript, "kubeadm join")
-
-	// Construct a CloudInitScriptInput struct to pass into template.Execute() function to generate the necessary
-	// cloud init script for the relevant node type, i.e. control plane or worker node
-	cloudInitInput := CloudInitScriptInput{}
-	if !vcdMachine.Spec.Bootstrapped {
-		if useControlPlaneScript {
-			cloudInitInput = CloudInitScriptInput{
-				ControlPlane: true,
-			}
-		}
-
-		cloudInitInput.HTTPProxy = vcdCluster.Spec.ProxyConfigSpec.HTTPProxy
-		cloudInitInput.HTTPSProxy = vcdCluster.Spec.ProxyConfigSpec.HTTPSProxy
-		cloudInitInput.NoProxy = vcdCluster.Spec.ProxyConfigSpec.NoProxy
-		cloudInitInput.MachineName = vmName
-
-		// TODO: After tenants has access to siteId, populate siteId to cloudInitInput as opposed to the site
-		cloudInitInput.VcdHostFormatted = strings.ReplaceAll(vcdCluster.Spec.Site, "/", "\\/")
-		cloudInitInput.NvidiaGPU = false
-		cloudInitInput.TKGVersion = getTKGVersion(cluster)   // needed for both worker & control plane machines for metering
-		cloudInitInput.ClusterID = vcdCluster.Status.InfraId // needed for both worker & control plane machines for metering
-		cloudInitInput.ResizedControlPlane = isResizedControlPlane
-	}
-
-	mergedCloudInitBytes, err := MergeJinjaToCloudInitScript(cloudInitInput, bootstrapJinjaScript)
-	if err != nil {
-		err1 := capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDMachineScriptGenerationError, "", machine.Name, fmt.Sprintf("%v", err))
-		if err1 != nil {
-			log.Error(err1, "failed to add VCDMachineScriptGenerationError into RDE", "rdeID", vcdCluster.Status.InfraId)
-		}
-		return ctrl.Result{}, errors.Wrapf(err,
-			"Error merging bootstrap jinja script with the cloudInit script for [%s/%s] [%s]",
-			vAppName, machine.Name, bootstrapJinjaScript)
-	}
-
-	cloudInit := string(mergedCloudInitBytes)
-
-	// nothing is redacted in the cloud init script - please ensure no secrets are present
-	log.V(2).Info(fmt.Sprintf("Cloud init Script: [%s]", cloudInit))
-	err = capvcdRdeManager.AddToEventSet(ctx, capisdk.CloudInitScriptGenerated, "", machine.Name, "", skipRDEEventUpdates)
-	if err != nil {
-		log.Error(err, "failed to add CloudInitScriptGenerated event into RDE", "rdeID", vcdCluster.Status.InfraId)
-	}
-	err = capvcdRdeManager.RdeManager.RemoveErrorByNameOrIdFromErrorSet(ctx, vcdsdk.ComponentCAPVCD, capisdk.VCDMachineScriptGenerationError, "", machine.Name)
-	if err != nil {
-		log.Error(err, "failed to remove VCDMachineScriptGenerationError from RDE", "rdeID", vcdCluster.Status.InfraId)
-	}
-
-	vmExists := true
-	vm, err := vApp.GetVMByName(vmName, true)
-	if err != nil && err != govcd.ErrorEntityNotFound {
-		updatedErr := capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDMachineCreationError, "", machine.Name, fmt.Sprintf("%v", err))
-		if updatedErr != nil {
-			log.Error(updatedErr, "failed to add VCDMachineCreationError into RDE", "rdeID", vcdCluster.Status.InfraId)
-		}
-		return ctrl.Result{}, errors.Wrapf(err, "Error provisioning infrastructure for the machine; unable to query for VM [%s] in vApp [%s]",
-			machine.Name, vAppName)
-	} else if err == govcd.ErrorEntityNotFound {
-		vmExists = false
-	}
-	if !vmExists {
-		log.Info("Adding infra VM for the machine")
-
-		// vcda-4391 fixed
-		err = vdcManager.AddNewTkgVM(vmName, vcdCluster.Name, 1,
-			vcdMachine.Spec.Catalog, vcdMachine.Spec.Template, vcdMachine.Spec.PlacementPolicy,
-			vcdMachine.Spec.SizingPolicy, vcdMachine.Spec.StorageProfile, false)
-		if err != nil {
-			err1 := capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDMachineCreationError, "", machine.Name, fmt.Sprintf("%v", err))
-			if err1 != nil {
-				log.Error(err1, "failed to add VCDMachineCreationError into RDE", "rdeID", vcdCluster.Status.InfraId)
-			}
-			return ctrl.Result{}, errors.Wrapf(err, "Error provisioning infrastructure for the machine; unable to create VM [%s] in vApp [%s]",
-				machine.Name, vApp.VApp.Name)
-		}
-		vm, err = vApp.GetVMByName(vmName, true)
-		if err != nil {
-			err1 := capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDMachineCreationError, "", machine.Name, fmt.Sprintf("%v", err))
-			if err1 != nil {
-				log.Error(err1, "failed to add VCDMachineCreationError into RDE", "rdeID", vcdCluster.Status.InfraId)
-			}
-			return ctrl.Result{}, errors.Wrapf(err, "Error provisioning infrastructure for the machine; unable to find newly created VM [%s] in vApp [%s]",
-				vm.VM.Name, vAppName)
-		}
-		if vm == nil || vm.VM == nil {
-			err1 := capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDMachineCreationError, "", machine.Name, fmt.Sprintf("%v", err))
-			if err1 != nil {
-				log.Error(err1, "failed to add VCDMachineCreationError into RDE", "rdeID", vcdCluster.Status.InfraId)
-			}
-			return ctrl.Result{}, errors.Wrapf(err, "Obtained nil VM after creating VM [%s]", machine.Name)
-		}
-
-		// NOTE: VMs are not added to VCDResourceSet intentionally as the VMs can be obtained from the VApp and
-		// 	VCDResourceSet can get bloated with VMs if the cluster contains a large number of worker nodes
-	}
-
-	desiredNetworks := []string{vcdCluster.Spec.OvdcNetwork}
-	if vcdMachine.Spec.ExtraOvdcNetworks != nil {
-		desiredNetworks = append([]string{vcdCluster.Spec.OvdcNetwork}, vcdMachine.Spec.ExtraOvdcNetworks...)
-	}
-	if err = r.reconcileVMNetworks(vdcManager, vApp, vm, desiredNetworks); err != nil {
-		log.Error(err, fmt.Sprintf("Error while attaching networks to vApp and VMs"))
-		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
-	}
-
-	// checks before setting address in machine status
-	if vm.VM == nil {
-		log.Error(nil, fmt.Sprintf("Requeuing...; vm.VM should not be nil: [%#v]", vm))
-		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
-	}
-	if vm.VM.NetworkConnectionSection == nil || len(vm.VM.NetworkConnectionSection.NetworkConnection) == 0 {
-		log.Error(nil, fmt.Sprintf("Requeuing...; network connection section was not found for vm [%s(%s)]: [%#v]", vm.VM.Name, vm.VM.ID, vm.VM))
-		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
-	}
-
-	primaryNetwork := getPrimaryNetwork(vm.VM)
-	if primaryNetwork == nil {
-		log.Error(nil, fmt.Sprintf("Requeuing...; failed to get existing network connection information for vm [%s(%s)]: [%#v]. NetworkConnection[0] should not be nil",
-			vm.VM.Name, vm.VM.ID, vm.VM.NetworkConnectionSection))
-		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
-	}
-
-	if primaryNetwork.IPAddress == "" {
-		log.Error(nil, fmt.Sprintf("Requeuing...; NetworkConnection[0] IP Address should not be empty for vm [%s(%s)]: [%#v]",
-			vm.VM.Name, vm.VM.ID, *vm.VM.NetworkConnectionSection.NetworkConnection[0]))
-		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
-	}
-
-	// set address in machine status
-	machineAddress := primaryNetwork.IPAddress
-	vcdMachine.Status.Addresses = []clusterv1.MachineAddress{
-		{
-			Type:    clusterv1.MachineHostName,
-			Address: vm.VM.Name,
-		},
-		{
-			Type:    clusterv1.MachineInternalIP,
-			Address: machineAddress,
-		},
-		{
-			Type:    clusterv1.MachineExternalIP,
-			Address: machineAddress,
-		},
-	}
-
-	gateway, err := vcdsdk.NewGatewayManager(ctx, workloadVCDClient, vcdCluster.Spec.OvdcNetwork, vcdCluster.Spec.LoadBalancerConfigSpec.VipSubnet, vcdCluster.Spec.Ovdc)
-	if err != nil {
-		updatedErr := capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDMachineCreationError, "", machine.Name, fmt.Sprintf("%v", err))
-		if updatedErr != nil {
-			log.Error(updatedErr, "failed to add VCDMachineCreationError into RDE", "rdeID", vcdCluster.Status.InfraId)
-		}
 		return ctrl.Result{}, errors.Wrapf(err, "failed to create gateway manager object while reconciling machine [%s]", vcdMachine.Name)
 	}
 
 	// Update loadbalancer pool with the IP of the control plane node as a new member.
 	// Note that this must be done before booting on the VM!
-	if util.IsControlPlaneMachine(machine) {
-		virtualServiceName := capisdk.GetVirtualServiceNameUsingPrefix(
-			capisdk.GetVirtualServiceNamePrefix(vcdCluster.Name, vcdCluster.Status.InfraId), "tcp")
-		lbPoolName := capisdk.GetLoadBalancerPoolNameUsingPrefix(
-			capisdk.GetLoadBalancerPoolNamePrefix(vcdCluster.Name, vcdCluster.Status.InfraId), "tcp")
-		lbPoolRef, err := gateway.GetLoadBalancerPool(ctx, lbPoolName)
-		if err != nil {
-			updatedErr := capvcdRdeManager.AddToErrorSet(ctx, capisdk.LoadBalancerError, "", machine.Name, fmt.Sprintf("Error retrieving/updating load balancer pool [%s]: %v", lbPoolName, err))
-			if updatedErr != nil {
-				log.Error(updatedErr, "failed to add LoadBalancerError into RDE", "rdeID", vcdCluster.Status.InfraId)
-			}
-			return ctrl.Result{}, errors.Wrapf(err, "Error retrieving/updating load balancer pool [%s] for the "+
-				"control plane machine [%s] of the cluster [%s]", lbPoolName, machine.Name, vcdCluster.Name)
-		}
-		controlPlaneIPs, err := gateway.GetLoadBalancerPoolMemberIPs(ctx, lbPoolRef)
-		if err != nil {
-			updatedErr := capvcdRdeManager.AddToErrorSet(ctx, capisdk.LoadBalancerError, "", machine.Name, fmt.Sprintf("Error retrieving/updating lpool members [%s]: %v", lbPoolName, err))
-			if updatedErr != nil {
-				log.Error(updatedErr, "failed to add LoadBalancerError into RDE", "rdeID", vcdCluster.Status.InfraId)
-			}
-			return ctrl.Result{}, errors.Wrapf(err,
-				"Error retrieving/updating load balancer pool members [%s] for the "+
-					"control plane machine [%s] of the cluster [%s]", lbPoolName, machine.Name, vcdCluster.Name)
-		}
-
-		err = capvcdRdeManager.RdeManager.RemoveErrorByNameOrIdFromErrorSet(ctx, vcdsdk.ComponentCAPVCD, capisdk.LoadBalancerError, "", "")
-		if err != nil {
-			log.Error(err, "failed to remove LoadBalancerError from RDE", "rdeID", vcdCluster.Status.InfraId)
-		}
-
-		updatedIPs := append(controlPlaneIPs, machineAddress)
-		updatedUniqueIPs := cpiutil.NewSet(updatedIPs).GetElements()
-		resourcesAllocated := &cpiutil.AllocatedResourcesMap{}
-		var oneArm *vcdsdk.OneArm = nil
-		if vcdCluster.Spec.LoadBalancerConfigSpec.UseOneArm {
-			oneArm = &OneArmDefault
-		}
-
-		// At this point the vcdCluster.Spec.ControlPlaneEndpoint should have been set correctly.
-		// We are not using externalIp=vcdCluster.Spec.ControlPlaneEndpoint.Host because of a possible race between which controller picks ups according to the spec.
-		// 1. If vcdcluster controller picks up vcdCluster.Spec.ControlPlaneEndpoint.Host, there is no issue as it will retrieve it from existing VCD VirtualService.
-		// 2. If vcdmachine controller picks up first, then it would update the LB according to vcdCluster.Spec.ControlPlaneEndpoint.Host.
-		// We are deciding to pass externalIp="" in this case, as UpdateVirtualService() would see it's an empty string, so it would just update the VS Object with what's already present.
-		// Users should not be updating control plane IP after it has been created, so this is not a valid use case.
-		// TODO: CAFV-143 In the the future, ideally we should add ControlPlaneEndpoint.Host, ControlPlaneEndpoint.Port into VCDClusterStatus, and pass externalIp=vcdCluster.Status.ControlPlaneEndpoint.Host instead
-		_, err = gateway.UpdateLoadBalancer(ctx, lbPoolName, virtualServiceName, updatedUniqueIPs,
-			"", int32(vcdCluster.Spec.ControlPlaneEndpoint.Port), int32(vcdCluster.Spec.ControlPlaneEndpoint.Port),
-			oneArm, !vcdCluster.Spec.LoadBalancerConfigSpec.UseOneArm, "TCP", resourcesAllocated)
-		if err != nil {
-			updatedErr := capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDMachineCreationError, "", machine.Name, fmt.Sprintf("%v", err))
-			if updatedErr != nil {
-				log.Error(updatedErr, "failed to add VCDMachineCreationError into RDE", "rdeID", vcdCluster.Status.InfraId)
-			}
-			return ctrl.Result{}, errors.Wrapf(err,
-				"Error updating the load balancer pool [%s] for the "+
-					"control plane machine [%s] of the cluster [%s]", lbPoolName, machine.Name, vcdCluster.Name)
-		}
-		log.Info("Updated the load balancer pool with the control plane machine IP",
-			"lbpool", lbPoolName)
-	}
-
-	// only resize hard disk if the user has requested so by specifying such in the VCDMachineTemplate spec
-	// check isn't strictly required as we ensure that specified number is larger than what's in the template and left
-	// empty this will just be 0. However, this makes it clear from a standpoint of inspecting the code what we are doing
-	if !vcdMachine.Spec.DiskSize.IsZero() {
-		// go-vcd expects value in MB (2^10 = 1024 * 1024 bytes), so we scale it as such
-		diskSize, ok := vcdMachine.Spec.DiskSize.AsInt64()
-		if !ok {
-			updatedErr := capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDMachineCreationError, "", machine.Name, fmt.Sprintf("%v", err))
-			if updatedErr != nil {
-				log.Error(updatedErr, "failed to add VCDMachineCreationError into RDE", "rdeID", vcdCluster.Status.InfraId)
-			}
-			return ctrl.Result{},
-				fmt.Errorf("error while provisioning the infrastructure VM for the machine [%s] of the cluster [%s]; failed to parse disk size quantity [%s]", vm.VM.Name, vApp.VApp.Name, vcdMachine.Spec.DiskSize.String())
-		}
-		diskSize = int64(math.Floor(float64(diskSize) / float64(Mebibyte)))
-		diskSettings := vm.VM.VmSpecSection.DiskSection.DiskSettings
-		// if the specified disk size is less than what is defined in the template, then we ignore the field
-		if len(diskSettings) != 0 && diskSettings[0].SizeMb < diskSize {
-			log.Info(
-				fmt.Sprintf("resizing hard disk on VM for machine [%s] of cluster [%s]; resizing from [%dMB] to [%dMB]",
-					machine.Name, vApp.VApp.Name, diskSettings[0].SizeMb, diskSize))
-
-			diskSettings[0].SizeMb = diskSize
-			vm.VM.VmSpecSection.DiskSection.DiskSettings = diskSettings
-
-			if _, err = vm.UpdateInternalDisks(vm.VM.VmSpecSection); err != nil {
-				err1 := capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDMachineCreationError, "", machine.Name, fmt.Sprintf("%v", err))
-				if err1 != nil {
-					log.Error(err1, "failed to add VCDMachineCreationError into RDE", "rdeID", vcdCluster.Status.InfraId)
-				}
-				return ctrl.Result{},
-					errors.Wrapf(err,
-						"Error while provisioning the infrastructure VM for the machine [%s] of the cluster [%s];"+
-							" failed to resize hard disk", machine.Name, vApp.VApp.Name)
-			}
-		}
-		if err = capvcdRdeManager.RdeManager.RemoveErrorByNameOrIdFromErrorSet(ctx, vcdsdk.ComponentCAPVCD, capisdk.VCDMachineCreationError, "", ""); err != nil {
-			log.Error(err, "failed to remove VCDMachineCreationError from RDE")
+	if isInitialControlPlane {
+		if err := r.reconcileLBPool(ctx, machine, machineAddress, vcdCluster, vcdClient, gateway); err != nil {
+			return ctrl.Result{}, errors.Wrapf(err, "unable to add machine address [%s] into LB Pool for the "+
+				"control plane machine [%s] of the cluster [%s]", machineAddress, machine.Name, vcdCluster.Name)
 		}
 	}
 
-	vmStatus, err := vm.GetStatus()
+	err = r.reconcileVMBoostrap(ctx, vcdClient, vdcManager, vApp, vm, mergedCloudInitBytes, vcdCluster, machine,
+		isInitialControlPlane, isResizedControlPlane, skipRDEEventUpdates)
 	if err != nil {
-		err1 := capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDMachineCreationError, "", machine.Name, fmt.Sprintf("%v", err))
-		if err1 != nil {
-			log.Error(err1, "failed to add VCDMachineCreationError into RDE", "rdeID", vcdCluster.Status.InfraId)
+		return ctrl.Result{}, errors.Wrapf(err, "failed to bootstrap VM [%s/%s]", vAppName, vmName)
+	}
+
+	// Update load-balancer pool with the IP of the control plane node as a new member.
+	// For joining nodes the LB Pool should be updated after the VM has joined.
+	if isResizedControlPlane {
+		if err := r.reconcileLBPool(ctx, machine, machineAddress, vcdCluster, vcdClient, gateway); err != nil {
+			return ctrl.Result{}, errors.Wrapf(err, "unable to add machine address [%s] into LB Pool for the "+
+				"control plane machine [%s] of the cluster [%s]", machineAddress, machine.Name, vcdCluster.Name)
 		}
-		return ctrl.Result{},
-			errors.Wrapf(err, "Error while provisioning the infrastructure VM for the machine [%s] of the cluster [%s]; failed to get status of vm", vm.VM.Name, vApp.VApp.Name)
-	}
-	if err = capvcdRdeManager.RdeManager.RemoveErrorByNameOrIdFromErrorSet(ctx, vcdsdk.ComponentCAPVCD, capisdk.VCDMachineCreationError, "", ""); err != nil {
-		log.Error(err, "failed to remove VCDMachineCreationError from RDE")
-	}
-	if vmStatus != "POWERED_ON" {
-		// try to power on the VM
-		b64CloudInitScript := b64.StdEncoding.EncodeToString(mergedCloudInitBytes)
-		keyVals := map[string]string{
-			"guestinfo.userdata":          b64CloudInitScript,
-			"guestinfo.userdata.encoding": "base64",
-			"disk.enableUUID":             "1",
-		}
-
-		for key, val := range keyVals {
-			err = vdcManager.SetVmExtraConfigKeyValue(vm, key, val, true)
-			if err != nil {
-				updatedErr := capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDMachineCreationError, "", machine.Name, fmt.Sprintf("%v", err))
-				if updatedErr != nil {
-					log.Error(updatedErr, "failed to add VCDMachineCreationError into RDE", "rdeID", vcdCluster.Status.InfraId)
-				}
-
-				return ctrl.Result{}, errors.Wrapf(err, "Error while enabling cloudinit on the machine [%s/%s]; unable to set vm extra config key [%s] for vm ",
-					vcdCluster.Name, vm.VM.Name, key)
-			}
-
-			if err = vm.Refresh(); err != nil {
-				updatedErr := capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDMachineCreationError, "", machine.Name, fmt.Sprintf("Unable to refresh vm: %v", err))
-				if updatedErr != nil {
-					log.Error(updatedErr, "failed to add VCDMachineCreationError into RDE", "rdeID", vcdCluster.Status.InfraId)
-				}
-				return ctrl.Result{}, errors.Wrapf(err, "Error while enabling cloudinit on the machine [%s/%s]; unable to refresh vm", vcdCluster.Name, vm.VM.Name)
-			}
-
-			if err = vApp.Refresh(); err != nil {
-				updatedErr := capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDMachineCreationError, "", machine.Name, fmt.Sprintf("Unable to refresh vm: %v", err))
-				if updatedErr != nil {
-					log.Error(updatedErr, "failed to add VCDMachineCreationError into RDE", "rdeID", vcdCluster.Status.InfraId)
-				}
-				return ctrl.Result{}, errors.Wrapf(err, "Error while enabling cloudinit on the machine [%s/%s]; unable to refresh vapp", vAppName, vm.VM.Name)
-			}
-
-			err = capvcdRdeManager.RdeManager.RemoveErrorByNameOrIdFromErrorSet(ctx, vcdsdk.ComponentCAPVCD, capisdk.VCDMachineCreationError, "", machine.Name)
-			if err != nil {
-				log.Error(err, "failed to remove VCDMachineCreationError from RDE", "rdeID", vcdCluster.Status.InfraId)
-			}
-			log.Info(fmt.Sprintf("Configured the infra machine with variable [%s] to enable cloud-init", key))
-		}
-
-		task, err := vm.PowerOn()
-		if err != nil {
-			err1 := capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDMachineCreationError, "", machine.Name, fmt.Sprintf("%v", err))
-			if err1 != nil {
-				log.Error(err1, "failed to add VCDMachineCreationError into RDE", "rdeID", vcdCluster.Status.InfraId)
-			}
-			return ctrl.Result{}, errors.Wrapf(err, "Error while deploying infra for the machine [%s/%s]; unable to power on VM", vcdCluster.Name, vm.VM.Name)
-		}
-		if err = task.WaitTaskCompletion(); err != nil {
-			err1 := capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDMachineCreationError, "", machine.Name, fmt.Sprintf("%v", err))
-			if err1 != nil {
-				log.Error(err1, "failed to add VCDMachineCreationError into RDE", "rdeID", vcdCluster.Status.InfraId)
-			}
-			return ctrl.Result{}, errors.Wrapf(err, "Error while deploying infra for the machine [%s/%s]; error waiting for VM power-on task completion", vcdCluster.Name, vm.VM.Name)
-		}
-
-		if err = vApp.Refresh(); err != nil {
-			err1 := capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDMachineCreationError, "", machine.Name, fmt.Sprintf("%v", err))
-			if err1 != nil {
-				log.Error(err1, "failed to add VCDMachineCreationError into RDE", "rdeID", vcdCluster.Status.InfraId)
-			}
-			return ctrl.Result{}, errors.Wrapf(err, "Error while deploying infra for the machine [%s/%s]; unable to refresh vapp after VM power-on", vAppName, vm.VM.Name)
-		}
-	}
-	if hasCloudInitFailedBefore, err := r.hasCloudInitExecutionFailedBefore(ctx, workloadVCDClient, vm); hasCloudInitFailedBefore {
-		err1 := capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDMachineScriptExecutionError, "", machine.Name, fmt.Sprintf("%v", err))
-		if err1 != nil {
-			log.Error(err1, "failed to add VCDMachineScriptExecutionError into RDE", "rdeID", vcdCluster.Status.InfraId)
-		}
-		return ctrl.Result{}, errors.Wrapf(err, "Error bootstrapping the machine [%s/%s]; machine is probably in unreconciliable state", vAppName, vm.VM.Name)
-	}
-	err = capvcdRdeManager.AddToEventSet(ctx, capisdk.InfraVmPoweredOn, "", machine.Name, "", skipRDEEventUpdates)
-	if err != nil {
-		log.Error(err, "failed to add InfraVmPoweredOn event into RDE", "rdeID", vcdCluster.Status.InfraId)
-	}
-	err = capvcdRdeManager.RdeManager.RemoveErrorByNameOrIdFromErrorSet(ctx, vcdsdk.ComponentCAPVCD, capisdk.VCDMachineCreationError, "", machine.Name)
-	if err != nil {
-		log.Error(err, "failed to remove VCDMachineCreationError from RDE", "rdeID", vcdCluster.Status.InfraId)
-	}
-
-	phases := postCustPhases
-	if useControlPlaneScript {
-		phases = append(phases, KubeadmInit)
-	} else {
-		phases = append(phases, KubeadmNodeJoin)
-	}
-
-	if vcdCluster.Spec.ProxyConfigSpec.HTTPSProxy == "" &&
-		vcdCluster.Spec.ProxyConfigSpec.HTTPProxy == "" {
-		phases = removeFromSlice(ProxyConfiguration, phases)
-	}
-
-	for _, phase := range phases {
-		if err = vApp.Refresh(); err != nil {
-			err1 := capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDMachineScriptExecutionError, "", machine.Name, fmt.Sprintf("%v", err))
-			if err1 != nil {
-				log.Error(err1, "failed to add VCDMachineScriptExecutionError into RDE", "rdeID", vcdCluster.Status.InfraId)
-			}
-			return ctrl.Result{},
-				errors.Wrapf(err, "Error while bootstrapping the machine [%s/%s]; unable to refresh vapp",
-					vAppName, vm.VM.Name)
-		}
-		log.Info(fmt.Sprintf("Start: waiting for the bootstrapping phase [%s] to complete", phase))
-		if err = r.waitForPostCustomizationPhase(ctx, workloadVCDClient, vm, phase); err != nil {
-			log.Error(err, fmt.Sprintf("Error waiting for the bootstrapping phase [%s] to complete", phase))
-			err1 := capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDMachineScriptExecutionError, "", machine.Name, fmt.Sprintf("%v", err))
-			if err1 != nil {
-				log.Error(err1, "failed to add VCDMachineScriptExecutionError into RDE", "rdeID", vcdCluster.Status.InfraId)
-			}
-			return ctrl.Result{}, errors.Wrapf(err, "Error while bootstrapping the machine [%s/%s]; unable to wait for post customization phase [%s]",
-				vAppName, vm.VM.Name, phase)
-		}
-		log.Info(fmt.Sprintf("End: waiting for the bootstrapping phase [%s] to complete", phase))
-	}
-
-	err = capvcdRdeManager.RdeManager.RemoveErrorByNameOrIdFromErrorSet(ctx, vcdsdk.ComponentCAPVCD, capisdk.VCDMachineScriptExecutionError, "", "")
-	if err != nil {
-		log.Error(err, "failed to remove VCDMachineScriptExecutionError from RDE", "rdeID", vcdCluster.Status.InfraId)
-	}
-	log.Info("Successfully bootstrapped the machine")
-	err = capvcdRdeManager.AddToEventSet(ctx, capisdk.InfraVmBootstrapped, "", machine.Name, "", skipRDEEventUpdates)
-	if err != nil {
-		log.Error(err, "failed to add InfraVmBootstrapped event into RDE", "rdeID", vcdCluster.Status.InfraId)
-	}
-
-	if err = vm.Refresh(); err != nil {
-		updatedErr := capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDMachineCreationError, "", machine.Name, fmt.Sprintf("Unable to refresh vm: %v", err))
-		if updatedErr != nil {
-			log.Error(updatedErr, "failed to add VCDMachineCreationError into RDE", "rdeID", vcdCluster.Status.InfraId)
-		}
-		return ctrl.Result{}, errors.Wrapf(err, "Unexpected error after the machine [%s/%s] is bootstrapped; unable to refresh vm", vAppName, vm.VM.Name)
-	}
-	if err = vApp.Refresh(); err != nil {
-		updatedErr := capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDMachineCreationError, "", machine.Name, fmt.Sprintf("Unable to refresh vApp: %v", err))
-		if updatedErr != nil {
-			log.Error(updatedErr, "failed to add VCDMachineCreationError into RDE", "rdeID", vcdCluster.Status.InfraId)
-		}
-		return ctrl.Result{}, errors.Wrapf(err, "Unexpected error after the machine [%s/%s] is bootstrapped; unable to refresh vapp", vAppName, vm.VM.Name)
-	}
-
-	err = capvcdRdeManager.RdeManager.RemoveErrorByNameOrIdFromErrorSet(ctx, vcdsdk.ComponentCAPVCD, capisdk.VCDMachineCreationError, "", machine.Name)
-	if err != nil {
-		log.Error(err, "failed to remove VCDMachineCreationError from RDE", "rdeID", vcdCluster.Status.InfraId)
 	}
 
 	vcdMachine.Spec.Bootstrapped = true
@@ -1070,7 +1223,7 @@ func (r *VCDMachineReconciler) getBootstrapData(ctx context.Context, machine *cl
 	return string(value), nil
 }
 
-func (r *VCDMachineReconciler) reconcileDelete(ctx context.Context, cluster *clusterv1.Cluster, machine *clusterv1.Machine,
+func (r *VCDMachineReconciler) reconcileDelete(ctx context.Context, machine *clusterv1.Machine,
 	vcdMachine *infrav1beta3.VCDMachine, vcdCluster *infrav1beta3.VCDCluster) (ctrl.Result, error) {
 	log := ctrl.LoggerFrom(ctx, "machine", machine.Name, "cluster", vcdCluster.Name)
 
@@ -1090,43 +1243,29 @@ func (r *VCDMachineReconciler) reconcileDelete(ctx context.Context, cluster *clu
 		return ctrl.Result{}, nil
 	}
 
-	workloadVCDClient, err := createVCDClientFromSecrets(ctx, r.Client, vcdCluster)
-	if err != nil {
-		return ctrl.Result{}, errors.Wrapf(err, "Error creating VCD client to reconcile Cluster [%s] infrastructure", vcdCluster.Name)
-	}
+	vcdClient, err := loginVCD(ctx, r.Client, vcdCluster)
 
 	// close all idle connections when reconciliation is done
 	defer func() {
-		if workloadVCDClient != nil && workloadVCDClient.VCDClient != nil {
-			workloadVCDClient.VCDClient.Client.Http.CloseIdleConnections()
-			log.Info(fmt.Sprintf("closed connection to the http client [%#v]", workloadVCDClient.VCDClient.Client.Http))
+		if vcdClient != nil && vcdClient.VCDClient != nil {
+			vcdClient.VCDClient.Client.Http.CloseIdleConnections()
+			log.Info(fmt.Sprintf("closed connection to the http client [%#v]", vcdClient.VCDClient.Client.Http))
 		}
 	}()
-
-	if workloadVCDClient.VDC == nil || workloadVCDClient.VDC.Vdc == nil {
-		return ctrl.Result{}, errors.Wrapf(err, "failed to get the Organization VDC (OVDC) from the VCD client for reconciling infrastructure of Cluster [%s]", vcdCluster.Name)
-	}
-
-	err = updateVcdResourceToVcdCluster(vcdCluster, ResourceTypeOvdc, workloadVCDClient.VDC.Vdc.ID, workloadVCDClient.VDC.Vdc.Name)
 	if err != nil {
-		return ctrl.Result{}, errors.Wrapf(err, "Error updating vcdResource into vcdcluster.status to reconcile Cluster [%s] infrastructure", vcdCluster.Name)
+		log.Error(err, "error occurred while logging in to VCD")
+		return ctrl.Result{}, errors.Wrapf(err, "error occurred while logging in to VCD: [%v]", err)
 	}
 
-	capvcdRdeManager := capisdk.NewCapvcdRdeManager(workloadVCDClient, vcdCluster.Status.InfraId)
+	capvcdRdeManager := capisdk.NewCapvcdRdeManager(vcdClient, vcdCluster.Status.InfraId)
 	if err != nil {
 		return ctrl.Result{}, errors.Wrapf(err, "Unable to create VCD client to reconcile infrastructure for the Machine [%s]", machine.Name)
 	}
-	err = updateClientWithVDC(vcdCluster, workloadVCDClient)
-	if err != nil {
-		return ctrl.Result{}, errors.Wrapf(err, "Error updating VCD client with VDC to reconcile Cluster [%s] infrastructure", vcdCluster.Name)
-	}
 
-	gateway, err := vcdsdk.NewGatewayManager(ctx, workloadVCDClient, vcdCluster.Spec.OvdcNetwork, vcdCluster.Spec.LoadBalancerConfigSpec.VipSubnet, vcdCluster.Spec.Ovdc)
+	gateway, err := vcdsdk.NewGatewayManager(ctx, vcdClient, vcdCluster.Spec.OvdcNetwork,
+		vcdCluster.Spec.LoadBalancerConfigSpec.VipSubnet, vcdCluster.Spec.Ovdc)
 	if err != nil {
-		updatedErr := capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDMachineCreationError, "", machine.Name, fmt.Sprintf("%v", err))
-		if updatedErr != nil {
-			log.Error(updatedErr, "failed to add VCDMachineCreationError into RDE", "rdeID", vcdCluster.Status.InfraId)
-		}
+		capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDMachineCreationError, "", machine.Name, fmt.Sprintf("%v", err))
 		return ctrl.Result{}, errors.Wrapf(err, "failed to create gateway manager object while reconciling machine [%s]", vcdMachine.Name)
 	}
 
@@ -1139,20 +1278,16 @@ func (r *VCDMachineReconciler) reconcileDelete(ctx context.Context, cluster *clu
 			capisdk.GetVirtualServiceNamePrefix(vcdCluster.Name, vcdCluster.Status.InfraId), "tcp")
 		lbPoolRef, err := gateway.GetLoadBalancerPool(ctx, lbPoolName)
 		if err != nil && err != govcd.ErrorEntityNotFound {
-			updatedErr := capvcdRdeManager.AddToErrorSet(ctx, capisdk.LoadBalancerError, "", machine.Name, fmt.Sprintf("%v", err))
-			if updatedErr != nil {
-				log.Error(updatedErr, "failed to add LoadBalancerError into RDE", "rdeID", vcdCluster.Status.InfraId)
-			}
+			capvcdRdeManager.AddToErrorSet(ctx, capisdk.LoadBalancerError, "", machine.Name, fmt.Sprintf("%v", err))
+
 			return ctrl.Result{}, errors.Wrapf(err, "Error while deleting the infra resources of the machine [%s/%s]; failed to get load balancer pool [%s]", vcdCluster.Name, vcdMachine.Name, lbPoolName)
 		}
 		// Do not try to update the load balancer if lbPool is not found
 		if err != govcd.ErrorEntityNotFound {
 			controlPlaneIPs, err := gateway.GetLoadBalancerPoolMemberIPs(ctx, lbPoolRef)
 			if err != nil {
-				updatedErr := capvcdRdeManager.AddToErrorSet(ctx, capisdk.LoadBalancerError, "", machine.Name, fmt.Sprintf("%v", err))
-				if updatedErr != nil {
-					log.Error(updatedErr, "failed to add LoadBalancerError into RDE", "rdeID", vcdCluster.Status.InfraId)
-				}
+				capvcdRdeManager.AddToErrorSet(ctx, capisdk.LoadBalancerError, "", machine.Name, fmt.Sprintf("%v", err))
+
 				return ctrl.Result{}, errors.Wrapf(err,
 					"Error while deleting the infra resources of the machine [%s/%s]; failed to retrieve members from the load balancer pool [%s]",
 					vcdCluster.Name, vcdMachine.Name, lbPoolName)
@@ -1188,10 +1323,8 @@ func (r *VCDMachineReconciler) reconcileDelete(ctx context.Context, cluster *clu
 				"", int32(vcdCluster.Spec.ControlPlaneEndpoint.Port), int32(vcdCluster.Spec.ControlPlaneEndpoint.Port),
 				oneArm, !vcdCluster.Spec.LoadBalancerConfigSpec.UseOneArm, "TCP", resourcesAllocated)
 			if err != nil {
-				updatedErr := capvcdRdeManager.AddToErrorSet(ctx, capisdk.LoadBalancerError, "", machine.Name, fmt.Sprintf("%v", err))
-				if updatedErr != nil {
-					log.Error(updatedErr, "failed to add LoadBalancerError into RDE", "rdeID", vcdCluster.Status.InfraId)
-				}
+				capvcdRdeManager.AddToErrorSet(ctx, capisdk.LoadBalancerError, "", machine.Name, fmt.Sprintf("%v", err))
+
 				return ctrl.Result{}, errors.Wrapf(err,
 					"Error while deleting the infra resources of the machine [%s/%s]; error deleting the control plane from the load balancer pool [%s]",
 					vcdCluster.Name, vcdMachine.Name, lbPoolName)
@@ -1203,13 +1336,10 @@ func (r *VCDMachineReconciler) reconcileDelete(ctx context.Context, cluster *clu
 		}
 	}
 
-	vdcManager, err := vcdsdk.NewVDCManager(workloadVCDClient, workloadVCDClient.ClusterOrgName,
-		workloadVCDClient.ClusterOVDCName)
+	vdcManager, err := vcdsdk.NewVDCManager(vcdClient, vcdClient.ClusterOrgName,
+		vcdClient.ClusterOVDCName)
 	if err != nil {
-		updatedErr := capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDMachineError, "", machine.Name, fmt.Sprintf("failed to get vdcmanager: %v", err))
-		if updatedErr != nil {
-			log.Error(updatedErr, "failed to add VCDMachineError into RDE", "rdeID", vcdCluster.Status.InfraId)
-		}
+		capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDMachineError, "", machine.Name, fmt.Sprintf("failed to get vdcmanager: %v", err))
 
 		return ctrl.Result{}, errors.Wrapf(err, "failed to create a vdc manager object when reconciling machine [%s]", vcdMachine.Name)
 	}
@@ -1226,36 +1356,32 @@ func (r *VCDMachineReconciler) reconcileDelete(ctx context.Context, cluster *clu
 		if err == govcd.ErrorEntityNotFound {
 			log.Error(err, "Error while deleting the machine; vApp not found")
 		} else {
-			updatedErr := capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDClusterVappCreationError, "", machine.Name, fmt.Sprintf("%v", err))
-			if updatedErr != nil {
-				log.Error(updatedErr, "failed to add VCDClusterVappCreationError into RDE", "rdeID", vcdCluster.Status.InfraId)
-			}
+			capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDClusterVappCreationError, "", machine.Name, fmt.Sprintf("%v", err))
+
 			return ctrl.Result{}, errors.Wrapf(err, "Error while deleting the machine [%s/%s]; failed to find vapp by name", vAppName, machine.Name)
 		}
 	}
 	if vApp != nil {
 		// Delete the VM if and only if rdeId (matches) present in the vApp
-		if !vcdCluster.Status.VAppMetadataUpdated {
-			updatedErr := capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDMachineError, "", machine.Name, fmt.Sprintf("rdeId is not presented in the vApp [%s]: %v", vcdCluster.Name, err))
-			if updatedErr != nil {
-				log.Error(updatedErr, "failed to add VCDMachineError into RDE", "rdeID", vcdCluster.Status.InfraId)
-			}
-			return ctrl.Result{}, errors.Errorf("Error occurred during the machine deletion; Metadata not found in vApp")
-		}
+		// TODO: remove usages of VCDCluster.Status.VAppMetadataUpdated because VApp Metadata will be updated in VCDMachine controller but
+		//   we don't updated the VCDCluster object from within VCDMachine controller.
+		//if !vcdCluster.Status.VAppMetadataUpdated {
+		//	updatedErr := capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDMachineError, "", machine.Name, fmt.Sprintf("rdeId is not presented in the vApp [%s]: %v", vcdCluster.Name, err))
+		//	if updatedErr != nil {
+		//		log.Error(updatedErr, "failed to add VCDMachineError into RDE", "rdeID", vcdCluster.Status.InfraId)
+		//	}
+		//	return ctrl.Result{}, errors.Errorf("Error occurred during the machine deletion; Metadata not found in vApp")
+		//}
 		metadataInfraId, err := vdcManager.GetMetadataByKey(vApp, CapvcdInfraId)
 		if err != nil {
-			updatedErr := capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDMachineError, "", machine.Name, fmt.Sprintf("failed to get metadata by key [%s]: %v", CapvcdInfraId, err))
-			if updatedErr != nil {
-				log.Error(updatedErr, "failed to add VCDMachineError into RDE", "rdeID", vcdCluster.Status.InfraId)
-			}
+			capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDMachineError, "", machine.Name, fmt.Sprintf("failed to get metadata by key [%s]: %v", CapvcdInfraId, err))
+
 			return ctrl.Result{}, errors.Errorf("Error occurred during fetching metadata in vApp")
 		}
 		// checking the metadata value and vcdCluster.Status.InfraId are equal or not
 		if metadataInfraId != vcdCluster.Status.InfraId {
-			updatedErr := capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDMachineError, "", machine.Name, fmt.Sprintf("%v", err))
-			if updatedErr != nil {
-				log.Error(updatedErr, "failed to add VCDMachineError into RDE", "rdeID", vcdCluster.Status.InfraId)
-			}
+			capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDMachineError, "", machine.Name, fmt.Sprintf("%v", err))
+
 			return ctrl.Result{}, errors.Wrapf(err,
 				"Error occurred during the machine deletion; failed to delete vApp [%s]", vcdCluster.Name)
 		}
@@ -1278,10 +1404,8 @@ func (r *VCDMachineReconciler) reconcileDelete(ctx context.Context, cluster *clu
 			if err == govcd.ErrorEntityNotFound {
 				log.Error(err, "Error while deleting the machine; VM  not found")
 			} else {
-				err1 := capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDMachineDeletionError, "", machine.Name, fmt.Sprintf("%v", err))
-				if err1 != nil {
-					log.Error(err1, "failed to add VCDMachineDeletionError into RDE", "rdeID", vcdCluster.Status.InfraId)
-				}
+				capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDMachineDeletionError, "", machine.Name, fmt.Sprintf("%v", err))
+
 				return ctrl.Result{}, errors.Wrapf(err, "Error while deleting the machine [%s/%s]; unable to check if vm exists in vapp", vAppName, machine.Name)
 			}
 		}
@@ -1292,10 +1416,8 @@ func (r *VCDMachineReconciler) reconcileDelete(ctx context.Context, cluster *clu
 					if diskSettings.Disk != nil {
 						log.Info("Cannot delete VM until named disk is detached from VM (by CSI)",
 							"vm", vm.VM.Name, "disk", diskSettings.Disk.Name)
-						err1 := capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDMachineDeletionError, "", machine.Name, fmt.Sprintf("%v", err))
-						if err1 != nil {
-							log.Error(err1, "failed to add VCDMachineDeletionError into RDE", "rdeID", vcdCluster.Status.InfraId)
-						}
+						capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDMachineDeletionError, "", machine.Name, fmt.Sprintf("%v", err))
+
 						return ctrl.Result{}, fmt.Errorf(
 							"error deleting VM [%s] since named disk [%s] is attached to VM (by CSI)",
 							vm.VM.Name, diskSettings.Disk.Name)
@@ -1315,10 +1437,8 @@ func (r *VCDMachineReconciler) reconcileDelete(ctx context.Context, cluster *clu
 					klog.Warningf("Error while powering off VM [%s]: [%v]", vm.VM.Name, err)
 				} else {
 					if err = task.WaitTaskCompletion(); err != nil {
-						err1 := capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDMachineDeletionError, "", machine.Name, fmt.Sprintf("%v", err))
-						if err1 != nil {
-							log.Error(err1, "failed to add VCDMachineDeletionError into RDE", "rdeID", vcdCluster.Status.InfraId)
-						}
+						capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDMachineDeletionError, "", machine.Name, fmt.Sprintf("%v", err))
+
 						return ctrl.Result{}, fmt.Errorf("error waiting for task completion after reconfiguring vm: [%v]", err)
 					}
 				}
@@ -1327,35 +1447,29 @@ func (r *VCDMachineReconciler) reconcileDelete(ctx context.Context, cluster *clu
 			// in any case try to delete the machine
 			log.Info("Deleting the infra VM of the machine")
 			if err := vm.Delete(); err != nil {
-				err1 := capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDMachineDeletionError, "", machine.Name, fmt.Sprintf("%v", err))
-				if err1 != nil {
-					log.Error(err1, "failed to add VCDMachineDeletionError into RDE", "rdeID", vcdCluster.Status.InfraId)
-				}
+				capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDMachineDeletionError, "", machine.Name, fmt.Sprintf("%v", err))
+
 				return ctrl.Result{}, errors.Wrapf(err, "error deleting the machine [%s/%s]", vAppName, vm.VM.Name)
 			}
 		}
 		log.Info("Successfully deleted infra resources of the machine")
-		err = capvcdRdeManager.AddToEventSet(ctx, capisdk.InfraVmDeleted, "", machine.Name, "", true)
-		if err != nil {
-			log.Error(err, "failed to add InfraVmDeleted event into RDE", "rdeID", vcdCluster.Status.InfraId)
-		}
+		capvcdRdeManager.AddToEventSet(ctx, capisdk.InfraVmDeleted, "", machine.Name, "", true)
+
 		err = capvcdRdeManager.RdeManager.RemoveErrorByNameOrIdFromErrorSet(ctx, vcdsdk.ComponentCAPVCD, capisdk.VCDMachineDeletionError, "", machine.Name)
 		if err != nil {
 			log.Error(err, "failed to remove VCDMachineDeletionError from RDE", "rdeID", vcdCluster.Status.InfraId)
 		}
 	}
 	// Remove VM from VCDResourceSet of RDE
-	rdeManager := vcdsdk.NewRDEManager(workloadVCDClient, vcdCluster.Status.InfraId, capisdk.StatusComponentNameCAPVCD, release.Version)
+	rdeManager := vcdsdk.NewRDEManager(vcdClient, vcdCluster.Status.InfraId, capisdk.StatusComponentNameCAPVCD, release.Version)
 	err = rdeManager.RemoveFromVCDResourceSet(ctx, vcdsdk.ComponentCAPVCD, VcdResourceTypeVM, machine.Name)
 	if err != nil {
 		log.Error(fmt.Errorf("error occurred when removing VM [%s] from VCD resource set: [%v]", machine.Name, err),
 			"failed to remove VM from VCD resource set")
-		updatedErr := capvcdRdeManager.AddToErrorSet(ctx, capisdk.RdeError, "", machine.Name,
+		capvcdRdeManager.AddToErrorSet(ctx, capisdk.RdeError, "", machine.Name,
 			fmt.Sprintf("failed to delete VCD Resource [%s] of type [%s] from VCDResourceSet of RDE [%s]: [%v]",
 				machine.Name, VcdResourceTypeVM, vcdCluster.Status.InfraId, err))
-		if updatedErr != nil {
-			log.Error(updatedErr, "failed to add RdeError into RDE", "rdeID", vcdCluster.Status.InfraId)
-		}
+
 		// VCD has a bug where RDE update to VCD resource set may fail. Although VCD resource set in the RDE may
 		// contain outdated information, the cluster creation won't be blocked.
 	}
@@ -1435,10 +1549,9 @@ func (r *VCDMachineReconciler) VCDClusterToVCDMachines(o client.Object) []ctrl.R
 
 	return result
 }
-func (r *VCDMachineReconciler) hasCloudInitExecutionFailedBefore(ctx context.Context,
-	workloadVCDClient *vcdsdk.Client, vm *govcd.VM) (bool, error) {
-	vdcManager, err := vcdsdk.NewVDCManager(workloadVCDClient, workloadVCDClient.ClusterOrgName,
-		workloadVCDClient.ClusterOVDCName)
+func (r *VCDMachineReconciler) hasCloudInitExecutionFailedBefore(vcdClient *vcdsdk.Client, vm *govcd.VM) (bool, error) {
+	vdcManager, err := vcdsdk.NewVDCManager(vcdClient, vcdClient.ClusterOrgName,
+		vcdClient.ClusterOVDCName)
 	if err != nil {
 		return false, errors.Wrapf(err, "failed to create a vdc manager object while checking cloud init failures")
 	}

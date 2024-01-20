@@ -23,8 +23,6 @@ CAPVCD_IMG := cluster-api-provider-cloud-director
 ARTIFACT_IMG := capvcd-manifest-airgapped
 VERSION ?= $(shell cat $(GITROOT)/release/version)
 
-REGISTRY ?= projects-stg.registry.vmware.com/vmware-cloud-director
-
 PLATFORM ?= linux/amd64
 OS ?= linux
 ARCH ?= amd64
@@ -153,7 +151,7 @@ docker-build-capvcd: generate release-manifests build
 	docker build  \
 		--platform $(PLATFORM) \
 		--file Dockerfile \
-		--tag $(REGISTRY)/$(CAPVCD_IMG):$(VERSION) \
+		--tag $(CAPVCD_IMG):$(VERSION) \
 		--build-arg CAPVCD_BUILD_DIR=bin \
 		.
 
@@ -162,7 +160,7 @@ docker-build-artifacts: release-prep
 	docker build  \
 		--platform $(PLATFORM) \
 		--file artifacts/Dockerfile \
-		--tag $(REGISTRY)/$(ARTIFACT_IMG):$(VERSION) \
+		--tag $(ARTIFACT_IMG):$(VERSION) \
 		.
 
 .PHONY: docker-build
@@ -207,16 +205,18 @@ release-manifests: kustomize ## Generate release manifests e.g. CRD, RBAC etc.
 
 .PHONY: release-prep
 release-prep: ## Generate BOM and dependencies files.
-	sed -e "s/__VERSION__/$(VERSION)/g" -e "s~__REGISTRY__~$(REGISTRY)~g" artifacts/bom.json.template > artifacts/bom.json
-	sed -e "s/__VERSION__/$(VERSION)/g" -e "s~__REGISTRY__~$(REGISTRY)~g" artifacts/dependencies.txt.template > artifacts/dependencies.txt
+	sed -e "s/__VERSION__/$(VERSION)/g" artifacts/bom.json.template > artifacts/bom.json
+	sed -e "s/__VERSION__/$(VERSION)/g" artifacts/dependencies.txt.template > artifacts/dependencies.txt
 
 .PHONY: docker-push-capvcd
 docker-push-capvcd: # Push capvcd image to registry.
-	docker push $(REGISTRY)/$(CAPVCD_IMG):$(VERSION)
+	docker tag $(CAPVCD_IMG):$(VERSION) projects-stg.registry.vmware.com/vmware-cloud-director/$(CAPVCD_IMG):$(VERSION)
+	docker push projects-stg.registry.vmware.com/vmware-cloud-director/$(CAPVCD_IMG):$(VERSION)
 
 .PHONY: docker-push-artifacts
 docker-push-artifacts: # Push artifacts image to registry
-	docker push $(REGISTRY)/$(ARTIFACT_IMG):$(VERSION)
+	docker tag $(ARTIFACT_IMG):$(VERSION) projects-stg.registry.vmware.com/vmware-cloud-director/$(ARTIFACT_IMG):$(VERSION)
+	docker push projects-stg.registry.vmware.com/vmware-cloud-director/$(ARTIFACT_IMG):$(VERSION)
 
 .PHONY: docker-push
 docker-push: docker-push-capvcd docker-push-artifacts ## Push images to container registry.

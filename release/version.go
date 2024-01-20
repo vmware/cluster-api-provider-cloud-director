@@ -6,4 +6,4 @@
 package release
 
 // Version is to be set in the build process. Empty version will cause a panic.
-var Version string = "unset"
+var Version = "unset"

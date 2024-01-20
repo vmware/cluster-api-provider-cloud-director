@@ -14,7 +14,7 @@
 		"binaries": [],
 		"dependencies": [
 			{
-				"name":"cluster-api-provider-cloud-director",
+				"name":"vmware-cloud-director/cluster-api-provider-cloud-director",
 				"version":"__VERSION__",
 				"imageRepository":"__REGISTRY__"
 			}
