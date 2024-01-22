@@ -127,9 +127,11 @@ write_files:
     systemctl restart containerd
     # Option +e prevents the script to exit on any error
     # Option +E prevents the trap set on err in the sub-functions. In other words, catch() will not be executed
+    # The below set and unset commands are required as some of the crictl commands may fail before containerd starts up.
     set +eE
     wait_for_containerd_startup
     set -eE
+
     set +x
     {
       {{ .BootstrapRunCmd }}
