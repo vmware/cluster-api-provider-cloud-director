@@ -471,8 +471,8 @@ func autoConvert_v1beta3_VCDClusterSpec_To_v1beta2_VCDClusterSpec(in *v1beta3.VC
 	if err := Convert_v1beta3_LoadBalancerConfig_To_v1beta2_LoadBalancerConfig(&in.LoadBalancerConfigSpec, &out.LoadBalancerConfigSpec, s); err != nil {
 		return err
 	}
-	// WARNING: in.ZoneDetails requires manual conversion: does not exist in peer-type
-	// WARNING: in.ZonesConfigMapName requires manual conversion: does not exist in peer-type
+	// WARNING: in.MultiZoneSpec requires manual conversion: does not exist in peer-type
+	// WARNING: in.OVDCZoneConfigMap requires manual conversion: does not exist in peer-type
 	return nil
 }
 
@@ -527,7 +527,7 @@ func autoConvert_v1beta3_VCDClusterStatus_To_v1beta2_VCDClusterStatus(in *v1beta
 		return err
 	}
 	// WARNING: in.FailureDomains requires manual conversion: does not exist in peer-type
-	// WARNING: in.ZoneDetails requires manual conversion: does not exist in peer-type
+	// WARNING: in.MultiZoneStatus requires manual conversion: does not exist in peer-type
 	return nil
 }
 

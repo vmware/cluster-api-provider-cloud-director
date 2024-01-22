@@ -17,7 +17,6 @@ limitations under the License.
 package v1beta3
 
 import (
-	"github.com/vmware/cluster-api-provider-cloud-director/common"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
@@ -80,39 +79,110 @@ type LoadBalancerConfig struct {
 	VipSubnet string `json:"vipSubnet,omitempty"`
 }
 
-// Zone is an Availability Zone in VCD
-type Zone struct {
-	Name            string `json:"name"`
-	OVDCName        string `json:"ovdcName"`
-	OVDCNetworkName string `json:"ovdcNetworkName"`
+// ZoneTopologyType defines the type of network topology used across zones in a Multi-AZ deployment
+type ZoneTopologyType string
 
-	//+kubebuilder:default=false
-	ControlPlaneZone bool `json:"controlPlaneZone"`
+const (
+	// DCGroup is the case where the networks in all zones are connected in a DC-Group to a single NSX-T instance and a
+	// single Avi controller. All the OVDCs in the zones are connected to the same Edge Gateway. One Avi Controller
+	// handles one Virtual Service that fronts the cluster.
+	DCGroup ZoneTopologyType = "DCGroup"
+	// UserSpecifiedEdgeGateway is a topology in which each OVDC has a separate NSX-T ALB and Avi controller. The routed
+	// T-1 networking space is set up so that private IP addresses in one OVDC can route to private IP addresses in
+	// another OVDC. From each Avi controller also, the private IPs are routable.
+	//
+	// For this topology, there is a designated zone that is chosen by the user. The edge on the user-specified zone is
+	// used to create the Load-Balancer for the entire cluster.
+	UserSpecifiedEdgeGateway ZoneTopologyType = "UserSpecifiedEdgeGateway"
+	// ExternalLoadBalancer is the case where each zone has its own edge gateway. There needs to be a user-specified
+	// load-balancer external to the cluster which is also managed by the user.
+	//
+	// On each edge gateway, there needs to be an LB configured. On each gateway, an LB to control-plane nodes in the
+	// corresponding OVDC is created. There will be a separate layer that is pre-created and managed by the customer
+	// which can multiplex across the load-balancers.
+	ExternalLoadBalancer ZoneTopologyType = "ExternalLoadBalancer"
+)
 
-	// +optional
-	LoadBalancerIP string `json:"loadBalancerIP,omitempty"`
-	// +optional
-	LoadBalancerPort int `json:"loadBalancerPort,omitempty"`
+// DCGroupConfig defines configuration for DCGroup zone topology.
+type DCGroupConfig struct {
+	// TODO: decide on appropriate configuration for this type, or remove this struct
 }
 
-// ZoneDetailsSpec is a detailed summary of the zones in the cluster as well as the ZoneType used
-type ZoneDetailsSpec struct {
+// UserSpecifiedEdgeGatewayConfig defines configuration for UserSpecifiedEdgeGateway zone topology.
+type UserSpecifiedEdgeGatewayConfig struct {
+	// EdgeGatewayZone defines the name of the user-provided zone containing an edge gateway.
+	EdgeGatewayZone string `json:"edgeGatewayZone"`
+}
+
+// ExternalLoadBalancerConfig defines configuration for ExternalLoadBalancer zone topology.
+type ExternalLoadBalancerConfig struct {
+	// EdgeGatewayZones defines a list of zones containing an edge gateway.
+	EdgeGatewayZones EdgeGatewayZones `json:"edgeGatewayZones"`
+}
+
+// EdgeGatewayZones defines a list of zones containing an edge gateway. For use with ExternalLoadBalancer topology.
+type EdgeGatewayZones []EdgeGatewayZone
+
+// EdgeGatewayZone provides the details of a zone containing an edge gateway. Used with ExternalLoadBalancer topology.
+// topology.
+type EdgeGatewayZone struct {
+	// Name is the user-defined name of the zone representing the OVDC containing an edge gateway.
+	Name string `json:"name"`
+	// LoadBalancerIP is the IP address of the load balancer configured on the edge gateway for this zone.
+	LoadBalancerIP string `json:"loadBalancerIP"`
+	// LoadBalancerPort is the port of the load balancer configured on the edge gateway for this zone.
+	LoadBalancerPort int `json:"loadBalancerPort"`
+}
+
+// Zone is an Availability Zone in VCD
+type Zone struct {
+	// Name defines the name of this zone.
+	Name string `json:"name"`
+	// OVDCName defines the actual name of the OVDC which corresponds to this zone.
+	OVDCName string `json:"ovdcName"`
+	// OVDCNetworkName defines the OVDC network for this zone.
+	OVDCNetworkName string `json:"ovdcNetworkName"`
+	// ControlPlaneZone defines whether a control plane node can be deployed to this zone.
+	//+kubebuilder:default=false
+	ControlPlaneZone bool `json:"controlPlaneZone"`
+}
+
+// MultiZoneSpec provides details of the zone configuration in the cluster as well as the NetworkTopology used. Only one
+// of DCGroupConfig, UserSpecifiedEdgeGatewayConfig, or ExternalLoadBalancerConfig should be provided corresponding to the
+// chosen ZoneTopology.
+type MultiZoneSpec struct {
+	// ZoneTopology defines the type of network topology used across zones in a Multi-AZ deployment.
+	// Valid options are DCGroup, UserSpecifiedEdgeGateway, and ExternalLoadBalancer,
 	// +optional
-	ZoneType common.ZoneType `json:"zoneType,omitempty"`
+	ZoneTopology ZoneTopologyType `json:"ZoneTopology,omitempty"`
+	// DCGroupConfig contains configuration for DCGroup zone topology.
 	// +optional
-	UserSpecifiedEdgeGatewayZone string `json:"userSpecifiedEdgeGatewayZone"`
+	DCGroupConfig DCGroupConfig `json:"dcGroupConfig,omitempty"`
+	// UserSpecifiedEdgeGatewayConfig contains configuration for UserSpecifiedEdgeGateway zone topology.
+	// +optional
+	UserSpecifiedEdgeGatewayConfig UserSpecifiedEdgeGatewayConfig `json:"UserSpecifiedEdgeGatewayConfig,omitempty"`
+	// ExternalLoadBalancerConfig contains configuration for ExternalLoadBalancer zone topology.
+	// +optional
+	ExternalLoadBalancerConfig ExternalLoadBalancerConfig `json:"externalLoadBalancerConfig,omitempty"`
+	// Zones defines the list of zones that this cluster should be deployed to.
 	// +optional
 	Zones []Zone `json:"zones,omitempty"`
 }
 
-// ZoneDetailsStatus
-type ZoneDetailsStatus struct {
+// MultiZoneStatus provides the current status of the zone configuration in a Multi-AZ deployment.
+type MultiZoneStatus struct {
+	// ZoneTopology defines the type of network topology used across zones in a Multi-AZ deployment.
+	// Valid options are DCGroup, UserSpecifiedEdgeGateway, and ExternalLoadBalancer
 	// +optional
-	ZoneType common.ZoneType `json:"zoneType,omitempty"`
+	ZoneTopology ZoneTopologyType `json:"ZoneTopology,omitempty"`
+	// EdgeGateway defines the edge gateway in a UserSpecifiedEdge topology.
 	// +optional
-	UserSpecifiedEdgeGateway string `json:"userSpecifiedEdgeGateway"`
+	EdgeGateway string `json:"edgeGateway,omitempty"`
+	// EdgeGatewayZones defines a list of zones configured with an edge gateway. Used with ExternalLoadBalancer and
+	// UserSpecifiedEdgeGateway topologies.
 	// +optional
-	UserSpecifiedEdgeGatewayZone string `json:"userSpecifiedEdgeGatewayZone"`
+	EdgeGatewayZones EdgeGatewayZones `json:"edgeGatewayZones"`
+	// Zones defines the list of zones this cluster is configured with for a Mult-AZ deployment.
 	// +optional
 	Zones []Zone `json:"zones,omitempty"`
 }
@@ -145,10 +215,14 @@ type VCDClusterSpec struct {
 	ProxyConfigSpec ProxyConfig `json:"proxyConfigSpec,omitempty"`
 	// +optional
 	LoadBalancerConfigSpec LoadBalancerConfig `json:"loadBalancerConfigSpec,omitempty"`
+	// MultiZoneSpec provides details of the configuration of the zones in the cluster as well as the NetworkTopologyType
+	// used.
 	// +optional
-	ZoneDetails ZoneDetailsSpec `json:"zoneDetails,omitempty"`
+	MultiZoneSpec MultiZoneSpec `json:"multiZoneSpec,omitempty"`
+	// OVDCZoneConfigMap defines the name of a config map storing the mapping Zone -> OVDC in a Multi-AZ
+	// deployment. e.g. zone1 -> ovdc1, zone2 -> ovdc2
 	// +optional
-	ZonesConfigMapName string `json:"zonesConfigMapName,omitempty"`
+	OVDCZoneConfigMap string `json:"ovcdZoneConfigMap,omitempty"`
 }
 
 // VCDClusterStatus defines the observed state of VCDCluster
@@ -202,11 +276,14 @@ type VCDClusterStatus struct {
 	// +optional
 	LoadBalancerConfig LoadBalancerConfig `json:"loadBalancerConfig,omitempty"`
 
+	// FailureDomains lists the zones of this cluster. This field is parsed from the Zones field of
+	// vcdCluster.MultiZoneSpec if set up appropriately.
 	// +optional
 	FailureDomains clusterv1.FailureDomains `json:"failureDomains,omitempty"`
 
+	// MultiZoneStatus provides the current status of the multi-zone configuration in a Multi-AZ deployment
 	// +optional
-	ZoneDetails ZoneDetailsStatus `json:"zoneDetails,omitempty"`
+	MultiZoneStatus MultiZoneStatus `json:"multiZoneStatus,omitempty"`
 }
 
 // +kubebuilder:object:root=true
