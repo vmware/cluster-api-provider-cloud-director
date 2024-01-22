@@ -175,13 +175,15 @@ type MultiZoneStatus struct {
 	// Valid options are DCGroup, UserSpecifiedEdgeGateway, and ExternalLoadBalancer
 	// +optional
 	ZoneTopology ZoneTopologyType `json:"ZoneTopology,omitempty"`
-	// EdgeGateway defines the edge gateway in a UserSpecifiedEdge topology.
+	// DCGroupConfig contains configuration for DCGroup zone topology.
 	// +optional
-	EdgeGateway string `json:"edgeGateway,omitempty"`
-	// EdgeGatewayZones defines a list of zones configured with an edge gateway. Used with ExternalLoadBalancer and
-	// UserSpecifiedEdgeGateway topologies.
+	DCGroupConfig DCGroupConfig `json:"dcGroupConfig,omitempty"`
+	// UserSpecifiedEdgeGatewayConfig contains configuration for UserSpecifiedEdgeGateway zone topology.
 	// +optional
-	EdgeGatewayZones EdgeGatewayZones `json:"edgeGatewayZones"`
+	UserSpecifiedEdgeGatewayConfig UserSpecifiedEdgeGatewayConfig `json:"UserSpecifiedEdgeGatewayConfig,omitempty"`
+	// ExternalLoadBalancerConfig contains configuration for ExternalLoadBalancer zone topology.
+	// +optional
+	ExternalLoadBalancerConfig ExternalLoadBalancerConfig `json:"externalLoadBalancerConfig,omitempty"`
 	// Zones defines the list of zones this cluster is configured with for a Mult-AZ deployment.
 	// +optional
 	Zones []Zone `json:"zones,omitempty"`

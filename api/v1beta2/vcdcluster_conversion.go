@@ -17,7 +17,19 @@ func (src *VCDCluster) ConvertTo(dstRaw conversion.Hub) error {
 	if ok, err := utilconversion.UnmarshalData(src, restored); err != nil || !ok {
 		return err
 	}
+	dst.Spec.MultiZoneSpec.ZoneTopology = restored.Spec.MultiZoneSpec.ZoneTopology
+	dst.Spec.MultiZoneSpec.DCGroupConfig = restored.Spec.MultiZoneSpec.DCGroupConfig
+	dst.Spec.MultiZoneSpec.UserSpecifiedEdgeGatewayConfig.EdgeGatewayZone = restored.Spec.MultiZoneSpec.UserSpecifiedEdgeGatewayConfig.EdgeGatewayZone
+	dst.Spec.MultiZoneSpec.ExternalLoadBalancerConfig.EdgeGatewayZones = restored.Spec.MultiZoneSpec.ExternalLoadBalancerConfig.EdgeGatewayZones
+	dst.Spec.MultiZoneSpec.Zones = restored.Spec.MultiZoneSpec.Zones
+
 	dst.Status.VcdResourceMap = restored.Status.VcdResourceMap
+	dst.Status.MultiZoneStatus.ZoneTopology = restored.Status.MultiZoneStatus.ZoneTopology
+	dst.Status.MultiZoneStatus.DCGroupConfig = restored.Status.MultiZoneStatus.DCGroupConfig
+	dst.Status.MultiZoneStatus.UserSpecifiedEdgeGatewayConfig.EdgeGatewayZone = restored.Status.MultiZoneStatus.UserSpecifiedEdgeGatewayConfig.EdgeGatewayZone
+	dst.Status.MultiZoneStatus.ExternalLoadBalancerConfig.EdgeGatewayZones = restored.Status.MultiZoneStatus.ExternalLoadBalancerConfig.EdgeGatewayZones
+	dst.Status.MultiZoneStatus.Zones = restored.Status.MultiZoneStatus.Zones
+
 	return nil
 }
 
