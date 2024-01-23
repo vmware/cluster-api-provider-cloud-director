@@ -154,13 +154,13 @@ type MultiZoneSpec struct {
 	// ZoneTopology defines the type of network topology used across zones in a Multi-AZ deployment.
 	// Valid options are DCGroup, UserSpecifiedEdgeGateway, and ExternalLoadBalancer,
 	// +optional
-	ZoneTopology ZoneTopologyType `json:"ZoneTopology,omitempty"`
+	ZoneTopology ZoneTopologyType `json:"zoneTopology,omitempty"`
 	// DCGroupConfig contains configuration for DCGroup zone topology.
 	// +optional
 	DCGroupConfig DCGroupConfig `json:"dcGroupConfig,omitempty"`
 	// UserSpecifiedEdgeGatewayConfig contains configuration for UserSpecifiedEdgeGateway zone topology.
 	// +optional
-	UserSpecifiedEdgeGatewayConfig UserSpecifiedEdgeGatewayConfig `json:"UserSpecifiedEdgeGatewayConfig,omitempty"`
+	UserSpecifiedEdgeGatewayConfig UserSpecifiedEdgeGatewayConfig `json:"userSpecifiedEdgeGatewayConfig,omitempty"`
 	// ExternalLoadBalancerConfig contains configuration for ExternalLoadBalancer zone topology.
 	// +optional
 	ExternalLoadBalancerConfig ExternalLoadBalancerConfig `json:"externalLoadBalancerConfig,omitempty"`
@@ -174,13 +174,13 @@ type MultiZoneStatus struct {
 	// ZoneTopology defines the type of network topology used across zones in a Multi-AZ deployment.
 	// Valid options are DCGroup, UserSpecifiedEdgeGateway, and ExternalLoadBalancer
 	// +optional
-	ZoneTopology ZoneTopologyType `json:"ZoneTopology,omitempty"`
+	ZoneTopology ZoneTopologyType `json:"zoneTopology,omitempty"`
 	// DCGroupConfig contains configuration for DCGroup zone topology.
 	// +optional
 	DCGroupConfig DCGroupConfig `json:"dcGroupConfig,omitempty"`
 	// UserSpecifiedEdgeGatewayConfig contains configuration for UserSpecifiedEdgeGateway zone topology.
 	// +optional
-	UserSpecifiedEdgeGatewayConfig UserSpecifiedEdgeGatewayConfig `json:"UserSpecifiedEdgeGatewayConfig,omitempty"`
+	UserSpecifiedEdgeGatewayConfig UserSpecifiedEdgeGatewayConfig `json:"userSpecifiedEdgeGatewayConfig,omitempty"`
 	// ExternalLoadBalancerConfig contains configuration for ExternalLoadBalancer zone topology.
 	// +optional
 	ExternalLoadBalancerConfig ExternalLoadBalancerConfig `json:"externalLoadBalancerConfig,omitempty"`
