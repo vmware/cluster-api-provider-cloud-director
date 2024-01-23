@@ -119,18 +119,19 @@ write_files:
     Environment="NO_PROXY={{.NoProxy}}"
     END
     systemctl daemon-reload
-    systemctl restart containerd
-    wait_for_containerd_startup
     vmtoolsd --cmd "info-set guestinfo.postcustomization.proxy.setting.status successful" {{- end }}
 
     vmtoolsd --cmd "info-set {{ if .ControlPlane -}} guestinfo.postcustomization.kubeinit.status {{- else -}} guestinfo.postcustomization.kubeadm.node.join.status {{- end }} in_progress"
-    for IMAGE in "coredns" "etcd" "kube-proxy" "kube-apiserver" "kube-controller-manager" "kube-scheduler"
-    do
-      IMAGE_REF=$(ctr -n=k8s.io image list | cut -d" " -f1 | grep $IMAGE)
-      REF_PATH=$(echo $IMAGE_REF | sed 's/:.*//')
-      NEW_TAG_VERSION=$(echo $IMAGE_REF | sed 's/.*://' | sed 's/_/-/')
-      ctr -n=k8s.io image tag $IMAGE_REF $REF_PATH:$NEW_TAG_VERSION
-    done
+
+    # Restart containerd
+    systemctl restart containerd
+    # Option +e prevents the script to exit on any error
+    # Option +E prevents the trap set on err in the sub-functions. In other words, catch() will not be executed
+    # The below set and unset commands are required as some of the crictl commands may fail before containerd starts up.
+    set +eE
+    wait_for_containerd_startup
+    set -eE
+
     set +x
     {
       {{ .BootstrapRunCmd }}
