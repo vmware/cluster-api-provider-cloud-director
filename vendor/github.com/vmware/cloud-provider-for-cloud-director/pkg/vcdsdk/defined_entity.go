@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	swaggerClient "github.com/vmware/cloud-provider-for-cloud-director/pkg/vcdswaggerclient_36_0"
+	swaggerClient "github.com/vmware/cloud-provider-for-cloud-director/pkg/vcdswaggerclient_37_2"
 	"k8s.io/klog"
 	"net/http"
 	"net/url"
@@ -234,7 +234,8 @@ func (rdeManager *RDEManager) AddToErrorSet(ctx context.Context, componentSectio
 		return fmt.Errorf("obtained nil org for name [%s]", client.ClusterOrgName)
 	}
 	for i := MaxRDEUpdateRetries; i > 1; i-- {
-		rde, resp, etag, err := rdeManager.Client.APIClient.DefinedEntityApi.GetDefinedEntity(ctx, rdeManager.ClusterID, clusterOrg.Org.ID)
+		rde, resp, etag, err := rdeManager.Client.APIClient.DefinedEntityApi.GetDefinedEntity(ctx, rdeManager.ClusterID,
+			clusterOrg.Org.ID, nil)
 		if resp != nil && resp.StatusCode != http.StatusOK {
 			var responseMessageBytes []byte
 			if gsErr, ok := err.(swaggerClient.GenericSwaggerError); ok {
@@ -333,7 +334,8 @@ func (rdeManager *RDEManager) RemoveErrorByNameOrIdFromErrorSet(ctx context.Cont
 		return fmt.Errorf("obtained nil org for name [%s]", client.ClusterOrgName)
 	}
 	for i := MaxRDEUpdateRetries; i > 1; i-- {
-		rde, resp, etag, err := rdeManager.Client.APIClient.DefinedEntityApi.GetDefinedEntity(ctx, rdeManager.ClusterID, clusterOrg.Org.ID)
+		rde, resp, etag, err := rdeManager.Client.APIClient.DefinedEntityApi.GetDefinedEntity(ctx, rdeManager.ClusterID,
+			clusterOrg.Org.ID, nil)
 		if resp != nil && resp.StatusCode != http.StatusOK {
 			var responseMessageBytes []byte
 			if gsErr, ok := err.(swaggerClient.GenericSwaggerError); ok {
@@ -509,7 +511,8 @@ func (rdeManager *RDEManager) AddToEventSet(ctx context.Context, componentSectio
 		return fmt.Errorf("obtained nil org for name [%s]", client.ClusterOrgName)
 	}
 	for i := MaxRDEUpdateRetries; i > 1; i-- {
-		rde, resp, etag, err := rdeManager.Client.APIClient.DefinedEntityApi.GetDefinedEntity(ctx, rdeManager.ClusterID, clusterOrg.Org.ID)
+		rde, resp, etag, err := rdeManager.Client.APIClient.DefinedEntityApi.GetDefinedEntity(ctx, rdeManager.ClusterID,
+			clusterOrg.Org.ID, nil)
 		if resp != nil && resp.StatusCode != http.StatusOK {
 			var responseMessageBytes []byte
 			if gsErr, ok := err.(swaggerClient.GenericSwaggerError); ok {
@@ -618,7 +621,8 @@ func (rdeManager *RDEManager) AddToVCDResourceSet(ctx context.Context, component
 		return fmt.Errorf("obtained nil org for name [%s]", client.ClusterOrgName)
 	}
 	for i := MaxRDEUpdateRetries; i > 1; i-- {
-		rde, resp, etag, err := rdeManager.Client.APIClient.DefinedEntityApi.GetDefinedEntity(ctx, rdeManager.ClusterID, clusterOrg.Org.ID)
+		rde, resp, etag, err := rdeManager.Client.APIClient.DefinedEntityApi.GetDefinedEntity(ctx, rdeManager.ClusterID,
+			clusterOrg.Org.ID, nil)
 		if resp != nil && resp.StatusCode != http.StatusOK {
 			var responseMessageBytes []byte
 			if gsErr, ok := err.(swaggerClient.GenericSwaggerError); ok {
@@ -754,7 +758,8 @@ func (rdeManager *RDEManager) RemoveFromVCDResourceSet(ctx context.Context, comp
 		return fmt.Errorf("obtained nil org for name [%s]", client.ClusterOrgName)
 	}
 	for i := MaxRDEUpdateRetries; i > 1; i-- {
-		rde, resp, etag, err := rdeManager.Client.APIClient.DefinedEntityApi.GetDefinedEntity(ctx, rdeManager.ClusterID, clusterOrg.Org.ID)
+		rde, resp, etag, err := rdeManager.Client.APIClient.DefinedEntityApi.GetDefinedEntity(ctx, rdeManager.ClusterID,
+			clusterOrg.Org.ID, nil)
 		if resp != nil && resp.StatusCode != http.StatusOK {
 			var responseMessageBytes []byte
 			if gsErr, ok := err.(swaggerClient.GenericSwaggerError); ok {

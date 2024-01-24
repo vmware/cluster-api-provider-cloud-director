@@ -27,6 +27,7 @@ import (
 	"github.com/vmware/cloud-provider-for-cloud-director/pkg/vcdsdk"
 	infrav1beta3 "github.com/vmware/cluster-api-provider-cloud-director/api/v1beta3"
 	"github.com/vmware/cluster-api-provider-cloud-director/pkg/capisdk"
+	capvcdutil "github.com/vmware/cluster-api-provider-cloud-director/pkg/util"
 	"github.com/vmware/cluster-api-provider-cloud-director/release"
 	"github.com/vmware/go-vcloud-director/v2/govcd"
 	"github.com/vmware/go-vcloud-director/v2/types/v56"
@@ -422,36 +423,28 @@ func (r *VCDMachineReconciler) reconcileVMBoostrap(ctx context.Context, vcdClien
 			"disk.enableUUID":             "1",
 		}
 
-		for key, val := range keyVals {
-			err = vdcManager.SetVmExtraConfigKeyValue(vm, key, val, true)
-			if err != nil {
-				capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDMachineCreationError, "", machine.Name, fmt.Sprintf("%v", err))
+		keys := capvcdutil.Keys(keyVals)
+		task, err := vdcManager.SetMultiVmExtraConfigKeyValuePairs(vm, keyVals, true)
+		if err != nil {
+			capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDMachineCreationError, "", machine.Name, fmt.Sprintf("%v", err))
 
-				return errors.Wrapf(err, "Error while enabling cloudinit on the machine [%s/%s]; unable to set vm extra config key [%s] for vm ",
-					vcdCluster.Name, vm.VM.Name, key)
-			}
+			return errors.Wrapf(err, "Error while enabling cloudinit on the machine [%s/%s]; unable to set vm extra config keys [%v] for vm ",
+				vAppName, vm.VM.Name, keys)
+		}
+		if err = task.WaitTaskCompletion(); err != nil {
+			capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDMachineCreationError, "", machine.Name, fmt.Sprintf("%v", err))
 
-			if err = vm.Refresh(); err != nil {
-				capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDMachineCreationError, "", machine.Name, fmt.Sprintf("Unable to refresh vm: %v", err))
-
-				return errors.Wrapf(err, "Error while enabling cloudinit on the machine [%s/%s]; unable to refresh vm", vcdCluster.Name, vm.VM.Name)
-			}
-
-			if err = vApp.Refresh(); err != nil {
-				capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDMachineCreationError, "", machine.Name, fmt.Sprintf("Unable to refresh vm: %v", err))
-
-				return errors.Wrapf(err, "Error while enabling cloudinit on the machine [%s/%s]; unable to refresh vapp", vAppName, vm.VM.Name)
-			}
-
-			err = capvcdRdeManager.RdeManager.RemoveErrorByNameOrIdFromErrorSet(ctx, vcdsdk.ComponentCAPVCD, capisdk.VCDMachineCreationError, "", machine.Name)
-			if err != nil {
-				log.Error(err, "failed to remove VCDMachineCreationError from RDE", "rdeID", vcdCluster.Status.InfraId)
-			}
-
-			log.Info(fmt.Sprintf("Configured the infra machine with variable [%s] to enable cloud-init", key))
+			return errors.Wrapf(err, "Error while waiting for task that sets keys [%v] machine [%s/%s]",
+				keys, vAppName, vm.VM.Name)
+		}
+		err = capvcdRdeManager.RdeManager.RemoveErrorByNameOrIdFromErrorSet(ctx, vcdsdk.ComponentCAPVCD, capisdk.VCDMachineCreationError, "", machine.Name)
+		if err != nil {
+			log.Error(err, "failed to remove VCDMachineCreationError from RDE", "rdeID", vcdCluster.Status.InfraId)
 		}
 
-		task, err := vm.PowerOn()
+		log.Info(fmt.Sprintf("Configured the infra machine with keys [%v] to enable cloud-init", keys))
+
+		task, err = vm.PowerOn()
 		if err != nil {
 			capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDMachineCreationError, "", machine.Name, fmt.Sprintf("%v", err))
 
@@ -469,6 +462,7 @@ func (r *VCDMachineReconciler) reconcileVMBoostrap(ctx context.Context, vcdClien
 			return errors.Wrapf(err, "Error while deploying infra for the machine [%s/%s]; unable to refresh vapp after VM power-on", vAppName, vm.VM.Name)
 		}
 	}
+
 	if hasCloudInitFailedBefore, err := r.hasCloudInitExecutionFailedBefore(vcdClient, vm); hasCloudInitFailedBefore {
 		capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDMachineScriptExecutionError, "", machine.Name, fmt.Sprintf("%v", err))
 
@@ -675,9 +669,9 @@ func (r *VCDMachineReconciler) reconcileVM(
 		log.Info("Adding infra VM for the machine")
 
 		// vcda-4391 fixed
-		err = vdcManager.AddNewTkgVM(vmName, vAppName, 1,
+		task, err := vdcManager.AddNewTkgVM(vmName, vAppName,
 			vcdMachine.Spec.Catalog, vcdMachine.Spec.Template, vcdMachine.Spec.PlacementPolicy,
-			vcdMachine.Spec.SizingPolicy, vcdMachine.Spec.StorageProfile, false)
+			vcdMachine.Spec.SizingPolicy, vcdMachine.Spec.StorageProfile)
 		if err != nil {
 			capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDMachineCreationError, "", machine.Name,
 				fmt.Sprintf("%v", err))
@@ -685,6 +679,14 @@ func (r *VCDMachineReconciler) reconcileVM(
 				"Error provisioning infrastructure for the machine; unable to create VM [%s] in vApp [%s]",
 				machine.Name, vAppName)
 		}
+		if err = task.WaitTaskCompletion(); err != nil {
+			capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDMachineCreationError, "", machine.Name,
+				fmt.Sprintf("%v", err))
+			return ctrl.Result{}, nil, "", errors.Wrapf(err,
+				"Error provisioning infrastructure for the machine; unable to wait for task [%v] for create VM [%s] in vApp [%s]",
+				task, machine.Name, vAppName)
+		}
+
 		vm, err = vApp.GetVMByName(vmName, true)
 		if err != nil {
 			capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDMachineCreationError, "",
