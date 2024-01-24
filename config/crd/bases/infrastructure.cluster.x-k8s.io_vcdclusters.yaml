@@ -632,22 +632,6 @@ spec:
                 description: MultiZoneSpec provides details of the configuration of
                   the zones in the cluster as well as the NetworkTopologyType used.
                 properties:
-                  UserSpecifiedEdgeGatewayConfig:
-                    description: UserSpecifiedEdgeGatewayConfig contains configuration
-                      for UserSpecifiedEdgeGateway zone topology.
-                    properties:
-                      edgeGatewayZone:
-                        description: EdgeGatewayZone defines the name of the user-provided
-                          zone containing an edge gateway.
-                        type: string
-                    required:
-                    - edgeGatewayZone
-                    type: object
-                  ZoneTopology:
-                    description: ZoneTopology defines the type of network topology
-                      used across zones in a Multi-AZ deployment. Valid options are
-                      DCGroup, UserSpecifiedEdgeGateway, and ExternalLoadBalancer,
-                    type: string
                   dcGroupConfig:
                     description: DCGroupConfig contains configuration for DCGroup
                       zone topology.
@@ -686,6 +670,22 @@ spec:
                     required:
                     - edgeGatewayZones
                     type: object
+                  userSpecifiedEdgeGatewayConfig:
+                    description: UserSpecifiedEdgeGatewayConfig contains configuration
+                      for UserSpecifiedEdgeGateway zone topology.
+                    properties:
+                      edgeGatewayZone:
+                        description: EdgeGatewayZone defines the name of the user-provided
+                          zone containing an edge gateway.
+                        type: string
+                    required:
+                    - edgeGatewayZone
+                    type: object
+                  zoneTopology:
+                    description: ZoneTopology defines the type of network topology
+                      used across zones in a Multi-AZ deployment. Valid options are
+                      DCGroup, UserSpecifiedEdgeGateway, and ExternalLoadBalancer,
+                    type: string
                   zones:
                     description: Zones defines the list of zones that this cluster
                       should be deployed to.
@@ -863,42 +863,60 @@ spec:
                 description: MultiZoneStatus provides the current status of the multi-zone
                   configuration in a Multi-AZ deployment
                 properties:
-                  ZoneTopology:
+                  dcGroupConfig:
+                    description: DCGroupConfig contains configuration for DCGroup
+                      zone topology.
+                    type: object
+                  externalLoadBalancerConfig:
+                    description: ExternalLoadBalancerConfig contains configuration
+                      for ExternalLoadBalancer zone topology.
+                    properties:
+                      edgeGatewayZones:
+                        description: EdgeGatewayZones defines a list of zones containing
+                          an edge gateway.
+                        items:
+                          description: EdgeGatewayZone provides the details of a zone
+                            containing an edge gateway. Used with ExternalLoadBalancer
+                            topology. topology.
+                          properties:
+                            loadBalancerIP:
+                              description: LoadBalancerIP is the IP address of the
+                                load balancer configured on the edge gateway for this
+                                zone.
+                              type: string
+                            loadBalancerPort:
+                              description: LoadBalancerPort is the port of the load
+                                balancer configured on the edge gateway for this zone.
+                              type: integer
+                            name:
+                              description: Name is the user-defined name of the zone
+                                representing the OVDC containing an edge gateway.
+                              type: string
+                          required:
+                          - loadBalancerIP
+                          - loadBalancerPort
+                          - name
+                          type: object
+                        type: array
+                    required:
+                    - edgeGatewayZones
+                    type: object
+                  userSpecifiedEdgeGatewayConfig:
+                    description: UserSpecifiedEdgeGatewayConfig contains configuration
+                      for UserSpecifiedEdgeGateway zone topology.
+                    properties:
+                      edgeGatewayZone:
+                        description: EdgeGatewayZone defines the name of the user-provided
+                          zone containing an edge gateway.
+                        type: string
+                    required:
+                    - edgeGatewayZone
+                    type: object
+                  zoneTopology:
                     description: ZoneTopology defines the type of network topology
                       used across zones in a Multi-AZ deployment. Valid options are
                       DCGroup, UserSpecifiedEdgeGateway, and ExternalLoadBalancer
                     type: string
-                  edgeGateway:
-                    description: EdgeGateway defines the edge gateway in a UserSpecifiedEdge
-                      topology.
-                    type: string
-                  edgeGatewayZones:
-                    description: EdgeGatewayZones defines a list of zones configured
-                      with an edge gateway. Used with ExternalLoadBalancer and UserSpecifiedEdgeGateway
-                      topologies.
-                    items:
-                      description: EdgeGatewayZone provides the details of a zone
-                        containing an edge gateway. Used with ExternalLoadBalancer
-                        topology. topology.
-                      properties:
-                        loadBalancerIP:
-                          description: LoadBalancerIP is the IP address of the load
-                            balancer configured on the edge gateway for this zone.
-                          type: string
-                        loadBalancerPort:
-                          description: LoadBalancerPort is the port of the load balancer
-                            configured on the edge gateway for this zone.
-                          type: integer
-                        name:
-                          description: Name is the user-defined name of the zone representing
-                            the OVDC containing an edge gateway.
-                          type: string
-                      required:
-                      - loadBalancerIP
-                      - loadBalancerPort
-                      - name
-                      type: object
-                    type: array
                   zones:
                     description: Zones defines the list of zones this cluster is configured
                       with for a Mult-AZ deployment.
