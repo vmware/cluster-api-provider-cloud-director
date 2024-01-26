@@ -843,7 +843,7 @@ spec:
                       type: boolean
                   type: object
                 description: FailureDomains lists the zones of this cluster. This
-                  field is parsed from the Zones field of vcdCluster.MultiZoneSpec
+                  field is parsed from the Zones field of vcdCluster.Spec.MultiZoneSpec
                   if set up appropriately.
                 type: object
               infraId:
