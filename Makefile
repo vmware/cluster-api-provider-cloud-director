@@ -188,6 +188,30 @@ teardown: manifests kustomize ## Teardown controller from the K8s cluster specif
 	$(KUSTOMIZE) build config/default | kubectl delete -f -
 
 
+##@ Gobuild
+
+.PHONY: dev-build
+dev-build: VERSION := $(VERSION)-${BUILD_TAG}-$(GITCOMMIT)
+dev-build: gobuild
+
+.PHONY: rc-build
+rc-build: gobuild
+
+.PHONY: gobuild
+gobuild: vendor generate release-manifests release-prep build docker-build docker-archive publish
+
+.PHONY: docker-archive
+docker-archive:
+	mkdir -p build/docker
+	docker save -o build/docker/$(CAPVCD_IMG)_$(VERSION).tar $(CAPVCD_IMG):$(VERSION)
+	docker save -o build/docker/$(ARTIFACT_IMG)_$(VERSION).tar $(ARTIFACT_IMG):$(VERSION)
+	gzip build/docker/$(CAPVCD_IMG)_$(VERSION).tar
+	gzip build/docker/$(ARTIFACT_IMG)_$(VERSION).tar
+
+.PHONY: publish
+publish:
+	cp -R build/docker build/manifests ${PUBLISH_DIR}
+
 
 ##@ Publish
 
