@@ -279,7 +279,7 @@ type VCDClusterStatus struct {
 	LoadBalancerConfig LoadBalancerConfig `json:"loadBalancerConfig,omitempty"`
 
 	// FailureDomains lists the zones of this cluster. This field is parsed from the Zones field of
-	// vcdCluster.MultiZoneSpec if set up appropriately.
+	// vcdCluster.Spec.MultiZoneSpec if set up appropriately.
 	// +optional
 	FailureDomains clusterv1.FailureDomains `json:"failureDomains,omitempty"`
 
