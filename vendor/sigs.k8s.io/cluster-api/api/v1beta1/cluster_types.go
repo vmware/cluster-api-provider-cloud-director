@@ -34,9 +34,6 @@ const (
 	// ClusterFinalizer is the finalizer used by the cluster controller to
 	// cleanup the cluster resources when a Cluster is being deleted.
 	ClusterFinalizer = "cluster.cluster.x-k8s.io"
-
-	// ClusterKind represents the Kind of Cluster.
-	ClusterKind = "Cluster"
 )
 
 // ANCHOR: ClusterSpec
@@ -83,10 +80,8 @@ type Topology struct {
 
 	// RolloutAfter performs a rollout of the entire cluster one component at a time,
 	// control plane first and then machine deployments.
-	//
-	// Deprecated: This field has no function and is going to be removed in the next apiVersion.
-	//
 	// +optional
+	// Deprecated: This field has no function and is going to be removed in the next apiVersion.
 	RolloutAfter *metav1.Time `json:"rolloutAfter,omitempty"`
 
 	// ControlPlane describes the cluster control plane.

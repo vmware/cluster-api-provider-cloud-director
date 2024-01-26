@@ -56,10 +56,10 @@ const (
 	// alpha: v1.1
 	KubeadmBootstrapFormatIgnition featuregate.Feature = "KubeadmBootstrapFormatIgnition"
 
-	// MachineSetPreflightChecks is a feature gate for the MachineSet preflight checks functionality.
+	// LazyRestmapper is a feature gate for the Lazy Restmapper functionality.
 	//
-	// alpha: v1.5
-	MachineSetPreflightChecks featuregate.Feature = "MachineSetPreflightChecks"
+	// alpha: v1.4
+	LazyRestmapper featuregate.Feature = "LazyRestmapper"
 )
 
 func init() {
@@ -75,5 +75,5 @@ var defaultClusterAPIFeatureGates = map[featuregate.Feature]featuregate.FeatureS
 	ClusterTopology:                {Default: false, PreRelease: featuregate.Alpha},
 	KubeadmBootstrapFormatIgnition: {Default: false, PreRelease: featuregate.Alpha},
 	RuntimeSDK:                     {Default: false, PreRelease: featuregate.Alpha},
-	MachineSetPreflightChecks:      {Default: false, PreRelease: featuregate.Alpha},
+	LazyRestmapper:                 {Default: false, PreRelease: featuregate.Alpha},
 }
