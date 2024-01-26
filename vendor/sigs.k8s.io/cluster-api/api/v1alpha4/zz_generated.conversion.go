@@ -863,7 +863,6 @@ func autoConvert_v1beta1_ControlPlaneClass_To_v1alpha4_ControlPlaneClass(in *v1b
 	}
 	out.MachineInfrastructure = (*LocalObjectTemplate)(unsafe.Pointer(in.MachineInfrastructure))
 	// WARNING: in.MachineHealthCheck requires manual conversion: does not exist in peer-type
-	// WARNING: in.NamingStrategy requires manual conversion: does not exist in peer-type
 	// WARNING: in.NodeDrainTimeout requires manual conversion: does not exist in peer-type
 	// WARNING: in.NodeVolumeDetachTimeout requires manual conversion: does not exist in peer-type
 	// WARNING: in.NodeDeletionTimeout requires manual conversion: does not exist in peer-type
@@ -1043,7 +1042,6 @@ func autoConvert_v1beta1_MachineDeploymentClass_To_v1alpha4_MachineDeploymentCla
 	}
 	// WARNING: in.MachineHealthCheck requires manual conversion: does not exist in peer-type
 	// WARNING: in.FailureDomain requires manual conversion: does not exist in peer-type
-	// WARNING: in.NamingStrategy requires manual conversion: does not exist in peer-type
 	// WARNING: in.NodeDrainTimeout requires manual conversion: does not exist in peer-type
 	// WARNING: in.NodeVolumeDetachTimeout requires manual conversion: does not exist in peer-type
 	// WARNING: in.NodeDeletionTimeout requires manual conversion: does not exist in peer-type

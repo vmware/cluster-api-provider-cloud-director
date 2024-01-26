@@ -25,7 +25,7 @@ import (
 	"crypto/x509/pkix"
 	"encoding/hex"
 	"math/big"
-	"path"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -34,7 +34,6 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/util/cert"
-	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
@@ -73,25 +72,25 @@ func NewCertificatesForInitialControlPlane(config *bootstrapv1.ClusterConfigurat
 	certificates := Certificates{
 		&Certificate{
 			Purpose:  ClusterCA,
-			CertFile: path.Join(certificatesDir, "ca.crt"),
-			KeyFile:  path.Join(certificatesDir, "ca.key"),
+			CertFile: filepath.Join(certificatesDir, "ca.crt"),
+			KeyFile:  filepath.Join(certificatesDir, "ca.key"),
 		},
 		&Certificate{
 			Purpose:  ServiceAccount,
-			CertFile: path.Join(certificatesDir, "sa.pub"),
-			KeyFile:  path.Join(certificatesDir, "sa.key"),
+			CertFile: filepath.Join(certificatesDir, "sa.pub"),
+			KeyFile:  filepath.Join(certificatesDir, "sa.key"),
 		},
 		&Certificate{
 			Purpose:  FrontProxyCA,
-			CertFile: path.Join(certificatesDir, "front-proxy-ca.crt"),
-			KeyFile:  path.Join(certificatesDir, "front-proxy-ca.key"),
+			CertFile: filepath.Join(certificatesDir, "front-proxy-ca.crt"),
+			KeyFile:  filepath.Join(certificatesDir, "front-proxy-ca.key"),
 		},
 	}
 
 	etcdCert := &Certificate{
 		Purpose:  EtcdCA,
-		CertFile: path.Join(certificatesDir, "etcd", "ca.crt"),
-		KeyFile:  path.Join(certificatesDir, "etcd", "ca.key"),
+		CertFile: filepath.Join(certificatesDir, "etcd", "ca.crt"),
+		KeyFile:  filepath.Join(certificatesDir, "etcd", "ca.key"),
 	}
 
 	// TODO make sure all the fields are actually defined and return an error if not
@@ -124,24 +123,24 @@ func NewControlPlaneJoinCerts(config *bootstrapv1.ClusterConfiguration) Certific
 	certificates := Certificates{
 		&Certificate{
 			Purpose:  ClusterCA,
-			CertFile: path.Join(certificatesDir, "ca.crt"),
-			KeyFile:  path.Join(certificatesDir, "ca.key"),
+			CertFile: filepath.Join(certificatesDir, "ca.crt"),
+			KeyFile:  filepath.Join(certificatesDir, "ca.key"),
 		},
 		&Certificate{
 			Purpose:  ServiceAccount,
-			CertFile: path.Join(certificatesDir, "sa.pub"),
-			KeyFile:  path.Join(certificatesDir, "sa.key"),
+			CertFile: filepath.Join(certificatesDir, "sa.pub"),
+			KeyFile:  filepath.Join(certificatesDir, "sa.key"),
 		},
 		&Certificate{
 			Purpose:  FrontProxyCA,
-			CertFile: path.Join(certificatesDir, "front-proxy-ca.crt"),
-			KeyFile:  path.Join(certificatesDir, "front-proxy-ca.key"),
+			CertFile: filepath.Join(certificatesDir, "front-proxy-ca.crt"),
+			KeyFile:  filepath.Join(certificatesDir, "front-proxy-ca.key"),
 		},
 	}
 	etcdCert := &Certificate{
 		Purpose:  EtcdCA,
-		CertFile: path.Join(certificatesDir, "etcd", "ca.crt"),
-		KeyFile:  path.Join(certificatesDir, "etcd", "ca.key"),
+		CertFile: filepath.Join(certificatesDir, "etcd", "ca.crt"),
+		KeyFile:  filepath.Join(certificatesDir, "etcd", "ca.key"),
 	}
 
 	// TODO make sure all the fields are actually defined and return an error if not
@@ -167,7 +166,7 @@ func NewControlPlaneJoinCerts(config *bootstrapv1.ClusterConfiguration) Certific
 // NewCertificatesForWorker return an initialized but empty set of CA certificates needed to bootstrap a cluster.
 func NewCertificatesForWorker(caCertPath string) Certificates {
 	if caCertPath == "" {
-		caCertPath = path.Join(DefaultCertificatesDir, "ca.crt")
+		caCertPath = filepath.Join(DefaultCertificatesDir, "ca.crt")
 	}
 
 	return Certificates{
@@ -191,60 +190,30 @@ func (c Certificates) GetByPurpose(purpose Purpose) *Certificate {
 
 // Lookup looks up each certificate from secrets and populates the certificate with the secret data.
 func (c Certificates) Lookup(ctx context.Context, ctrlclient client.Client, clusterName client.ObjectKey) error {
-	return c.LookupCached(ctx, nil, ctrlclient, clusterName)
-}
-
-// LookupCached looks up each certificate from secrets and populates the certificate with the secret data.
-// First we try to lookup the certificate secret via the secretCachingClient. If we get a NotFound error
-// we fall back to the regular uncached client.
-func (c Certificates) LookupCached(ctx context.Context, secretCachingClient, ctrlclient client.Client, clusterName client.ObjectKey) error {
 	// Look up each certificate as a secret and populate the certificate/key
 	for _, certificate := range c {
+		s := &corev1.Secret{}
 		key := client.ObjectKey{
 			Name:      Name(clusterName.Name, certificate.Purpose),
 			Namespace: clusterName.Namespace,
 		}
-		s, err := getCertificateSecret(ctx, secretCachingClient, ctrlclient, key)
-		if err != nil {
+		if err := ctrlclient.Get(ctx, key, s); err != nil {
 			if apierrors.IsNotFound(err) {
 				if certificate.External {
-					return errors.Wrap(err, "external certificate not found")
+					return errors.WithMessage(err, "external certificate not found")
 				}
 				continue
 			}
-			return err
+			return errors.WithStack(err)
 		}
 		// If a user has a badly formatted secret it will prevent the cluster from working.
 		kp, err := secretToKeyPair(s)
 		if err != nil {
-			return errors.Wrapf(err, "failed to read keypair from certificate %s", klog.KObj(s))
+			return err
 		}
 		certificate.KeyPair = kp
-		certificate.Secret = s
 	}
 	return nil
-}
-
-func getCertificateSecret(ctx context.Context, secretCachingClient, ctrlclient client.Client, key client.ObjectKey) (*corev1.Secret, error) {
-	secret := &corev1.Secret{}
-
-	if secretCachingClient != nil {
-		// Try to get the certificate via the cached client.
-		err := secretCachingClient.Get(ctx, key, secret)
-		if err != nil && !apierrors.IsNotFound(err) {
-			// Return error if we got an error which is not a NotFound error.
-			return nil, errors.Wrapf(err, "failed to get certificate %s", klog.KObj(secret))
-		}
-		if err == nil {
-			return secret, nil
-		}
-	}
-
-	// Try to get the certificate via the uncached client.
-	if err := ctrlclient.Get(ctx, key, secret); err != nil {
-		return nil, errors.Wrapf(err, "failed to get certificate %s", klog.KObj(secret))
-	}
-	return secret, nil
 }
 
 // EnsureAllExist ensure that there is some data present for every certificate.
@@ -288,22 +257,14 @@ func (c Certificates) SaveGenerated(ctx context.Context, ctrlclient client.Clien
 		if err := ctrlclient.Create(ctx, s); err != nil {
 			return errors.WithStack(err)
 		}
-		certificate.Secret = s
 	}
 	return nil
 }
 
 // LookupOrGenerate is a convenience function that wraps cluster bootstrap certificate behavior.
 func (c Certificates) LookupOrGenerate(ctx context.Context, ctrlclient client.Client, clusterName client.ObjectKey, owner metav1.OwnerReference) error {
-	return c.LookupOrGenerateCached(ctx, nil, ctrlclient, clusterName, owner)
-}
-
-// LookupOrGenerateCached is a convenience function that wraps cluster bootstrap certificate behavior.
-// During lookup we first try to lookup the certificate secret via the secretCachingClient. If we get a NotFound error
-// we fall back to the regular uncached client.
-func (c Certificates) LookupOrGenerateCached(ctx context.Context, secretCachingClient, ctrlclient client.Client, clusterName client.ObjectKey, owner metav1.OwnerReference) error {
 	// Find the certificates that exist
-	if err := c.LookupCached(ctx, secretCachingClient, ctrlclient, clusterName); err != nil {
+	if err := c.Lookup(ctx, ctrlclient, clusterName); err != nil {
 		return err
 	}
 
@@ -323,7 +284,6 @@ type Certificate struct {
 	Purpose           Purpose
 	KeyPair           *certs.KeyPair
 	CertFile, KeyFile string
-	Secret            *corev1.Secret
 }
 
 // Hashes hashes all the certificates stored in a CA certificate.
