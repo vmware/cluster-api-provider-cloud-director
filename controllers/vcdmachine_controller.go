@@ -13,6 +13,8 @@ import (
 	"fmt"
 	"math"
 	"reflect"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"sigs.k8s.io/controller-runtime/pkg/source"
 	"sigs.k8s.io/yaml"
 	"strconv"
 	"strings"
@@ -45,7 +47,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
-	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
 type CloudInitScriptInput struct {
@@ -1498,29 +1499,37 @@ func (r *VCDMachineReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Ma
 		WithOptions(options).
 		WithEventFilter(predicates.ResourceNotPaused(ctrl.LoggerFrom(ctx))).
 		Watches(
-			&source.Kind{Type: &clusterv1.Machine{}},
-			handler.EnqueueRequestsFromMapFunc(
-				util.MachineToInfrastructureMapFunc(infrav1beta3.GroupVersion.WithKind("VCDMachine"))),
+			&clusterv1.Machine{},
+			handler.EnqueueRequestsFromMapFunc(util.MachineToInfrastructureMapFunc(
+				infrav1beta3.GroupVersion.WithKind("VCDMachine")),
+			),
 		).
 		Watches(
-			&source.Kind{Type: &infrav1beta3.VCDCluster{}},
-			handler.EnqueueRequestsFromMapFunc(r.VCDClusterToVCDMachines),
+			&infrav1beta3.VCDCluster{},
+			handler.EnqueueRequestsFromMapFunc(
+				r.VCDClusterToVCDMachines,
+			),
 		).
 		Build(r)
 	if err != nil {
-		return err
+		return fmt.Errorf("unable to build controller for VCDMachine: [%v]", err)
 	}
-	return c.Watch(
-		&source.Kind{Type: &clusterv1.Cluster{}},
+
+	if err = c.Watch(
+		source.Kind(mgr.GetCache(), &clusterv1.Cluster{}),
 		handler.EnqueueRequestsFromMapFunc(clusterToVCDMachines),
 		predicates.ClusterUnpausedAndInfrastructureReady(ctrl.LoggerFrom(ctx)),
-	)
+	); err != nil {
+		return fmt.Errorf("unable to add a watch for ready clusters: [%v]", err)
+	}
+
+	return nil
 }
 
 // VCDClusterToVCDMachines is a handler.ToRequestsFunc to be used to enqueue
 // requests for reconciliation of VCDMachines.
-func (r *VCDMachineReconciler) VCDClusterToVCDMachines(o client.Object) []ctrl.Request {
-	var result []ctrl.Request
+func (r *VCDMachineReconciler) VCDClusterToVCDMachines(_ context.Context, o client.Object) []reconcile.Request {
+	var result []reconcile.Request
 	c, ok := o.(*infrav1beta3.VCDCluster)
 	if !ok {
 		klog.Errorf("Expected a VCDCluster found [%T]", o)
@@ -1546,11 +1555,14 @@ func (r *VCDMachineReconciler) VCDClusterToVCDMachines(o client.Object) []ctrl.R
 			continue
 		}
 		name := client.ObjectKey{Namespace: m.Namespace, Name: m.Name}
-		result = append(result, ctrl.Request{NamespacedName: name})
+		result = append(result, reconcile.Request{
+			NamespacedName: name,
+		})
 	}
 
 	return result
 }
+
 func (r *VCDMachineReconciler) hasCloudInitExecutionFailedBefore(vcdClient *vcdsdk.Client, vm *govcd.VM) (bool, error) {
 	vdcManager, err := vcdsdk.NewVDCManager(vcdClient, vcdClient.ClusterOrgName,
 		vcdClient.ClusterOVDCName)
