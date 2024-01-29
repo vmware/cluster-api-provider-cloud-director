@@ -338,6 +338,8 @@ func autoConvert_v1beta3_VCDClusterSpec_To_v1alpha4_VCDClusterSpec(in *v1beta3.V
 	// WARNING: in.UseAsManagementCluster requires manual conversion: does not exist in peer-type
 	// WARNING: in.ProxyConfigSpec requires manual conversion: does not exist in peer-type
 	// WARNING: in.LoadBalancerConfigSpec requires manual conversion: does not exist in peer-type
+	// WARNING: in.MultiZoneSpec requires manual conversion: does not exist in peer-type
+	// WARNING: in.OVDCZoneConfigMap requires manual conversion: does not exist in peer-type
 	return nil
 }
 
@@ -368,6 +370,8 @@ func autoConvert_v1beta3_VCDClusterStatus_To_v1alpha4_VCDClusterStatus(in *v1bet
 	// WARNING: in.UseAsManagementCluster requires manual conversion: does not exist in peer-type
 	// WARNING: in.ProxyConfig requires manual conversion: does not exist in peer-type
 	// WARNING: in.LoadBalancerConfig requires manual conversion: does not exist in peer-type
+	// WARNING: in.FailureDomains requires manual conversion: does not exist in peer-type
+	// WARNING: in.MultiZoneStatus requires manual conversion: does not exist in peer-type
 	return nil
 }
 
