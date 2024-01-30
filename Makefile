@@ -210,7 +210,7 @@ docker-archive:
 
 .PHONY: publish
 publish:
-	cp -R build/docker build/manifests ${PUBLISH_DIR}
+	cp -R build/docker ${PUBLISH_DIR}
 
 
 ##@ Publish
