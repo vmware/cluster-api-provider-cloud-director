@@ -6,6 +6,7 @@
 package util
 
 import (
+	"fmt"
 	"strings"
 )
 
@@ -24,4 +25,14 @@ func Keys[M ~map[key]val, key comparable, val any](m M) []key {
 	}
 
 	return r
+}
+
+func CreateVAppNamePrefix(clusterName string, ovdcID string) (string, error) {
+	parts := strings.Split(ovdcID, ":")
+	if len(parts) != 4 {
+		// urn:vcloud:org:<uuid>
+		return "", fmt.Errorf("invalid URN format for OVDC: [%s]", ovdcID)
+	}
+
+	return fmt.Sprintf("%s_%s", clusterName, parts[3]), nil
 }

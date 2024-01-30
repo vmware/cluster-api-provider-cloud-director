@@ -413,7 +413,7 @@ func (r *VCDMachineReconciler) reconcileVMBoostrap(ctx context.Context, vcdClien
 	if err = capvcdRdeManager.RdeManager.RemoveErrorByNameOrIdFromErrorSet(ctx, vcdsdk.ComponentCAPVCD, capisdk.VCDMachineCreationError, "", ""); err != nil {
 		log.Error(err, "failed to remove VCDMachineCreationError from RDE")
 	}
-	vAppName := CreateFullVAppName(vcdCluster)
+	vAppName, err := CreateFullVAppName(ctx, r.Client, vdcManager.Vdc.Vdc.ID, vcdCluster, machine)
 	if vmStatus != "POWERED_ON" {
 		// try to power on the VM
 		b64CloudInitScript := b64.StdEncoding.EncodeToString(mergedCloudInitBytes)
@@ -538,10 +538,62 @@ func (r *VCDMachineReconciler) getOVDCDetailsForMachine(vcdCluster *infrav1beta3
 	return vcdCluster.Spec.Ovdc, vcdCluster.Spec.OvdcNetwork, nil
 }
 
-func CreateFullVAppName(vcdCluster *infrav1beta3.VCDCluster) string {
+func GetMachineDeploymentName(ctx context.Context, cli client.Client, vcdCluster *infrav1beta3.VCDCluster,
+	machine *clusterv1.Machine) (string, error) {
 
-	// TODO: need to update this function after the introduction of zone related fields in VCDCluster object
-	return vcdCluster.Name
+	machineList := &clusterv1.MachineList{}
+	clusterName, ok := vcdCluster.GetLabels()[clusterv1.ClusterNameLabel]
+	if !ok {
+		return "", fmt.Errorf("unable to get cluster name from the vcdCluster object [%s]", vcdCluster.Name)
+	}
+
+	machineListLabels := map[string]string{clusterv1.ClusterNameLabel: clusterName}
+	if err := cli.List(ctx, machineList, client.InNamespace(vcdCluster.Namespace),
+		client.MatchingLabels(machineListLabels)); err != nil {
+		return "", fmt.Errorf("error getting MachineList object for cluster [%s]: [%v]", vcdCluster.Name, err)
+	}
+
+	for _, machineListItem := range machineList.Items {
+		if machine.Name == machineListItem.Name {
+			if kcpNameLabel, ok := machineListItem.Labels[clusterv1.MachineControlPlaneNameLabel]; ok {
+				return kcpNameLabel, nil
+			} else {
+				if machineDeploymentNameLabel, ok := machineListItem.Labels[clusterv1.MachineDeploymentNameLabel]; ok {
+					return machineDeploymentNameLabel, nil
+				}
+			}
+		}
+	}
+
+	return "", fmt.Errorf("unable to find machine deployment for cluster [%s], machine [%s]",
+		vcdCluster.Name, machine.Name)
+}
+
+func CreateFullVAppName(ctx context.Context, cli client.Client, ovdcID string,
+	vcdCluster *infrav1beta3.VCDCluster, machine *clusterv1.Machine) (string, error) {
+
+	switch vcdCluster.Spec.MultiZoneSpec.ZoneTopology {
+	case "":
+		return vcdCluster.Name, nil
+
+	case infrav1beta3.DCGroup, infrav1beta3.ExternalLoadBalancer, infrav1beta3.UserSpecifiedEdgeGateway:
+		machineDeploymentName, err := GetMachineDeploymentName(ctx, cli, vcdCluster, machine)
+		if err != nil {
+			return "", fmt.Errorf("unable to get MachineDeployment name from cluster [%s], machine [%s]: [%v]",
+				vcdCluster.Name, machine.Name, err)
+		}
+		vAppPrefix, err := capvcdutil.CreateVAppNamePrefix(vcdCluster.Name, ovdcID)
+		if err != nil {
+			return "", fmt.Errorf("unable to get vApp name from cluster name [%s], machine [%s]: [%v]",
+				vcdCluster.Name, machine.Name, err)
+		}
+		return fmt.Sprintf("%s_%s", vAppPrefix, machineDeploymentName), nil
+
+	default:
+		return "", fmt.Errorf("encountered unknown zonetype while creating vApp Name for cluster [%s]",
+			vcdCluster.Name)
+	}
+
 }
 
 func (r *VCDMachineReconciler) reconcileVAppCreation(ctx context.Context, vcdClient *vcdsdk.Client,
@@ -954,7 +1006,7 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	// since new zones could be added dynamically. In the non-AZ case, it can be done in the vcdCluster controller. However,
 	// we do it in one place for simplicity.
 	// TODO: should we add a field in VCDMachine to store the VApp name used for the machine ?
-	vAppName := CreateFullVAppName(vcdCluster)
+	vAppName, err := CreateFullVAppName(ctx, r.Client, vdcManager.Vdc.Vdc.ID, vcdCluster, machine)
 	log.Info(fmt.Sprintf("Using VApp name [%s] for the machine [%s]", vAppName, machine.Name))
 
 	ovdcName, ovdcNetworkName, err := r.getOVDCDetailsForMachine(vcdCluster)
