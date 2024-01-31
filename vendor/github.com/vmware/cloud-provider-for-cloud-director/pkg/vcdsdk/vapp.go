@@ -9,7 +9,7 @@ import (
 	"bytes"
 	"encoding/xml"
 	"fmt"
-	"github.com/sethvargo/go-password/password"
+	"github.com/vmware/cloud-provider-for-cloud-director/pkg/util"
 	"github.com/vmware/go-vcloud-director/v2/govcd"
 	"github.com/vmware/go-vcloud-director/v2/types/v56"
 	"io/ioutil"
@@ -313,9 +313,8 @@ func (vdc *VdcManager) FindVMByName(VAppName string, vmName string) (*govcd.VM, 
 		return nil, fmt.Errorf("vmName mandatory for FindVMByName")
 	}
 
-	client := vdc.Client
 	klog.Infof("Trying to find vm [%s] in vApp [%s] by name", vmName, VAppName)
-	vApp, err := client.VDC.GetVAppByName(VAppName, true)
+	vApp, err := vdc.Vdc.GetVAppByName(VAppName, true)
 	if err != nil {
 		return nil, fmt.Errorf("unable to find vApp [%s] by name: [%v]", VAppName, err)
 	}
@@ -677,7 +676,8 @@ func (vdc *VdcManager) AddNewVM(vmName string, VAppName string, catalogName stri
 			vdc.VdcName, err)
 	}
 
-	passwd, err := password.Generate(15, 5, 3, false, false)
+	// these are the settings used in VMware Cloud Director
+	passwd, err := util.GeneratePassword(15, 5, 3, false, false)
 	if err != nil {
 		return govcd.Task{}, fmt.Errorf("failed to generate a password to create a VM in the VApp [%s]", vApp.VApp.Name)
 	}
@@ -751,22 +751,23 @@ func (vdc *VdcManager) AddNewVM(vmName string, VAppName string, catalogName stri
 	return task, nil
 }
 
-func (vdc *VdcManager) DeleteVM(VAppName, vmName string) error {
+func (vdc *VdcManager) DeleteVM(VAppName, vmName string) (govcd.Task, error) {
 	vApp, err := vdc.Vdc.GetVAppByName(VAppName, true)
 	if err != nil {
-		return fmt.Errorf("unable to find vApp from name [%s]: [%v]", VAppName, err)
+		return govcd.Task{}, fmt.Errorf("unable to find vApp from name [%s]: [%v]", VAppName, err)
 	}
 
 	vm, err := vApp.GetVMByName(vmName, true)
 	if err != nil {
-		return fmt.Errorf("unable to get vm [%s] in vApp [%s]: [%v]", vmName, VAppName, err)
+		return govcd.Task{}, fmt.Errorf("unable to get vm [%s] in vApp [%s]: [%v]", vmName, VAppName, err)
 	}
 
-	if err = vm.Delete(); err != nil {
-		return fmt.Errorf("unable to delete vm [%s] in vApp [%s]: [%v]", vmName, VAppName, err)
+	task, err := vm.DeleteAsync()
+	if err != nil {
+		return govcd.Task{}, fmt.Errorf("unable to delete vm [%s] in vApp [%s]: [%v]", vmName, VAppName, err)
 	}
 
-	return nil
+	return task, nil
 }
 
 func (vdc *VdcManager) GetVAppNameFromVMName(VAppName string, vmName string) (string, error) {
