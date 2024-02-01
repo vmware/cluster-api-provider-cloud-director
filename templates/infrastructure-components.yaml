@@ -2019,6 +2019,8 @@ spec:
                   type: string
                 type: array
               failureDomain:
+                description: FailureDomain is the failure domain the machine will
+                  be created in.
                 type: string
               placementPolicy:
                 description: PlacementPolicy is the placement policy to be used on
@@ -2553,6 +2555,8 @@ spec:
                           type: string
                         type: array
                       failureDomain:
+                        description: FailureDomain is the failure domain the machine
+                          will be created in.
                         type: string
                       placementPolicy:
                         description: PlacementPolicy is the placement policy to be
