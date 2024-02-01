@@ -550,20 +550,14 @@ func (r *VCDMachineReconciler) getOVDCDetailsForMachine(ctx context.Context, mac
 	switch vcdCluster.Spec.MultiZoneSpec.ZoneTopology {
 	case infrav1beta3.SingleZone:
 		return vcdCluster.Spec.Ovdc, vcdCluster.Spec.OvdcNetwork, nil
-
-	case infrav1beta3.DCGroup, infrav1beta3.UserSpecifiedEdgeGateway, infrav1beta3.ExternalLoadBalancer:
-		// For control plane nodes: the machine.failureDomain will be set by CAPI.
-		//	CAPI uses vcdCluster.status.failureDomains to distribute control plane machines across different failure domains.
-		// For worker nodes:
-		//		Case 1: if machineDeployment.spec.failureDomain is set, CAPI populates machine.spec.failureDomain
-		//		Case 2: if machineDeployment.spec.failureDomain is not set, CAPVCD needs to pick a failureDomain for the VM
+	case infrav1beta3.DCGroup, infrav1beta3.ExternalLoadBalancer, infrav1beta3.UserSpecifiedEdgeGateway:
 		failureDomainName := ""
-		zoneName := vcdMachine.Spec.FailureDomain
-		if zoneName == nil {
-			zoneName = machine.Spec.FailureDomain
+		failureDomainNames := vcdMachine.Spec.FailureDomain
+		if failureDomainNames == nil {
+			failureDomainNames = machine.Spec.FailureDomain
 		}
-		if zoneName != nil {
-			failureDomainName = *zoneName
+		if failureDomainNames != nil {
+			failureDomainName = *failureDomainNames
 		} else {
 			// This is not stable and has many other deficiencies, but this approach is okay since we don't need
 			// a cryptographically strong random value.
@@ -1017,6 +1011,7 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	}
 
 	vcdClient, err := loginVCD(ctx, r.Client, vcdCluster, ovdcName, true)
+
 	// close all idle connections when reconciliation is done
 	defer func() {
 		if vcdClient != nil && vcdClient.VCDClient != nil {
@@ -1477,13 +1472,15 @@ func (r *VCDMachineReconciler) reconcileDelete(ctx context.Context, machine *clu
 	}
 
 	// get the vApp
-	vAppName, err := capvcdutil.CreateVAppNamePrefix(vcdCluster.Name, vdcManager.Vdc.Vdc.ID)
+	vAppName, err := CreateFullVAppName(ctx, r.Client, vdcManager.Vdc.Vdc.ID, vcdCluster, machine)
 	if err != nil {
-		log.Error(err, "error while creating vApp name prefix", "vcdClusterName", vcdCluster.Name,
+		log.Error(err, "error while creating vApp name", "vcdClusterName", vcdCluster.Name,
 			"ovdcID", vdcManager.Vdc.Vdc.ID)
-		return ctrl.Result{}, errors.Wrapf(err, "error creating vApp name prefix using vcdClusterName [%s] and ovdcID [%s]",
+		return ctrl.Result{}, errors.Wrapf(err, "error creating vApp name using vcdClusterName [%s] and ovdcID [%s]",
 			vcdCluster.Name, vdcManager.Vdc.Vdc.ID)
 	}
+	log.Info(fmt.Sprintf("Using VApp name [%s] for the machine [%s]", vAppName, machine.Name))
+
 	vApp, err := vdcManager.Vdc.GetVAppByName(vAppName, true)
 	if err != nil {
 		if err == govcd.ErrorEntityNotFound {
