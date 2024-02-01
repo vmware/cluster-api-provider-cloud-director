@@ -10,10 +10,18 @@ import (
 	"encoding/json"
 	"encoding/xml"
 	"fmt"
+	passwordgenerator "github.com/sethvargo/go-password/password"
 	"github.com/vmware/go-vcloud-director/v2/types/v56"
 	"github.com/vmware/go-vcloud-director/v2/util"
 	"io/ioutil"
 	"net/http"
+)
+
+const (
+	VCDLowerLetters = `abcdefghijkmnopqrstuvwxyz`
+	VCDUpperLetters = `ABCDEFGHIJKLMNPQRSTUVWXYZ`
+	VCDDigits       = `23456789`
+	VCDSymbols      = `!$#%`
 )
 
 // indentJsonBody indents raw JSON body for easier readability
@@ -62,4 +70,30 @@ func DecodeXMLBody(bodyType types.BodyType, resp *http.Response, out interface{}
 	}
 
 	return nil
+}
+
+func GeneratePassword(length int, numDigits int, numSymbols int, noUpper bool, allowRepeat bool) (string, error) {
+
+	// these are the inputs used by VMware Cloud Director
+	generatorInput := passwordgenerator.GeneratorInput{
+		LowerLetters: VCDLowerLetters,
+		UpperLetters: VCDUpperLetters,
+		Digits:       VCDDigits,
+		Symbols:      VCDSymbols,
+		Reader:       nil,
+	}
+
+	passwordGenerator, err := passwordgenerator.NewGenerator(&generatorInput)
+	if err != nil {
+		return "", fmt.Errorf("unable to create password generator with character-set [%v]: [%v]",
+			generatorInput, err)
+	}
+
+	passwd, err := passwordGenerator.Generate(length, numDigits, numSymbols, noUpper, allowRepeat)
+	if err != nil {
+		return "", fmt.Errorf("failed to generate a password with character-set [%v]: [%v]",
+			generatorInput, err)
+	}
+
+	return passwd, nil
 }
