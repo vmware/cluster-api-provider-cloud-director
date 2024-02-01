@@ -12,6 +12,7 @@ import (
 	b64 "encoding/base64"
 	"fmt"
 	"math"
+	"math/rand"
 	"reflect"
 	"sigs.k8s.io/yaml"
 	"strconv"
@@ -414,6 +415,12 @@ func (r *VCDMachineReconciler) reconcileVMBoostrap(ctx context.Context, vcdClien
 		log.Error(err, "failed to remove VCDMachineCreationError from RDE")
 	}
 	vAppName, err := CreateFullVAppName(ctx, r.Client, vdcManager.Vdc.Vdc.ID, vcdCluster, machine)
+	if err != nil {
+		log.Error(err, "unable to get vApp name from cluster name [%s], machine [%s]",
+			"clusterName", vcdCluster.Name, "OVDC ID", machine.Name)
+		return errors.Wrapf(err, "unable to get vApp name from cluster name [%s] in OVDC ID [%s]",
+			vcdCluster.Name, vdcManager.Vdc.Vdc.ID)
+	}
 	if vmStatus != "POWERED_ON" {
 		// try to power on the VM
 		b64CloudInitScript := b64.StdEncoding.EncodeToString(mergedCloudInitBytes)
@@ -531,11 +538,51 @@ func (r *VCDMachineReconciler) reconcileVMBoostrap(ctx context.Context, vcdClien
 	return nil
 }
 
-func (r *VCDMachineReconciler) getOVDCDetailsForMachine(vcdCluster *infrav1beta3.VCDCluster) (string, string, error) {
+func (r *VCDMachineReconciler) getOVDCDetailsForMachine(ctx context.Context, machine *clusterv1.Machine,
+	vcdMachine *infrav1beta3.VCDMachine, vcdCluster *infrav1beta3.VCDCluster) (string, string, error) {
 
-	// TODO: update this function to get OVDC details for a zone
+	log := ctrl.LoggerFrom(ctx, "machine", machine.Name, "cluster", vcdCluster.Name)
 
-	return vcdCluster.Spec.Ovdc, vcdCluster.Spec.OvdcNetwork, nil
+	switch vcdCluster.Spec.MultiZoneSpec.ZoneTopology {
+	case "":
+		return vcdCluster.Spec.Ovdc, vcdCluster.Spec.OvdcNetwork, nil
+
+	case infrav1beta3.DCGroup, infrav1beta3.ExternalLoadBalancer, infrav1beta3.UserSpecifiedEdgeGateway:
+		failureDomainName := ""
+		failureDomainNames := vcdMachine.Spec.FailureDomain
+		if failureDomainNames == nil {
+			failureDomainNames = machine.Spec.FailureDomain
+		}
+		if failureDomainNames != nil {
+			failureDomainName = *failureDomainNames
+		} else {
+			// This is not stable and has many other deficiencies, but this approach is okay since we don't need
+			// a cryptographically strong random value.
+			failureDomainName = vcdCluster.Spec.MultiZoneSpec.Zones[rand.Intn(len(vcdCluster.Spec.MultiZoneSpec.Zones))].Name
+			// Also update into vcdMachine data structure
+			vcdMachine.Spec.FailureDomain = &failureDomainName
+		}
+
+		zoneSpec, ok := vcdCluster.Status.FailureDomains[failureDomainName]
+		if !ok {
+			err := fmt.Errorf("unknown failure domain name [%s]", failureDomainName)
+			log.Error(err, "FailureDomainName not found in zones")
+			return "", "", err
+		}
+
+		ovdcName, ok := zoneSpec.Attributes["OVDCName"]
+		if !ok {
+			return "", "", fmt.Errorf("unable to find [OVDCName] in zone spec")
+		}
+		ovdcNetworkName, ok := zoneSpec.Attributes["OVDCNetworkName"]
+		if !ok {
+			return "", "", fmt.Errorf("unable to find [OVDCNetworkName] in zone spec")
+		}
+		return ovdcName, ovdcNetworkName, nil
+
+	default:
+		return "", "", fmt.Errorf("unknown zone Type [%s]", vcdCluster.Spec.MultiZoneSpec.ZoneTopology)
+	}
 }
 
 func GetMachineDeploymentName(ctx context.Context, cli client.Client, vcdCluster *infrav1beta3.VCDCluster,
@@ -921,6 +968,16 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	// To avoid spamming RDEs with updates, only update the RDE with events when machine creation is ongoing
 	skipRDEEventUpdates := machine.Status.BootstrapReady
 
+	ovdcName, ovdcNetworkName, err := r.getOVDCDetailsForMachine(ctx, machine, vcdMachine, vcdCluster)
+	if err != nil {
+		log.Error(err, "Unable to get OVDC details of machine")
+		return ctrl.Result{}, errors.Wrapf(err, "unable to get OVDC details of machine [%s]", vcdMachine.Name)
+	}
+
+	// create new logger with OVDC and Machine names
+	log = ctrl.LoggerFrom(ctx, "cluster", vcdCluster.Name, "ovdc", ovdcName, "machine", machine.Name)
+	log.Info("Starting VCDMachine reconciliation")
+
 	if vcdMachine.Spec.ProviderID != nil && vcdMachine.Status.ProviderID != nil {
 		vcdMachine.Status.Ready = true
 		conditions.MarkTrue(vcdMachine, ContainerProvisionedCondition)
@@ -928,7 +985,7 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		if checkIfMachineNodeIsUnhealthy(machine) {
 			// Create the workload client only if the machine is unhealthy because we would have to add an event to the RDE.
 			// Else there is no need to login to VCD
-			vcdClient, err := loginVCD(ctx, r.Client, vcdCluster)
+			vcdClient, err := createVCDClientFromSecrets(ctx, r.Client, vcdCluster, ovdcName)
 			// close all idle connections when reconciliation is done
 			defer func() {
 				if vcdClient != nil && vcdClient.VCDClient != nil {
@@ -951,7 +1008,12 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		return ctrl.Result{}, nil
 	}
 
-	vcdClient, err := loginVCD(ctx, r.Client, vcdCluster)
+	vcdClient, err := createVCDClientFromSecrets(ctx, r.Client, vcdCluster, ovdcName)
+	if err != nil {
+		return ctrl.Result{}, errors.Wrapf(err,
+			"Error creating VCD client to reconcile Cluster [%s] infrastructure", vcdCluster.Name)
+	}
+
 	// close all idle connections when reconciliation is done
 	defer func() {
 		if vcdClient != nil && vcdClient.VCDClient != nil {
@@ -1007,13 +1069,13 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	// we do it in one place for simplicity.
 	// TODO: should we add a field in VCDMachine to store the VApp name used for the machine ?
 	vAppName, err := CreateFullVAppName(ctx, r.Client, vdcManager.Vdc.Vdc.ID, vcdCluster, machine)
-	log.Info(fmt.Sprintf("Using VApp name [%s] for the machine [%s]", vAppName, machine.Name))
-
-	ovdcName, ovdcNetworkName, err := r.getOVDCDetailsForMachine(vcdCluster)
 	if err != nil {
-		log.Error(err, "Unable to get OVDC details of machine")
-		return ctrl.Result{}, errors.Wrapf(err, "unable to get OVDC details of machine [%s]", vcdMachine.Name)
+		log.Error(err, "unable to get vApp name from cluster name [%s], machine [%s]",
+			"clusterName", vcdCluster.Name, "OVDC ID", machine.Name)
+		return ctrl.Result{}, errors.Wrapf(err, "unable to get vApp name from cluster name [%s] in OVDC ID [%s]",
+			vcdCluster.Name, vdcManager.Vdc.Vdc.ID)
 	}
+	log.Info(fmt.Sprintf("Using VApp name [%s] for the machine [%s]", vAppName, machine.Name))
 
 	result, err := r.reconcileVAppCreation(ctx, vcdClient, machine.Name, vcdCluster, vAppName, ovdcNetworkName, false)
 	if err != nil {
@@ -1297,7 +1359,21 @@ func (r *VCDMachineReconciler) reconcileDelete(ctx context.Context, machine *clu
 		return ctrl.Result{}, nil
 	}
 
-	vcdClient, err := loginVCD(ctx, r.Client, vcdCluster)
+	ovdcName, _, err := r.getOVDCDetailsForMachine(ctx, machine, vcdMachine, vcdCluster)
+	if err != nil {
+		log.Error(err, "Unable to get OVDC details of machine")
+		return ctrl.Result{}, errors.Wrapf(err, "unable to get OVDC details of machine [%s]", vcdMachine.Name)
+	}
+
+	// create new logger with OVDC and Machine names
+	log = ctrl.LoggerFrom(ctx, "cluster", vcdCluster.Name, "ovdc", ovdcName, "machine", machine.Name)
+	log.Info("Starting VCDMachine reconciliation")
+
+	vcdClient, err := createVCDClientFromSecrets(ctx, r.Client, vcdCluster, ovdcName)
+	if err != nil {
+		return ctrl.Result{}, errors.Wrapf(err,
+			"Error creating VCD client to reconcile Cluster [%s] infrastructure", vcdCluster.Name)
+	}
 
 	// close all idle connections when reconciliation is done
 	defer func() {
@@ -1404,7 +1480,15 @@ func (r *VCDMachineReconciler) reconcileDelete(ctx context.Context, machine *clu
 	}
 
 	// get the vApp
-	vAppName := vcdCluster.Name
+	vAppName, err := CreateFullVAppName(ctx, r.Client, vdcManager.Vdc.Vdc.ID, vcdCluster, machine)
+	if err != nil {
+		log.Error(err, "unable to get vApp name from cluster name [%s], machine [%s]",
+			"clusterName", vcdCluster.Name, "OVDC ID", machine.Name)
+		return ctrl.Result{}, errors.Wrapf(err, "unable to get vApp name from cluster name [%s] in OVDC ID [%s]",
+			vcdCluster.Name, vdcManager.Vdc.Vdc.ID)
+	}
+	log.Info(fmt.Sprintf("Using VApp name [%s] for the machine [%s]", vAppName, machine.Name))
+
 	vApp, err := vdcManager.Vdc.GetVAppByName(vAppName, true)
 	if err != nil {
 		if err == govcd.ErrorEntityNotFound {

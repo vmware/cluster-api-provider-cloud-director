@@ -43,10 +43,14 @@ spec:
         description: VCDCluster is the Schema for the vcdclusters API
         properties:
           apiVersion:
-            description: 'APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
             type: string
           kind:
-            description: 'Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
             type: string
           metadata:
             type: object
@@ -98,26 +102,41 @@ spec:
               conditions:
                 description: Conditions defines current service state of the VCDCluster.
                 items:
-                  description: Condition defines an observation of a Cluster API resource operational state.
+                  description: Condition defines an observation of a Cluster API resource
+                    operational state.
                   properties:
                     lastTransitionTime:
-                      description: Last time the condition transitioned from one status to another. This should be when the underlying condition changed. If that is not known, then using the time when the API field changed is acceptable.
+                      description: Last time the condition transitioned from one status
+                        to another. This should be when the underlying condition changed.
+                        If that is not known, then using the time when the API field
+                        changed is acceptable.
                       format: date-time
                       type: string
                     message:
-                      description: A human readable message indicating details about the transition. This field may be empty.
+                      description: A human readable message indicating details about
+                        the transition. This field may be empty.
                       type: string
                     reason:
-                      description: The reason for the condition's last transition in CamelCase. The specific API may choose whether or not this field is considered a guaranteed API. This field may not be empty.
+                      description: The reason for the condition's last transition
+                        in CamelCase. The specific API may choose whether or not this
+                        field is considered a guaranteed API. This field may not be
+                        empty.
                       type: string
                     severity:
-                      description: Severity provides an explicit classification of Reason code, so the users or machines can immediately understand the current situation and act accordingly. The Severity field MUST be set only when Status=False.
+                      description: Severity provides an explicit classification of
+                        Reason code, so the users or machines can immediately understand
+                        the current situation and act accordingly. The Severity field
+                        MUST be set only when Status=False.
                       type: string
                     status:
                       description: Status of the condition, one of True, False, Unknown.
                       type: string
                     type:
-                      description: Type of condition in CamelCase or in foo.example.com/CamelCase. Many .condition.type values are consistent across resources like Available, but because arbitrary conditions can be useful (see .node.status.conditions), the ability to deconflict is important.
+                      description: Type of condition in CamelCase or in foo.example.com/CamelCase.
+                        Many .condition.type values are consistent across resources
+                        like Available, but because arbitrary conditions can be useful
+                        (see .node.status.conditions), the ability to deconflict is
+                        important.
                       type: string
                   required:
                   - status
@@ -127,7 +146,8 @@ spec:
               infraId:
                 type: string
               ready:
-                description: Ready denotes that the vcd cluster (infrastructure) is ready.
+                description: Ready denotes that the vcd cluster (infrastructure) is
+                  ready.
                 type: boolean
             required:
             - ready
@@ -145,10 +165,14 @@ spec:
         description: VCDCluster is the Schema for the vcdclusters API
         properties:
           apiVersion:
-            description: 'APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
             type: string
           kind:
-            description: 'Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
             type: string
           metadata:
             type: object
@@ -169,10 +193,12 @@ spec:
                 - port
                 type: object
               loadBalancerConfigSpec:
-                description: LoadBalancerConfig defines load-balancer configuration for the Cluster both for the control plane nodes and for the CPI
+                description: LoadBalancerConfig defines load-balancer configuration
+                  for the Cluster both for the control plane nodes and for the CPI
                 properties:
                   useOneArm:
-                    description: UseOneArm defines the intent to une OneArm when upgrading CAPVCD from 0.5.x to 1.0.0
+                    description: UseOneArm defines the intent to une OneArm when upgrading
+                      CAPVCD from 0.5.x to 1.0.0
                     type: boolean
                   vipSubnet:
                     type: string
@@ -186,7 +212,8 @@ spec:
               parentUid:
                 type: string
               proxyConfigSpec:
-                description: ProxyConfig defines HTTP proxy environment variables for containerd
+                description: ProxyConfig defines HTTP proxy environment variables
+                  for containerd
                 properties:
                   httpProxy:
                     type: string
@@ -209,13 +236,16 @@ spec:
                   refreshToken:
                     type: string
                   secretRef:
-                    description: SecretReference represents a Secret Reference. It has enough information to retrieve secret in any namespace
+                    description: SecretReference represents a Secret Reference. It
+                      has enough information to retrieve secret in any namespace
                     properties:
                       name:
-                        description: name is unique within a namespace to reference a secret resource.
+                        description: name is unique within a namespace to reference
+                          a secret resource.
                         type: string
                       namespace:
-                        description: namespace defines the space within which the secret name must be unique.
+                        description: namespace defines the space within which the
+                          secret name must be unique.
                         type: string
                     type: object
                     x-kubernetes-map-type: atomic
@@ -235,26 +265,41 @@ spec:
               conditions:
                 description: Conditions defines current service state of the VCDCluster.
                 items:
-                  description: Condition defines an observation of a Cluster API resource operational state.
+                  description: Condition defines an observation of a Cluster API resource
+                    operational state.
                   properties:
                     lastTransitionTime:
-                      description: Last time the condition transitioned from one status to another. This should be when the underlying condition changed. If that is not known, then using the time when the API field changed is acceptable.
+                      description: Last time the condition transitioned from one status
+                        to another. This should be when the underlying condition changed.
+                        If that is not known, then using the time when the API field
+                        changed is acceptable.
                       format: date-time
                       type: string
                     message:
-                      description: A human readable message indicating details about the transition. This field may be empty.
+                      description: A human readable message indicating details about
+                        the transition. This field may be empty.
                       type: string
                     reason:
-                      description: The reason for the condition's last transition in CamelCase. The specific API may choose whether or not this field is considered a guaranteed API. This field may not be empty.
+                      description: The reason for the condition's last transition
+                        in CamelCase. The specific API may choose whether or not this
+                        field is considered a guaranteed API. This field may not be
+                        empty.
                       type: string
                     severity:
-                      description: Severity provides an explicit classification of Reason code, so the users or machines can immediately understand the current situation and act accordingly. The Severity field MUST be set only when Status=False.
+                      description: Severity provides an explicit classification of
+                        Reason code, so the users or machines can immediately understand
+                        the current situation and act accordingly. The Severity field
+                        MUST be set only when Status=False.
                       type: string
                     status:
                       description: Status of the condition, one of True, False, Unknown.
                       type: string
                     type:
-                      description: Type of condition in CamelCase or in foo.example.com/CamelCase. Many .condition.type values are consistent across resources like Available, but because arbitrary conditions can be useful (see .node.status.conditions), the ability to deconflict is important.
+                      description: Type of condition in CamelCase or in foo.example.com/CamelCase.
+                        Many .condition.type values are consistent across resources
+                        like Available, but because arbitrary conditions can be useful
+                        (see .node.status.conditions), the ability to deconflict is
+                        important.
                       type: string
                   required:
                   - lastTransitionTime
@@ -265,10 +310,12 @@ spec:
               infraId:
                 type: string
               loadBalancerConfig:
-                description: LoadBalancerConfig defines load-balancer configuration for the Cluster both for the control plane nodes and for the CPI
+                description: LoadBalancerConfig defines load-balancer configuration
+                  for the Cluster both for the control plane nodes and for the CPI
                 properties:
                   useOneArm:
-                    description: UseOneArm defines the intent to une OneArm when upgrading CAPVCD from 0.5.x to 1.0.0
+                    description: UseOneArm defines the intent to une OneArm when upgrading
+                      CAPVCD from 0.5.x to 1.0.0
                     type: boolean
                   vipSubnet:
                     type: string
@@ -285,7 +332,8 @@ spec:
               parentUid:
                 type: string
               proxyConfig:
-                description: ProxyConfig defines HTTP proxy environment variables for containerd
+                description: ProxyConfig defines HTTP proxy environment variables
+                  for containerd
                 properties:
                   httpProxy:
                     type: string
@@ -296,11 +344,13 @@ spec:
                 type: object
               rdeVersionInUse:
                 default: 1.1.0
-                description: RdeVersionInUse indicates the version of capvcdCluster entity type used by CAPVCD.
+                description: RdeVersionInUse indicates the version of capvcdCluster
+                  entity type used by CAPVCD.
                 type: string
               ready:
                 default: false
-                description: Ready denotes that the vcd cluster (infrastructure) is ready.
+                description: Ready denotes that the vcd cluster (infrastructure) is
+                  ready.
                 type: boolean
               site:
                 description: optional
@@ -308,7 +358,8 @@ spec:
               useAsManagementCluster:
                 type: boolean
               vappMetadataUpdated:
-                description: MetadataUpdated denotes that the metadata of Vapp is updated.
+                description: MetadataUpdated denotes that the metadata of Vapp is
+                  updated.
                 type: boolean
             required:
             - rdeVersionInUse
@@ -327,10 +378,14 @@ spec:
         description: VCDCluster is the Schema for the vcdclusters API
         properties:
           apiVersion:
-            description: 'APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
             type: string
           kind:
-            description: 'Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
             type: string
           metadata:
             type: object
@@ -351,10 +406,12 @@ spec:
                 - port
                 type: object
               loadBalancerConfigSpec:
-                description: LoadBalancerConfig defines load-balancer configuration for the Cluster both for the control plane nodes and for the CPI
+                description: LoadBalancerConfig defines load-balancer configuration
+                  for the Cluster both for the control plane nodes and for the CPI
                 properties:
                   useOneArm:
-                    description: UseOneArm defines the intent to une OneArm when upgrading CAPVCD from 0.5.x to 1.0.0
+                    description: UseOneArm defines the intent to une OneArm when upgrading
+                      CAPVCD from 0.5.x to 1.0.0
                     type: boolean
                   vipSubnet:
                     type: string
@@ -368,7 +425,8 @@ spec:
               parentUid:
                 type: string
               proxyConfigSpec:
-                description: ProxyConfig defines HTTP proxy environment variables for containerd
+                description: ProxyConfig defines HTTP proxy environment variables
+                  for containerd
                 properties:
                   httpProxy:
                     type: string
@@ -391,13 +449,16 @@ spec:
                   refreshToken:
                     type: string
                   secretRef:
-                    description: SecretReference represents a Secret Reference. It has enough information to retrieve secret in any namespace
+                    description: SecretReference represents a Secret Reference. It
+                      has enough information to retrieve secret in any namespace
                     properties:
                       name:
-                        description: name is unique within a namespace to reference a secret resource.
+                        description: name is unique within a namespace to reference
+                          a secret resource.
                         type: string
                       namespace:
-                        description: namespace defines the space within which the secret name must be unique.
+                        description: namespace defines the space within which the
+                          secret name must be unique.
                         type: string
                     type: object
                     x-kubernetes-map-type: atomic
@@ -417,26 +478,41 @@ spec:
               conditions:
                 description: Conditions defines current service state of the VCDCluster.
                 items:
-                  description: Condition defines an observation of a Cluster API resource operational state.
+                  description: Condition defines an observation of a Cluster API resource
+                    operational state.
                   properties:
                     lastTransitionTime:
-                      description: Last time the condition transitioned from one status to another. This should be when the underlying condition changed. If that is not known, then using the time when the API field changed is acceptable.
+                      description: Last time the condition transitioned from one status
+                        to another. This should be when the underlying condition changed.
+                        If that is not known, then using the time when the API field
+                        changed is acceptable.
                       format: date-time
                       type: string
                     message:
-                      description: A human readable message indicating details about the transition. This field may be empty.
+                      description: A human readable message indicating details about
+                        the transition. This field may be empty.
                       type: string
                     reason:
-                      description: The reason for the condition's last transition in CamelCase. The specific API may choose whether or not this field is considered a guaranteed API. This field may not be empty.
+                      description: The reason for the condition's last transition
+                        in CamelCase. The specific API may choose whether or not this
+                        field is considered a guaranteed API. This field may not be
+                        empty.
                       type: string
                     severity:
-                      description: Severity provides an explicit classification of Reason code, so the users or machines can immediately understand the current situation and act accordingly. The Severity field MUST be set only when Status=False.
+                      description: Severity provides an explicit classification of
+                        Reason code, so the users or machines can immediately understand
+                        the current situation and act accordingly. The Severity field
+                        MUST be set only when Status=False.
                       type: string
                     status:
                       description: Status of the condition, one of True, False, Unknown.
                       type: string
                     type:
-                      description: Type of condition in CamelCase or in foo.example.com/CamelCase. Many .condition.type values are consistent across resources like Available, but because arbitrary conditions can be useful (see .node.status.conditions), the ability to deconflict is important.
+                      description: Type of condition in CamelCase or in foo.example.com/CamelCase.
+                        Many .condition.type values are consistent across resources
+                        like Available, but because arbitrary conditions can be useful
+                        (see .node.status.conditions), the ability to deconflict is
+                        important.
                       type: string
                   required:
                   - lastTransitionTime
@@ -447,10 +523,12 @@ spec:
               infraId:
                 type: string
               loadBalancerConfig:
-                description: LoadBalancerConfig defines load-balancer configuration for the Cluster both for the control plane nodes and for the CPI
+                description: LoadBalancerConfig defines load-balancer configuration
+                  for the Cluster both for the control plane nodes and for the CPI
                 properties:
                   useOneArm:
-                    description: UseOneArm defines the intent to une OneArm when upgrading CAPVCD from 0.5.x to 1.0.0
+                    description: UseOneArm defines the intent to une OneArm when upgrading
+                      CAPVCD from 0.5.x to 1.0.0
                     type: boolean
                   vipSubnet:
                     type: string
@@ -467,7 +545,8 @@ spec:
               parentUid:
                 type: string
               proxyConfig:
-                description: ProxyConfig defines HTTP proxy environment variables for containerd
+                description: ProxyConfig defines HTTP proxy environment variables
+                  for containerd
                 properties:
                   httpProxy:
                     type: string
@@ -478,11 +557,13 @@ spec:
                 type: object
               rdeVersionInUse:
                 default: 1.1.0
-                description: RdeVersionInUse indicates the version of capvcdCluster entity type used by CAPVCD.
+                description: RdeVersionInUse indicates the version of capvcdCluster
+                  entity type used by CAPVCD.
                 type: string
               ready:
                 default: false
-                description: Ready denotes that the vcd cluster (infrastructure) is ready.
+                description: Ready denotes that the vcd cluster (infrastructure) is
+                  ready.
                 type: boolean
               site:
                 description: optional
@@ -490,15 +571,18 @@ spec:
               useAsManagementCluster:
                 type: boolean
               vappMetadataUpdated:
-                description: MetadataUpdated denotes that the metadata of Vapp is updated.
+                description: MetadataUpdated denotes that the metadata of Vapp is
+                  updated.
                 type: boolean
               vcdResourceMap:
                 description: optional
                 properties:
                   ovdcs:
-                    description: VCDResources stores the latest ID and name of VCD resources for specific resource types.
+                    description: VCDResources stores the latest ID and name of VCD
+                      resources for specific resource types.
                     items:
-                      description: VCDResource restores the data structure for some VCD Resources
+                      description: VCDResource restores the data structure for some
+                        VCD Resources
                       properties:
                         id:
                           type: string
@@ -529,10 +613,14 @@ spec:
         description: VCDCluster is the Schema for the vcdclusters API
         properties:
           apiVersion:
-            description: 'APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
             type: string
           kind:
-            description: 'Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
             type: string
           metadata:
             type: object
@@ -553,10 +641,12 @@ spec:
                 - port
                 type: object
               loadBalancerConfigSpec:
-                description: LoadBalancerConfig defines load-balancer configuration for the Cluster both for the control plane nodes and for the CPI
+                description: LoadBalancerConfig defines load-balancer configuration
+                  for the Cluster both for the control plane nodes and for the CPI
                 properties:
                   useOneArm:
-                    description: UseOneArm defines the intent to une OneArm when upgrading CAPVCD from 0.5.x to 1.0.0
+                    description: UseOneArm defines the intent to une OneArm when upgrading
+                      CAPVCD from 0.5.x to 1.0.0
                     type: boolean
                   vipSubnet:
                     type: string
@@ -565,22 +655,6 @@ spec:
                 description: MultiZoneSpec provides details of the configuration of
                   the zones in the cluster as well as the NetworkTopologyType used.
                 properties:
-                  UserSpecifiedEdgeGatewayConfig:
-                    description: UserSpecifiedEdgeGatewayConfig contains configuration
-                      for UserSpecifiedEdgeGateway zone topology.
-                    properties:
-                      edgeGatewayZone:
-                        description: EdgeGatewayZone defines the name of the user-provided
-                          zone containing an edge gateway.
-                        type: string
-                    required:
-                    - edgeGatewayZone
-                    type: object
-                  ZoneTopology:
-                    description: ZoneTopology defines the type of network topology
-                      used across zones in a Multi-AZ deployment. Valid options are
-                      DCGroup, UserSpecifiedEdgeGateway, and ExternalLoadBalancer,
-                    type: string
                   dcGroupConfig:
                     description: DCGroupConfig contains configuration for DCGroup
                       zone topology.
@@ -619,6 +693,22 @@ spec:
                     required:
                     - edgeGatewayZones
                     type: object
+                  userSpecifiedEdgeGatewayConfig:
+                    description: UserSpecifiedEdgeGatewayConfig contains configuration
+                      for UserSpecifiedEdgeGateway zone topology.
+                    properties:
+                      edgeGatewayZone:
+                        description: EdgeGatewayZone defines the name of the user-provided
+                          zone containing an edge gateway.
+                        type: string
+                    required:
+                    - edgeGatewayZone
+                    type: object
+                  zoneTopology:
+                    description: ZoneTopology defines the type of network topology
+                      used across zones in a Multi-AZ deployment. Valid options are
+                      DCGroup, UserSpecifiedEdgeGateway, and ExternalLoadBalancer,
+                    type: string
                   zones:
                     description: Zones defines the list of zones that this cluster
                       should be deployed to.
@@ -663,7 +753,8 @@ spec:
               parentUid:
                 type: string
               proxyConfigSpec:
-                description: ProxyConfig defines HTTP proxy environment variables for containerd
+                description: ProxyConfig defines HTTP proxy environment variables
+                  for containerd
                 properties:
                   httpProxy:
                     type: string
@@ -686,13 +777,16 @@ spec:
                   refreshToken:
                     type: string
                   secretRef:
-                    description: SecretReference represents a Secret Reference. It has enough information to retrieve secret in any namespace
+                    description: SecretReference represents a Secret Reference. It
+                      has enough information to retrieve secret in any namespace
                     properties:
                       name:
-                        description: name is unique within a namespace to reference a secret resource.
+                        description: name is unique within a namespace to reference
+                          a secret resource.
                         type: string
                       namespace:
-                        description: namespace defines the space within which the secret name must be unique.
+                        description: namespace defines the space within which the
+                          secret name must be unique.
                         type: string
                     type: object
                     x-kubernetes-map-type: atomic
@@ -712,26 +806,41 @@ spec:
               conditions:
                 description: Conditions defines current service state of the VCDCluster.
                 items:
-                  description: Condition defines an observation of a Cluster API resource operational state.
+                  description: Condition defines an observation of a Cluster API resource
+                    operational state.
                   properties:
                     lastTransitionTime:
-                      description: Last time the condition transitioned from one status to another. This should be when the underlying condition changed. If that is not known, then using the time when the API field changed is acceptable.
+                      description: Last time the condition transitioned from one status
+                        to another. This should be when the underlying condition changed.
+                        If that is not known, then using the time when the API field
+                        changed is acceptable.
                       format: date-time
                       type: string
                     message:
-                      description: A human readable message indicating details about the transition. This field may be empty.
+                      description: A human readable message indicating details about
+                        the transition. This field may be empty.
                       type: string
                     reason:
-                      description: The reason for the condition's last transition in CamelCase. The specific API may choose whether or not this field is considered a guaranteed API. This field may not be empty.
+                      description: The reason for the condition's last transition
+                        in CamelCase. The specific API may choose whether or not this
+                        field is considered a guaranteed API. This field may not be
+                        empty.
                       type: string
                     severity:
-                      description: Severity provides an explicit classification of Reason code, so the users or machines can immediately understand the current situation and act accordingly. The Severity field MUST be set only when Status=False.
+                      description: Severity provides an explicit classification of
+                        Reason code, so the users or machines can immediately understand
+                        the current situation and act accordingly. The Severity field
+                        MUST be set only when Status=False.
                       type: string
                     status:
                       description: Status of the condition, one of True, False, Unknown.
                       type: string
                     type:
-                      description: Type of condition in CamelCase or in foo.example.com/CamelCase. Many .condition.type values are consistent across resources like Available, but because arbitrary conditions can be useful (see .node.status.conditions), the ability to deconflict is important.
+                      description: Type of condition in CamelCase or in foo.example.com/CamelCase.
+                        Many .condition.type values are consistent across resources
+                        like Available, but because arbitrary conditions can be useful
+                        (see .node.status.conditions), the ability to deconflict is
+                        important.
                       type: string
                   required:
                   - lastTransitionTime
@@ -757,16 +866,18 @@ spec:
                       type: boolean
                   type: object
                 description: FailureDomains lists the zones of this cluster. This
-                  field is parsed from the Zones field of vcdCluster.MultiZoneSpec
+                  field is parsed from the Zones field of vcdCluster.Spec.MultiZoneSpec
                   if set up appropriately.
                 type: object
               infraId:
                 type: string
               loadBalancerConfig:
-                description: LoadBalancerConfig defines load-balancer configuration for the Cluster both for the control plane nodes and for the CPI
+                description: LoadBalancerConfig defines load-balancer configuration
+                  for the Cluster both for the control plane nodes and for the CPI
                 properties:
                   useOneArm:
-                    description: UseOneArm defines the intent to une OneArm when upgrading CAPVCD from 0.5.x to 1.0.0
+                    description: UseOneArm defines the intent to une OneArm when upgrading
+                      CAPVCD from 0.5.x to 1.0.0
                     type: boolean
                   vipSubnet:
                     type: string
@@ -775,42 +886,60 @@ spec:
                 description: MultiZoneStatus provides the current status of the multi-zone
                   configuration in a Multi-AZ deployment
                 properties:
-                  ZoneTopology:
+                  dcGroupConfig:
+                    description: DCGroupConfig contains configuration for DCGroup
+                      zone topology.
+                    type: object
+                  externalLoadBalancerConfig:
+                    description: ExternalLoadBalancerConfig contains configuration
+                      for ExternalLoadBalancer zone topology.
+                    properties:
+                      edgeGatewayZones:
+                        description: EdgeGatewayZones defines a list of zones containing
+                          an edge gateway.
+                        items:
+                          description: EdgeGatewayZone provides the details of a zone
+                            containing an edge gateway. Used with ExternalLoadBalancer
+                            topology. topology.
+                          properties:
+                            loadBalancerIP:
+                              description: LoadBalancerIP is the IP address of the
+                                load balancer configured on the edge gateway for this
+                                zone.
+                              type: string
+                            loadBalancerPort:
+                              description: LoadBalancerPort is the port of the load
+                                balancer configured on the edge gateway for this zone.
+                              type: integer
+                            name:
+                              description: Name is the user-defined name of the zone
+                                representing the OVDC containing an edge gateway.
+                              type: string
+                          required:
+                          - loadBalancerIP
+                          - loadBalancerPort
+                          - name
+                          type: object
+                        type: array
+                    required:
+                    - edgeGatewayZones
+                    type: object
+                  userSpecifiedEdgeGatewayConfig:
+                    description: UserSpecifiedEdgeGatewayConfig contains configuration
+                      for UserSpecifiedEdgeGateway zone topology.
+                    properties:
+                      edgeGatewayZone:
+                        description: EdgeGatewayZone defines the name of the user-provided
+                          zone containing an edge gateway.
+                        type: string
+                    required:
+                    - edgeGatewayZone
+                    type: object
+                  zoneTopology:
                     description: ZoneTopology defines the type of network topology
                       used across zones in a Multi-AZ deployment. Valid options are
                       DCGroup, UserSpecifiedEdgeGateway, and ExternalLoadBalancer
                     type: string
-                  edgeGateway:
-                    description: EdgeGateway defines the edge gateway in a UserSpecifiedEdge
-                      topology.
-                    type: string
-                  edgeGatewayZones:
-                    description: EdgeGatewayZones defines a list of zones configured
-                      with an edge gateway. Used with ExternalLoadBalancer and UserSpecifiedEdgeGateway
-                      topologies.
-                    items:
-                      description: EdgeGatewayZone provides the details of a zone
-                        containing an edge gateway. Used with ExternalLoadBalancer
-                        topology. topology.
-                      properties:
-                        loadBalancerIP:
-                          description: LoadBalancerIP is the IP address of the load
-                            balancer configured on the edge gateway for this zone.
-                          type: string
-                        loadBalancerPort:
-                          description: LoadBalancerPort is the port of the load balancer
-                            configured on the edge gateway for this zone.
-                          type: integer
-                        name:
-                          description: Name is the user-defined name of the zone representing
-                            the OVDC containing an edge gateway.
-                          type: string
-                      required:
-                      - loadBalancerIP
-                      - loadBalancerPort
-                      - name
-                      type: object
-                    type: array
                   zones:
                     description: Zones defines the list of zones this cluster is configured
                       with for a Mult-AZ deployment.
@@ -853,7 +982,8 @@ spec:
               parentUid:
                 type: string
               proxyConfig:
-                description: ProxyConfig defines HTTP proxy environment variables for containerd
+                description: ProxyConfig defines HTTP proxy environment variables
+                  for containerd
                 properties:
                   httpProxy:
                     type: string
@@ -864,11 +994,13 @@ spec:
                 type: object
               rdeVersionInUse:
                 default: 1.1.0
-                description: RdeVersionInUse indicates the version of capvcdCluster entity type used by CAPVCD.
+                description: RdeVersionInUse indicates the version of capvcdCluster
+                  entity type used by CAPVCD.
                 type: string
               ready:
                 default: false
-                description: Ready denotes that the vcd cluster (infrastructure) is ready.
+                description: Ready denotes that the vcd cluster (infrastructure) is
+                  ready.
                 type: boolean
               site:
                 description: optional
@@ -876,15 +1008,18 @@ spec:
               useAsManagementCluster:
                 type: boolean
               vappMetadataUpdated:
-                description: MetadataUpdated denotes that the metadata of Vapp is updated.
+                description: MetadataUpdated denotes that the metadata of Vapp is
+                  updated.
                 type: boolean
               vcdResourceMap:
                 description: optional
                 properties:
                   ovdcs:
-                    description: VCDResources stores the latest ID and name of VCD resources for specific resource types.
+                    description: VCDResources stores the latest ID and name of VCD
+                      resources for specific resource types.
                     items:
-                      description: VCDResource restores the data structure for some VCD Resources
+                      description: VCDResource restores the data structure for some
+                        VCD Resources
                       properties:
                         id:
                           type: string
@@ -934,13 +1069,18 @@ spec:
   - name: v1beta2
     schema:
       openAPIV3Schema:
-        description: VCDClusterTemplate is the Schema for the vcdclustertemplates API
+        description: VCDClusterTemplate is the Schema for the vcdclustertemplates
+          API
         properties:
           apiVersion:
-            description: 'APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
             type: string
           kind:
-            description: 'Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
             type: string
           metadata:
             type: object
@@ -953,23 +1093,29 @@ spec:
                     description: VCDClusterSpec defines the desired state of VCDCluster
                     properties:
                       controlPlaneEndpoint:
-                        description: APIEndpoint represents a reachable Kubernetes API endpoint.
+                        description: APIEndpoint represents a reachable Kubernetes
+                          API endpoint.
                         properties:
                           host:
-                            description: Host is the hostname on which the API server is serving.
+                            description: Host is the hostname on which the API server
+                              is serving.
                             type: string
                           port:
-                            description: Port is the port on which the API server is serving.
+                            description: Port is the port on which the API server
+                              is serving.
                             type: integer
                         required:
                         - host
                         - port
                         type: object
                       loadBalancerConfigSpec:
-                        description: LoadBalancerConfig defines load-balancer configuration for the Cluster both for the control plane nodes and for the CPI
+                        description: LoadBalancerConfig defines load-balancer configuration
+                          for the Cluster both for the control plane nodes and for
+                          the CPI
                         properties:
                           useOneArm:
-                            description: UseOneArm defines the intent to une OneArm when upgrading CAPVCD from 0.5.x to 1.0.0
+                            description: UseOneArm defines the intent to une OneArm
+                              when upgrading CAPVCD from 0.5.x to 1.0.0
                             type: boolean
                           vipSubnet:
                             type: string
@@ -983,7 +1129,8 @@ spec:
                       parentUid:
                         type: string
                       proxyConfigSpec:
-                        description: ProxyConfig defines HTTP proxy environment variables for containerd
+                        description: ProxyConfig defines HTTP proxy environment variables
+                          for containerd
                         properties:
                           httpProxy:
                             type: string
@@ -1006,13 +1153,17 @@ spec:
                           refreshToken:
                             type: string
                           secretRef:
-                            description: SecretReference represents a Secret Reference. It has enough information to retrieve secret in any namespace
+                            description: SecretReference represents a Secret Reference.
+                              It has enough information to retrieve secret in any
+                              namespace
                             properties:
                               name:
-                                description: name is unique within a namespace to reference a secret resource.
+                                description: name is unique within a namespace to
+                                  reference a secret resource.
                                 type: string
                               namespace:
-                                description: namespace defines the space within which the secret name must be unique.
+                                description: namespace defines the space within which
+                                  the secret name must be unique.
                                 type: string
                             type: object
                             x-kubernetes-map-type: atomic
@@ -1076,10 +1227,14 @@ spec:
         description: VCDMachine is the Schema for the vcdmachines API
         properties:
           apiVersion:
-            description: 'APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
             type: string
           kind:
-            description: 'Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
             type: string
           metadata:
             type: object
@@ -1087,34 +1242,41 @@ spec:
             description: VCDMachineSpec defines the desired state of VCDMachine
             properties:
               bootstrapped:
-                description: Bootstrapped is true when the kubeadm bootstrapping has been run against this machine
+                description: Bootstrapped is true when the kubeadm bootstrapping has
+                  been run against this machine
                 type: boolean
               catalog:
                 description: Catalog hosting templates
                 type: string
               computePolicy:
-                description: ComputePolicy is the compute policy to be used on this machine
+                description: ComputePolicy is the compute policy to be used on this
+                  machine
                 type: string
               providerID:
-                description: ProviderID will be the container name in ProviderID format (vmware-cloud-director://<vm id>)
+                description: ProviderID will be the container name in ProviderID format
+                  (vmware-cloud-director://<vm id>)
                 type: string
               template:
-                description: TemplatePath is the path of the template OVA that is to be used
+                description: TemplatePath is the path of the template OVA that is
+                  to be used
                 type: string
             type: object
           status:
             description: VCDMachineStatus defines the observed state of VCDMachine
             properties:
               addresses:
-                description: Addresses contains the associated addresses for the docker machine.
+                description: Addresses contains the associated addresses for the docker
+                  machine.
                 items:
-                  description: MachineAddress contains information for the node's address.
+                  description: MachineAddress contains information for the node's
+                    address.
                   properties:
                     address:
                       description: The machine address.
                       type: string
                     type:
-                      description: Machine address type, one of Hostname, ExternalIP or InternalIP.
+                      description: Machine address type, one of Hostname, ExternalIP
+                        or InternalIP.
                       type: string
                   required:
                   - address
@@ -1124,26 +1286,41 @@ spec:
               conditions:
                 description: Conditions defines current service state of the DockerMachine.
                 items:
-                  description: Condition defines an observation of a Cluster API resource operational state.
+                  description: Condition defines an observation of a Cluster API resource
+                    operational state.
                   properties:
                     lastTransitionTime:
-                      description: Last time the condition transitioned from one status to another. This should be when the underlying condition changed. If that is not known, then using the time when the API field changed is acceptable.
+                      description: Last time the condition transitioned from one status
+                        to another. This should be when the underlying condition changed.
+                        If that is not known, then using the time when the API field
+                        changed is acceptable.
                       format: date-time
                       type: string
                     message:
-                      description: A human readable message indicating details about the transition. This field may be empty.
+                      description: A human readable message indicating details about
+                        the transition. This field may be empty.
                       type: string
                     reason:
-                      description: The reason for the condition's last transition in CamelCase. The specific API may choose whether or not this field is considered a guaranteed API. This field may not be empty.
+                      description: The reason for the condition's last transition
+                        in CamelCase. The specific API may choose whether or not this
+                        field is considered a guaranteed API. This field may not be
+                        empty.
                       type: string
                     severity:
-                      description: Severity provides an explicit classification of Reason code, so the users or machines can immediately understand the current situation and act accordingly. The Severity field MUST be set only when Status=False.
+                      description: Severity provides an explicit classification of
+                        Reason code, so the users or machines can immediately understand
+                        the current situation and act accordingly. The Severity field
+                        MUST be set only when Status=False.
                       type: string
                     status:
                       description: Status of the condition, one of True, False, Unknown.
                       type: string
                     type:
-                      description: Type of condition in CamelCase or in foo.example.com/CamelCase. Many .condition.type values are consistent across resources like Available, but because arbitrary conditions can be useful (see .node.status.conditions), the ability to deconflict is important.
+                      description: Type of condition in CamelCase or in foo.example.com/CamelCase.
+                        Many .condition.type values are consistent across resources
+                        like Available, but because arbitrary conditions can be useful
+                        (see .node.status.conditions), the ability to deconflict is
+                        important.
                       type: string
                   required:
                   - status
@@ -1151,7 +1328,8 @@ spec:
                   type: object
                 type: array
               ready:
-                description: Ready denotes that the machine (docker container) is ready
+                description: Ready denotes that the machine (docker container) is
+                  ready
                 type: boolean
             type: object
         type: object
@@ -1165,10 +1343,14 @@ spec:
         description: VCDMachine is the Schema for the vcdmachines API
         properties:
           apiVersion:
-            description: 'APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
             type: string
           kind:
-            description: 'Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
             type: string
           metadata:
             type: object
@@ -1176,7 +1358,8 @@ spec:
             description: VCDMachineSpec defines the desired state of VCDMachine
             properties:
               bootstrapped:
-                description: Bootstrapped is true when the kubeadm bootstrapping has been run against this machine
+                description: Bootstrapped is true when the kubeadm bootstrapping has
+                  been run against this machine
                 type: boolean
               catalog:
                 description: Catalog hosting templates
@@ -1185,41 +1368,53 @@ spec:
                 anyOf:
                 - type: integer
                 - type: string
-                description: DiskSize is the size, in bytes, of the disk for this machine
+                description: DiskSize is the size, in bytes, of the disk for this
+                  machine
                 pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                 x-kubernetes-int-or-string: true
               enableNvidiaGPU:
-                description: EnableNvidiaGPU is true when a VM should be created with the relevant binaries installed If true, then an appropriate placement policy should be set
+                description: EnableNvidiaGPU is true when a VM should be created with
+                  the relevant binaries installed If true, then an appropriate placement
+                  policy should be set
                 type: boolean
               placementPolicy:
-                description: PlacementPolicy is the placement policy to be used on this machine.
+                description: PlacementPolicy is the placement policy to be used on
+                  this machine.
                 type: string
               providerID:
-                description: ProviderID will be the container name in ProviderID format (vmware-cloud-director://<vm id>)
+                description: ProviderID will be the container name in ProviderID format
+                  (vmware-cloud-director://<vm id>)
                 type: string
               sizingPolicy:
-                description: SizingPolicy is the sizing policy to be used on this machine. If no sizing policy is specified, default sizing policy will be used to create the nodes
+                description: SizingPolicy is the sizing policy to be used on this
+                  machine. If no sizing policy is specified, default sizing policy
+                  will be used to create the nodes
                 type: string
               storageProfile:
-                description: StorageProfile is the storage profile to be used on this machine
+                description: StorageProfile is the storage profile to be used on this
+                  machine
                 type: string
               template:
-                description: TemplatePath is the path of the template OVA that is to be used
+                description: TemplatePath is the path of the template OVA that is
+                  to be used
                 type: string
             type: object
           status:
             description: VCDMachineStatus defines the observed state of VCDMachine
             properties:
               addresses:
-                description: Addresses contains the associated addresses for the docker machine.
+                description: Addresses contains the associated addresses for the docker
+                  machine.
                 items:
-                  description: MachineAddress contains information for the node's address.
+                  description: MachineAddress contains information for the node's
+                    address.
                   properties:
                     address:
                       description: The machine address.
                       type: string
                     type:
-                      description: Machine address type, one of Hostname, ExternalIP, InternalIP, ExternalDNS or InternalDNS.
+                      description: Machine address type, one of Hostname, ExternalIP,
+                        InternalIP, ExternalDNS or InternalDNS.
                       type: string
                   required:
                   - address
@@ -1229,26 +1424,41 @@ spec:
               conditions:
                 description: Conditions defines current service state of the DockerMachine.
                 items:
-                  description: Condition defines an observation of a Cluster API resource operational state.
+                  description: Condition defines an observation of a Cluster API resource
+                    operational state.
                   properties:
                     lastTransitionTime:
-                      description: Last time the condition transitioned from one status to another. This should be when the underlying condition changed. If that is not known, then using the time when the API field changed is acceptable.
+                      description: Last time the condition transitioned from one status
+                        to another. This should be when the underlying condition changed.
+                        If that is not known, then using the time when the API field
+                        changed is acceptable.
                       format: date-time
                       type: string
                     message:
-                      description: A human readable message indicating details about the transition. This field may be empty.
+                      description: A human readable message indicating details about
+                        the transition. This field may be empty.
                       type: string
                     reason:
-                      description: The reason for the condition's last transition in CamelCase. The specific API may choose whether or not this field is considered a guaranteed API. This field may not be empty.
+                      description: The reason for the condition's last transition
+                        in CamelCase. The specific API may choose whether or not this
+                        field is considered a guaranteed API. This field may not be
+                        empty.
                       type: string
                     severity:
-                      description: Severity provides an explicit classification of Reason code, so the users or machines can immediately understand the current situation and act accordingly. The Severity field MUST be set only when Status=False.
+                      description: Severity provides an explicit classification of
+                        Reason code, so the users or machines can immediately understand
+                        the current situation and act accordingly. The Severity field
+                        MUST be set only when Status=False.
                       type: string
                     status:
                       description: Status of the condition, one of True, False, Unknown.
                       type: string
                     type:
-                      description: Type of condition in CamelCase or in foo.example.com/CamelCase. Many .condition.type values are consistent across resources like Available, but because arbitrary conditions can be useful (see .node.status.conditions), the ability to deconflict is important.
+                      description: Type of condition in CamelCase or in foo.example.com/CamelCase.
+                        Many .condition.type values are consistent across resources
+                        like Available, but because arbitrary conditions can be useful
+                        (see .node.status.conditions), the ability to deconflict is
+                        important.
                       type: string
                   required:
                   - lastTransitionTime
@@ -1260,26 +1470,33 @@ spec:
                 anyOf:
                 - type: integer
                 - type: string
-                description: DiskSize is the size, in bytes, of the disk for this machine
+                description: DiskSize is the size, in bytes, of the disk for this
+                  machine
                 pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                 x-kubernetes-int-or-string: true
               nvidiaGpuEnabled:
-                description: NvidiaGPUEnabled is true when a VM should be created with the relevant binaries installed
+                description: NvidiaGPUEnabled is true when a VM should be created
+                  with the relevant binaries installed
                 type: boolean
               placementPolicy:
-                description: PlacementPolicy is the placement policy to be used on this machine.
+                description: PlacementPolicy is the placement policy to be used on
+                  this machine.
                 type: string
               providerID:
-                description: ProviderID will be the container name in ProviderID format (vmware-cloud-director://<vm id>)
+                description: ProviderID will be the container name in ProviderID format
+                  (vmware-cloud-director://<vm id>)
                 type: string
               ready:
-                description: Ready denotes that the machine (docker container) is ready
+                description: Ready denotes that the machine (docker container) is
+                  ready
                 type: boolean
               sizingPolicy:
-                description: SizingPolicy is the sizing policy to be used on this machine.
+                description: SizingPolicy is the sizing policy to be used on this
+                  machine.
                 type: string
               template:
-                description: Template is the path of the template OVA that is to be used
+                description: Template is the path of the template OVA that is to be
+                  used
                 type: string
             type: object
         type: object
@@ -1293,10 +1510,14 @@ spec:
         description: VCDMachine is the Schema for the vcdmachines API
         properties:
           apiVersion:
-            description: 'APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
             type: string
           kind:
-            description: 'Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
             type: string
           metadata:
             type: object
@@ -1304,7 +1525,8 @@ spec:
             description: VCDMachineSpec defines the desired state of VCDMachine
             properties:
               bootstrapped:
-                description: Bootstrapped is true when the kubeadm bootstrapping has been run against this machine
+                description: Bootstrapped is true when the kubeadm bootstrapping has
+                  been run against this machine
                 type: boolean
               catalog:
                 description: Catalog hosting templates
@@ -1313,49 +1535,66 @@ spec:
                 anyOf:
                 - type: integer
                 - type: string
-                description: DiskSize is the size, in bytes, of the disk for this machine
+                description: DiskSize is the size, in bytes, of the disk for this
+                  machine
                 pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                 x-kubernetes-int-or-string: true
               enableNvidiaGPU:
-                description: EnableNvidiaGPU is true when a VM should be created with the relevant binaries installed If true, then an appropriate placement policy should be set
+                description: EnableNvidiaGPU is true when a VM should be created with
+                  the relevant binaries installed If true, then an appropriate placement
+                  policy should be set
                 type: boolean
               extraOvdcNetworks:
-                description: ExtraOvdcNetworks is the list of extra Ovdc Networks that are mounted to machines. VCDClusterSpec.OvdcNetwork is always attached regardless of this field.
+                description: ExtraOvdcNetworks is the list of extra Ovdc Networks
+                  that are mounted to machines. VCDClusterSpec.OvdcNetwork is always
+                  attached regardless of this field.
                 items:
                   type: string
                 type: array
               placementPolicy:
-                description: PlacementPolicy is the placement policy to be used on this machine.
+                description: PlacementPolicy is the placement policy to be used on
+                  this machine.
                 type: string
               providerID:
-                description: ProviderID will be the container name in ProviderID format (vmware-cloud-director://<vm id>)
+                description: ProviderID will be the container name in ProviderID format
+                  (vmware-cloud-director://<vm id>)
                 type: string
               sizingPolicy:
-                description: SizingPolicy is the sizing policy to be used on this machine. If no sizing policy is specified, default sizing policy will be used to create the nodes
+                description: SizingPolicy is the sizing policy to be used on this
+                  machine. If no sizing policy is specified, default sizing policy
+                  will be used to create the nodes
                 type: string
               storageProfile:
-                description: StorageProfile is the storage profile to be used on this machine
+                description: StorageProfile is the storage profile to be used on this
+                  machine
                 type: string
               template:
-                description: TemplatePath is the path of the template OVA that is to be used
+                description: TemplatePath is the path of the template OVA that is
+                  to be used
                 type: string
               vmNamingTemplate:
-                description: VmNamingTemplate is go template to generate VM names based on Machine and VCDMachine CRs. Functions of Sprig library are supported. See https://github.com/Masterminds/sprig Immutable field. machine.Name is used as VM name when this field is empty.
+                description: VmNamingTemplate is go template to generate VM names
+                  based on Machine and VCDMachine CRs. Functions of Sprig library
+                  are supported. See https://github.com/Masterminds/sprig Immutable
+                  field. machine.Name is used as VM name when this field is empty.
                 type: string
             type: object
           status:
             description: VCDMachineStatus defines the observed state of VCDMachine
             properties:
               addresses:
-                description: Addresses contains the associated addresses for the docker machine.
+                description: Addresses contains the associated addresses for the docker
+                  machine.
                 items:
-                  description: MachineAddress contains information for the node's address.
+                  description: MachineAddress contains information for the node's
+                    address.
                   properties:
                     address:
                       description: The machine address.
                       type: string
                     type:
-                      description: Machine address type, one of Hostname, ExternalIP, InternalIP, ExternalDNS or InternalDNS.
+                      description: Machine address type, one of Hostname, ExternalIP,
+                        InternalIP, ExternalDNS or InternalDNS.
                       type: string
                   required:
                   - address
@@ -1365,26 +1604,41 @@ spec:
               conditions:
                 description: Conditions defines current service state of the DockerMachine.
                 items:
-                  description: Condition defines an observation of a Cluster API resource operational state.
+                  description: Condition defines an observation of a Cluster API resource
+                    operational state.
                   properties:
                     lastTransitionTime:
-                      description: Last time the condition transitioned from one status to another. This should be when the underlying condition changed. If that is not known, then using the time when the API field changed is acceptable.
+                      description: Last time the condition transitioned from one status
+                        to another. This should be when the underlying condition changed.
+                        If that is not known, then using the time when the API field
+                        changed is acceptable.
                       format: date-time
                       type: string
                     message:
-                      description: A human readable message indicating details about the transition. This field may be empty.
+                      description: A human readable message indicating details about
+                        the transition. This field may be empty.
                       type: string
                     reason:
-                      description: The reason for the condition's last transition in CamelCase. The specific API may choose whether or not this field is considered a guaranteed API. This field may not be empty.
+                      description: The reason for the condition's last transition
+                        in CamelCase. The specific API may choose whether or not this
+                        field is considered a guaranteed API. This field may not be
+                        empty.
                       type: string
                     severity:
-                      description: Severity provides an explicit classification of Reason code, so the users or machines can immediately understand the current situation and act accordingly. The Severity field MUST be set only when Status=False.
+                      description: Severity provides an explicit classification of
+                        Reason code, so the users or machines can immediately understand
+                        the current situation and act accordingly. The Severity field
+                        MUST be set only when Status=False.
                       type: string
                     status:
                       description: Status of the condition, one of True, False, Unknown.
                       type: string
                     type:
-                      description: Type of condition in CamelCase or in foo.example.com/CamelCase. Many .condition.type values are consistent across resources like Available, but because arbitrary conditions can be useful (see .node.status.conditions), the ability to deconflict is important.
+                      description: Type of condition in CamelCase or in foo.example.com/CamelCase.
+                        Many .condition.type values are consistent across resources
+                        like Available, but because arbitrary conditions can be useful
+                        (see .node.status.conditions), the ability to deconflict is
+                        important.
                       type: string
                   required:
                   - lastTransitionTime
@@ -1396,26 +1650,33 @@ spec:
                 anyOf:
                 - type: integer
                 - type: string
-                description: DiskSize is the size, in bytes, of the disk for this machine
+                description: DiskSize is the size, in bytes, of the disk for this
+                  machine
                 pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                 x-kubernetes-int-or-string: true
               nvidiaGpuEnabled:
-                description: NvidiaGPUEnabled is true when a VM should be created with the relevant binaries installed
+                description: NvidiaGPUEnabled is true when a VM should be created
+                  with the relevant binaries installed
                 type: boolean
               placementPolicy:
-                description: PlacementPolicy is the placement policy to be used on this machine.
+                description: PlacementPolicy is the placement policy to be used on
+                  this machine.
                 type: string
               providerID:
-                description: ProviderID will be the container name in ProviderID format (vmware-cloud-director://<vm id>)
+                description: ProviderID will be the container name in ProviderID format
+                  (vmware-cloud-director://<vm id>)
                 type: string
               ready:
-                description: Ready denotes that the machine (docker container) is ready
+                description: Ready denotes that the machine (docker container) is
+                  ready
                 type: boolean
               sizingPolicy:
-                description: SizingPolicy is the sizing policy to be used on this machine.
+                description: SizingPolicy is the sizing policy to be used on this
+                  machine.
                 type: string
               template:
-                description: Template is the path of the template OVA that is to be used
+                description: Template is the path of the template OVA that is to be
+                  used
                 type: string
             type: object
         type: object
@@ -1429,10 +1690,14 @@ spec:
         description: VCDMachine is the Schema for the vcdmachines API
         properties:
           apiVersion:
-            description: 'APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
             type: string
           kind:
-            description: 'Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
             type: string
           metadata:
             type: object
@@ -1440,7 +1705,8 @@ spec:
             description: VCDMachineSpec defines the desired state of VCDMachine
             properties:
               bootstrapped:
-                description: Bootstrapped is true when the kubeadm bootstrapping has been run against this machine
+                description: Bootstrapped is true when the kubeadm bootstrapping has
+                  been run against this machine
                 type: boolean
               catalog:
                 description: Catalog hosting templates
@@ -1449,49 +1715,70 @@ spec:
                 anyOf:
                 - type: integer
                 - type: string
-                description: DiskSize is the size, in bytes, of the disk for this machine
+                description: DiskSize is the size, in bytes, of the disk for this
+                  machine
                 pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                 x-kubernetes-int-or-string: true
               enableNvidiaGPU:
-                description: EnableNvidiaGPU is true when a VM should be created with the relevant binaries installed If true, then an appropriate placement policy should be set
+                description: EnableNvidiaGPU is true when a VM should be created with
+                  the relevant binaries installed If true, then an appropriate placement
+                  policy should be set
                 type: boolean
               extraOvdcNetworks:
-                description: ExtraOvdcNetworks is the list of extra Ovdc Networks that are mounted to machines. VCDClusterSpec.OvdcNetwork is always attached regardless of this field.
+                description: ExtraOvdcNetworks is the list of extra Ovdc Networks
+                  that are mounted to machines. VCDClusterSpec.OvdcNetwork is always
+                  attached regardless of this field.
                 items:
                   type: string
                 type: array
+              failureDomain:
+                description: FailureDomain is the failure domain the machine will
+                  be created in.
+                type: string
               placementPolicy:
-                description: PlacementPolicy is the placement policy to be used on this machine.
+                description: PlacementPolicy is the placement policy to be used on
+                  this machine.
                 type: string
               providerID:
-                description: ProviderID will be the container name in ProviderID format (vmware-cloud-director://<vm id>)
+                description: ProviderID will be the container name in ProviderID format
+                  (vmware-cloud-director://<vm id>)
                 type: string
               sizingPolicy:
-                description: SizingPolicy is the sizing policy to be used on this machine. If no sizing policy is specified, default sizing policy will be used to create the nodes
+                description: SizingPolicy is the sizing policy to be used on this
+                  machine. If no sizing policy is specified, default sizing policy
+                  will be used to create the nodes
                 type: string
               storageProfile:
-                description: StorageProfile is the storage profile to be used on this machine
+                description: StorageProfile is the storage profile to be used on this
+                  machine
                 type: string
               template:
-                description: TemplatePath is the path of the template OVA that is to be used
+                description: TemplatePath is the path of the template OVA that is
+                  to be used
                 type: string
               vmNamingTemplate:
-                description: VmNamingTemplate is go template to generate VM names based on Machine and VCDMachine CRs. Functions of Sprig library are supported. See https://github.com/Masterminds/sprig Immutable field. machine.Name is used as VM name when this field is empty.
+                description: VmNamingTemplate is go template to generate VM names
+                  based on Machine and VCDMachine CRs. Functions of Sprig library
+                  are supported. See https://github.com/Masterminds/sprig Immutable
+                  field. machine.Name is used as VM name when this field is empty.
                 type: string
             type: object
           status:
             description: VCDMachineStatus defines the observed state of VCDMachine
             properties:
               addresses:
-                description: Addresses contains the associated addresses for the docker machine.
+                description: Addresses contains the associated addresses for the docker
+                  machine.
                 items:
-                  description: MachineAddress contains information for the node's address.
+                  description: MachineAddress contains information for the node's
+                    address.
                   properties:
                     address:
                       description: The machine address.
                       type: string
                     type:
-                      description: Machine address type, one of Hostname, ExternalIP, InternalIP, ExternalDNS or InternalDNS.
+                      description: Machine address type, one of Hostname, ExternalIP,
+                        InternalIP, ExternalDNS or InternalDNS.
                       type: string
                   required:
                   - address
@@ -1501,26 +1788,41 @@ spec:
               conditions:
                 description: Conditions defines current service state of the DockerMachine.
                 items:
-                  description: Condition defines an observation of a Cluster API resource operational state.
+                  description: Condition defines an observation of a Cluster API resource
+                    operational state.
                   properties:
                     lastTransitionTime:
-                      description: Last time the condition transitioned from one status to another. This should be when the underlying condition changed. If that is not known, then using the time when the API field changed is acceptable.
+                      description: Last time the condition transitioned from one status
+                        to another. This should be when the underlying condition changed.
+                        If that is not known, then using the time when the API field
+                        changed is acceptable.
                       format: date-time
                       type: string
                     message:
-                      description: A human readable message indicating details about the transition. This field may be empty.
+                      description: A human readable message indicating details about
+                        the transition. This field may be empty.
                       type: string
                     reason:
-                      description: The reason for the condition's last transition in CamelCase. The specific API may choose whether or not this field is considered a guaranteed API. This field may not be empty.
+                      description: The reason for the condition's last transition
+                        in CamelCase. The specific API may choose whether or not this
+                        field is considered a guaranteed API. This field may not be
+                        empty.
                       type: string
                     severity:
-                      description: Severity provides an explicit classification of Reason code, so the users or machines can immediately understand the current situation and act accordingly. The Severity field MUST be set only when Status=False.
+                      description: Severity provides an explicit classification of
+                        Reason code, so the users or machines can immediately understand
+                        the current situation and act accordingly. The Severity field
+                        MUST be set only when Status=False.
                       type: string
                     status:
                       description: Status of the condition, one of True, False, Unknown.
                       type: string
                     type:
-                      description: Type of condition in CamelCase or in foo.example.com/CamelCase. Many .condition.type values are consistent across resources like Available, but because arbitrary conditions can be useful (see .node.status.conditions), the ability to deconflict is important.
+                      description: Type of condition in CamelCase or in foo.example.com/CamelCase.
+                        Many .condition.type values are consistent across resources
+                        like Available, but because arbitrary conditions can be useful
+                        (see .node.status.conditions), the ability to deconflict is
+                        important.
                       type: string
                   required:
                   - lastTransitionTime
@@ -1532,26 +1834,33 @@ spec:
                 anyOf:
                 - type: integer
                 - type: string
-                description: DiskSize is the size, in bytes, of the disk for this machine
+                description: DiskSize is the size, in bytes, of the disk for this
+                  machine
                 pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                 x-kubernetes-int-or-string: true
               nvidiaGpuEnabled:
-                description: NvidiaGPUEnabled is true when a VM should be created with the relevant binaries installed
+                description: NvidiaGPUEnabled is true when a VM should be created
+                  with the relevant binaries installed
                 type: boolean
               placementPolicy:
-                description: PlacementPolicy is the placement policy to be used on this machine.
+                description: PlacementPolicy is the placement policy to be used on
+                  this machine.
                 type: string
               providerID:
-                description: ProviderID will be the container name in ProviderID format (vmware-cloud-director://<vm id>)
+                description: ProviderID will be the container name in ProviderID format
+                  (vmware-cloud-director://<vm id>)
                 type: string
               ready:
-                description: Ready denotes that the machine (docker container) is ready
+                description: Ready denotes that the machine (docker container) is
+                  ready
                 type: boolean
               sizingPolicy:
-                description: SizingPolicy is the sizing policy to be used on this machine.
+                description: SizingPolicy is the sizing policy to be used on this
+                  machine.
                 type: string
               template:
-                description: Template is the path of the template OVA that is to be used
+                description: Template is the path of the template OVA that is to be
+                  used
                 type: string
             type: object
         type: object
@@ -1595,13 +1904,18 @@ spec:
   - name: v1alpha4
     schema:
       openAPIV3Schema:
-        description: VCDMachineTemplate is the Schema for the vcdmachinetemplates API
+        description: VCDMachineTemplate is the Schema for the vcdmachinetemplates
+          API
         properties:
           apiVersion:
-            description: 'APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
             type: string
           kind:
-            description: 'Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
             type: string
           metadata:
             type: object
@@ -1611,22 +1925,27 @@ spec:
               template:
                 properties:
                   spec:
-                    description: Spec is the specification of the desired behavior of the machine.
+                    description: Spec is the specification of the desired behavior
+                      of the machine.
                     properties:
                       bootstrapped:
-                        description: Bootstrapped is true when the kubeadm bootstrapping has been run against this machine
+                        description: Bootstrapped is true when the kubeadm bootstrapping
+                          has been run against this machine
                         type: boolean
                       catalog:
                         description: Catalog hosting templates
                         type: string
                       computePolicy:
-                        description: ComputePolicy is the compute policy to be used on this machine
+                        description: ComputePolicy is the compute policy to be used
+                          on this machine
                         type: string
                       providerID:
-                        description: ProviderID will be the container name in ProviderID format (vmware-cloud-director://<vm id>)
+                        description: ProviderID will be the container name in ProviderID
+                          format (vmware-cloud-director://<vm id>)
                         type: string
                       template:
-                        description: TemplatePath is the path of the template OVA that is to be used
+                        description: TemplatePath is the path of the template OVA
+                          that is to be used
                         type: string
                     type: object
                 required:
@@ -1646,13 +1965,18 @@ spec:
   - name: v1beta1
     schema:
       openAPIV3Schema:
-        description: VCDMachineTemplate is the Schema for the vcdmachinetemplates API
+        description: VCDMachineTemplate is the Schema for the vcdmachinetemplates
+          API
         properties:
           apiVersion:
-            description: 'APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
             type: string
           kind:
-            description: 'Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
             type: string
           metadata:
             type: object
@@ -1662,10 +1986,12 @@ spec:
               template:
                 properties:
                   spec:
-                    description: Spec is the specification of the desired behavior of the machine.
+                    description: Spec is the specification of the desired behavior
+                      of the machine.
                     properties:
                       bootstrapped:
-                        description: Bootstrapped is true when the kubeadm bootstrapping has been run against this machine
+                        description: Bootstrapped is true when the kubeadm bootstrapping
+                          has been run against this machine
                         type: boolean
                       catalog:
                         description: Catalog hosting templates
@@ -1674,26 +2000,35 @@ spec:
                         anyOf:
                         - type: integer
                         - type: string
-                        description: DiskSize is the size, in bytes, of the disk for this machine
+                        description: DiskSize is the size, in bytes, of the disk for
+                          this machine
                         pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                         x-kubernetes-int-or-string: true
                       enableNvidiaGPU:
-                        description: EnableNvidiaGPU is true when a VM should be created with the relevant binaries installed If true, then an appropriate placement policy should be set
+                        description: EnableNvidiaGPU is true when a VM should be created
+                          with the relevant binaries installed If true, then an appropriate
+                          placement policy should be set
                         type: boolean
                       placementPolicy:
-                        description: PlacementPolicy is the placement policy to be used on this machine.
+                        description: PlacementPolicy is the placement policy to be
+                          used on this machine.
                         type: string
                       providerID:
-                        description: ProviderID will be the container name in ProviderID format (vmware-cloud-director://<vm id>)
+                        description: ProviderID will be the container name in ProviderID
+                          format (vmware-cloud-director://<vm id>)
                         type: string
                       sizingPolicy:
-                        description: SizingPolicy is the sizing policy to be used on this machine. If no sizing policy is specified, default sizing policy will be used to create the nodes
+                        description: SizingPolicy is the sizing policy to be used
+                          on this machine. If no sizing policy is specified, default
+                          sizing policy will be used to create the nodes
                         type: string
                       storageProfile:
-                        description: StorageProfile is the storage profile to be used on this machine
+                        description: StorageProfile is the storage profile to be used
+                          on this machine
                         type: string
                       template:
-                        description: TemplatePath is the path of the template OVA that is to be used
+                        description: TemplatePath is the path of the template OVA
+                          that is to be used
                         type: string
                     type: object
                 required:
@@ -1713,13 +2048,18 @@ spec:
   - name: v1beta2
     schema:
       openAPIV3Schema:
-        description: VCDMachineTemplate is the Schema for the vcdmachinetemplates API
+        description: VCDMachineTemplate is the Schema for the vcdmachinetemplates
+          API
         properties:
           apiVersion:
-            description: 'APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
             type: string
           kind:
-            description: 'Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
             type: string
           metadata:
             type: object
@@ -1734,19 +2074,28 @@ spec:
                       annotations:
                         additionalProperties:
                           type: string
-                        description: 'Annotations is an unstructured key value map stored with a resource that may be set by external tools to store and retrieve arbitrary metadata. They are not queryable and should be preserved when modifying objects. More info: http://kubernetes.io/docs/user-guide/annotations'
+                        description: 'Annotations is an unstructured key value map
+                          stored with a resource that may be set by external tools
+                          to store and retrieve arbitrary metadata. They are not queryable
+                          and should be preserved when modifying objects. More info:
+                          http://kubernetes.io/docs/user-guide/annotations'
                         type: object
                       labels:
                         additionalProperties:
                           type: string
-                        description: 'Map of string keys and values that can be used to organize and categorize (scope and select) objects. May match selectors of replication controllers and services. More info: http://kubernetes.io/docs/user-guide/labels'
+                        description: 'Map of string keys and values that can be used
+                          to organize and categorize (scope and select) objects. May
+                          match selectors of replication controllers and services.
+                          More info: http://kubernetes.io/docs/user-guide/labels'
                         type: object
                     type: object
                   spec:
-                    description: Spec is the specification of the desired behavior of the machine.
+                    description: Spec is the specification of the desired behavior
+                      of the machine.
                     properties:
                       bootstrapped:
-                        description: Bootstrapped is true when the kubeadm bootstrapping has been run against this machine
+                        description: Bootstrapped is true when the kubeadm bootstrapping
+                          has been run against this machine
                         type: boolean
                       catalog:
                         description: Catalog hosting templates
@@ -1755,34 +2104,49 @@ spec:
                         anyOf:
                         - type: integer
                         - type: string
-                        description: DiskSize is the size, in bytes, of the disk for this machine
+                        description: DiskSize is the size, in bytes, of the disk for
+                          this machine
                         pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                         x-kubernetes-int-or-string: true
                       enableNvidiaGPU:
-                        description: EnableNvidiaGPU is true when a VM should be created with the relevant binaries installed If true, then an appropriate placement policy should be set
+                        description: EnableNvidiaGPU is true when a VM should be created
+                          with the relevant binaries installed If true, then an appropriate
+                          placement policy should be set
                         type: boolean
                       extraOvdcNetworks:
-                        description: ExtraOvdcNetworks is the list of extra Ovdc Networks that are mounted to machines. VCDClusterSpec.OvdcNetwork is always attached regardless of this field.
+                        description: ExtraOvdcNetworks is the list of extra Ovdc Networks
+                          that are mounted to machines. VCDClusterSpec.OvdcNetwork
+                          is always attached regardless of this field.
                         items:
                           type: string
                         type: array
                       placementPolicy:
-                        description: PlacementPolicy is the placement policy to be used on this machine.
+                        description: PlacementPolicy is the placement policy to be
+                          used on this machine.
                         type: string
                       providerID:
-                        description: ProviderID will be the container name in ProviderID format (vmware-cloud-director://<vm id>)
+                        description: ProviderID will be the container name in ProviderID
+                          format (vmware-cloud-director://<vm id>)
                         type: string
                       sizingPolicy:
-                        description: SizingPolicy is the sizing policy to be used on this machine. If no sizing policy is specified, default sizing policy will be used to create the nodes
+                        description: SizingPolicy is the sizing policy to be used
+                          on this machine. If no sizing policy is specified, default
+                          sizing policy will be used to create the nodes
                         type: string
                       storageProfile:
-                        description: StorageProfile is the storage profile to be used on this machine
+                        description: StorageProfile is the storage profile to be used
+                          on this machine
                         type: string
                       template:
-                        description: TemplatePath is the path of the template OVA that is to be used
+                        description: TemplatePath is the path of the template OVA
+                          that is to be used
                         type: string
                       vmNamingTemplate:
-                        description: VmNamingTemplate is go template to generate VM names based on Machine and VCDMachine CRs. Functions of Sprig library are supported. See https://github.com/Masterminds/sprig Immutable field. machine.Name is used as VM name when this field is empty.
+                        description: VmNamingTemplate is go template to generate VM
+                          names based on Machine and VCDMachine CRs. Functions of
+                          Sprig library are supported. See https://github.com/Masterminds/sprig
+                          Immutable field. machine.Name is used as VM name when this
+                          field is empty.
                         type: string
                     type: object
                 required:
@@ -1802,13 +2166,18 @@ spec:
   - name: v1beta3
     schema:
       openAPIV3Schema:
-        description: VCDMachineTemplate is the Schema for the vcdmachinetemplates API
+        description: VCDMachineTemplate is the Schema for the vcdmachinetemplates
+          API
         properties:
           apiVersion:
-            description: 'APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
             type: string
           kind:
-            description: 'Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
             type: string
           metadata:
             type: object
@@ -1823,19 +2192,28 @@ spec:
                       annotations:
                         additionalProperties:
                           type: string
-                        description: 'Annotations is an unstructured key value map stored with a resource that may be set by external tools to store and retrieve arbitrary metadata. They are not queryable and should be preserved when modifying objects. More info: http://kubernetes.io/docs/user-guide/annotations'
+                        description: 'Annotations is an unstructured key value map
+                          stored with a resource that may be set by external tools
+                          to store and retrieve arbitrary metadata. They are not queryable
+                          and should be preserved when modifying objects. More info:
+                          http://kubernetes.io/docs/user-guide/annotations'
                         type: object
                       labels:
                         additionalProperties:
                           type: string
-                        description: 'Map of string keys and values that can be used to organize and categorize (scope and select) objects. May match selectors of replication controllers and services. More info: http://kubernetes.io/docs/user-guide/labels'
+                        description: 'Map of string keys and values that can be used
+                          to organize and categorize (scope and select) objects. May
+                          match selectors of replication controllers and services.
+                          More info: http://kubernetes.io/docs/user-guide/labels'
                         type: object
                     type: object
                   spec:
-                    description: Spec is the specification of the desired behavior of the machine.
+                    description: Spec is the specification of the desired behavior
+                      of the machine.
                     properties:
                       bootstrapped:
-                        description: Bootstrapped is true when the kubeadm bootstrapping has been run against this machine
+                        description: Bootstrapped is true when the kubeadm bootstrapping
+                          has been run against this machine
                         type: boolean
                       catalog:
                         description: Catalog hosting templates
@@ -1844,34 +2222,53 @@ spec:
                         anyOf:
                         - type: integer
                         - type: string
-                        description: DiskSize is the size, in bytes, of the disk for this machine
+                        description: DiskSize is the size, in bytes, of the disk for
+                          this machine
                         pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                         x-kubernetes-int-or-string: true
                       enableNvidiaGPU:
-                        description: EnableNvidiaGPU is true when a VM should be created with the relevant binaries installed If true, then an appropriate placement policy should be set
+                        description: EnableNvidiaGPU is true when a VM should be created
+                          with the relevant binaries installed If true, then an appropriate
+                          placement policy should be set
                         type: boolean
                       extraOvdcNetworks:
-                        description: ExtraOvdcNetworks is the list of extra Ovdc Networks that are mounted to machines. VCDClusterSpec.OvdcNetwork is always attached regardless of this field.
+                        description: ExtraOvdcNetworks is the list of extra Ovdc Networks
+                          that are mounted to machines. VCDClusterSpec.OvdcNetwork
+                          is always attached regardless of this field.
                         items:
                           type: string
                         type: array
+                      failureDomain:
+                        description: FailureDomain is the failure domain the machine
+                          will be created in.
+                        type: string
                       placementPolicy:
-                        description: PlacementPolicy is the placement policy to be used on this machine.
+                        description: PlacementPolicy is the placement policy to be
+                          used on this machine.
                         type: string
                       providerID:
-                        description: ProviderID will be the container name in ProviderID format (vmware-cloud-director://<vm id>)
+                        description: ProviderID will be the container name in ProviderID
+                          format (vmware-cloud-director://<vm id>)
                         type: string
                       sizingPolicy:
-                        description: SizingPolicy is the sizing policy to be used on this machine. If no sizing policy is specified, default sizing policy will be used to create the nodes
+                        description: SizingPolicy is the sizing policy to be used
+                          on this machine. If no sizing policy is specified, default
+                          sizing policy will be used to create the nodes
                         type: string
                       storageProfile:
-                        description: StorageProfile is the storage profile to be used on this machine
+                        description: StorageProfile is the storage profile to be used
+                          on this machine
                         type: string
                       template:
-                        description: TemplatePath is the path of the template OVA that is to be used
+                        description: TemplatePath is the path of the template OVA
+                          that is to be used
                         type: string
                       vmNamingTemplate:
-                        description: VmNamingTemplate is go template to generate VM names based on Machine and VCDMachine CRs. Functions of Sprig library are supported. See https://github.com/Masterminds/sprig Immutable field. machine.Name is used as VM name when this field is empty.
+                        description: VmNamingTemplate is go template to generate VM
+                          names based on Machine and VCDMachine CRs. Functions of
+                          Sprig library are supported. See https://github.com/Masterminds/sprig
+                          Immutable field. machine.Name is used as VM name when this
+                          field is empty.
                         type: string
                     type: object
                 required:

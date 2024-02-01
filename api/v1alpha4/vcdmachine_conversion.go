@@ -35,6 +35,7 @@ func (src *VCDMachine) ConvertTo(dstRaw conversion.Hub) error {
 	dst.Spec.EnableNvidiaGPU = restored.Spec.EnableNvidiaGPU
 	dst.Spec.ExtraOvdcNetworks = restored.Spec.ExtraOvdcNetworks
 	dst.Spec.VmNamingTemplate = restored.Spec.VmNamingTemplate
+	dst.Spec.FailureDomain = restored.Spec.FailureDomain
 
 	dst.Status.Template = restored.Status.Template
 	dst.Status.ProviderID = restored.Status.ProviderID

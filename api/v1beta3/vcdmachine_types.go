@@ -83,6 +83,10 @@ type VCDMachineSpec struct {
 	// Immutable field. machine.Name is used as VM name when this field is empty.
 	// +optional
 	VmNamingTemplate string `json:"vmNamingTemplate,omitempty"`
+	// FailureDomain is the failure domain the machine will be created in.
+	// Must match a key in the FailureDomains map stored on the cluster object.
+	// +optional
+	FailureDomain *string `json:"failureDomain,omitempty"`
 }
 
 // VCDMachineStatus defines the observed state of VCDMachine
