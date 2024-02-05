@@ -12,6 +12,7 @@ import (
 	b64 "encoding/base64"
 	"fmt"
 	"math"
+	"math/rand"
 	"reflect"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
@@ -532,11 +533,54 @@ func (r *VCDMachineReconciler) reconcileVMBoostrap(ctx context.Context, vcdClien
 	return nil
 }
 
-func (r *VCDMachineReconciler) getOVDCDetailsForMachine(vcdCluster *infrav1beta3.VCDCluster) (string, string, error) {
+// getOVDCDetailsForMachine gets OVDC name and OVDC network name for the machine.
+//
+//	Also updates the failure domain for vcdMachine object
+func (r *VCDMachineReconciler) getOVDCDetailsForMachine(ctx context.Context, machine *clusterv1.Machine,
+	vcdMachine *infrav1beta3.VCDMachine, vcdCluster *infrav1beta3.VCDCluster) (string, string, error) {
 
-	// TODO: update this function to get OVDC details for a zone
+	log := ctrl.LoggerFrom(ctx, "machine", machine.Name, "cluster", vcdCluster.Name)
 
-	return vcdCluster.Spec.Ovdc, vcdCluster.Spec.OvdcNetwork, nil
+	switch vcdCluster.Spec.MultiZoneSpec.ZoneTopology {
+	case infrav1beta3.SingleZone:
+		return vcdCluster.Spec.Ovdc, vcdCluster.Spec.OvdcNetwork, nil
+
+	case infrav1beta3.DCGroup, infrav1beta3.UserSpecifiedEdgeGateway, infrav1beta3.ExternalLoadBalancer:
+		failureDomainName := ""
+		zoneName := vcdMachine.Spec.FailureDomain
+		if zoneName == nil {
+			zoneName = machine.Spec.FailureDomain
+		}
+		if zoneName != nil {
+			failureDomainName = *zoneName
+		} else {
+			// This is not stable and has many other deficiencies, but this approach is okay since we don't need
+			// a cryptographically strong random value.
+			failureDomainName = vcdCluster.Spec.MultiZoneSpec.Zones[rand.Intn(len(vcdCluster.Spec.MultiZoneSpec.Zones))].Name
+			// Also update into vcdMachine data structure
+			vcdMachine.Spec.FailureDomain = &failureDomainName
+		}
+
+		zoneSpec, ok := vcdCluster.Status.FailureDomains[failureDomainName]
+		if !ok {
+			err := fmt.Errorf("unknown failure domain name [%s]", failureDomainName)
+			log.Error(err, "FailureDomainName not found in zones")
+			return "", "", err
+		}
+
+		ovdcName, ok := zoneSpec.Attributes["OVDCName"]
+		if !ok {
+			return "", "", fmt.Errorf("unable to find [OVDCName] in zone spec")
+		}
+		ovdcNetworkName, ok := zoneSpec.Attributes["OVDCNetworkName"]
+		if !ok {
+			return "", "", fmt.Errorf("unable to find [OVDCNetworkName] in zone spec")
+		}
+		return ovdcName, ovdcNetworkName, nil
+
+	default:
+		return "", "", fmt.Errorf("unknown zone Type [%s]", vcdCluster.Spec.MultiZoneSpec.ZoneTopology)
+	}
 }
 
 func CreateFullVAppName(vcdCluster *infrav1beta3.VCDCluster) string {
@@ -870,6 +914,16 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	// To avoid spamming RDEs with updates, only update the RDE with events when machine creation is ongoing
 	skipRDEEventUpdates := machine.Status.BootstrapReady
 
+	ovdcName, ovdcNetworkName, err := r.getOVDCDetailsForMachine(ctx, machine, vcdMachine, vcdCluster)
+	if err != nil {
+		log.Error(err, "Unable to get OVDC details of machine")
+		return ctrl.Result{}, errors.Wrapf(err, "unable to get OVDC details of machine [%s]", vcdMachine.Name)
+	}
+
+	// create new logger with OVDC and Machine names
+	log = ctrl.LoggerFrom(ctx, "cluster", vcdCluster.Name, "ovdc", ovdcName, "machine", machine.Name)
+	log.Info("Starting VCDMachine reconciliation")
+
 	if vcdMachine.Spec.ProviderID != nil && vcdMachine.Status.ProviderID != nil {
 		vcdMachine.Status.Ready = true
 		conditions.MarkTrue(vcdMachine, ContainerProvisionedCondition)
@@ -958,12 +1012,6 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	vAppName := CreateFullVAppName(vcdCluster)
 	log.Info(fmt.Sprintf("Using VApp name [%s] for the machine [%s]", vAppName, machine.Name))
 
-	ovdcName, ovdcNetworkName, err := r.getOVDCDetailsForMachine(vcdCluster)
-	if err != nil {
-		log.Error(err, "Unable to get OVDC details of machine")
-		return ctrl.Result{}, errors.Wrapf(err, "unable to get OVDC details of machine [%s]", vcdMachine.Name)
-	}
-
 	result, err := r.reconcileVAppCreation(ctx, vcdClient, machine.Name, vcdCluster, vAppName, ovdcNetworkName, false)
 	if err != nil {
 		log.Error(err, "failed to reconcile vApp", "vAppName", vAppName)
@@ -1027,6 +1075,8 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 
 		return ctrl.Result{}, errors.Wrapf(err, "failed to create gateway manager object while reconciling machine [%s]", vcdMachine.Name)
 	}
+
+	// TODO (UserSpecifiedEdge topology): update gateway reference for the `gateway` object
 
 	// Update loadbalancer pool with the IP of the control plane node as a new member.
 	// Note that this must be done before booting on the VM!
@@ -1265,14 +1315,13 @@ func (r *VCDMachineReconciler) reconcileDelete(ctx context.Context, machine *clu
 		return ctrl.Result{}, errors.Wrapf(err, "Unable to create VCD client to reconcile infrastructure for the Machine [%s]", machine.Name)
 	}
 
-	gateway, err := vcdsdk.NewGatewayManager(ctx, vcdClient, vcdCluster.Spec.OvdcNetwork,
-		vcdCluster.Spec.LoadBalancerConfigSpec.VipSubnet, vcdCluster.Spec.Ovdc)
-	if err != nil {
-		capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDMachineCreationError, "", machine.Name, fmt.Sprintf("%v", err))
-		return ctrl.Result{}, errors.Wrapf(err, "failed to create gateway manager object while reconciling machine [%s]", vcdMachine.Name)
-	}
-
 	if util.IsControlPlaneMachine(machine) {
+		gateway, err := vcdsdk.NewGatewayManager(ctx, vcdClient, vcdCluster.Spec.OvdcNetwork,
+			vcdCluster.Spec.LoadBalancerConfigSpec.VipSubnet, vcdCluster.Spec.Ovdc)
+		if err != nil {
+			capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDMachineCreationError, "", machine.Name, fmt.Sprintf("%v", err))
+			return ctrl.Result{}, errors.Wrapf(err, "failed to create gateway manager object while reconciling machine [%s]", vcdMachine.Name)
+		}
 		// remove the address from the lbpool
 		log.Info("Deleting the control plane IP from the load balancer pool")
 		lbPoolName := capisdk.GetLoadBalancerPoolNameUsingPrefix(
@@ -1306,6 +1355,7 @@ func (r *VCDMachineReconciler) reconcileDelete(ctx context.Context, machine *clu
 			for i, IP := range controlPlaneIPs {
 				if IP == addressToBeDeleted {
 					updatedIPs = append(controlPlaneIPs[:i], controlPlaneIPs[i+1:]...)
+					break
 				}
 			}
 			resourcesAllocated := &cpiutil.AllocatedResourcesMap{}
@@ -1353,7 +1403,7 @@ func (r *VCDMachineReconciler) reconcileDelete(ctx context.Context, machine *clu
 	}
 
 	// get the vApp
-	vAppName := vcdCluster.Name
+	vAppName := CreateFullVAppName(vcdCluster)
 	vApp, err := vdcManager.Vdc.GetVAppByName(vAppName, true)
 	if err != nil {
 		if err == govcd.ErrorEntityNotFound {

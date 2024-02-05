@@ -306,6 +306,38 @@ func createVCDClientFromSecrets(ctx context.Context, client client.Client, vcdCl
 	return vcdClient, nil
 }
 
+// getMapOfEdgeGateways returns a hashmap with zone name as the key and with values being reference to an object containing
+//
+//	details of its corresponding tenant edge gateway
+func getMapOfEdgeGateways(ctx context.Context, vcdClient *vcdsdk.Client, orgName string,
+	multiZoneSpec infrav1beta3.MultiZoneSpec) (map[string]*vcdutil.EdgeGatewayDetails, error) {
+
+	edgeGatewayDetailsMap := make(map[string]*vcdutil.EdgeGatewayDetails)
+
+	for _, zone := range multiZoneSpec.Zones {
+		ovdcNetwork, vdc, err := vcdutil.GetAllDetailsForOVDC(ctx, vcdClient, nil, zone.OVDCNetworkName,
+			zone.OVDCName, orgName)
+		if err != nil {
+			return nil, fmt.Errorf("unable to get all details from OVDC Name [%s], OVDC Network Name [%s]"+
+				" and ORG [%s]: [%v]", zone.OVDCName, zone.OVDCNetworkName, orgName, err)
+		}
+		edgeGatewayDetailsMap[zone.Name] = &vcdutil.EdgeGatewayDetails{
+			OvdcNetworkReference: &swagger.EntityReference{
+				Name: ovdcNetwork.Name,
+				Id:   ovdcNetwork.Id,
+			},
+			Vdc: vdc,
+			EdgeGatewayReference: &swagger.EntityReference{
+				Name: ovdcNetwork.Connection.RouterRef.Name,
+				Id:   ovdcNetwork.Connection.RouterRef.Id,
+			},
+			//EndPointHost: zone.LoadBalancerIP,
+			//EndPointPort: zone.LoadBalancerPort,
+		}
+	}
+	return edgeGatewayDetailsMap, nil
+}
+
 // TODO: Remove uncommented code when decision to only keep capi.yaml as part of RDE spec is finalized
 func (r *VCDClusterReconciler) constructCapvcdRDE(ctx context.Context, cluster *clusterv1.Cluster,
 	vcdCluster *infrav1beta3.VCDCluster, vdc *types.Vdc, vcdOrg *types.Org) (*swagger.DefinedEntity, error) {
@@ -943,148 +975,280 @@ func (r *VCDClusterReconciler) reconcileLoadBalancer(ctx context.Context, vcdClu
 	vcdClient *vcdsdk.Client, skipRDEEventUpdates bool) (ctrl.Result, error) {
 
 	log := ctrl.LoggerFrom(ctx)
-	virtualServiceNamePrefix := capisdk.GetVirtualServiceNamePrefix(vcdCluster.Name, vcdCluster.Status.InfraId)
-	lbPoolNamePrefix := capisdk.GetLoadBalancerPoolNamePrefix(vcdCluster.Name, vcdCluster.Status.InfraId)
-
-	if vcdClient == nil {
-		return ctrl.Result{}, fmt.Errorf("vcdClient is nil")
-	}
-
-	var oneArm *vcdsdk.OneArm = nil
-	if vcdCluster.Spec.LoadBalancerConfigSpec.UseOneArm {
-		oneArm = &OneArmDefault
-	}
-	var resourcesAllocated *vcdsdkutil.AllocatedResourcesMap
-
 	capvcdRdeManager := capisdk.NewCapvcdRdeManager(vcdClient, vcdCluster.Status.InfraId)
-	gateway, err := vcdsdk.NewGatewayManager(ctx, vcdClient, vcdCluster.Spec.OvdcNetwork,
-		vcdCluster.Spec.LoadBalancerConfigSpec.VipSubnet, vcdCluster.Spec.Ovdc)
-	if err != nil {
-		capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDClusterError, "", vcdCluster.Name,
-			fmt.Sprintf("failed to create gateway manager: [%v]", err))
-		return ctrl.Result{}, fmt.Errorf("failed to create gateway manager using the workload client to reconcile cluster [%s]: [%v]",
-			vcdCluster.Name, err)
-	}
-
 	rdeManager := vcdsdk.NewRDEManager(vcdClient, vcdCluster.Status.InfraId,
 		capisdk.StatusComponentNameCAPVCD, release.Version)
 
-	controlPlaneNodeIP, resourcesAllocated, err := gateway.GetLoadBalancer(ctx,
-		fmt.Sprintf("%s-tcp", virtualServiceNamePrefix), fmt.Sprintf("%s-tcp", lbPoolNamePrefix), oneArm)
+	// First, create a map of LBs to create, then create a list of LBs. This is because, there can be a set of OVDC
+	// networks that are specified in zones. However, they could map to a subset of Edge Gateways (since multiple OVDC
+	// networks could point to the same edge gateway). We need to create one Avi LB per Edge gateway since Avi does
+	// not span edge gateways.
+	var edgeGatewayDetailsMap map[string]*vcdutil.EdgeGatewayDetails
+	var err error
+	switch vcdCluster.Spec.MultiZoneSpec.ZoneTopology {
+	case infrav1beta3.SingleZone:
+		edgeGatewayDetailsMap, err = getMapOfEdgeGateways(ctx, vcdClient, vcdClient.ClusterOrgName,
+			infrav1beta3.MultiZoneSpec{
+				Zones: []infrav1beta3.Zone{
+					{
+						Name:             "",
+						OVDCNetworkName:  vcdCluster.Spec.OvdcNetwork,
+						OVDCName:         vcdCluster.Spec.OvdcNetwork,
+						ControlPlaneZone: true,
+					},
+				},
+			})
+		if err != nil {
+			log.Error(err, "unable to get list of edge gateways",
+				"orgName", vcdClient.ClusterOrgName,
+				"ovdcName", vcdCluster.Spec.Ovdc,
+				"ovdcNetwork", vcdCluster.Spec.OvdcNetwork)
+			return ctrl.Result{}, errors.Wrapf(err,
+				"unable to get list of edge gateways for Org Name [%s], ovdc [%s] and ovdcNetwork [%v]",
+				vcdClient.ClusterOrgName, vcdCluster.Spec.Ovdc, vcdCluster.Spec.OvdcNetwork)
+		}
+		break
+	case infrav1beta3.DCGroup:
+		// NOTE: possibly the same case for UserSpecifiedEdge and External topologies
 
-	// TODO: ideally we should get this port from the GetLoadBalancer function
+		// Admission controller should have ensured that if Zones exists, ZoneType, ZoneTypeConfigMapName and other
+		// zone details will be present (and, optionally, will be valid).
+		vcdCluster.Status.Ovdc = ""
+		vcdCluster.Status.FailureDomains = make(clusterv1.FailureDomains)
+		edgeGatewayDetailsMap, err = getMapOfEdgeGateways(ctx, vcdClient, vcdClient.ClusterOrgName,
+			vcdCluster.Spec.MultiZoneSpec)
+		if err != nil {
+			// this is potentially an irrecoverable FATAL error
+			log.Error(err, "unable to get list of edge gateways",
+				"orgName", vcdClient.ClusterOrgName,
+				"zoneType", vcdCluster.Spec.MultiZoneSpec.ZoneTopology,
+				"zones", vcdCluster.Spec.MultiZoneSpec.Zones)
+			return ctrl.Result{}, errors.Wrapf(err,
+				"unable to get list of edge gateways for Org Name [%s], zoneType [%s] and zones [%v]",
+				vcdClient.ClusterOrgName, vcdCluster.Spec.MultiZoneSpec.ZoneTopology, vcdCluster.Spec.MultiZoneSpec.Zones)
+		}
+
+		// TODO: find the user specified edge gateway zone
+
+		for _, zone := range vcdCluster.Spec.MultiZoneSpec.Zones {
+			edgeGatewayDetails, ok := edgeGatewayDetailsMap[zone.Name]
+			if !ok {
+				log.Error(err, "unable to get edge gateway details",
+					"orgName", vcdClient.ClusterOrgName, "zoneType", vcdCluster.Spec.MultiZoneSpec.ZoneTopology,
+					"zone", zone)
+				return ctrl.Result{}, errors.Wrapf(err,
+					"unable to get list of edge gateways for Org Name [%s], zoneType [%s] and zone [%v]",
+					vcdClient.ClusterOrgName, vcdCluster.Spec.MultiZoneSpec.ZoneTopology, zone)
+			}
+
+			vcdCluster.Status.FailureDomains[zone.Name] = clusterv1.FailureDomainSpec{
+				ControlPlane: zone.ControlPlaneZone,
+				Attributes: map[string]string{
+					"OVDCName":         edgeGatewayDetails.Vdc.Vdc.Name,
+					"OVDCID":           edgeGatewayDetails.Vdc.Vdc.ID,
+					"OVDCNetworkName":  edgeGatewayDetails.OvdcNetworkReference.Name,
+					"OVDCNetworkID":    edgeGatewayDetails.OvdcNetworkReference.Id,
+					"EdgeGatewayName":  edgeGatewayDetails.EdgeGatewayReference.Name,
+					"EdgeGatewayID":    edgeGatewayDetails.EdgeGatewayReference.Id,
+					"ControlPlaneHost": vcdCluster.Spec.ControlPlaneEndpoint.Host,
+					"ControlPlanePort": fmt.Sprintf("%d", vcdCluster.Spec.ControlPlaneEndpoint.Port),
+				},
+			}
+		}
+		vcdCluster.Status.MultiZoneStatus = infrav1beta3.MultiZoneStatus{
+			ZoneTopology: vcdCluster.Spec.MultiZoneSpec.ZoneTopology,
+			Zones:        vcdCluster.Spec.MultiZoneSpec.Zones,
+		}
+
+		log.Info("status.zoneDetails set up", "status.zoneDetails", vcdCluster.Status.MultiZoneStatus)
+		log.Info("FailureDomains set up", "failureDomains", vcdCluster.Status.FailureDomains)
+		break
+	default:
+		// this is an irreconcilable FATAL error; this should be handled by an Admission Controller
+		err := fmt.Errorf("unknown zoneType [%s]", vcdCluster.Spec.MultiZoneSpec.ZoneTopology)
+		log.Error(err, "Unable to process cluster with Zones but incorrect ZoneType")
+		return ctrl.Result{}, errors.Wrapf(err,
+			"unable process cluster [%s:%s] with invalid ZoneType [%s]",
+			vcdCluster.Name, vcdCluster.Status.InfraId, vcdCluster.Spec.MultiZoneSpec.ZoneTopology)
+	}
+
+	controlPlaneHost := ""
 	controlPlanePort := TcpPort
 
-	//TODO: Sahithi: Check if error is really because of missing virtual service.
-	// In any other error cases, force create the new load balancer with the original control plane endpoint
-	// (if already present). Do not overwrite the existing control plane endpoint with a new endpoint.
-	var virtualServiceHref string
-	if err != nil || controlPlaneNodeIP == "" {
-		if vsError, ok := err.(*vcdsdk.VirtualServicePendingError); ok {
-			log.Info("Error getting load balancer. Virtual Service is still pending",
-				"virtualServiceName", vsError.VirtualServiceName, "error", err)
-			return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
-		}
-
-		if vcdCluster.Spec.ControlPlaneEndpoint.Host != "" {
-			controlPlanePort := vcdCluster.Spec.ControlPlaneEndpoint.Port
-			log.Info("Creating load balancer for the cluster at user-specified endpoint",
-				"host", vcdCluster.Spec.ControlPlaneEndpoint.Host, "port", controlPlanePort)
-		} else {
-			log.Info("Creating load balancer for the cluster")
-		}
-
-		resourcesAllocated = &vcdsdkutil.AllocatedResourcesMap{}
-		// here we set enableVirtualServiceSharedIP to ensure that we don't use a DNAT rule. The variable is possibly
-		// badly named. Though the user-facing name is good, the internal variable name could be better.
-		controlPlaneNodeIP, err = gateway.CreateLoadBalancer(ctx, virtualServiceNamePrefix, lbPoolNamePrefix,
-			[]string{}, []vcdsdk.PortDetails{
-				{
-					Protocol:     "TCP",
-					PortSuffix:   "tcp",
-					ExternalPort: int32(controlPlanePort),
-					InternalPort: int32(controlPlanePort),
-				},
-			}, oneArm, !vcdCluster.Spec.LoadBalancerConfigSpec.UseOneArm,
-			nil, vcdCluster.Spec.ControlPlaneEndpoint.Host, resourcesAllocated)
+	for _, edgeGatewayDetails := range edgeGatewayDetailsMap {
+		// If zones are used, OVDC networks of different zones may be connected to different gateways or even NSX-T networks.
+		// Since Avi does not yet support multiple NSX-Ts (NSX-T federation), there can be a set of Avi LBs handled by an
+		// overlay LB.
+		ovdcName := edgeGatewayDetails.Vdc.Vdc.Name
+		ovdcNetworkName := edgeGatewayDetails.OvdcNetworkReference.Name
+		gateway, err := vcdsdk.NewGatewayManager(ctx, vcdClient, ovdcNetworkName,
+			vcdCluster.Spec.LoadBalancerConfigSpec.VipSubnet, ovdcName)
 		if err != nil {
-			capvcdRdeManager.AddToErrorSet(ctx, capisdk.LoadBalancerError, "", "",
-				fmt.Sprintf("failed to create load balancer for the cluster [%s(%s)]: [%v]",
-					vcdCluster.Name, vcdCluster.Status.InfraId, err))
-			return ctrl.Result{}, fmt.Errorf("failed to create load balancer for the cluster [%s(%s)]: [%v]",
-				vcdCluster.Name, vcdCluster.Status.InfraId, err)
+			capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDClusterError, "", vcdCluster.Name,
+				fmt.Sprintf("failed to create gateway manager: [%v]", err))
+			return ctrl.Result{}, errors.Wrapf(err,
+				"failed to create gateway manager using the workload client to reconcile cluster [%s]",
+				vcdCluster.Name)
+		}
+		// overwrite the edge gateway details so that UserSpecifiedEdgeMode will also be satisfied
+		gateway.GatewayRef = edgeGatewayDetails.EdgeGatewayReference
+
+		err = capvcdRdeManager.RdeManager.RemoveErrorByNameOrIdFromErrorSet(ctx, vcdsdk.ComponentCAPVCD,
+			capisdk.VCDClusterError, "", vcdCluster.Name)
+		if err != nil {
+			log.Error(err, "failed to remove VCDClusterError from RDE",
+				"rdeID", vcdCluster.Status.InfraId)
+		}
+		virtualServiceNamePrefix := capisdk.GetVirtualServiceNamePrefix(vcdCluster.Name, vcdCluster.Status.InfraId)
+		lbPoolNamePrefix := capisdk.GetLoadBalancerPoolNamePrefix(vcdCluster.Name, vcdCluster.Status.InfraId)
+
+		var oneArm *vcdsdk.OneArm = nil
+		if vcdCluster.Spec.LoadBalancerConfigSpec.UseOneArm {
+			oneArm = &OneArmDefault
+		}
+		var resourcesAllocated *vcdsdkutil.AllocatedResourcesMap
+		// TODO: ideally we should get controlPlanePort from the GetLoadBalancer function
+		controlPlaneHost, resourcesAllocated, err = gateway.GetLoadBalancer(ctx,
+			fmt.Sprintf("%s-tcp", virtualServiceNamePrefix), fmt.Sprintf("%s-tcp", lbPoolNamePrefix), oneArm)
+
+		//TODO: Sahithi: Check if error is really because of missing virtual service.
+		// In any other error cases, force create the new load balancer with the original control plane endpoint
+		// (if already present). Do not overwrite the existing control plane endpoint with a new endpoint.
+		var virtualServiceHref string
+		if err != nil || controlPlaneHost == "" {
+			if vsError, ok := err.(*vcdsdk.VirtualServicePendingError); ok {
+				log.Info("Error getting load balancer. Virtual Service is still pending",
+					"virtualServiceName", vsError.VirtualServiceName, "error", err)
+				return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
+			}
+			// if the zone as an IP setup, use it. For the non-multi-AZ, we will pass in the
+			// vcdCluster.Spec.ControlPlaneEndpoint.Host, so no need to check here.
+			switch vcdCluster.Spec.MultiZoneSpec.ZoneTopology {
+			case infrav1beta3.SingleZone, infrav1beta3.DCGroup, infrav1beta3.UserSpecifiedEdgeGateway:
+				controlPlaneHost = vcdCluster.Spec.ControlPlaneEndpoint.Host
+				controlPlanePort = vcdCluster.Spec.ControlPlaneEndpoint.Port
+				break
+
+			case infrav1beta3.ExternalLoadBalancer:
+				// TODO: implement external load balancer topology type
+				break
+			default:
+				// this is an irreconcilable FATAL error; this should be handled by an Admission Controller
+				err := fmt.Errorf("unknown zoneType [%s]", vcdCluster.Spec.MultiZoneSpec.ZoneTopology)
+				log.Error(err, "Unable to process cluster with Zones but incorrect ZoneType")
+				return ctrl.Result{}, errors.Wrapf(err,
+					"unable process cluster [%s:%s] with invalid ZoneType [%s]",
+					vcdCluster.Name, vcdCluster.Status.InfraId, vcdCluster.Spec.MultiZoneSpec.ZoneTopology)
+			}
+			if controlPlanePort == 0 {
+				controlPlanePort = TcpPort
+			}
+			log.Info("Creating load balancer for the cluster at endpoint",
+				"host", edgeGatewayDetails.EndPointHost, "port", controlPlanePort,
+				"ovdcNetworkName", edgeGatewayDetails.OvdcNetworkReference.Name,
+				"edge gateway", edgeGatewayDetails.EdgeGatewayReference.Name,
+				"ovdcName", edgeGatewayDetails.Vdc.Vdc.Name)
+
+			resourcesAllocated = &vcdsdkutil.AllocatedResourcesMap{}
+			// here we set enableVirtualServiceSharedIP to ensure that we don't use a DNAT rule. The variable is possibly
+			// badly named. Though the user-facing name is good, the internal variable name could be better.
+			controlPlaneHost, err = gateway.CreateLoadBalancer(ctx, virtualServiceNamePrefix, lbPoolNamePrefix,
+				[]string{}, []vcdsdk.PortDetails{
+					{
+						Protocol:     "TCP",
+						PortSuffix:   "tcp",
+						ExternalPort: int32(controlPlanePort),
+						InternalPort: int32(controlPlanePort),
+					},
+				}, oneArm, !vcdCluster.Spec.LoadBalancerConfigSpec.UseOneArm,
+				nil, controlPlaneHost, resourcesAllocated)
+
+			if err != nil {
+				if vsError, ok := err.(*vcdsdk.VirtualServicePendingError); ok {
+					log.Info("Error creating load balancer for cluster. Virtual Service is still pending",
+						"virtualServiceName", vsError.VirtualServiceName, "error", err)
+					capvcdRdeManager.AddToErrorSet(ctx, capisdk.LoadBalancerPending, virtualServiceHref,
+						"", fmt.Sprintf("Error creating load balancer: [%v]", err))
+					return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
+				}
+				capvcdRdeManager.AddToErrorSet(ctx, capisdk.LoadBalancerError, "", "",
+					fmt.Sprintf("failed to create load balancer for the cluster [%s(%s)] at [%s:%s]: [%v]",
+						vcdCluster.Name, vcdCluster.Status.InfraId, edgeGatewayDetails.Vdc.Vdc.Name,
+						edgeGatewayDetails.EdgeGatewayReference.Name, err))
+
+				return ctrl.Result{}, errors.Wrapf(err,
+					"failed to create load balancer for the cluster [%s(%s)] at [%s:%s]: [%v]",
+					vcdCluster.Name, vcdCluster.Status.InfraId, edgeGatewayDetails.Vdc.Vdc.Name,
+					edgeGatewayDetails.EdgeGatewayReference.Name, err)
+			}
+
+			log.Info("Created load balancer for the cluster at endpoint",
+				"host", edgeGatewayDetails.EndPointHost, "port", controlPlanePort,
+				"ovdcNetworkName", edgeGatewayDetails.OvdcNetworkReference.Name,
+				"edge gateway", edgeGatewayDetails.EdgeGatewayReference.Name,
+				"ovdcName", edgeGatewayDetails.Vdc.Vdc.Name)
+			// Update VCDResourceSet even if the creation has failed since we may have partially
+			// created set of resources
+			if err = addLBResourcesToVCDResourceSet(ctx, rdeManager, resourcesAllocated, controlPlaneHost); err != nil {
+				capvcdRdeManager.AddToErrorSet(ctx, capisdk.RdeError, "", vcdCluster.Name,
+					fmt.Sprintf("failed to add VCD Resource [%s] of type [%s] from VCDResourceSet of RDE [%s]: [%v]",
+						vcdCluster.Name, VcdResourceTypeVM, vcdCluster.Status.InfraId, err))
+				return ctrl.Result{}, errors.Wrapf(err, "failed to add load balancer resources to RDE [%s]",
+					rdeManager.ClusterID)
+			}
+			if err = capvcdRdeManager.RdeManager.RemoveErrorByNameOrIdFromErrorSet(ctx, vcdsdk.ComponentCAPVCD,
+				capisdk.RdeError, "", ""); err != nil {
+				log.Error(err, "failed to remove RdeError ", "rdeID", rdeManager.ClusterID)
+			}
+			if len(resourcesAllocated.Get(vcdsdk.VcdResourceVirtualService)) > 0 {
+				virtualServiceHref = resourcesAllocated.Get(vcdsdk.VcdResourceVirtualService)[0].Id
+			}
+			log.Info("Resources Allocated in creation of load balancer",
+				"resourcesAllocated", resourcesAllocated)
 		}
 
-		// Update VCDResourceSet even if the creation has failed since we may have partially
-		// created set of resources
-		if err = addLBResourcesToVCDResourceSet(ctx, rdeManager, resourcesAllocated, controlPlaneNodeIP); err != nil {
-			log.Error(err, "failed to add LoadBalancer resources to VCD resource set of RDE",
-				"rdeID", vcdCluster.Status.InfraId)
+		if err = addLBResourcesToVCDResourceSet(ctx, rdeManager, resourcesAllocated, controlPlaneHost); err != nil {
 			capvcdRdeManager.AddToErrorSet(ctx, capisdk.RdeError, "", vcdCluster.Name,
 				fmt.Sprintf("failed to add VCD Resource [%s] of type [%s] from VCDResourceSet of RDE [%s]: [%v]",
 					vcdCluster.Name, VcdResourceTypeVM, vcdCluster.Status.InfraId, err))
+			return ctrl.Result{}, errors.Wrapf(err, "failed to add load balancer resources to RDE [%s]",
+				rdeManager.ClusterID)
 		}
+
 		if err = capvcdRdeManager.RdeManager.RemoveErrorByNameOrIdFromErrorSet(ctx, vcdsdk.ComponentCAPVCD,
 			capisdk.RdeError, "", ""); err != nil {
-			log.Error(err, "failed to remove RdeError ", "rdeID", vcdCluster.Status.InfraId)
+			log.Error(err, "failed to remove RdeError from RDE", "rdeID", rdeManager.ClusterID)
 		}
 
 		if len(resourcesAllocated.Get(vcdsdk.VcdResourceVirtualService)) > 0 {
 			virtualServiceHref = resourcesAllocated.Get(vcdsdk.VcdResourceVirtualService)[0].Id
 		}
-
+		capvcdRdeManager.AddToEventSet(ctx, capisdk.LoadBalancerAvailable, virtualServiceHref, "",
+			"", skipRDEEventUpdates)
+		err = capvcdRdeManager.RdeManager.RemoveErrorByNameOrIdFromErrorSet(ctx, vcdsdk.ComponentCAPVCD,
+			capisdk.LoadBalancerPending, "", "")
 		if err != nil {
-			if vsError, ok := err.(*vcdsdk.VirtualServicePendingError); ok {
-				log.Info("Error creating load balancer for cluster. Virtual Service is still pending",
-					"virtualServiceName", vsError.VirtualServiceName, "error", err)
-				capvcdRdeManager.AddToErrorSet(ctx, capisdk.LoadBalancerPending, virtualServiceHref,
-					"", fmt.Sprintf("Error creating load balancer: [%v]", err))
-				return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
-			}
-			if err = capvcdRdeManager.RdeManager.RemoveErrorByNameOrIdFromErrorSet(ctx, vcdsdk.ComponentCAPVCD,
-				capisdk.LoadBalancerError, "", ""); err != nil {
-				log.Error(err, "failed to remove LoadBalancerError ", "rdeID", vcdCluster.Status.InfraId)
-			}
-			return ctrl.Result{}, errors.Wrapf(err,
-				"Error creating create load balancer [%s] for the cluster [%s]: [%v]",
-				virtualServiceNamePrefix, vcdCluster.Name, err)
+			log.Error(err, "failed to remove LoadBalancerPending error (RDE upgraded successfully) ",
+				"rdeID", rdeManager.ClusterID)
 		}
-		log.Info("Resources Allocated in creation of load balancer", "resourcesAllocated", resourcesAllocated)
+
 	}
 
-	if err = addLBResourcesToVCDResourceSet(ctx, rdeManager, resourcesAllocated, controlPlaneNodeIP); err != nil {
-		log.Error(err, "failed to add LoadBalancer resources to VCD resource set of RDE",
-			"rdeID", vcdCluster.Status.InfraId)
-		capvcdRdeManager.AddToErrorSet(ctx, capisdk.RdeError, "", vcdCluster.Name,
-			fmt.Sprintf("failed to add VCD Resource [%s] of type [%s] from VCDResourceSet of RDE [%s]: [%v]",
-				vcdCluster.Name, VcdResourceTypeVM, vcdCluster.Status.InfraId, err))
-	}
-	if err = capvcdRdeManager.RdeManager.RemoveErrorByNameOrIdFromErrorSet(ctx, vcdsdk.ComponentCAPVCD, capisdk.RdeError,
-		"", ""); err != nil {
-		log.Error(err, "failed to remove RdeError from RDE", "rdeID", vcdCluster.Status.InfraId)
-	}
-
-	if len(resourcesAllocated.Get(vcdsdk.VcdResourceVirtualService)) > 0 {
-		virtualServiceHref = resourcesAllocated.Get(vcdsdk.VcdResourceVirtualService)[0].Id
+	// For the External mode, the vcdCluster.Spec.ControlPlaneEndpoint MUST BE SPECIFIED, and remains as it is.
+	// For the other modes, the LB fronting the cluster can either specify an IP:port, or it may get one allocated
+	// to it by the IPAM. In both of these cases, the controlPlaneHost:controlPlanePort will contain the correct
+	// values.
+	if vcdCluster.Spec.MultiZoneSpec.ZoneTopology == infrav1beta3.DCGroup {
+		// TODO: update for vcdCluster.Spec.MultiZoneSpec.ZoneTopology == infrav1beta3.UserSpecifiedEdgeGateway too
+		vcdCluster.Spec.ControlPlaneEndpoint = infrav1beta3.APIEndpoint{
+			Host: controlPlaneHost,
+			Port: controlPlanePort,
+		}
 	}
 
-	vcdCluster.Spec.ControlPlaneEndpoint = infrav1beta3.APIEndpoint{
-		Host: controlPlaneNodeIP,
-		Port: controlPlanePort,
-	}
-	log.Info(fmt.Sprintf("Control plane endpoint for the cluster is [%s]", controlPlaneNodeIP))
+	log.Info("Control plane endpoint for the cluster",
+		"host", vcdCluster.Spec.ControlPlaneEndpoint.Host, "port", vcdCluster.Spec.ControlPlaneEndpoint.Port)
 
-	capvcdRdeManager.AddToEventSet(ctx, capisdk.LoadBalancerAvailable, virtualServiceHref, "",
-		"", skipRDEEventUpdates)
-	if err != nil {
-		log.Error(err, "failed to add LoadBalancerAvailable event into RDE", "rdeID", vcdCluster.Status.InfraId)
-	}
-	err = capvcdRdeManager.RdeManager.RemoveErrorByNameOrIdFromErrorSet(ctx, vcdsdk.ComponentCAPVCD,
-		capisdk.LoadBalancerPending, "", "")
-	if err != nil {
-		log.Error(err, "failed to remove LoadBalancerPending error (RDE upgraded successfully) ",
-			"rdeID", vcdCluster.Status.InfraId)
-	}
 	return ctrl.Result{}, nil
 }
 
@@ -1110,15 +1274,6 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		log.Error(err, "error occurred while logging in to VCD")
 		return ctrl.Result{}, errors.Wrapf(err, "Error creating VCD client to reconcile Cluster [%s] infrastructure",
 			vcdCluster.Name)
-	}
-
-	// updating the VCD cluster resource with any VDC name changes to is necessary in VCD cluster controller because
-	// the OVDC name is used to get the OVDC network
-	if vcdClient.VDC != nil && vcdClient.VDC.Vdc != nil {
-		err = updateVdcResourceToVcdCluster(vcdCluster, ResourceTypeOvdc, vcdClient.VDC.Vdc.ID, vcdClient.VDC.Vdc.Name)
-		if err != nil {
-			return ctrl.Result{}, errors.Wrapf(err, "Error updating vcdResource into vcdcluster.status to reconcile Cluster [%s] infrastructure", vcdCluster.Name)
-		}
 	}
 
 	if err := r.reconcileInfraID(ctx, cluster, vcdCluster, vcdClient, skipRDEEventUpdates); err != nil {
@@ -1366,19 +1521,76 @@ func (r *VCDClusterReconciler) reconcileDeleteVApps(ctx context.Context,
 
 	capvcdRDEManager := capisdk.NewCapvcdRdeManager(vcdClient, vcdCluster.Status.InfraId)
 
-	result, err := r.reconcileDeleteSingleVApp(ctx, vcdCluster.Spec.Ovdc, vcdCluster.Name,
-		vcdClient, capvcdRDEManager, vcdCluster)
-	if err != nil {
-		// this is potentially an irrecoverable FATAL error
-		log.Error(err, "unable to delete single vApp",
-			"orgName", vcdClient.ClusterOrgName, "ovdcName", vcdCluster.Spec.Ovdc,
-			"vAppName", vcdCluster.Name)
-		return result, errors.Wrapf(err,
-			"unable to get delete single vApp [%s] in Org [%s], OVDC [%s]", vcdCluster.Name,
-			vcdClient.ClusterOrgName, vcdCluster.Spec.Ovdc)
+	switch vcdCluster.Spec.MultiZoneSpec.ZoneTopology {
+	case infrav1beta3.SingleZone:
+		result, err := r.reconcileDeleteSingleVApp(ctx, vcdCluster.Spec.Ovdc, vcdCluster.Name,
+			vcdClient, capvcdRDEManager, vcdCluster)
+		if err != nil {
+			// this is potentially an irrecoverable FATAL error
+			log.Error(err, "unable to delete single vApp",
+				"orgName", vcdClient.ClusterOrgName, "ovdcName", vcdCluster.Spec.Ovdc,
+				"vAppName", vcdCluster.Name)
+			return result, errors.Wrapf(err,
+				"unable to get delete single vApp [%s] in Org [%s], OVDC [%s]", vcdCluster.Name,
+				vcdClient.ClusterOrgName, vcdCluster.Spec.Ovdc)
+		}
+		log.Info("Successfully deleted vApp", "vAppName", vcdCluster.Name,
+			"org", vcdClient.ClusterOrgName, "ovdc", vcdCluster.Spec.Ovdc)
+		break
+	case infrav1beta3.DCGroup, infrav1beta3.UserSpecifiedEdgeGateway, infrav1beta3.ExternalLoadBalancer:
+		for _, failureDomain := range vcdCluster.Status.FailureDomains {
+			ovdcName, ok := failureDomain.Attributes["OVDCName"]
+			if !ok {
+				log.Error(fmt.Errorf("unable to get OVDCName from failuredomain [%v]", failureDomain),
+					"will skip deleting vApp in failureDomain")
+				continue
+			}
+			ovdcID, ok := failureDomain.Attributes["OVDCID"]
+			if !ok {
+				log.Error(fmt.Errorf("unable to get OVDCID from failuredomain [%v]", failureDomain),
+					"will skip deleting vApp in failureDomain")
+				continue
+			}
+			vAppNamePrefix, err := vcdutil.CreateVAppNamePrefix(vcdCluster.Name, ovdcID)
+			if err != nil {
+				return ctrl.Result{}, errors.Wrapf(err,
+					"unable to create vApp name prefix from cluster name [%s] and OVDC ID [%s]",
+					vcdCluster.Name, ovdcID)
+			}
+			vdc, err := getOvdcByID(vcdClient, vcdCluster.Spec.Org, ovdcID)
+			if err != nil {
+				return ctrl.Result{}, errors.Wrapf(err,
+					"unable to get OVDC [%s] by ID [%s] in org [%s] for cluster [%s]",
+					ovdcName, ovdcID, vcdCluster.Spec.Org, vcdCluster.Name)
+			}
+
+			for _, vApp := range vdc.GetVappList() {
+				if !strings.HasPrefix(vApp.Name, vAppNamePrefix) {
+					continue
+				}
+				// This is in the expected format and can be deleted if it has a matching ID
+				log.Info("Deleting vApp", "vApp", vApp.Name, "Org", vcdCluster.Spec.Org, "OVDC", ovdcName)
+				result, err := r.reconcileDeleteSingleVApp(ctx, ovdcName, vApp.Name,
+					vcdClient, capvcdRDEManager, vcdCluster)
+				if err != nil {
+					log.Error(err, "unable to delete single vApp",
+						"orgName", vcdClient.ClusterOrgName, "ovdcName", vcdCluster.Spec.Ovdc,
+						"vAppName", vApp.Name, "cluster", vcdCluster.Name)
+					return result, err
+				}
+			}
+			log.Info("Successfully deleted all vApps of cluster", "cluster", vcdCluster.Name,
+				"Org", vcdCluster.Spec.Org)
+		}
+		break
+	default:
+		// this is an irreconcilable FATAL error; this should be handled by an Admission Controller
+		err := fmt.Errorf("unknown zoneType [%s]", vcdCluster.Spec.MultiZoneSpec.ZoneTopology)
+		log.Error(err, "Unable to process cluster with Zones but incorrect ZoneType")
+		return ctrl.Result{}, errors.Wrapf(err,
+			"unable process cluster [%s:%s] with invalid ZoneType [%s]",
+			vcdCluster.Name, vcdCluster.Status.InfraId, vcdCluster.Spec.MultiZoneSpec.ZoneTopology)
 	}
-	log.Info("Successfully deleted vApp", "vAppName", vcdCluster.Name,
-		"org", vcdClient.ClusterOrgName, "ovdc", vcdCluster.Spec.Ovdc)
 	return ctrl.Result{}, nil
 }
 
@@ -1476,17 +1688,44 @@ func (r *VCDClusterReconciler) reconcileDelete(ctx context.Context,
 		return ctrl.Result{}, errors.Wrapf(err, "Error creating VCD client to reconcile Cluster [%s] infrastructure", vcdCluster.Name)
 	}
 
-	ovdcName := vcdCluster.Spec.Ovdc
-	ovdcNetworkName := vcdCluster.Spec.OvdcNetwork
-	controlPlaneHost := vcdCluster.Spec.ControlPlaneEndpoint.Host
-	controlPlanePort := vcdCluster.Spec.ControlPlaneEndpoint.Port
-	if controlPlanePort == 0 {
-		controlPlanePort = TcpPort
-	}
-	if err = r.deleteLB(ctx, vcdClient, vcdCluster, ovdcNetworkName, ovdcName, controlPlanePort); err != nil {
-		return ctrl.Result{}, errors.Wrapf(err,
-			"unable to delete LB with control plane host [%s], port[%d] in ovdc [%s] and network [%s]: [%v]",
-			controlPlaneHost, controlPlanePort, ovdcName, ovdcNetworkName, err)
+	// if zones are used, the OVDC networks of each zone needs to be connected to the same gateway, so choose an ovdc
+	// network at random
+	switch vcdCluster.Spec.MultiZoneSpec.ZoneTopology {
+	case infrav1beta3.SingleZone:
+		// in no-AZ case, there is one LB
+		ovdcName := vcdCluster.Spec.Ovdc
+		ovdcNetworkName := vcdCluster.Spec.OvdcNetwork
+		controlPlaneHost := vcdCluster.Spec.ControlPlaneEndpoint.Host
+		controlPlanePort := vcdCluster.Spec.ControlPlaneEndpoint.Port
+		if controlPlanePort == 0 {
+			controlPlanePort = TcpPort
+		}
+		if err = r.deleteLB(ctx, vcdClient, vcdCluster, ovdcNetworkName, ovdcName, controlPlanePort); err != nil {
+			return ctrl.Result{}, errors.Wrapf(err,
+				"unable to delete LB with control plane host [%s], port[%d] in ovdc [%s] and network [%s]: [%v]",
+				controlPlaneHost, controlPlanePort, ovdcName, ovdcNetworkName, err)
+		}
+		break
+	case infrav1beta3.DCGroup:
+		// in the dcgroup case, there is one LB
+		if len(vcdCluster.Spec.MultiZoneSpec.Zones) == 0 {
+			log.Info("ZoneType specified but no zones specified. Hence no LB created",
+				"zoneType", vcdCluster.Spec.MultiZoneSpec.Zones)
+			return ctrl.Result{}, nil
+		}
+		ovdcName := vcdCluster.Spec.MultiZoneSpec.Zones[0].OVDCName
+		ovdcNetworkName := vcdCluster.Spec.MultiZoneSpec.Zones[0].OVDCNetworkName
+		controlPlaneHost := vcdCluster.Spec.ControlPlaneEndpoint.Host
+		controlPlanePort := vcdCluster.Spec.ControlPlaneEndpoint.Port
+		if controlPlanePort == 0 {
+			controlPlanePort = TcpPort
+		}
+		if err = r.deleteLB(ctx, vcdClient, vcdCluster, ovdcNetworkName, ovdcName, controlPlanePort); err != nil {
+			return ctrl.Result{}, errors.Wrapf(err,
+				"unable to delete LB with control plane host [%s], port[%d] in ovdc [%s] and network [%s]: [%v]",
+				controlPlaneHost, controlPlanePort, ovdcName, ovdcNetworkName, err)
+		}
+		break
 	}
 
 	// Delete vApp
