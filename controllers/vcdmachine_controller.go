@@ -336,7 +336,7 @@ func checkIfMachineNodeIsUnhealthy(machine *clusterv1.Machine) bool {
 	return false
 }
 
-func (r *VCDMachineReconciler) reconcileCloudInitScript(ctx context.Context, vcdClient *vcdsdk.Client,
+func (r *VCDMachineReconciler) reconcileNodeSetupScripts(ctx context.Context, vcdClient *vcdsdk.Client,
 	machine *clusterv1.Machine, cluster *clusterv1.Cluster, vcdMachine *infrav1beta3.VCDMachine,
 	vcdCluster *infrav1beta3.VCDCluster, vAppName, vmName string, skipRDEEventUpdates bool) ([]byte, string, bool, bool, error) {
 
@@ -1166,7 +1166,7 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	}
 	conditions.MarkTrue(vcdMachine, ContainerProvisionedCondition)
 
-	bootstrapData, bootstrapFormat, isInitialControlPlane, isResizedControlPlane, err := r.reconcileCloudInitScript(
+	bootstrapData, bootstrapFormat, isInitialControlPlane, isResizedControlPlane, err := r.reconcileNodeSetupScripts(
 		ctx, vcdClient, machine, cluster, vcdMachine, vcdCluster, vAppName, vmName, skipRDEEventUpdates)
 
 	gateway, err := vcdsdk.NewGatewayManager(ctx, vcdClient, ovdcNetworkName, vcdCluster.Spec.LoadBalancerConfigSpec.VipSubnet, ovdcName)
