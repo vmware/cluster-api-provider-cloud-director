@@ -9,13 +9,14 @@ import (
 	"context"
 	_ "embed"
 	"fmt"
-	"github.com/google/uuid"
-	rdeType "github.com/vmware/cluster-api-provider-cloud-director/pkg/vcdtypes/rde_type_1_1_0"
 	"net/http"
 	"os"
 	"reflect"
 	"strings"
 	"time"
+
+	"github.com/google/uuid"
+	rdeType "github.com/vmware/cluster-api-provider-cloud-director/pkg/vcdtypes/rde_type_1_1_0"
 
 	"github.com/antihax/optional"
 	"github.com/blang/semver"
@@ -973,7 +974,13 @@ func (r *VCDClusterReconciler) reconcileLoadBalancer(ctx context.Context, vcdClu
 		fmt.Sprintf("%s-tcp", virtualServiceNamePrefix), fmt.Sprintf("%s-tcp", lbPoolNamePrefix), oneArm)
 
 	// TODO: ideally we should get this port from the GetLoadBalancer function
-	controlPlanePort := TcpPort
+	// Patch to overload port on reconciliation loop
+	var controlPlanePort int
+	if vcdCluster.Spec.ControlPlaneEndpoint.Port != 0 {
+		controlPlanePort = vcdCluster.Spec.ControlPlaneEndpoint.Port
+	} else {
+		controlPlanePort = TcpPort
+	}
 
 	//TODO: Sahithi: Check if error is really because of missing virtual service.
 	// In any other error cases, force create the new load balancer with the original control plane endpoint
@@ -987,7 +994,7 @@ func (r *VCDClusterReconciler) reconcileLoadBalancer(ctx context.Context, vcdClu
 		}
 
 		if vcdCluster.Spec.ControlPlaneEndpoint.Host != "" {
-			controlPlanePort := vcdCluster.Spec.ControlPlaneEndpoint.Port
+			controlPlanePort = vcdCluster.Spec.ControlPlaneEndpoint.Port
 			log.Info("Creating load balancer for the cluster at user-specified endpoint",
 				"host", vcdCluster.Spec.ControlPlaneEndpoint.Host, "port", controlPlanePort)
 		} else {
