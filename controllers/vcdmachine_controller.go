@@ -411,7 +411,7 @@ func (r *VCDMachineReconciler) reconcileNodeSetupScripts(ctx context.Context, vc
 	return bootstrapDataBytes, bootstrapFormat, isInitialControlPlane, isResizedControlPlane, nil
 }
 
-func (r *VCDMachineReconciler) reconcileVMBoostrap(ctx context.Context, vcdClient *vcdsdk.Client,
+func (r *VCDMachineReconciler) reconcileVMBootstrap(ctx context.Context, vcdClient *vcdsdk.Client,
 	vdcManager *vcdsdk.VdcManager, vApp *govcd.VApp, vm *govcd.VM, vmName string, bootstrapData []byte, bootstrapFormat string,
 	vcdCluster *infrav1beta3.VCDCluster, machine *clusterv1.Machine,
 	isInitialControlPlane, isResizedControlPlane, skipRDEEventUpdates bool) error {
@@ -1187,7 +1187,7 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		}
 	}
 
-	err = r.reconcileVMBoostrap(ctx, vcdClient, vdcManager, vApp, vm, vmName, bootstrapData, bootstrapFormat, vcdCluster, machine,
+	err = r.reconcileVMBootstrap(ctx, vcdClient, vdcManager, vApp, vm, vmName, bootstrapData, bootstrapFormat, vcdCluster, machine,
 		isInitialControlPlane, isResizedControlPlane, skipRDEEventUpdates)
 	if err != nil {
 		return ctrl.Result{}, errors.Wrapf(err, "failed to bootstrap VM [%s/%s]", vAppName, vmName)
