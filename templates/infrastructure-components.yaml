@@ -259,6 +259,7 @@ spec:
                           secret name must be unique.
                         type: string
                     type: object
+                    x-kubernetes-map-type: atomic
                   username:
                     type: string
                 type: object
@@ -477,6 +478,7 @@ spec:
                           secret name must be unique.
                         type: string
                     type: object
+                    x-kubernetes-map-type: atomic
                   username:
                     type: string
                 type: object
@@ -672,8 +674,9 @@ spec:
                     type: string
                 type: object
               multiZoneSpec:
-                description: MultiZoneSpec provides details of the configuration of
-                  the zones in the cluster as well as the NetworkTopologyType used.
+                description: |-
+                  MultiZoneSpec provides details of the configuration of the zones in the cluster as well as the NetworkTopologyType
+                  used.
                 properties:
                   dcGroupConfig:
                     description: DCGroupConfig contains configuration for DCGroup
@@ -687,9 +690,9 @@ spec:
                         description: EdgeGatewayZones defines a list of zones containing
                           an edge gateway.
                         items:
-                          description: EdgeGatewayZone provides the details of a zone
-                            containing an edge gateway. Used with ExternalLoadBalancer
-                            topology. topology.
+                          description: |-
+                            EdgeGatewayZone provides the details of a zone containing an edge gateway. Used with ExternalLoadBalancer topology.
+                            topology.
                           properties:
                             loadBalancerIP:
                               description: LoadBalancerIP is the IP address of the
@@ -725,9 +728,9 @@ spec:
                     - edgeGatewayZone
                     type: object
                   zoneTopology:
-                    description: ZoneTopology defines the type of network topology
-                      used across zones in a Multi-AZ deployment. Valid options are
-                      DCGroup, UserSpecifiedEdgeGateway, and ExternalLoadBalancer,
+                    description: |-
+                      ZoneTopology defines the type of network topology used across zones in a Multi-AZ deployment.
+                      Valid options are DCGroup, UserSpecifiedEdgeGateway, and ExternalLoadBalancer,
                     type: string
                   zones:
                     description: Zones defines the list of zones that this cluster
@@ -762,9 +765,9 @@ spec:
               org:
                 type: string
               ovcdZoneConfigMap:
-                description: OVDCZoneConfigMap defines the name of a config map storing
-                  the mapping Zone -> OVDC in a Multi-AZ deployment. e.g. zone1 ->
-                  ovdc1, zone2 -> ovdc2
+                description: |-
+                  OVDCZoneConfigMap defines the name of a config map storing the mapping Zone -> OVDC in a Multi-AZ
+                  deployment. e.g. zone1 -> ovdc1, zone2 -> ovdc2
                 type: string
               ovdc:
                 type: string
@@ -810,6 +813,7 @@ spec:
                           secret name must be unique.
                         type: string
                     type: object
+                    x-kubernetes-map-type: atomic
                   username:
                     type: string
                 type: object
@@ -870,9 +874,9 @@ spec:
                 type: array
               failureDomains:
                 additionalProperties:
-                  description: FailureDomainSpec is the Schema for Cluster API failure
-                    domains. It allows controllers to understand how many failure
-                    domains a cluster can optionally span across.
+                  description: |-
+                    FailureDomainSpec is the Schema for Cluster API failure domains.
+                    It allows controllers to understand how many failure domains a cluster can optionally span across.
                   properties:
                     attributes:
                       additionalProperties:
@@ -885,9 +889,9 @@ spec:
                         is suitable for use by control plane machines.
                       type: boolean
                   type: object
-                description: FailureDomains lists the zones of this cluster. This
-                  field is parsed from the Zones field of vcdCluster.Spec.MultiZoneSpec
-                  if set up appropriately.
+                description: |-
+                  FailureDomains lists the zones of this cluster. This field is parsed from the Zones field of
+                  vcdCluster.Spec.MultiZoneSpec if set up appropriately.
                 type: object
               infraId:
                 type: string
@@ -918,9 +922,9 @@ spec:
                         description: EdgeGatewayZones defines a list of zones containing
                           an edge gateway.
                         items:
-                          description: EdgeGatewayZone provides the details of a zone
-                            containing an edge gateway. Used with ExternalLoadBalancer
-                            topology. topology.
+                          description: |-
+                            EdgeGatewayZone provides the details of a zone containing an edge gateway. Used with ExternalLoadBalancer topology.
+                            topology.
                           properties:
                             loadBalancerIP:
                               description: LoadBalancerIP is the IP address of the
@@ -956,9 +960,9 @@ spec:
                     - edgeGatewayZone
                     type: object
                   zoneTopology:
-                    description: ZoneTopology defines the type of network topology
-                      used across zones in a Multi-AZ deployment. Valid options are
-                      DCGroup, UserSpecifiedEdgeGateway, and ExternalLoadBalancer
+                    description: |-
+                      ZoneTopology defines the type of network topology used across zones in a Multi-AZ deployment.
+                      Valid options are DCGroup, UserSpecifiedEdgeGateway, and ExternalLoadBalancer
                     type: string
                   zones:
                     description: Zones defines the list of zones this cluster is configured
@@ -1064,12 +1068,6 @@ spec:
     storage: true
     subresources:
       status: {}
-status:
-  acceptedNames:
-    kind: ""
-    plural: ""
-  conditions: []
-  storedVersions: []
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
@@ -1197,6 +1195,7 @@ spec:
                                   the secret name must be unique.
                                 type: string
                             type: object
+                            x-kubernetes-map-type: atomic
                           username:
                             type: string
                         type: object
@@ -1218,12 +1217,6 @@ spec:
     storage: true
     subresources:
       status: {}
-status:
-  acceptedNames:
-    kind: ""
-    plural: ""
-  conditions: []
-  storedVersions: []
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
@@ -1926,12 +1919,6 @@ spec:
     storage: true
     subresources:
       status: {}
-status:
-  acceptedNames:
-    kind: ""
-    plural: ""
-  conditions: []
-  storedVersions: []
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
@@ -2375,12 +2362,6 @@ spec:
     storage: true
     subresources:
       status: {}
-status:
-  acceptedNames:
-    kind: ""
-    plural: ""
-  conditions: []
-  storedVersions: []
 ---
 apiVersion: v1
 kind: ServiceAccount
@@ -2433,7 +2414,6 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  creationTimestamp: null
   labels:
     cluster.x-k8s.io/provider: infrastructure-vcd
   name: capvcd-manager-role
