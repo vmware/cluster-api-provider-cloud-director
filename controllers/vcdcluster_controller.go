@@ -206,6 +206,38 @@ func addLBResourcesToVCDResourceSet(ctx context.Context, rdeManager *vcdsdk.RDEM
 	return nil
 }
 
+// getLBDetailsForCluster returns details about the load balancer for the cluster
+func getLBDetailsForCluster(vcdCluster *infrav1beta3.VCDCluster) (ovdcName, ovdcNetworkName, controlPlaneHost string, controlPlanePort int) {
+	// if zones are used, the OVDC networks of each zone needs to be connected to the same gateway, so choose an ovdc
+	// network at random
+	switch vcdCluster.Spec.MultiZoneSpec.ZoneTopology {
+	case infrav1beta3.SingleZone:
+		// in no-AZ case, there is one LB
+		ovdcName = vcdCluster.Spec.Ovdc
+		ovdcNetworkName = vcdCluster.Spec.OvdcNetwork
+		controlPlaneHost = vcdCluster.Spec.ControlPlaneEndpoint.Host
+		controlPlanePort = vcdCluster.Spec.ControlPlaneEndpoint.Port
+		if controlPlanePort == 0 {
+			controlPlanePort = TcpPort
+		}
+		break
+	case infrav1beta3.DCGroup:
+		// in the dcgroup case, there is one LB
+		if len(vcdCluster.Spec.MultiZoneSpec.Zones) == 0 {
+			return
+		}
+		ovdcName = vcdCluster.Spec.MultiZoneSpec.Zones[0].OVDCName
+		ovdcNetworkName = vcdCluster.Spec.MultiZoneSpec.Zones[0].OVDCNetworkName
+		controlPlaneHost = vcdCluster.Spec.ControlPlaneEndpoint.Host
+		controlPlanePort = vcdCluster.Spec.ControlPlaneEndpoint.Port
+		if controlPlanePort == 0 {
+			controlPlanePort = TcpPort
+		}
+		break
+	}
+	return
+}
+
 // On VCDCluster reconciliation, we either create a new Infra ID or use an existing Infra ID from the VCDCluster object.
 // The values for infra ID is not expected to change. rdeVersionInUse is not expected to change too unless the CAPVCD is being upgraded and the new
 // CAPVCD version makes use of a higher RDE version.
@@ -320,26 +352,64 @@ func getMapOfEdgeGateways(ctx context.Context, vcdClient *vcdsdk.Client, orgName
 
 	edgeGatewayDetailsMap := make(map[string]*vcdutil.EdgeGatewayDetails)
 
-	for _, zone := range multiZoneSpec.Zones {
-		ovdcNetwork, vdc, err := vcdutil.GetAllDetailsForOVDC(ctx, vcdClient, nil, zone.OVDCNetworkName,
-			zone.OVDCName, orgName)
+	if len(multiZoneSpec.Zones) == 0 {
+		return nil, fmt.Errorf("invalid input while getting the edge gateway mapping; expected more than one zone")
+	}
+
+	switch multiZoneSpec.ZoneTopology {
+	case infrav1beta3.SingleZone, infrav1beta3.DCGroup:
+		// All the VDCs share the same OVDC network and edge gateway. So we can avoid multiple VCD API calls by caching the
+		// OVDC network
+		z := multiZoneSpec.Zones[0]
+		cachedVDCNetwork, err := vcdutil.GetOVDCNetwork(ctx, vcdClient, z.OVDCNetworkName, z.OVDCName)
 		if err != nil {
-			return nil, fmt.Errorf("unable to get all details from OVDC Name [%s], OVDC Network Name [%s]"+
-				" and ORG [%s]: [%v]", zone.OVDCName, zone.OVDCNetworkName, orgName, err)
+			return nil, fmt.Errorf("error occurred while caching OVDC network details: [%v]", err)
 		}
-		edgeGatewayDetailsMap[zone.Name] = &vcdutil.EdgeGatewayDetails{
-			OvdcNetworkReference: &swagger.EntityReference{
-				Name: ovdcNetwork.Name,
-				Id:   ovdcNetwork.Id,
-			},
-			Vdc: vdc,
-			EdgeGatewayReference: &swagger.EntityReference{
-				Name: ovdcNetwork.Connection.RouterRef.Name,
-				Id:   ovdcNetwork.Connection.RouterRef.Id,
-			},
-			//EndPointHost: zone.LoadBalancerIP,
-			//EndPointPort: zone.LoadBalancerPort,
+		for _, zone := range multiZoneSpec.Zones {
+			vdc, err := vcdutil.GetOVDCFromOVDCName(vcdClient.VCDClient, orgName, zone.OVDCName)
+			if err != nil {
+				return nil, fmt.Errorf("error occurred while getting details for the OVDC [%s]: [%v]", zone.OVDCName, err)
+			}
+			edgeGatewayDetailsMap[zone.Name] = &vcdutil.EdgeGatewayDetails{
+				OvdcNetworkReference: &swagger.EntityReference{
+					Name: cachedVDCNetwork.Name,
+					Id:   cachedVDCNetwork.Id,
+				},
+				Vdc: vdc,
+				EdgeGatewayReference: &swagger.EntityReference{
+					Name: cachedVDCNetwork.Connection.RouterRef.Name,
+					Id:   cachedVDCNetwork.Connection.RouterRef.Id,
+				},
+				//EndPointHost: zone.LoadBalancerIP,
+				//EndPointPort: zone.LoadBalancerPort,
+			}
 		}
+		break
+	case infrav1beta3.UserSpecifiedEdgeGateway, infrav1beta3.ExternalLoadBalancer:
+		for _, zone := range multiZoneSpec.Zones {
+			ovdcNetwork, vdc, err := vcdutil.GetAllDetailsForOVDC(ctx, vcdClient, nil, zone.OVDCNetworkName,
+				zone.OVDCName, orgName)
+			if err != nil {
+				return nil, fmt.Errorf("unable to get all details from OVDC Name [%s], OVDC Network Name [%s]"+
+					" and ORG [%s]: [%v]", zone.OVDCName, zone.OVDCNetworkName, orgName, err)
+			}
+			edgeGatewayDetailsMap[zone.Name] = &vcdutil.EdgeGatewayDetails{
+				OvdcNetworkReference: &swagger.EntityReference{
+					Name: ovdcNetwork.Name,
+					Id:   ovdcNetwork.Id,
+				},
+				Vdc: vdc,
+				EdgeGatewayReference: &swagger.EntityReference{
+					Name: ovdcNetwork.Connection.RouterRef.Name,
+					Id:   ovdcNetwork.Connection.RouterRef.Id,
+				},
+				//EndPointHost: zone.LoadBalancerIP,
+				//EndPointPort: zone.LoadBalancerPort,
+			}
+		}
+		break
+	default:
+		return nil, fmt.Errorf("invalid zone topology type [%s] while creating edge gateway mapping", multiZoneSpec.ZoneTopology)
 	}
 	return edgeGatewayDetailsMap, nil
 }
@@ -983,8 +1053,7 @@ func (r *VCDClusterReconciler) reconcileLoadBalancer(ctx context.Context, vcdClu
 
 	log := ctrl.LoggerFrom(ctx)
 	capvcdRdeManager := capisdk.NewCapvcdRdeManager(vcdClient, vcdCluster.Status.InfraId)
-	rdeManager := vcdsdk.NewRDEManager(vcdClient, vcdCluster.Status.InfraId,
-		capisdk.StatusComponentNameCAPVCD, release.Version)
+	rdeManager := capvcdRdeManager.RdeManager
 
 	// First, create a map of LBs to create, then create a list of LBs. This is because, there can be a set of OVDC
 	// networks that are specified in zones. However, they could map to a subset of Edge Gateways (since multiple OVDC
@@ -1000,7 +1069,7 @@ func (r *VCDClusterReconciler) reconcileLoadBalancer(ctx context.Context, vcdClu
 					{
 						Name:             "",
 						OVDCNetworkName:  vcdCluster.Spec.OvdcNetwork,
-						OVDCName:         vcdCluster.Spec.OvdcNetwork,
+						OVDCName:         vcdCluster.Spec.Ovdc,
 						ControlPlaneZone: true,
 					},
 				},
@@ -1017,7 +1086,6 @@ func (r *VCDClusterReconciler) reconcileLoadBalancer(ctx context.Context, vcdClu
 		break
 	case infrav1beta3.DCGroup:
 		// NOTE: possibly the same case for UserSpecifiedEdge and External topologies
-
 		// Admission controller should have ensured that if Zones exists, ZoneType, ZoneTypeConfigMapName and other
 		// zone details will be present (and, optionally, will be valid).
 		vcdCluster.Status.Ovdc = ""
@@ -1239,18 +1307,35 @@ func (r *VCDClusterReconciler) reconcileLoadBalancer(ctx context.Context, vcdClu
 				"rdeID", rdeManager.ClusterID)
 		}
 
+		if vcdCluster.Spec.MultiZoneSpec.ZoneTopology == infrav1beta3.SingleZone ||
+			vcdCluster.Spec.MultiZoneSpec.ZoneTopology == infrav1beta3.DCGroup {
+			// For single zone and DC group topologies, it is sufficient to create a load balancer on the common edge gateway
+			// so we break from the for loop and avoid looking at other edge gateways
+			break
+		}
+
 	}
 
 	// For the External mode, the vcdCluster.Spec.ControlPlaneEndpoint MUST BE SPECIFIED, and remains as it is.
 	// For the other modes, the LB fronting the cluster can either specify an IP:port, or it may get one allocated
 	// to it by the IPAM. In both of these cases, the controlPlaneHost:controlPlanePort will contain the correct
 	// values.
-	if vcdCluster.Spec.MultiZoneSpec.ZoneTopology == infrav1beta3.DCGroup {
-		// TODO: update for vcdCluster.Spec.MultiZoneSpec.ZoneTopology == infrav1beta3.UserSpecifiedEdgeGateway too
+	switch vcdCluster.Spec.MultiZoneSpec.ZoneTopology {
+	case infrav1beta3.SingleZone, infrav1beta3.DCGroup, infrav1beta3.UserSpecifiedEdgeGateway:
 		vcdCluster.Spec.ControlPlaneEndpoint = infrav1beta3.APIEndpoint{
 			Host: controlPlaneHost,
 			Port: controlPlanePort,
 		}
+		break
+	case infrav1beta3.ExternalLoadBalancer:
+		// error out if vcdCluster.Spec.ControlPlaneEndpoint is not specified.
+		if vcdCluster.Spec.ControlPlaneEndpoint.Host == "" {
+			return ctrl.Result{}, fmt.Errorf(
+				"load balancer details in vcdCluster.spec.controlPlaneEndpoint not specified for multi zone topology: [%s]", infrav1beta3.ExternalLoadBalancer)
+		}
+		break
+	default:
+		return ctrl.Result{}, fmt.Errorf("invalid value for field [vcdCluster.spec.multiZoneSpec.zoneTopology]")
 	}
 
 	log.Info("Control plane endpoint for the cluster",
@@ -1696,44 +1781,17 @@ func (r *VCDClusterReconciler) reconcileDelete(ctx context.Context,
 		return ctrl.Result{}, errors.Wrapf(err, "Error creating VCD client to reconcile Cluster [%s] infrastructure", vcdCluster.Name)
 	}
 
-	// if zones are used, the OVDC networks of each zone needs to be connected to the same gateway, so choose an ovdc
-	// network at random
-	switch vcdCluster.Spec.MultiZoneSpec.ZoneTopology {
-	case infrav1beta3.SingleZone:
-		// in no-AZ case, there is one LB
-		ovdcName := vcdCluster.Spec.Ovdc
-		ovdcNetworkName := vcdCluster.Spec.OvdcNetwork
-		controlPlaneHost := vcdCluster.Spec.ControlPlaneEndpoint.Host
-		controlPlanePort := vcdCluster.Spec.ControlPlaneEndpoint.Port
-		if controlPlanePort == 0 {
-			controlPlanePort = TcpPort
-		}
-		if err = r.deleteLB(ctx, vcdClient, vcdCluster, ovdcNetworkName, ovdcName, controlPlanePort); err != nil {
-			return ctrl.Result{}, errors.Wrapf(err,
-				"unable to delete LB with control plane host [%s], port[%d] in ovdc [%s] and network [%s]: [%v]",
-				controlPlaneHost, controlPlanePort, ovdcName, ovdcNetworkName, err)
-		}
-		break
-	case infrav1beta3.DCGroup:
-		// in the dcgroup case, there is one LB
-		if len(vcdCluster.Spec.MultiZoneSpec.Zones) == 0 {
-			log.Info("ZoneType specified but no zones specified. Hence no LB created",
-				"zoneType", vcdCluster.Spec.MultiZoneSpec.Zones)
-			return ctrl.Result{}, nil
-		}
-		ovdcName := vcdCluster.Spec.MultiZoneSpec.Zones[0].OVDCName
-		ovdcNetworkName := vcdCluster.Spec.MultiZoneSpec.Zones[0].OVDCNetworkName
-		controlPlaneHost := vcdCluster.Spec.ControlPlaneEndpoint.Host
-		controlPlanePort := vcdCluster.Spec.ControlPlaneEndpoint.Port
-		if controlPlanePort == 0 {
-			controlPlanePort = TcpPort
-		}
-		if err = r.deleteLB(ctx, vcdClient, vcdCluster, ovdcNetworkName, ovdcName, controlPlanePort); err != nil {
-			return ctrl.Result{}, errors.Wrapf(err,
-				"unable to delete LB with control plane host [%s], port[%d] in ovdc [%s] and network [%s]: [%v]",
-				controlPlaneHost, controlPlanePort, ovdcName, ovdcNetworkName, err)
-		}
-		break
+	if vcdCluster.Spec.MultiZoneSpec.ZoneTopology != infrav1beta3.SingleZone && len(vcdCluster.Spec.MultiZoneSpec.Zones) == 0 {
+		log.Info("ZoneType specified but no zones specified. Hence no LB created",
+			"zoneType", vcdCluster.Spec.MultiZoneSpec.Zones)
+		return ctrl.Result{}, nil
+	}
+
+	ovdcName, ovdcNetworkName, controlPlaneHost, controlPlanePort := getLBDetailsForCluster(vcdCluster)
+	if err = r.deleteLB(ctx, vcdClient, vcdCluster, ovdcNetworkName, ovdcName, controlPlanePort); err != nil {
+		return ctrl.Result{}, errors.Wrapf(err,
+			"unable to delete LB with control plane host [%s], port[%d] in ovdc [%s] and network [%s]: [%v]",
+			controlPlaneHost, controlPlanePort, ovdcName, ovdcNetworkName, err)
 	}
 
 	// Delete vApp
