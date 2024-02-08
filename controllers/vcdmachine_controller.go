@@ -65,6 +65,17 @@ type CloudInitScriptInput struct {
 	ClusterID           string //cluster id
 }
 
+type IgnitionNetworkInitScriptSectionInput struct {
+	Primary     bool
+	Network     string
+	IPAddress   string
+	MACAddress  string
+	NetmaskCidr int
+	Gateway     string
+	DNS1        string
+	DNS2        string
+}
+
 const (
 	VcdResourceTypeVM = "virtual-machine"
 )
@@ -81,6 +92,9 @@ const Mebibyte = 1048576
 //
 //go:embed cluster_scripts/cloud_init.tmpl
 var cloudInitScriptTemplate string
+
+//go:embed cluster_scripts/ignition_network_init_script.tmpl
+var ignitionNetworkInitScriptTemplate string
 
 // VCDMachineReconciler reconciles a VCDMachine object
 type VCDMachineReconciler struct {
@@ -1219,42 +1233,40 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 // generateNetworkInitializationScriptForIgnition creates the bash script that will create the networkd units stored in metadata
 // and consumed by ignition
 func generateNetworkInitializationScriptForIgnition(networkConnection *types.NetworkConnectionSection, vdcManager *vcdsdk.VdcManager) (string, error) {
-	var networkMetadata strings.Builder
-	networkMetadata.WriteString("#!/bin/sh\n")
-	networkMetadata.WriteString("set -x\n")
+	ignitionNetworkInitTemplate, err := template.New("ignition_network_init_script_template").Parse(ignitionNetworkInitScriptTemplate)
+	if err != nil {
+		return "", errors.Wrapf(err, "Error parsing ignitionNetworkInitScriptTemplate [%s]", ignitionNetworkInitTemplate.Name())
+	}
 
+	var sectionInputConfigs []IgnitionNetworkInitScriptSectionInput
 	for _, network := range networkConnection.NetworkConnection {
-		unitFile := "/etc/systemd/network/" + network.Network + ".network"
-		networkMetadata.WriteString("echo [Match]>" + unitFile + "\n")
 		// Process NIC network properties and subnet CIDR
 		orgVdcNetwork, err := vdcManager.Vdc.GetOrgVdcNetworkByName(network.Network, true)
 		if err != nil {
 			return "", err
 		}
 
-		IpScope := orgVdcNetwork.OrgVDCNetwork.Configuration.IPScopes.IPScope[0]
-		netmask := net.ParseIP(IpScope.Netmask)
+		ipScope := orgVdcNetwork.OrgVDCNetwork.Configuration.IPScopes.IPScope[0]
+		netmask := net.ParseIP(ipScope.Netmask)
 		netmaskCidr, _ := net.IPMask(netmask.To4()).Size()
 
-		ignitionAddress := fmt.Sprint(network.IPAddress) + "/" + fmt.Sprint(netmaskCidr)
-		// Write details to NIC ignition
-		networkMetadata.WriteString("echo MACAddress=" + network.MACAddress + ">>" + unitFile + "\n")
-		networkMetadata.WriteString("echo [Network]>>" + unitFile + "\n")
-		networkMetadata.WriteString("echo Address=" + ignitionAddress + ">>" + unitFile + "\n")
-		// Add gateway and DNS only for primary NIC
-		if network.NetworkConnectionIndex == networkConnection.PrimaryNetworkConnectionIndex {
-			networkMetadata.WriteString("echo Gateway=" + IpScope.Gateway + ">>" + unitFile + "\n")
-			if IpScope.DNS1 != "" {
-				networkMetadata.WriteString("echo DNS=" + IpScope.DNS1 + ">>" + unitFile + "\n")
-			}
-			if IpScope.DNS2 != "" {
-				networkMetadata.WriteString("echo DNS=" + IpScope.DNS2 + ">>" + unitFile + "\n")
-			}
-		}
+		sectionInputConfigs = append(sectionInputConfigs, IgnitionNetworkInitScriptSectionInput{
+			Primary:     network.NetworkConnectionIndex == networkConnection.PrimaryNetworkConnectionIndex,
+			Network:     network.Network,
+			IPAddress:   network.IPAddress,
+			MACAddress:  network.MACAddress,
+			NetmaskCidr: netmaskCidr,
+			Gateway:     ipScope.Gateway,
+			DNS1:        ipScope.DNS1,
+			DNS2:        ipScope.DNS2,
+		})
 	}
-	networkMetadata.WriteString("sudo systemctl restart systemd-networkd\n")
 
-	return networkMetadata.String(), nil
+	buff := bytes.Buffer{}
+	if err = ignitionNetworkInitTemplate.Execute(&buff, sectionInputConfigs); err != nil {
+		return "", errors.Wrapf(err, "Error rendering ignition network init template: [%s]", ignitionNetworkInitTemplate.Name())
+	}
+	return buff.String(), nil
 }
 
 func getVMName(machine *clusterv1.Machine, vcdMachine *infrav1beta3.VCDMachine, log logr.Logger) (string, error) {
