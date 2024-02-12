@@ -21,6 +21,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
+    "sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
 // log is for logging in this package.
@@ -51,25 +52,25 @@ func (r *VCDCluster) Default() {
 var _ webhook.Validator = &VCDCluster{}
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
-func (r *VCDCluster) ValidateCreate() error {
+func (r *VCDCluster) ValidateCreate() (admission.Warnings, error) {
 	vcdclusterlog.Info("validate create", "name", r.Name)
 
 	// TODO(user): fill in your validation logic upon object creation.
-	return nil
+	return nil, nil
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
-func (r *VCDCluster) ValidateUpdate(old runtime.Object) error {
+func (r *VCDCluster) ValidateUpdate(old runtime.Object) (admission.Warnings, error) {
 	vcdclusterlog.Info("validate update", "name", r.Name)
 
 	// TODO(user): fill in your validation logic upon object update.
-	return nil
+	return nil, nil
 }
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type
-func (r *VCDCluster) ValidateDelete() error {
+func (r *VCDCluster) ValidateDelete() (admission.Warnings, error) {
 	vcdclusterlog.Info("validate delete", "name", r.Name)
 
 	// TODO(user): fill in your validation logic upon object deletion.
-	return nil
+	return nil, nil
 }
