@@ -17,7 +17,10 @@ limitations under the License.
 package v1beta3
 
 import (
+	"fmt"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/validation/field"
 	ctrl "sigs.k8s.io/controller-runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
@@ -62,6 +65,15 @@ func (r *VCDMachine) ValidateUpdate(old runtime.Object) (admission.Warnings, err
 	vcdmachinelog.Info("validate update", "name", r.Name)
 
 	// TODO(user): fill in your validation logic upon object update.
+	oldVCDMachine, ok := old.(*VCDMachine)
+	if !ok {
+		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected an VCDMachine but got a %T", oldVCDMachine))
+	}
+	// the relation between CR->VM_NAME have to be consistent therefore VmNamingTemplate is immutable
+	if r.Spec.VmNamingTemplate != oldVCDMachine.Spec.VmNamingTemplate {
+		return nil, field.Forbidden(field.NewPath("spec.vmNamingTemplate"), "cannot be modified")
+	}
+
 	return nil, nil
 }
 
