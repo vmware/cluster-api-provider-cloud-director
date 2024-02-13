@@ -632,6 +632,7 @@ func autoConvert_v1beta3_VCDMachineSpec_To_v1beta2_VCDMachineSpec(in *v1beta3.VC
 	out.EnableNvidiaGPU = in.EnableNvidiaGPU
 	out.ExtraOvdcNetworks = *(*[]string)(unsafe.Pointer(&in.ExtraOvdcNetworks))
 	out.VmNamingTemplate = in.VmNamingTemplate
+	// WARNING: in.FailureDomain requires manual conversion: does not exist in peer-type
 	return nil
 }
 
