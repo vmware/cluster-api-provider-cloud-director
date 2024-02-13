@@ -550,6 +550,11 @@ func (r *VCDMachineReconciler) getOVDCDetailsForMachine(ctx context.Context, mac
 		return vcdCluster.Spec.Ovdc, vcdCluster.Spec.OvdcNetwork, nil
 
 	case infrav1beta3.DCGroup, infrav1beta3.UserSpecifiedEdgeGateway, infrav1beta3.ExternalLoadBalancer:
+		// For control plane nodes: the machine.failureDomain will be set by CAPI.
+		//	CAPI uses vcdCluster.status.failureDomains to distribute control plane machines across different failure domains.
+		// For worker nodes:
+		//		Case 1: if machineDeployment.spec.failureDomain is set, CAPI populates machine.spec.failureDomain
+		//		Case 2: if machineDeployment.spec.failureDomain is not set, CAPVCD needs to pick a failureDomain for the VM
 		failureDomainName := ""
 		zoneName := vcdMachine.Spec.FailureDomain
 		if zoneName == nil {
@@ -568,7 +573,7 @@ func (r *VCDMachineReconciler) getOVDCDetailsForMachine(ctx context.Context, mac
 		zoneSpec, ok := vcdCluster.Status.FailureDomains[failureDomainName]
 		if !ok {
 			err := fmt.Errorf("unknown failure domain name [%s]", failureDomainName)
-			log.Error(err, "FailureDomainName not found in zones")
+			log.Error(err, "user specified failureDomain for the machine is not listed in vcdCluster.status.failureDomains")
 			return "", "", err
 		}
 
@@ -583,7 +588,7 @@ func (r *VCDMachineReconciler) getOVDCDetailsForMachine(ctx context.Context, mac
 		return ovdcName, ovdcNetworkName, nil
 
 	default:
-		return "", "", fmt.Errorf("unknown zone Type [%s]", vcdCluster.Spec.MultiZoneSpec.ZoneTopology)
+		return "", "", fmt.Errorf("unknown zoneTopology [%s]", vcdCluster.Spec.MultiZoneSpec.ZoneTopology)
 	}
 }
 
@@ -1007,6 +1012,7 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	// since new zones could be added dynamically. In the non-AZ case, it can be done in the vcdCluster controller. However,
 	// we do it in one place for simplicity.
 	// TODO: should we add a field in VCDMachine to store the VApp name used for the machine ?
+	// TODO: add the node pool name to the vApp name
 	vAppName, err := capvcdutil.CreateVAppNamePrefix(vcdCluster.Name, vcdClient.VDC.Vdc.ID)
 	if err != nil {
 		log.Error(err, "error occurred while creating vApp name prefix")

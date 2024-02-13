@@ -1086,7 +1086,7 @@ func (r *VCDClusterReconciler) reconcileLoadBalancer(ctx context.Context, vcdClu
 		break
 	case infrav1beta3.DCGroup:
 		// NOTE: possibly the same case for UserSpecifiedEdge and External topologies
-		// Admission controller should have ensured that if Zones exists, ZoneType, ZoneTypeConfigMapName and other
+		// Admission controller should have ensured that if Zones exists, ZoneTopologyType, ZoneTypeConfigMapName and other
 		// zone details will be present (and, optionally, will be valid).
 		vcdCluster.Status.Ovdc = ""
 		vcdCluster.Status.FailureDomains = make(clusterv1.FailureDomains)
@@ -1096,10 +1096,10 @@ func (r *VCDClusterReconciler) reconcileLoadBalancer(ctx context.Context, vcdClu
 			// this is potentially an irrecoverable FATAL error
 			log.Error(err, "unable to get list of edge gateways",
 				"orgName", vcdClient.ClusterOrgName,
-				"zoneType", vcdCluster.Spec.MultiZoneSpec.ZoneTopology,
+				"zoneTopology", vcdCluster.Spec.MultiZoneSpec.ZoneTopology,
 				"zones", vcdCluster.Spec.MultiZoneSpec.Zones)
 			return ctrl.Result{}, errors.Wrapf(err,
-				"unable to get list of edge gateways for Org Name [%s], zoneType [%s] and zones [%v]",
+				"unable to get list of edge gateways for Org Name [%s], zoneTopology type [%s] and zones [%v]",
 				vcdClient.ClusterOrgName, vcdCluster.Spec.MultiZoneSpec.ZoneTopology, vcdCluster.Spec.MultiZoneSpec.Zones)
 		}
 
@@ -1109,10 +1109,10 @@ func (r *VCDClusterReconciler) reconcileLoadBalancer(ctx context.Context, vcdClu
 			edgeGatewayDetails, ok := edgeGatewayDetailsMap[zone.Name]
 			if !ok {
 				log.Error(err, "unable to get edge gateway details",
-					"orgName", vcdClient.ClusterOrgName, "zoneType", vcdCluster.Spec.MultiZoneSpec.ZoneTopology,
+					"orgName", vcdClient.ClusterOrgName, "zoneTopology", vcdCluster.Spec.MultiZoneSpec.ZoneTopology,
 					"zone", zone)
 				return ctrl.Result{}, errors.Wrapf(err,
-					"unable to get list of edge gateways for Org Name [%s], zoneType [%s] and zone [%v]",
+					"unable to get list of edge gateways for Org Name [%s], zoneTopology [%s] and zone [%v]",
 					vcdClient.ClusterOrgName, vcdCluster.Spec.MultiZoneSpec.ZoneTopology, zone)
 			}
 
@@ -1140,10 +1140,10 @@ func (r *VCDClusterReconciler) reconcileLoadBalancer(ctx context.Context, vcdClu
 		break
 	default:
 		// this is an irreconcilable FATAL error; this should be handled by an Admission Controller
-		err := fmt.Errorf("unknown zoneType [%s]", vcdCluster.Spec.MultiZoneSpec.ZoneTopology)
-		log.Error(err, "Unable to process cluster with Zones but incorrect ZoneType")
+		err := fmt.Errorf("unknown zoneTopology type [%s]", vcdCluster.Spec.MultiZoneSpec.ZoneTopology)
+		log.Error(err, "Unable to process cluster with Zones but incorrect zoneTopology type")
 		return ctrl.Result{}, errors.Wrapf(err,
-			"unable process cluster [%s:%s] with invalid ZoneType [%s]",
+			"unable to process cluster [%s:%s] with invalid zoneTopology [%s]",
 			vcdCluster.Name, vcdCluster.Status.InfraId, vcdCluster.Spec.MultiZoneSpec.ZoneTopology)
 	}
 
@@ -1209,10 +1209,10 @@ func (r *VCDClusterReconciler) reconcileLoadBalancer(ctx context.Context, vcdClu
 				break
 			default:
 				// this is an irreconcilable FATAL error; this should be handled by an Admission Controller
-				err := fmt.Errorf("unknown zoneType [%s]", vcdCluster.Spec.MultiZoneSpec.ZoneTopology)
-				log.Error(err, "Unable to process cluster with Zones but incorrect ZoneType")
+				err := fmt.Errorf("unknown zoneTopology [%s]", vcdCluster.Spec.MultiZoneSpec.ZoneTopology)
+				log.Error(err, "Unable to process cluster with Zones but incorrect zoneTopology")
 				return ctrl.Result{}, errors.Wrapf(err,
-					"unable process cluster [%s:%s] with invalid ZoneType [%s]",
+					"unable to process cluster [%s:%s] with invalid zoneTopology [%s]",
 					vcdCluster.Name, vcdCluster.Status.InfraId, vcdCluster.Spec.MultiZoneSpec.ZoneTopology)
 			}
 			if controlPlanePort == 0 {
@@ -1383,6 +1383,10 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	vcdCluster.Status.ParentUID = vcdCluster.Spec.ParentUID
 	vcdCluster.Status.ProxyConfig = vcdCluster.Spec.ProxyConfigSpec
 	vcdCluster.Status.LoadBalancerConfig = vcdCluster.Spec.LoadBalancerConfigSpec
+
+	// TODO: Add a validation webhook to check if control plane endpoint has not changed
+
+	// TODO(MultiAZ): handle changes to zone map; eg: change in OVDC name of the zone, change in OVDC network name
 
 	// create load balancer for the cluster
 	if result, err := r.reconcileLoadBalancer(ctx, vcdCluster, vcdClient, skipRDEEventUpdates); err != nil {
@@ -1678,10 +1682,10 @@ func (r *VCDClusterReconciler) reconcileDeleteVApps(ctx context.Context,
 		break
 	default:
 		// this is an irreconcilable FATAL error; this should be handled by an Admission Controller
-		err := fmt.Errorf("unknown zoneType [%s]", vcdCluster.Spec.MultiZoneSpec.ZoneTopology)
-		log.Error(err, "Unable to process cluster with Zones but incorrect ZoneType")
+		err := fmt.Errorf("unknown zoneTopology [%s]", vcdCluster.Spec.MultiZoneSpec.ZoneTopology)
+		log.Error(err, "Unable to process cluster with Zones but incorrect zoneTopology")
 		return ctrl.Result{}, errors.Wrapf(err,
-			"unable process cluster [%s:%s] with invalid ZoneType [%s]",
+			"unable to process cluster [%s:%s] with invalid zoneTopology [%s]",
 			vcdCluster.Name, vcdCluster.Status.InfraId, vcdCluster.Spec.MultiZoneSpec.ZoneTopology)
 	}
 	return ctrl.Result{}, nil
@@ -1782,8 +1786,8 @@ func (r *VCDClusterReconciler) reconcileDelete(ctx context.Context,
 	}
 
 	if vcdCluster.Spec.MultiZoneSpec.ZoneTopology != infrav1beta3.SingleZone && len(vcdCluster.Spec.MultiZoneSpec.Zones) == 0 {
-		log.Info("ZoneType specified but no zones specified. Hence no LB created",
-			"zoneType", vcdCluster.Spec.MultiZoneSpec.Zones)
+		log.Info("zoneTopology specified but no zones specified. Hence no LB created",
+			"zoneTopology", vcdCluster.Spec.MultiZoneSpec.Zones)
 		return ctrl.Result{}, nil
 	}
 
