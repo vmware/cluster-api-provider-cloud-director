@@ -2020,7 +2020,8 @@ spec:
                 type: array
               failureDomain:
                 description: FailureDomain is the failure domain the machine will
-                  be created in.
+                  be created in. Must match a key in the FailureDomains map stored
+                  on the cluster object.
                 type: string
               placementPolicy:
                 description: PlacementPolicy is the placement policy to be used on
@@ -2556,7 +2557,8 @@ spec:
                         type: array
                       failureDomain:
                         description: FailureDomain is the failure domain the machine
-                          will be created in.
+                          will be created in. Must match a key in the FailureDomains
+                          map stored on the cluster object.
                         type: string
                       placementPolicy:
                         description: PlacementPolicy is the placement policy to be
