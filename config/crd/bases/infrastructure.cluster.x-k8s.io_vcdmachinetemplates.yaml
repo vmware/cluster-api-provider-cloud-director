@@ -380,6 +380,8 @@ spec:
                         items:
                           type: string
                         type: array
+                      failureDomain:
+                        type: string
                       placementPolicy:
                         description: PlacementPolicy is the placement policy to be
                           used on this machine.

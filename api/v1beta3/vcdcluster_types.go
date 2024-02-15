@@ -83,6 +83,9 @@ type LoadBalancerConfig struct {
 type ZoneTopologyType string
 
 const (
+	// SingleZone is a case where all the nodes of the cluster are in a single availability zone.
+	// This is the default case where the cluster is created without any zone details.
+	SingleZone ZoneTopologyType = ""
 	// DCGroup is the case where the networks in all zones are connected in a DC-Group to a single NSX-T instance and a
 	// single Avi controller. All the OVDCs in the zones are connected to the same Edge Gateway. One Avi Controller
 	// handles one Virtual Service that fronts the cluster.

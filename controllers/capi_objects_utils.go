@@ -254,14 +254,8 @@ func removeVcdResourceFromVcdCluster(vcdCluster *infrav1beta3.VCDCluster, vcdRes
 // Use the ovdcID to execute VCD API Call to get the ovdc in VCD.
 // compare the oldOvdcName and newOvdcName.
 // Return changed, vdc object, error.
-func checkIfOvdcNameChange(vcdCluster *infrav1beta3.VCDCluster, client *vcdsdk.Client) (bool, *govcd.Vdc, error) {
+func checkIfOvdcNameChange(vcdCluster *infrav1beta3.VCDCluster, client *vcdsdk.Client, ovdcName string) (bool, *govcd.Vdc, error) {
 	orgName := vcdCluster.Spec.Org
-	ovdcSpecName := vcdCluster.Spec.Ovdc
-
-	ovdcStatusName := vcdCluster.Status.Ovdc
-	if ovdcStatusName == "" {
-		ovdcStatusName = ovdcSpecName
-	}
 
 	ovdcID := ""
 	nameChanged := false
@@ -270,7 +264,7 @@ func checkIfOvdcNameChange(vcdCluster *infrav1beta3.VCDCluster, client *vcdsdk.C
 
 	if vcdCluster.Status.VcdResourceMap.Ovdcs != nil && len(vcdCluster.Status.VcdResourceMap.Ovdcs) > 0 {
 		for _, ovdc := range vcdCluster.Status.VcdResourceMap.Ovdcs {
-			if ovdc.Name == ovdcStatusName {
+			if ovdc.Name == ovdcName {
 				ovdcID = ovdc.ID
 			}
 		}
@@ -278,9 +272,9 @@ func checkIfOvdcNameChange(vcdCluster *infrav1beta3.VCDCluster, client *vcdsdk.C
 
 	// if ovdcID is not found in the vcdcluster.status.resourceSet, use ovdcStatusName instead to get the OVDC.
 	if ovdcID == "" {
-		ovdc, err = getOvdcByName(client, orgName, ovdcStatusName)
+		ovdc, err = getOvdcByName(client, orgName, ovdcName)
 		if err != nil {
-			return nameChanged, nil, fmt.Errorf("error occurred while checking if ovdcSpecName has changed; failed to get ovdc by Name [%s]: [%v]", ovdcStatusName, err)
+			return false, nil, fmt.Errorf("error occurred while checking if ovdcName has changed; failed to get ovdc by Name [%s]: [%v]", ovdcName, err)
 		}
 		//ovdcID is empty, which means we must add ovdc.Id and ovdc.Name to the resourceMap.ovdcs
 		nameChanged = true
@@ -295,7 +289,7 @@ func checkIfOvdcNameChange(vcdCluster *infrav1beta3.VCDCluster, client *vcdsdk.C
 			}
 			return nameChanged, nil, fmt.Errorf("error occurred while checking if ovdcSpecName has changed: [%v]", err)
 		}
-		nameChanged = ovdc.Vdc.Name != ovdcSpecName
+		nameChanged = ovdc.Vdc.Name != ovdcName
 	}
 	return nameChanged, ovdc, nil
 }
