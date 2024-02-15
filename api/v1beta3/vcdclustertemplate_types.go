@@ -29,7 +29,7 @@ type VCDClusterTemplateSpec struct {
 	// Important: Run "make" to regenerate code after modifying this file
 
 	// Foo is an example field of VCDClusterTemplate. Edit vcdclustertemplate_types.go to remove/update
-	Template VCDClusterTemplateResource `json:"foo,omitempty"`
+	Template VCDClusterTemplateResource `json:"template"`
 }
 
 type VCDClusterTemplateResource struct {
