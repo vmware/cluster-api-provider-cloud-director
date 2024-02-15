@@ -1,5 +1,6 @@
-CONTROLLER_GEN_VERSION := 0.4.1
-CONVERSION_GEN_VERSION := 0.23.1
+CONTROLLER_GEN_VERSION := 0.14.0
+CONVERSION_GEN_VERSION := 0.29.1
+CONTROLLER_RUNTIME_VERSION := 0.8.3
 LINT_VERSION := 1.51.2
 GOSEC_VERSION := "v2.16.0"
 KUSTOMIZE_VERSION := 4.5.7
@@ -132,7 +133,7 @@ build: ## Build CAPVCD binary. To be used from within a Dockerfile
 test: manifests generate ## Run tests.
 	@mkdir -p bin/testbin
 	test -f bin/testbin/setup-envtest.sh || \
-	curl -sSLo bin/testbin/setup-envtest.sh https://raw.githubusercontent.com/kubernetes-sigs/controller-runtime/v0.8.3/hack/setup-envtest.sh; \
+	curl -sSLo bin/testbin/setup-envtest.sh https://raw.githubusercontent.com/kubernetes-sigs/controller-runtime/v$(CONTROLLER_RUNTIME_VERSION)/hack/setup-envtest.sh; \
 	source bin/testbin/setup-envtest.sh; \
 	fetch_envtest_tools bin/testbin; \
 	setup_envtest_env "$(shell pwd)/bin/testbin"; \

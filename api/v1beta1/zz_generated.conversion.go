@@ -222,7 +222,7 @@ func RegisterConversions(s *runtime.Scheme) error {
 }
 
 func Convert_v1beta2_VCDClusterStatus_To_v1beta1_VCDClusterStatus(in *v1beta2.VCDClusterStatus, out *VCDClusterStatus, s conversion.Scope) error {
-	return autoConvert_v1beta2_VCDClusterStatus_To_v1beta1_VCDClusterStatus(in, out, s)
+    return autoConvert_v1beta2_VCDClusterStatus_To_v1beta1_VCDClusterStatus(in, out, s)
 }
 
 func autoConvert_v1beta1_APIEndpoint_To_v1beta2_APIEndpoint(in *APIEndpoint, out *v1beta2.APIEndpoint, s conversion.Scope) error {

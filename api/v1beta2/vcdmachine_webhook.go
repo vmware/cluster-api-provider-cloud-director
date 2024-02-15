@@ -24,6 +24,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
+    "sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
 // log is for logging in this package.
@@ -54,34 +55,34 @@ func (r *VCDMachine) Default() {
 var _ webhook.Validator = &VCDMachine{}
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
-func (r *VCDMachine) ValidateCreate() error {
+func (r *VCDMachine) ValidateCreate() (admission.Warnings, error) {
 	vcdmachinelog.Info("validate create", "name", r.Name)
 
 	// TODO(user): fill in your validation logic upon object creation.
-	return nil
+	return nil, nil
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
-func (r *VCDMachine) ValidateUpdate(oldRaw runtime.Object) error {
+func (r *VCDMachine) ValidateUpdate(oldRaw runtime.Object) (admission.Warnings, error) {
 	vcdmachinelog.Info("validate update", "name", r.Name)
 
 	old, ok := oldRaw.(*VCDMachine)
 	if !ok {
-		return apierrors.NewBadRequest(fmt.Sprintf("expected an VCDMachine but got a %T", oldRaw))
+		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected an VCDMachine but got a %T", oldRaw))
 	}
 
 	// the relation between CR->VM_NAME have to be consistent therefore VmNamingTemplate is immutable
 	if r.Spec.VmNamingTemplate != old.Spec.VmNamingTemplate {
-		return field.Forbidden(field.NewPath("spec.vmNamingTemplate"), "cannot be modified")
+		return nil, field.Forbidden(field.NewPath("spec.vmNamingTemplate"), "cannot be modified")
 	}
 
-	return nil
+	return nil, nil
 }
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type
-func (r *VCDMachine) ValidateDelete() error {
+func (r *VCDMachine) ValidateDelete() (admission.Warnings, error) {
 	vcdmachinelog.Info("validate delete", "name", r.Name)
 
 	// TODO(user): fill in your validation logic upon object deletion.
-	return nil
+	return nil, nil
 }
