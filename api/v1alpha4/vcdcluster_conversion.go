@@ -26,6 +26,9 @@ func (src *VCDCluster) ConvertTo(dstRaw conversion.Hub) error {
 	// In v1alpha4 DNAT rules (and one-arm) are used by default. Therefore, use that in v1beta3
 	dst.Spec.LoadBalancerConfigSpec.UseOneArm = true
 
+	dst.Spec.MultiZoneSpec.ExternalLoadBalancerConfig.EdgeGatewayZones = []v1beta3.EdgeGatewayZone{}
+	dst.Status.MultiZoneStatus.ExternalLoadBalancerConfig.EdgeGatewayZones = []v1beta3.EdgeGatewayZone{}
+
 	// manually restore data
 	restored := &v1beta3.VCDCluster{}
 	if ok, err := utilconversion.UnmarshalData(src, restored); err != nil || !ok {
