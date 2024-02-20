@@ -1176,6 +1176,7 @@ func (r *VCDClusterReconciler) reconcileLoadBalancer(ctx context.Context, vcdClu
 		}
 		virtualServiceNamePrefix := capisdk.GetVirtualServiceNamePrefix(vcdCluster.Name, vcdCluster.Status.InfraId)
 		lbPoolNamePrefix := capisdk.GetLoadBalancerPoolNamePrefix(vcdCluster.Name, vcdCluster.Status.InfraId)
+		lbIpClaimMarker := capisdk.GetLoadBalancerIpClaimMarker(vcdCluster.Name, vcdCluster.Status.InfraId)
 
 		var oneArm *vcdsdk.OneArm = nil
 		if vcdCluster.Spec.LoadBalancerConfigSpec.UseOneArm {
@@ -1227,7 +1228,8 @@ func (r *VCDClusterReconciler) reconcileLoadBalancer(ctx context.Context, vcdClu
 			resourcesAllocated = &vcdsdkutil.AllocatedResourcesMap{}
 			// here we set enableVirtualServiceSharedIP to ensure that we don't use a DNAT rule. The variable is possibly
 			// badly named. Though the user-facing name is good, the internal variable name could be better.
-			controlPlaneHost, err = gateway.CreateLoadBalancer(ctx, virtualServiceNamePrefix, lbPoolNamePrefix,
+			controlPlaneHost, err = gateway.CreateLoadBalancer(
+				ctx, virtualServiceNamePrefix, lbPoolNamePrefix, lbIpClaimMarker,
 				[]string{}, []vcdsdk.PortDetails{
 					{
 						Protocol:     "TCP",
@@ -1450,13 +1452,15 @@ func (r *VCDClusterReconciler) deleteLB(ctx context.Context, vcdClient *vcdsdk.C
 	// Delete the load balancer components
 	virtualServiceNamePrefix := capisdk.GetVirtualServiceNamePrefix(vcdCluster.Name, vcdCluster.Status.InfraId)
 	lbPoolNamePrefix := capisdk.GetVirtualServiceNamePrefix(vcdCluster.Name, vcdCluster.Status.InfraId)
+	lbIpClaimMarker := capisdk.GetLoadBalancerIpClaimMarker(vcdCluster.Name, vcdCluster.Status.InfraId)
 
 	var oneArm *vcdsdk.OneArm = nil
 	if vcdCluster.Spec.LoadBalancerConfigSpec.UseOneArm {
 		oneArm = &OneArmDefault
 	}
 	resourcesAllocated := &vcdsdkutil.AllocatedResourcesMap{}
-	_, err = gateway.DeleteLoadBalancer(ctx, virtualServiceNamePrefix, lbPoolNamePrefix,
+	_, err = gateway.DeleteLoadBalancer(
+		ctx, virtualServiceNamePrefix, lbPoolNamePrefix, lbIpClaimMarker,
 		[]vcdsdk.PortDetails{
 			{
 				Protocol:     "TCP",
