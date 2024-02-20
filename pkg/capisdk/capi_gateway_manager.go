@@ -19,3 +19,7 @@ func GetVirtualServiceNameUsingPrefix(virtualServiceNamePrefix string, portSuffi
 func GetLoadBalancerPoolNameUsingPrefix(lbPoolNamePrefix string, portSuffix string) string {
 	return fmt.Sprintf("%s-%s", lbPoolNamePrefix, portSuffix)
 }
+
+func GetLoadBalancerIpClaimMarker(clusterName string, clusterID string) string {
+	return fmt.Sprintf("cluster-%s-id-%s", clusterName, clusterID)
+}
