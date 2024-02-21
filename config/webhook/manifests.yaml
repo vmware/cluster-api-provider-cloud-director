@@ -1,9 +1,7 @@
-
 ---
 apiVersion: admissionregistration.k8s.io/v1
 kind: MutatingWebhookConfiguration
 metadata:
-  creationTimestamp: null
   name: mutating-webhook-configuration
 webhooks:
 - admissionReviewVersions:
@@ -14,7 +12,7 @@ webhooks:
       namespace: system
       path: /mutate-infrastructure-cluster-x-k8s-io-v1beta3-vcdcluster
   failurePolicy: Fail
-  name: mutation.vcdcluster.infrastructure.cluster.x-k8s.io
+  name: mutation.vcdcluster.kb.io.infrastructure.cluster.x-k8s.io
   rules:
   - apiGroups:
     - infrastructure.cluster.x-k8s.io
@@ -25,6 +23,26 @@ webhooks:
     - UPDATE
     resources:
     - vcdclusters
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
+      path: /mutate-infrastructure-cluster-x-k8s-io-v1beta3-vcdclustertemplate
+  failurePolicy: Fail
+  name: mutation.vcdclustertemplate.infrastructure.cluster.x-k8s.io
+  rules:
+  - apiGroups:
+    - infrastructure.cluster.x-k8s.io
+    apiVersions:
+    - v1beta3
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - vcdclustertemplates
   sideEffects: None
 - admissionReviewVersions:
   - v1
@@ -50,7 +68,6 @@ webhooks:
 apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingWebhookConfiguration
 metadata:
-  creationTimestamp: null
   name: validating-webhook-configuration
 webhooks:
 - admissionReviewVersions:
@@ -79,6 +96,26 @@ webhooks:
     service:
       name: webhook-service
       namespace: system
+      path: /validate-infrastructure-cluster-x-k8s-io-v1beta3-vcdclustertemplate
+  failurePolicy: Fail
+  name: validation.vcdclustertemplate.infrastructure.cluster.x-k8s.io
+  rules:
+  - apiGroups:
+    - infrastructure.cluster.x-k8s.io
+    apiVersions:
+    - v1beta3
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - vcdclustertemplates
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
       path: /validate-infrastructure-cluster-x-k8s-io-v1beta3-vcdmachine
   failurePolicy: Fail
   name: validation.vcdmachine.infrastructure.cluster.x-k8s.io
@@ -93,4 +130,3 @@ webhooks:
     resources:
     - vcdmachines
   sideEffects: None
----

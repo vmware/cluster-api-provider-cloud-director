@@ -35,7 +35,8 @@ func (r *VCDCluster) SetupWebhookWithManager(mgr ctrl.Manager) error {
 
 // TODO(user): EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 
-// +kubebuilder:webhook:path=/mutate-infrastructure-cluster-x-k8s-io-v1beta3-vcdcluster,mutating=true,failurePolicy=fail,sideEffects=None,groups=infrastructure.cluster.x-k8s.io,resources=vcdclusters,verbs=create;update,versions=v1beta3,name=mutation.vcdcluster.infrastructure.cluster.x-k8s.io,admissionReviewVersions=v1
+//+kubebuilder:webhook:path=/mutate-infrastructure-cluster-x-k8s-io-v1beta3-vcdcluster,mutating=true,failurePolicy=fail,sideEffects=None,groups=infrastructure.cluster.x-k8s.io,resources=vcdclusters,verbs=create;update,versions=v1beta3,name=mutation.vcdcluster.kb.io.infrastructure.cluster.x-k8s.io,admissionReviewVersions=v1
+
 var _ webhook.Defaulter = &VCDCluster{}
 
 // Default implements webhook.Defaulter so a webhook will be registered for the type
@@ -46,7 +47,8 @@ func (r *VCDCluster) Default() {
 }
 
 // TODO(user): change verbs to "verbs=create;update;delete" if you want to enable deletion validation.
-// +kubebuilder:webhook:path=/validate-infrastructure-cluster-x-k8s-io-v1beta3-vcdcluster,mutating=false,failurePolicy=fail,sideEffects=None,groups=infrastructure.cluster.x-k8s.io,resources=vcdclusters,verbs=create;update,versions=v1beta3,name=validation.vcdcluster.infrastructure.cluster.x-k8s.io,admissionReviewVersions=v1
+//+kubebuilder:webhook:path=/validate-infrastructure-cluster-x-k8s-io-v1beta3-vcdcluster,mutating=false,failurePolicy=fail,sideEffects=None,groups=infrastructure.cluster.x-k8s.io,resources=vcdclusters,verbs=create;update,versions=v1beta3,name=validation.vcdcluster.infrastructure.cluster.x-k8s.io,admissionReviewVersions=v1
+
 var _ webhook.Validator = &VCDCluster{}
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
