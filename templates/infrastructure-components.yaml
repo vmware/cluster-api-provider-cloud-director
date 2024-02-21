@@ -2978,6 +2978,26 @@ webhooks:
     service:
       name: capvcd-webhook-service
       namespace: capvcd-system
+      path: /mutate-infrastructure-cluster-x-k8s-io-v1beta3-vcdclustertemplate
+  failurePolicy: Fail
+  name: mutation.vcdclustertemplate.infrastructure.cluster.x-k8s.io
+  rules:
+  - apiGroups:
+    - infrastructure.cluster.x-k8s.io
+    apiVersions:
+    - v1beta3
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - vcdclustertemplates
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: capvcd-webhook-service
+      namespace: capvcd-system
       path: /mutate-infrastructure-cluster-x-k8s-io-v1beta3-vcdmachine
   failurePolicy: Fail
   name: mutation.vcdmachine.infrastructure.cluster.x-k8s.io
@@ -3021,6 +3041,26 @@ webhooks:
     - UPDATE
     resources:
     - vcdclusters
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: capvcd-webhook-service
+      namespace: capvcd-system
+      path: /validate-infrastructure-cluster-x-k8s-io-v1beta3-vcdclustertemplate
+  failurePolicy: Fail
+  name: validation.vcdclustertemplate.infrastructure.cluster.x-k8s.io
+  rules:
+  - apiGroups:
+    - infrastructure.cluster.x-k8s.io
+    apiVersions:
+    - v1beta3
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - vcdclustertemplates
   sideEffects: None
 - admissionReviewVersions:
   - v1

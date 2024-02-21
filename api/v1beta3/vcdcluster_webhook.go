@@ -35,7 +35,7 @@ func (r *VCDCluster) SetupWebhookWithManager(mgr ctrl.Manager) error {
 
 // TODO(user): EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 
-//+kubebuilder:webhook:path=/mutate-infrastructure-cluster-x-k8s-io-v1beta3-vcdcluster,mutating=true,failurePolicy=fail,sideEffects=None,groups=infrastructure.cluster.x-k8s.io,resources=vcdclusters,verbs=create;update,versions=v1beta3,name=mutation.vcdcluster.kb.io.infrastructure.cluster.x-k8s.io,admissionReviewVersions=v1
+//+kubebuilder:webhook:path=/mutate-infrastructure-cluster-x-k8s-io-v1beta3-vcdcluster,mutating=true,failurePolicy=fail,sideEffects=None,groups=infrastructure.cluster.x-k8s.io,resources=vcdclusters,verbs=create;update,versions=v1beta3,name=mutation.vcdcluster.infrastructure.cluster.x-k8s.io,admissionReviewVersions=v1
 
 var _ webhook.Defaulter = &VCDCluster{}
 
