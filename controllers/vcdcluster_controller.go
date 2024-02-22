@@ -799,7 +799,7 @@ func (r *VCDClusterReconciler) reconcileRDE(ctx context.Context, cluster *cluste
 		Ovdc: []rdeType.Ovdc{
 			{
 				Name:        vcdClient.VDC.Vdc.Name,
-				ID:          vcdClient.VDC.Vdc.Name,
+				ID:          vcdClient.VDC.Vdc.ID,
 				OvdcNetwork: vcdCluster.Spec.OvdcNetwork,
 			},
 		},
