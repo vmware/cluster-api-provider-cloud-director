@@ -10,7 +10,7 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     cert-manager.io/inject-ca-from: capvcd-system/capvcd-serving-cert
-    controller-gen.kubebuilder.io/version: v0.14.0
+    controller-gen.kubebuilder.io/version: v0.13.0
   labels:
     cluster.x-k8s.io/provider: infrastructure-vcd
     cluster.x-k8s.io/v1alpha4: v1alpha4
@@ -43,19 +43,14 @@ spec:
         description: VCDCluster is the Schema for the vcdclusters API
         properties:
           apiVersion:
-            description: |-
-              APIVersion defines the versioned schema of this representation of an object.
-              Servers should convert recognized schemas to the latest internal value, and
-              may reject unrecognized values.
-              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
             type: string
           kind:
-            description: |-
-              Kind is a string value representing the REST resource this object represents.
-              Servers may infer this from the endpoint the client submits requests to.
-              Cannot be updated.
-              In CamelCase.
-              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
             type: string
           metadata:
             type: object
@@ -111,37 +106,37 @@ spec:
                     operational state.
                   properties:
                     lastTransitionTime:
-                      description: |-
-                        Last time the condition transitioned from one status to another.
-                        This should be when the underlying condition changed. If that is not known, then using the time when
-                        the API field changed is acceptable.
+                      description: Last time the condition transitioned from one status
+                        to another. This should be when the underlying condition changed.
+                        If that is not known, then using the time when the API field
+                        changed is acceptable.
                       format: date-time
                       type: string
                     message:
-                      description: |-
-                        A human readable message indicating details about the transition.
-                        This field may be empty.
+                      description: A human readable message indicating details about
+                        the transition. This field may be empty.
                       type: string
                     reason:
-                      description: |-
-                        The reason for the condition's last transition in CamelCase.
-                        The specific API may choose whether or not this field is considered a guaranteed API.
-                        This field may not be empty.
+                      description: The reason for the condition's last transition
+                        in CamelCase. The specific API may choose whether or not this
+                        field is considered a guaranteed API. This field may not be
+                        empty.
                       type: string
                     severity:
-                      description: |-
-                        Severity provides an explicit classification of Reason code, so the users or machines can immediately
-                        understand the current situation and act accordingly.
-                        The Severity field MUST be set only when Status=False.
+                      description: Severity provides an explicit classification of
+                        Reason code, so the users or machines can immediately understand
+                        the current situation and act accordingly. The Severity field
+                        MUST be set only when Status=False.
                       type: string
                     status:
                       description: Status of the condition, one of True, False, Unknown.
                       type: string
                     type:
-                      description: |-
-                        Type of condition in CamelCase or in foo.example.com/CamelCase.
-                        Many .condition.type values are consistent across resources like Available, but because arbitrary conditions
-                        can be useful (see .node.status.conditions), the ability to deconflict is important.
+                      description: Type of condition in CamelCase or in foo.example.com/CamelCase.
+                        Many .condition.type values are consistent across resources
+                        like Available, but because arbitrary conditions can be useful
+                        (see .node.status.conditions), the ability to deconflict is
+                        important.
                       type: string
                   required:
                   - status
@@ -170,19 +165,14 @@ spec:
         description: VCDCluster is the Schema for the vcdclusters API
         properties:
           apiVersion:
-            description: |-
-              APIVersion defines the versioned schema of this representation of an object.
-              Servers should convert recognized schemas to the latest internal value, and
-              may reject unrecognized values.
-              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
             type: string
           kind:
-            description: |-
-              Kind is a string value representing the REST resource this object represents.
-              Servers may infer this from the endpoint the client submits requests to.
-              Cannot be updated.
-              In CamelCase.
-              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
             type: string
           metadata:
             type: object
@@ -246,9 +236,8 @@ spec:
                   refreshToken:
                     type: string
                   secretRef:
-                    description: |-
-                      SecretReference represents a Secret Reference. It has enough information to retrieve secret
-                      in any namespace
+                    description: SecretReference represents a Secret Reference. It
+                      has enough information to retrieve secret in any namespace
                     properties:
                       name:
                         description: name is unique within a namespace to reference
@@ -280,37 +269,37 @@ spec:
                     operational state.
                   properties:
                     lastTransitionTime:
-                      description: |-
-                        Last time the condition transitioned from one status to another.
-                        This should be when the underlying condition changed. If that is not known, then using the time when
-                        the API field changed is acceptable.
+                      description: Last time the condition transitioned from one status
+                        to another. This should be when the underlying condition changed.
+                        If that is not known, then using the time when the API field
+                        changed is acceptable.
                       format: date-time
                       type: string
                     message:
-                      description: |-
-                        A human readable message indicating details about the transition.
-                        This field may be empty.
+                      description: A human readable message indicating details about
+                        the transition. This field may be empty.
                       type: string
                     reason:
-                      description: |-
-                        The reason for the condition's last transition in CamelCase.
-                        The specific API may choose whether or not this field is considered a guaranteed API.
-                        This field may not be empty.
+                      description: The reason for the condition's last transition
+                        in CamelCase. The specific API may choose whether or not this
+                        field is considered a guaranteed API. This field may not be
+                        empty.
                       type: string
                     severity:
-                      description: |-
-                        Severity provides an explicit classification of Reason code, so the users or machines can immediately
-                        understand the current situation and act accordingly.
-                        The Severity field MUST be set only when Status=False.
+                      description: Severity provides an explicit classification of
+                        Reason code, so the users or machines can immediately understand
+                        the current situation and act accordingly. The Severity field
+                        MUST be set only when Status=False.
                       type: string
                     status:
                       description: Status of the condition, one of True, False, Unknown.
                       type: string
                     type:
-                      description: |-
-                        Type of condition in CamelCase or in foo.example.com/CamelCase.
-                        Many .condition.type values are consistent across resources like Available, but because arbitrary conditions
-                        can be useful (see .node.status.conditions), the ability to deconflict is important.
+                      description: Type of condition in CamelCase or in foo.example.com/CamelCase.
+                        Many .condition.type values are consistent across resources
+                        like Available, but because arbitrary conditions can be useful
+                        (see .node.status.conditions), the ability to deconflict is
+                        important.
                       type: string
                   required:
                   - lastTransitionTime
@@ -389,19 +378,14 @@ spec:
         description: VCDCluster is the Schema for the vcdclusters API
         properties:
           apiVersion:
-            description: |-
-              APIVersion defines the versioned schema of this representation of an object.
-              Servers should convert recognized schemas to the latest internal value, and
-              may reject unrecognized values.
-              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
             type: string
           kind:
-            description: |-
-              Kind is a string value representing the REST resource this object represents.
-              Servers may infer this from the endpoint the client submits requests to.
-              Cannot be updated.
-              In CamelCase.
-              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
             type: string
           metadata:
             type: object
@@ -465,9 +449,8 @@ spec:
                   refreshToken:
                     type: string
                   secretRef:
-                    description: |-
-                      SecretReference represents a Secret Reference. It has enough information to retrieve secret
-                      in any namespace
+                    description: SecretReference represents a Secret Reference. It
+                      has enough information to retrieve secret in any namespace
                     properties:
                       name:
                         description: name is unique within a namespace to reference
@@ -499,37 +482,37 @@ spec:
                     operational state.
                   properties:
                     lastTransitionTime:
-                      description: |-
-                        Last time the condition transitioned from one status to another.
-                        This should be when the underlying condition changed. If that is not known, then using the time when
-                        the API field changed is acceptable.
+                      description: Last time the condition transitioned from one status
+                        to another. This should be when the underlying condition changed.
+                        If that is not known, then using the time when the API field
+                        changed is acceptable.
                       format: date-time
                       type: string
                     message:
-                      description: |-
-                        A human readable message indicating details about the transition.
-                        This field may be empty.
+                      description: A human readable message indicating details about
+                        the transition. This field may be empty.
                       type: string
                     reason:
-                      description: |-
-                        The reason for the condition's last transition in CamelCase.
-                        The specific API may choose whether or not this field is considered a guaranteed API.
-                        This field may not be empty.
+                      description: The reason for the condition's last transition
+                        in CamelCase. The specific API may choose whether or not this
+                        field is considered a guaranteed API. This field may not be
+                        empty.
                       type: string
                     severity:
-                      description: |-
-                        Severity provides an explicit classification of Reason code, so the users or machines can immediately
-                        understand the current situation and act accordingly.
-                        The Severity field MUST be set only when Status=False.
+                      description: Severity provides an explicit classification of
+                        Reason code, so the users or machines can immediately understand
+                        the current situation and act accordingly. The Severity field
+                        MUST be set only when Status=False.
                       type: string
                     status:
                       description: Status of the condition, one of True, False, Unknown.
                       type: string
                     type:
-                      description: |-
-                        Type of condition in CamelCase or in foo.example.com/CamelCase.
-                        Many .condition.type values are consistent across resources like Available, but because arbitrary conditions
-                        can be useful (see .node.status.conditions), the ability to deconflict is important.
+                      description: Type of condition in CamelCase or in foo.example.com/CamelCase.
+                        Many .condition.type values are consistent across resources
+                        like Available, but because arbitrary conditions can be useful
+                        (see .node.status.conditions), the ability to deconflict is
+                        important.
                       type: string
                   required:
                   - lastTransitionTime
@@ -630,19 +613,14 @@ spec:
         description: VCDCluster is the Schema for the vcdclusters API
         properties:
           apiVersion:
-            description: |-
-              APIVersion defines the versioned schema of this representation of an object.
-              Servers should convert recognized schemas to the latest internal value, and
-              may reject unrecognized values.
-              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
             type: string
           kind:
-            description: |-
-              Kind is a string value representing the REST resource this object represents.
-              Servers may infer this from the endpoint the client submits requests to.
-              Cannot be updated.
-              In CamelCase.
-              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
             type: string
           metadata:
             type: object
@@ -674,9 +652,8 @@ spec:
                     type: string
                 type: object
               multiZoneSpec:
-                description: |-
-                  MultiZoneSpec provides details of the configuration of the zones in the cluster as well as the NetworkTopologyType
-                  used.
+                description: MultiZoneSpec provides details of the configuration of
+                  the zones in the cluster as well as the NetworkTopologyType used.
                 properties:
                   dcGroupConfig:
                     description: DCGroupConfig contains configuration for DCGroup
@@ -690,8 +667,8 @@ spec:
                         description: EdgeGatewayZones defines a list of zones containing
                           an edge gateway.
                         items:
-                          description: |-
-                            EdgeGatewayZone provides the details of a zone containing an edge gateway. Used with ExternalLoadBalancer topology.
+                          description: EdgeGatewayZone provides the details of a zone
+                            containing an edge gateway. Used with ExternalLoadBalancer
                             topology.
                           properties:
                             loadBalancerIP:
@@ -728,9 +705,9 @@ spec:
                     - edgeGatewayZone
                     type: object
                   zoneTopology:
-                    description: |-
-                      ZoneTopology defines the type of network topology used across zones in a Multi-AZ deployment.
-                      Valid options are DCGroup, UserSpecifiedEdgeGateway, and ExternalLoadBalancer,
+                    description: ZoneTopology defines the type of network topology
+                      used across zones in a Multi-AZ deployment. Valid options are
+                      DCGroup, UserSpecifiedEdgeGateway, and ExternalLoadBalancer,
                     type: string
                   zones:
                     description: Zones defines the list of zones that this cluster
@@ -765,9 +742,9 @@ spec:
               org:
                 type: string
               ovcdZoneConfigMap:
-                description: |-
-                  OVDCZoneConfigMap defines the name of a config map storing the mapping Zone -> OVDC in a Multi-AZ
-                  deployment. e.g. zone1 -> ovdc1, zone2 -> ovdc2
+                description: OVDCZoneConfigMap defines the name of a config map storing
+                  the mapping Zone -> OVDC in a Multi-AZ deployment. e.g. zone1 ->
+                  ovdc1, zone2 -> ovdc2
                 type: string
               ovdc:
                 type: string
@@ -800,9 +777,8 @@ spec:
                   refreshToken:
                     type: string
                   secretRef:
-                    description: |-
-                      SecretReference represents a Secret Reference. It has enough information to retrieve secret
-                      in any namespace
+                    description: SecretReference represents a Secret Reference. It
+                      has enough information to retrieve secret in any namespace
                     properties:
                       name:
                         description: name is unique within a namespace to reference
@@ -834,37 +810,37 @@ spec:
                     operational state.
                   properties:
                     lastTransitionTime:
-                      description: |-
-                        Last time the condition transitioned from one status to another.
-                        This should be when the underlying condition changed. If that is not known, then using the time when
-                        the API field changed is acceptable.
+                      description: Last time the condition transitioned from one status
+                        to another. This should be when the underlying condition changed.
+                        If that is not known, then using the time when the API field
+                        changed is acceptable.
                       format: date-time
                       type: string
                     message:
-                      description: |-
-                        A human readable message indicating details about the transition.
-                        This field may be empty.
+                      description: A human readable message indicating details about
+                        the transition. This field may be empty.
                       type: string
                     reason:
-                      description: |-
-                        The reason for the condition's last transition in CamelCase.
-                        The specific API may choose whether or not this field is considered a guaranteed API.
-                        This field may not be empty.
+                      description: The reason for the condition's last transition
+                        in CamelCase. The specific API may choose whether or not this
+                        field is considered a guaranteed API. This field may not be
+                        empty.
                       type: string
                     severity:
-                      description: |-
-                        Severity provides an explicit classification of Reason code, so the users or machines can immediately
-                        understand the current situation and act accordingly.
-                        The Severity field MUST be set only when Status=False.
+                      description: Severity provides an explicit classification of
+                        Reason code, so the users or machines can immediately understand
+                        the current situation and act accordingly. The Severity field
+                        MUST be set only when Status=False.
                       type: string
                     status:
                       description: Status of the condition, one of True, False, Unknown.
                       type: string
                     type:
-                      description: |-
-                        Type of condition in CamelCase or in foo.example.com/CamelCase.
-                        Many .condition.type values are consistent across resources like Available, but because arbitrary conditions
-                        can be useful (see .node.status.conditions), the ability to deconflict is important.
+                      description: Type of condition in CamelCase or in foo.example.com/CamelCase.
+                        Many .condition.type values are consistent across resources
+                        like Available, but because arbitrary conditions can be useful
+                        (see .node.status.conditions), the ability to deconflict is
+                        important.
                       type: string
                   required:
                   - lastTransitionTime
@@ -874,9 +850,9 @@ spec:
                 type: array
               failureDomains:
                 additionalProperties:
-                  description: |-
-                    FailureDomainSpec is the Schema for Cluster API failure domains.
-                    It allows controllers to understand how many failure domains a cluster can optionally span across.
+                  description: FailureDomainSpec is the Schema for Cluster API failure
+                    domains. It allows controllers to understand how many failure
+                    domains a cluster can optionally span across.
                   properties:
                     attributes:
                       additionalProperties:
@@ -889,9 +865,9 @@ spec:
                         is suitable for use by control plane machines.
                       type: boolean
                   type: object
-                description: |-
-                  FailureDomains lists the zones of this cluster. This field is parsed from the Zones field of
-                  vcdCluster.Spec.MultiZoneSpec if set up appropriately.
+                description: FailureDomains lists the zones of this cluster. This
+                  field is parsed from the Zones field of vcdCluster.Spec.MultiZoneSpec
+                  if set up appropriately.
                 type: object
               infraId:
                 type: string
@@ -922,8 +898,8 @@ spec:
                         description: EdgeGatewayZones defines a list of zones containing
                           an edge gateway.
                         items:
-                          description: |-
-                            EdgeGatewayZone provides the details of a zone containing an edge gateway. Used with ExternalLoadBalancer topology.
+                          description: EdgeGatewayZone provides the details of a zone
+                            containing an edge gateway. Used with ExternalLoadBalancer
                             topology.
                           properties:
                             loadBalancerIP:
@@ -960,9 +936,9 @@ spec:
                     - edgeGatewayZone
                     type: object
                   zoneTopology:
-                    description: |-
-                      ZoneTopology defines the type of network topology used across zones in a Multi-AZ deployment.
-                      Valid options are DCGroup, UserSpecifiedEdgeGateway, and ExternalLoadBalancer
+                    description: ZoneTopology defines the type of network topology
+                      used across zones in a Multi-AZ deployment. Valid options are
+                      DCGroup, UserSpecifiedEdgeGateway, and ExternalLoadBalancer
                     type: string
                   zones:
                     description: Zones defines the list of zones this cluster is configured
@@ -1108,19 +1084,14 @@ spec:
           API
         properties:
           apiVersion:
-            description: |-
-              APIVersion defines the versioned schema of this representation of an object.
-              Servers should convert recognized schemas to the latest internal value, and
-              may reject unrecognized values.
-              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
             type: string
           kind:
-            description: |-
-              Kind is a string value representing the REST resource this object represents.
-              Servers may infer this from the endpoint the client submits requests to.
-              Cannot be updated.
-              In CamelCase.
-              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
             type: string
           metadata:
             type: object
@@ -1193,9 +1164,9 @@ spec:
                           refreshToken:
                             type: string
                           secretRef:
-                            description: |-
-                              SecretReference represents a Secret Reference. It has enough information to retrieve secret
-                              in any namespace
+                            description: SecretReference represents a Secret Reference.
+                              It has enough information to retrieve secret in any
+                              namespace
                             properties:
                               name:
                                 description: name is unique within a namespace to
@@ -1457,7 +1428,7 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     cert-manager.io/inject-ca-from: capvcd-system/capvcd-serving-cert
-    controller-gen.kubebuilder.io/version: v0.14.0
+    controller-gen.kubebuilder.io/version: v0.13.0
   labels:
     cluster.x-k8s.io/provider: infrastructure-vcd
     cluster.x-k8s.io/v1alpha4: v1alpha4
@@ -1490,19 +1461,14 @@ spec:
         description: VCDMachine is the Schema for the vcdmachines API
         properties:
           apiVersion:
-            description: |-
-              APIVersion defines the versioned schema of this representation of an object.
-              Servers should convert recognized schemas to the latest internal value, and
-              may reject unrecognized values.
-              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
             type: string
           kind:
-            description: |-
-              Kind is a string value representing the REST resource this object represents.
-              Servers may infer this from the endpoint the client submits requests to.
-              Cannot be updated.
-              In CamelCase.
-              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
             type: string
           metadata:
             type: object
@@ -1510,9 +1476,8 @@ spec:
             description: VCDMachineSpec defines the desired state of VCDMachine
             properties:
               bootstrapped:
-                description: |-
-                  Bootstrapped is true when the kubeadm bootstrapping has been run
-                  against this machine
+                description: Bootstrapped is true when the kubeadm bootstrapping has
+                  been run against this machine
                 type: boolean
               catalog:
                 description: Catalog hosting templates
@@ -1559,37 +1524,37 @@ spec:
                     operational state.
                   properties:
                     lastTransitionTime:
-                      description: |-
-                        Last time the condition transitioned from one status to another.
-                        This should be when the underlying condition changed. If that is not known, then using the time when
-                        the API field changed is acceptable.
+                      description: Last time the condition transitioned from one status
+                        to another. This should be when the underlying condition changed.
+                        If that is not known, then using the time when the API field
+                        changed is acceptable.
                       format: date-time
                       type: string
                     message:
-                      description: |-
-                        A human readable message indicating details about the transition.
-                        This field may be empty.
+                      description: A human readable message indicating details about
+                        the transition. This field may be empty.
                       type: string
                     reason:
-                      description: |-
-                        The reason for the condition's last transition in CamelCase.
-                        The specific API may choose whether or not this field is considered a guaranteed API.
-                        This field may not be empty.
+                      description: The reason for the condition's last transition
+                        in CamelCase. The specific API may choose whether or not this
+                        field is considered a guaranteed API. This field may not be
+                        empty.
                       type: string
                     severity:
-                      description: |-
-                        Severity provides an explicit classification of Reason code, so the users or machines can immediately
-                        understand the current situation and act accordingly.
-                        The Severity field MUST be set only when Status=False.
+                      description: Severity provides an explicit classification of
+                        Reason code, so the users or machines can immediately understand
+                        the current situation and act accordingly. The Severity field
+                        MUST be set only when Status=False.
                       type: string
                     status:
                       description: Status of the condition, one of True, False, Unknown.
                       type: string
                     type:
-                      description: |-
-                        Type of condition in CamelCase or in foo.example.com/CamelCase.
-                        Many .condition.type values are consistent across resources like Available, but because arbitrary conditions
-                        can be useful (see .node.status.conditions), the ability to deconflict is important.
+                      description: Type of condition in CamelCase or in foo.example.com/CamelCase.
+                        Many .condition.type values are consistent across resources
+                        like Available, but because arbitrary conditions can be useful
+                        (see .node.status.conditions), the ability to deconflict is
+                        important.
                       type: string
                   required:
                   - status
@@ -1612,19 +1577,14 @@ spec:
         description: VCDMachine is the Schema for the vcdmachines API
         properties:
           apiVersion:
-            description: |-
-              APIVersion defines the versioned schema of this representation of an object.
-              Servers should convert recognized schemas to the latest internal value, and
-              may reject unrecognized values.
-              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
             type: string
           kind:
-            description: |-
-              Kind is a string value representing the REST resource this object represents.
-              Servers may infer this from the endpoint the client submits requests to.
-              Cannot be updated.
-              In CamelCase.
-              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
             type: string
           metadata:
             type: object
@@ -1632,9 +1592,8 @@ spec:
             description: VCDMachineSpec defines the desired state of VCDMachine
             properties:
               bootstrapped:
-                description: |-
-                  Bootstrapped is true when the kubeadm bootstrapping has been run
-                  against this machine
+                description: Bootstrapped is true when the kubeadm bootstrapping has
+                  been run against this machine
                 type: boolean
               catalog:
                 description: Catalog hosting templates
@@ -1648,9 +1607,9 @@ spec:
                 pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                 x-kubernetes-int-or-string: true
               enableNvidiaGPU:
-                description: |-
-                  EnableNvidiaGPU is true when a VM should be created with the relevant binaries installed
-                  If true, then an appropriate placement policy should be set
+                description: EnableNvidiaGPU is true when a VM should be created with
+                  the relevant binaries installed If true, then an appropriate placement
+                  policy should be set
                 type: boolean
               placementPolicy:
                 description: PlacementPolicy is the placement policy to be used on
@@ -1661,9 +1620,9 @@ spec:
                   (vmware-cloud-director://<vm id>)
                 type: string
               sizingPolicy:
-                description: |-
-                  SizingPolicy is the sizing policy to be used on this machine.
-                  If no sizing policy is specified, default sizing policy will be used to create the nodes
+                description: SizingPolicy is the sizing policy to be used on this
+                  machine. If no sizing policy is specified, default sizing policy
+                  will be used to create the nodes
                 type: string
               storageProfile:
                 description: StorageProfile is the storage profile to be used on this
@@ -1703,37 +1662,37 @@ spec:
                     operational state.
                   properties:
                     lastTransitionTime:
-                      description: |-
-                        Last time the condition transitioned from one status to another.
-                        This should be when the underlying condition changed. If that is not known, then using the time when
-                        the API field changed is acceptable.
+                      description: Last time the condition transitioned from one status
+                        to another. This should be when the underlying condition changed.
+                        If that is not known, then using the time when the API field
+                        changed is acceptable.
                       format: date-time
                       type: string
                     message:
-                      description: |-
-                        A human readable message indicating details about the transition.
-                        This field may be empty.
+                      description: A human readable message indicating details about
+                        the transition. This field may be empty.
                       type: string
                     reason:
-                      description: |-
-                        The reason for the condition's last transition in CamelCase.
-                        The specific API may choose whether or not this field is considered a guaranteed API.
-                        This field may not be empty.
+                      description: The reason for the condition's last transition
+                        in CamelCase. The specific API may choose whether or not this
+                        field is considered a guaranteed API. This field may not be
+                        empty.
                       type: string
                     severity:
-                      description: |-
-                        Severity provides an explicit classification of Reason code, so the users or machines can immediately
-                        understand the current situation and act accordingly.
-                        The Severity field MUST be set only when Status=False.
+                      description: Severity provides an explicit classification of
+                        Reason code, so the users or machines can immediately understand
+                        the current situation and act accordingly. The Severity field
+                        MUST be set only when Status=False.
                       type: string
                     status:
                       description: Status of the condition, one of True, False, Unknown.
                       type: string
                     type:
-                      description: |-
-                        Type of condition in CamelCase or in foo.example.com/CamelCase.
-                        Many .condition.type values are consistent across resources like Available, but because arbitrary conditions
-                        can be useful (see .node.status.conditions), the ability to deconflict is important.
+                      description: Type of condition in CamelCase or in foo.example.com/CamelCase.
+                        Many .condition.type values are consistent across resources
+                        like Available, but because arbitrary conditions can be useful
+                        (see .node.status.conditions), the ability to deconflict is
+                        important.
                       type: string
                   required:
                   - lastTransitionTime
@@ -1785,19 +1744,14 @@ spec:
         description: VCDMachine is the Schema for the vcdmachines API
         properties:
           apiVersion:
-            description: |-
-              APIVersion defines the versioned schema of this representation of an object.
-              Servers should convert recognized schemas to the latest internal value, and
-              may reject unrecognized values.
-              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
             type: string
           kind:
-            description: |-
-              Kind is a string value representing the REST resource this object represents.
-              Servers may infer this from the endpoint the client submits requests to.
-              Cannot be updated.
-              In CamelCase.
-              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
             type: string
           metadata:
             type: object
@@ -1805,9 +1759,8 @@ spec:
             description: VCDMachineSpec defines the desired state of VCDMachine
             properties:
               bootstrapped:
-                description: |-
-                  Bootstrapped is true when the kubeadm bootstrapping has been run
-                  against this machine
+                description: Bootstrapped is true when the kubeadm bootstrapping has
+                  been run against this machine
                 type: boolean
               catalog:
                 description: Catalog hosting templates
@@ -1821,14 +1774,14 @@ spec:
                 pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                 x-kubernetes-int-or-string: true
               enableNvidiaGPU:
-                description: |-
-                  EnableNvidiaGPU is true when a VM should be created with the relevant binaries installed
-                  If true, then an appropriate placement policy should be set
+                description: EnableNvidiaGPU is true when a VM should be created with
+                  the relevant binaries installed If true, then an appropriate placement
+                  policy should be set
                 type: boolean
               extraOvdcNetworks:
-                description: |-
-                  ExtraOvdcNetworks is the list of extra Ovdc Networks that are mounted to machines.
-                  VCDClusterSpec.OvdcNetwork is always attached regardless of this field.
+                description: ExtraOvdcNetworks is the list of extra Ovdc Networks
+                  that are mounted to machines. VCDClusterSpec.OvdcNetwork is always
+                  attached regardless of this field.
                 items:
                   type: string
                 type: array
@@ -1841,9 +1794,9 @@ spec:
                   (vmware-cloud-director://<vm id>)
                 type: string
               sizingPolicy:
-                description: |-
-                  SizingPolicy is the sizing policy to be used on this machine.
-                  If no sizing policy is specified, default sizing policy will be used to create the nodes
+                description: SizingPolicy is the sizing policy to be used on this
+                  machine. If no sizing policy is specified, default sizing policy
+                  will be used to create the nodes
                 type: string
               storageProfile:
                 description: StorageProfile is the storage profile to be used on this
@@ -1854,10 +1807,10 @@ spec:
                   to be used
                 type: string
               vmNamingTemplate:
-                description: |-
-                  VmNamingTemplate is go template to generate VM names based on Machine and VCDMachine CRs.
-                  Functions of Sprig library are supported. See https://github.com/Masterminds/sprig
-                  Immutable field. machine.Name is used as VM name when this field is empty.
+                description: VmNamingTemplate is go template to generate VM names
+                  based on Machine and VCDMachine CRs. Functions of Sprig library
+                  are supported. See https://github.com/Masterminds/sprig Immutable
+                  field. machine.Name is used as VM name when this field is empty.
                 type: string
             type: object
           status:
@@ -1889,37 +1842,37 @@ spec:
                     operational state.
                   properties:
                     lastTransitionTime:
-                      description: |-
-                        Last time the condition transitioned from one status to another.
-                        This should be when the underlying condition changed. If that is not known, then using the time when
-                        the API field changed is acceptable.
+                      description: Last time the condition transitioned from one status
+                        to another. This should be when the underlying condition changed.
+                        If that is not known, then using the time when the API field
+                        changed is acceptable.
                       format: date-time
                       type: string
                     message:
-                      description: |-
-                        A human readable message indicating details about the transition.
-                        This field may be empty.
+                      description: A human readable message indicating details about
+                        the transition. This field may be empty.
                       type: string
                     reason:
-                      description: |-
-                        The reason for the condition's last transition in CamelCase.
-                        The specific API may choose whether or not this field is considered a guaranteed API.
-                        This field may not be empty.
+                      description: The reason for the condition's last transition
+                        in CamelCase. The specific API may choose whether or not this
+                        field is considered a guaranteed API. This field may not be
+                        empty.
                       type: string
                     severity:
-                      description: |-
-                        Severity provides an explicit classification of Reason code, so the users or machines can immediately
-                        understand the current situation and act accordingly.
-                        The Severity field MUST be set only when Status=False.
+                      description: Severity provides an explicit classification of
+                        Reason code, so the users or machines can immediately understand
+                        the current situation and act accordingly. The Severity field
+                        MUST be set only when Status=False.
                       type: string
                     status:
                       description: Status of the condition, one of True, False, Unknown.
                       type: string
                     type:
-                      description: |-
-                        Type of condition in CamelCase or in foo.example.com/CamelCase.
-                        Many .condition.type values are consistent across resources like Available, but because arbitrary conditions
-                        can be useful (see .node.status.conditions), the ability to deconflict is important.
+                      description: Type of condition in CamelCase or in foo.example.com/CamelCase.
+                        Many .condition.type values are consistent across resources
+                        like Available, but because arbitrary conditions can be useful
+                        (see .node.status.conditions), the ability to deconflict is
+                        important.
                       type: string
                   required:
                   - lastTransitionTime
@@ -1971,19 +1924,14 @@ spec:
         description: VCDMachine is the Schema for the vcdmachines API
         properties:
           apiVersion:
-            description: |-
-              APIVersion defines the versioned schema of this representation of an object.
-              Servers should convert recognized schemas to the latest internal value, and
-              may reject unrecognized values.
-              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
             type: string
           kind:
-            description: |-
-              Kind is a string value representing the REST resource this object represents.
-              Servers may infer this from the endpoint the client submits requests to.
-              Cannot be updated.
-              In CamelCase.
-              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
             type: string
           metadata:
             type: object
@@ -1991,9 +1939,8 @@ spec:
             description: VCDMachineSpec defines the desired state of VCDMachine
             properties:
               bootstrapped:
-                description: |-
-                  Bootstrapped is true when the kubeadm bootstrapping has been run
-                  against this machine
+                description: Bootstrapped is true when the kubeadm bootstrapping has
+                  been run against this machine
                 type: boolean
               catalog:
                 description: Catalog hosting templates
@@ -2007,14 +1954,14 @@ spec:
                 pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                 x-kubernetes-int-or-string: true
               enableNvidiaGPU:
-                description: |-
-                  EnableNvidiaGPU is true when a VM should be created with the relevant binaries installed
-                  If true, then an appropriate placement policy should be set
+                description: EnableNvidiaGPU is true when a VM should be created with
+                  the relevant binaries installed If true, then an appropriate placement
+                  policy should be set
                 type: boolean
               extraOvdcNetworks:
-                description: |-
-                  ExtraOvdcNetworks is the list of extra Ovdc Networks that are mounted to machines.
-                  VCDClusterSpec.OvdcNetwork is always attached regardless of this field.
+                description: ExtraOvdcNetworks is the list of extra Ovdc Networks
+                  that are mounted to machines. VCDClusterSpec.OvdcNetwork is always
+                  attached regardless of this field.
                 items:
                   type: string
                 type: array
@@ -2032,9 +1979,9 @@ spec:
                   (vmware-cloud-director://<vm id>)
                 type: string
               sizingPolicy:
-                description: |-
-                  SizingPolicy is the sizing policy to be used on this machine.
-                  If no sizing policy is specified, default sizing policy will be used to create the nodes
+                description: SizingPolicy is the sizing policy to be used on this
+                  machine. If no sizing policy is specified, default sizing policy
+                  will be used to create the nodes
                 type: string
               storageProfile:
                 description: StorageProfile is the storage profile to be used on this
@@ -2045,10 +1992,10 @@ spec:
                   to be used
                 type: string
               vmNamingTemplate:
-                description: |-
-                  VmNamingTemplate is go template to generate VM names based on Machine and VCDMachine CRs.
-                  Functions of Sprig library are supported. See https://github.com/Masterminds/sprig
-                  Immutable field. machine.Name is used as VM name when this field is empty.
+                description: VmNamingTemplate is go template to generate VM names
+                  based on Machine and VCDMachine CRs. Functions of Sprig library
+                  are supported. See https://github.com/Masterminds/sprig Immutable
+                  field. machine.Name is used as VM name when this field is empty.
                 type: string
             type: object
           status:
@@ -2080,37 +2027,37 @@ spec:
                     operational state.
                   properties:
                     lastTransitionTime:
-                      description: |-
-                        Last time the condition transitioned from one status to another.
-                        This should be when the underlying condition changed. If that is not known, then using the time when
-                        the API field changed is acceptable.
+                      description: Last time the condition transitioned from one status
+                        to another. This should be when the underlying condition changed.
+                        If that is not known, then using the time when the API field
+                        changed is acceptable.
                       format: date-time
                       type: string
                     message:
-                      description: |-
-                        A human readable message indicating details about the transition.
-                        This field may be empty.
+                      description: A human readable message indicating details about
+                        the transition. This field may be empty.
                       type: string
                     reason:
-                      description: |-
-                        The reason for the condition's last transition in CamelCase.
-                        The specific API may choose whether or not this field is considered a guaranteed API.
-                        This field may not be empty.
+                      description: The reason for the condition's last transition
+                        in CamelCase. The specific API may choose whether or not this
+                        field is considered a guaranteed API. This field may not be
+                        empty.
                       type: string
                     severity:
-                      description: |-
-                        Severity provides an explicit classification of Reason code, so the users or machines can immediately
-                        understand the current situation and act accordingly.
-                        The Severity field MUST be set only when Status=False.
+                      description: Severity provides an explicit classification of
+                        Reason code, so the users or machines can immediately understand
+                        the current situation and act accordingly. The Severity field
+                        MUST be set only when Status=False.
                       type: string
                     status:
                       description: Status of the condition, one of True, False, Unknown.
                       type: string
                     type:
-                      description: |-
-                        Type of condition in CamelCase or in foo.example.com/CamelCase.
-                        Many .condition.type values are consistent across resources like Available, but because arbitrary conditions
-                        can be useful (see .node.status.conditions), the ability to deconflict is important.
+                      description: Type of condition in CamelCase or in foo.example.com/CamelCase.
+                        Many .condition.type values are consistent across resources
+                        like Available, but because arbitrary conditions can be useful
+                        (see .node.status.conditions), the ability to deconflict is
+                        important.
                       type: string
                   required:
                   - lastTransitionTime
@@ -2162,7 +2109,7 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     cert-manager.io/inject-ca-from: capvcd-system/capvcd-serving-cert
-    controller-gen.kubebuilder.io/version: v0.14.0
+    controller-gen.kubebuilder.io/version: v0.13.0
   labels:
     cluster.x-k8s.io/provider: infrastructure-vcd
     cluster.x-k8s.io/v1alpha4: v1alpha4
@@ -2196,19 +2143,14 @@ spec:
           API
         properties:
           apiVersion:
-            description: |-
-              APIVersion defines the versioned schema of this representation of an object.
-              Servers should convert recognized schemas to the latest internal value, and
-              may reject unrecognized values.
-              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
             type: string
           kind:
-            description: |-
-              Kind is a string value representing the REST resource this object represents.
-              Servers may infer this from the endpoint the client submits requests to.
-              Cannot be updated.
-              In CamelCase.
-              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
             type: string
           metadata:
             type: object
@@ -2222,9 +2164,8 @@ spec:
                       of the machine.
                     properties:
                       bootstrapped:
-                        description: |-
-                          Bootstrapped is true when the kubeadm bootstrapping has been run
-                          against this machine
+                        description: Bootstrapped is true when the kubeadm bootstrapping
+                          has been run against this machine
                         type: boolean
                       catalog:
                         description: Catalog hosting templates
@@ -2263,19 +2204,14 @@ spec:
           API
         properties:
           apiVersion:
-            description: |-
-              APIVersion defines the versioned schema of this representation of an object.
-              Servers should convert recognized schemas to the latest internal value, and
-              may reject unrecognized values.
-              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
             type: string
           kind:
-            description: |-
-              Kind is a string value representing the REST resource this object represents.
-              Servers may infer this from the endpoint the client submits requests to.
-              Cannot be updated.
-              In CamelCase.
-              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
             type: string
           metadata:
             type: object
@@ -2289,9 +2225,8 @@ spec:
                       of the machine.
                     properties:
                       bootstrapped:
-                        description: |-
-                          Bootstrapped is true when the kubeadm bootstrapping has been run
-                          against this machine
+                        description: Bootstrapped is true when the kubeadm bootstrapping
+                          has been run against this machine
                         type: boolean
                       catalog:
                         description: Catalog hosting templates
@@ -2305,9 +2240,9 @@ spec:
                         pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                         x-kubernetes-int-or-string: true
                       enableNvidiaGPU:
-                        description: |-
-                          EnableNvidiaGPU is true when a VM should be created with the relevant binaries installed
-                          If true, then an appropriate placement policy should be set
+                        description: EnableNvidiaGPU is true when a VM should be created
+                          with the relevant binaries installed If true, then an appropriate
+                          placement policy should be set
                         type: boolean
                       placementPolicy:
                         description: PlacementPolicy is the placement policy to be
@@ -2318,9 +2253,9 @@ spec:
                           format (vmware-cloud-director://<vm id>)
                         type: string
                       sizingPolicy:
-                        description: |-
-                          SizingPolicy is the sizing policy to be used on this machine.
-                          If no sizing policy is specified, default sizing policy will be used to create the nodes
+                        description: SizingPolicy is the sizing policy to be used
+                          on this machine. If no sizing policy is specified, default
+                          sizing policy will be used to create the nodes
                         type: string
                       storageProfile:
                         description: StorageProfile is the storage profile to be used
@@ -2352,19 +2287,14 @@ spec:
           API
         properties:
           apiVersion:
-            description: |-
-              APIVersion defines the versioned schema of this representation of an object.
-              Servers should convert recognized schemas to the latest internal value, and
-              may reject unrecognized values.
-              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
             type: string
           kind:
-            description: |-
-              Kind is a string value representing the REST resource this object represents.
-              Servers may infer this from the endpoint the client submits requests to.
-              Cannot be updated.
-              In CamelCase.
-              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
             type: string
           metadata:
             type: object
@@ -2374,27 +2304,24 @@ spec:
               template:
                 properties:
                   metadata:
-                    description: |-
-                      Standard object's metadata.
-                      More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
+                    description: 'Standard object''s metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata'
                     properties:
                       annotations:
                         additionalProperties:
                           type: string
-                        description: |-
-                          Annotations is an unstructured key value map stored with a resource that may be
-                          set by external tools to store and retrieve arbitrary metadata. They are not
-                          queryable and should be preserved when modifying objects.
-                          More info: http://kubernetes.io/docs/user-guide/annotations
+                        description: 'Annotations is an unstructured key value map
+                          stored with a resource that may be set by external tools
+                          to store and retrieve arbitrary metadata. They are not queryable
+                          and should be preserved when modifying objects. More info:
+                          http://kubernetes.io/docs/user-guide/annotations'
                         type: object
                       labels:
                         additionalProperties:
                           type: string
-                        description: |-
-                          Map of string keys and values that can be used to organize and categorize
-                          (scope and select) objects. May match selectors of replication controllers
-                          and services.
-                          More info: http://kubernetes.io/docs/user-guide/labels
+                        description: 'Map of string keys and values that can be used
+                          to organize and categorize (scope and select) objects. May
+                          match selectors of replication controllers and services.
+                          More info: http://kubernetes.io/docs/user-guide/labels'
                         type: object
                     type: object
                   spec:
@@ -2402,9 +2329,8 @@ spec:
                       of the machine.
                     properties:
                       bootstrapped:
-                        description: |-
-                          Bootstrapped is true when the kubeadm bootstrapping has been run
-                          against this machine
+                        description: Bootstrapped is true when the kubeadm bootstrapping
+                          has been run against this machine
                         type: boolean
                       catalog:
                         description: Catalog hosting templates
@@ -2418,14 +2344,14 @@ spec:
                         pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                         x-kubernetes-int-or-string: true
                       enableNvidiaGPU:
-                        description: |-
-                          EnableNvidiaGPU is true when a VM should be created with the relevant binaries installed
-                          If true, then an appropriate placement policy should be set
+                        description: EnableNvidiaGPU is true when a VM should be created
+                          with the relevant binaries installed If true, then an appropriate
+                          placement policy should be set
                         type: boolean
                       extraOvdcNetworks:
-                        description: |-
-                          ExtraOvdcNetworks is the list of extra Ovdc Networks that are mounted to machines.
-                          VCDClusterSpec.OvdcNetwork is always attached regardless of this field.
+                        description: ExtraOvdcNetworks is the list of extra Ovdc Networks
+                          that are mounted to machines. VCDClusterSpec.OvdcNetwork
+                          is always attached regardless of this field.
                         items:
                           type: string
                         type: array
@@ -2438,9 +2364,9 @@ spec:
                           format (vmware-cloud-director://<vm id>)
                         type: string
                       sizingPolicy:
-                        description: |-
-                          SizingPolicy is the sizing policy to be used on this machine.
-                          If no sizing policy is specified, default sizing policy will be used to create the nodes
+                        description: SizingPolicy is the sizing policy to be used
+                          on this machine. If no sizing policy is specified, default
+                          sizing policy will be used to create the nodes
                         type: string
                       storageProfile:
                         description: StorageProfile is the storage profile to be used
@@ -2451,10 +2377,11 @@ spec:
                           that is to be used
                         type: string
                       vmNamingTemplate:
-                        description: |-
-                          VmNamingTemplate is go template to generate VM names based on Machine and VCDMachine CRs.
-                          Functions of Sprig library are supported. See https://github.com/Masterminds/sprig
-                          Immutable field. machine.Name is used as VM name when this field is empty.
+                        description: VmNamingTemplate is go template to generate VM
+                          names based on Machine and VCDMachine CRs. Functions of
+                          Sprig library are supported. See https://github.com/Masterminds/sprig
+                          Immutable field. machine.Name is used as VM name when this
+                          field is empty.
                         type: string
                     type: object
                 required:
@@ -2478,19 +2405,14 @@ spec:
           API
         properties:
           apiVersion:
-            description: |-
-              APIVersion defines the versioned schema of this representation of an object.
-              Servers should convert recognized schemas to the latest internal value, and
-              may reject unrecognized values.
-              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
             type: string
           kind:
-            description: |-
-              Kind is a string value representing the REST resource this object represents.
-              Servers may infer this from the endpoint the client submits requests to.
-              Cannot be updated.
-              In CamelCase.
-              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
             type: string
           metadata:
             type: object
@@ -2500,27 +2422,24 @@ spec:
               template:
                 properties:
                   metadata:
-                    description: |-
-                      Standard object's metadata.
-                      More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
+                    description: 'Standard object''s metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata'
                     properties:
                       annotations:
                         additionalProperties:
                           type: string
-                        description: |-
-                          Annotations is an unstructured key value map stored with a resource that may be
-                          set by external tools to store and retrieve arbitrary metadata. They are not
-                          queryable and should be preserved when modifying objects.
-                          More info: http://kubernetes.io/docs/user-guide/annotations
+                        description: 'Annotations is an unstructured key value map
+                          stored with a resource that may be set by external tools
+                          to store and retrieve arbitrary metadata. They are not queryable
+                          and should be preserved when modifying objects. More info:
+                          http://kubernetes.io/docs/user-guide/annotations'
                         type: object
                       labels:
                         additionalProperties:
                           type: string
-                        description: |-
-                          Map of string keys and values that can be used to organize and categorize
-                          (scope and select) objects. May match selectors of replication controllers
-                          and services.
-                          More info: http://kubernetes.io/docs/user-guide/labels
+                        description: 'Map of string keys and values that can be used
+                          to organize and categorize (scope and select) objects. May
+                          match selectors of replication controllers and services.
+                          More info: http://kubernetes.io/docs/user-guide/labels'
                         type: object
                     type: object
                   spec:
@@ -2528,9 +2447,8 @@ spec:
                       of the machine.
                     properties:
                       bootstrapped:
-                        description: |-
-                          Bootstrapped is true when the kubeadm bootstrapping has been run
-                          against this machine
+                        description: Bootstrapped is true when the kubeadm bootstrapping
+                          has been run against this machine
                         type: boolean
                       catalog:
                         description: Catalog hosting templates
@@ -2544,14 +2462,14 @@ spec:
                         pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                         x-kubernetes-int-or-string: true
                       enableNvidiaGPU:
-                        description: |-
-                          EnableNvidiaGPU is true when a VM should be created with the relevant binaries installed
-                          If true, then an appropriate placement policy should be set
+                        description: EnableNvidiaGPU is true when a VM should be created
+                          with the relevant binaries installed If true, then an appropriate
+                          placement policy should be set
                         type: boolean
                       extraOvdcNetworks:
-                        description: |-
-                          ExtraOvdcNetworks is the list of extra Ovdc Networks that are mounted to machines.
-                          VCDClusterSpec.OvdcNetwork is always attached regardless of this field.
+                        description: ExtraOvdcNetworks is the list of extra Ovdc Networks
+                          that are mounted to machines. VCDClusterSpec.OvdcNetwork
+                          is always attached regardless of this field.
                         items:
                           type: string
                         type: array
@@ -2569,9 +2487,9 @@ spec:
                           format (vmware-cloud-director://<vm id>)
                         type: string
                       sizingPolicy:
-                        description: |-
-                          SizingPolicy is the sizing policy to be used on this machine.
-                          If no sizing policy is specified, default sizing policy will be used to create the nodes
+                        description: SizingPolicy is the sizing policy to be used
+                          on this machine. If no sizing policy is specified, default
+                          sizing policy will be used to create the nodes
                         type: string
                       storageProfile:
                         description: StorageProfile is the storage profile to be used
@@ -2582,10 +2500,11 @@ spec:
                           that is to be used
                         type: string
                       vmNamingTemplate:
-                        description: |-
-                          VmNamingTemplate is go template to generate VM names based on Machine and VCDMachine CRs.
-                          Functions of Sprig library are supported. See https://github.com/Masterminds/sprig
-                          Immutable field. machine.Name is used as VM name when this field is empty.
+                        description: VmNamingTemplate is go template to generate VM
+                          names based on Machine and VCDMachine CRs. Functions of
+                          Sprig library are supported. See https://github.com/Masterminds/sprig
+                          Immutable field. machine.Name is used as VM name when this
+                          field is empty.
                         type: string
                     type: object
                 required:
@@ -2954,6 +2873,7 @@ kind: MutatingWebhookConfiguration
 metadata:
   annotations:
     cert-manager.io/inject-ca-from: capvcd-system/capvcd-serving-cert
+  creationTimestamp: null
   labels:
     cluster.x-k8s.io/provider: infrastructure-vcd
   name: capvcd-mutating-webhook-configuration
@@ -3024,6 +2944,7 @@ kind: ValidatingWebhookConfiguration
 metadata:
   annotations:
     cert-manager.io/inject-ca-from: capvcd-system/capvcd-serving-cert
+  creationTimestamp: null
   labels:
     cluster.x-k8s.io/provider: infrastructure-vcd
   name: capvcd-validating-webhook-configuration
