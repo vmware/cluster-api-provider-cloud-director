@@ -1219,6 +1219,37 @@ func (r *VCDClusterReconciler) reconcileLoadBalancer(ctx context.Context, vcdClu
 			if controlPlanePort == 0 {
 				controlPlanePort = TcpPort
 			}
+
+			if controlPlaneHost == "" {
+				isGatewayUsingIpSpaces, err := gateway.IsUsingIpSpaces()
+				if err != nil {
+					return ctrl.Result{}, errors.Wrapf(err, "unable to create load balancer")
+				}
+				if isGatewayUsingIpSpaces {
+					log.Info(fmt.Sprintf("Determined gateway [%s] is using IP spaces, using IP space specific logic to reserve an IP", gateway.GatewayRef.Name))
+					controlPlaneHost, err = gateway.ReserveIpForLoadBalancer(ctx, lbIpClaimMarker)
+					if err != nil {
+						return ctrl.Result{}, errors.Wrapf(err, "unable to reservce IP address for load balancer")
+					}
+				} else {
+					log.Info(fmt.Sprintf("Determined gateway [%s] is not using IP spaces, using legacy IPAM solution to find a free IP", gateway.GatewayRef.Name))
+					controlPlaneHost, err = gateway.GetUnusedExternalIPAddress(ctx, gateway.IPAMSubnet)
+					if err != nil {
+						return ctrl.Result{}, errors.Wrapf(err, "unable to get unused IP address from subnet [%s]: [%v]",
+							gateway.IPAMSubnet)
+					}
+				}
+			}
+			log.Info("setting control plane host and port", "controlPlaneEndpoint.host", controlPlaneHost,
+				"controlPlaneEndpoint.port", controlPlanePort)
+			vcdCluster.Spec.ControlPlaneEndpoint.Host = controlPlaneHost
+			vcdCluster.Spec.ControlPlaneEndpoint.Port = controlPlanePort
+			patchHelper, err := patch.NewHelper(vcdCluster, r.Client)
+			if err := patchVCDCluster(ctx, patchHelper, vcdCluster); err != nil {
+				log.Error(err, "failed to patch vcdcluster with control plane endpoint host and port", "controlPlaneEndpoint.host", controlPlaneHost,
+					"controlPlaneEndpoint.port", controlPlanePort)
+			}
+
 			log.Info("Creating load balancer for the cluster at endpoint",
 				"host", edgeGatewayDetails.EndPointHost, "port", controlPlanePort,
 				"ovdcNetworkName", edgeGatewayDetails.OvdcNetworkReference.Name,
