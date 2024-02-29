@@ -17,7 +17,11 @@ limitations under the License.
 package v1beta3
 
 import (
+	"fmt"
+	"github.com/google/go-cmp/cmp"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/validation/field"
 	ctrl "sigs.k8s.io/controller-runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
@@ -61,8 +65,26 @@ func (r *VCDCluster) ValidateCreate() (admission.Warnings, error) {
 func (r *VCDCluster) ValidateUpdate(old runtime.Object) (admission.Warnings, error) {
 	vcdclusterlog.Info("validate update", "name", r.Name)
 
-	// TODO(user): fill in your validation logic upon object update.
-	return nil, nil
+	var allErrs field.ErrorList
+
+	oldVCDCluster, ok := old.(*VCDCluster)
+	if !ok {
+		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected a VCDCluster but got a %T", old))
+
+	}
+	if !cmp.Equal(oldVCDCluster.Spec.ControlPlaneEndpoint, APIEndpoint{}) &&
+		!cmp.Equal(r.Spec.ControlPlaneEndpoint, oldVCDCluster.Spec.ControlPlaneEndpoint) {
+
+		allErrs = append(allErrs,
+			field.Invalid(field.NewPath("spec", "controlPlaneEndpoint"),
+				r.Spec.ControlPlaneEndpoint, "field is immutable"))
+	}
+
+	if len(allErrs) == 0 {
+		// no errors
+		return nil, nil
+	}
+	return nil, apierrors.NewInvalid(r.GroupVersionKind().GroupKind(), r.Name, allErrs)
 }
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type
