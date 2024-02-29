@@ -588,7 +588,7 @@ func (r *VCDMachineReconciler) getOVDCDetailsForMachine(ctx context.Context, mac
 	}
 }
 
-func GetMachineDeploymentName(ctx context.Context, cli client.Client, vcdCluster *infrav1beta3.VCDCluster,
+func GetNodePoolName(ctx context.Context, cli client.Client, vcdCluster *infrav1beta3.VCDCluster,
 	machine *clusterv1.Machine) (string, error) {
 
 	machineList := &clusterv1.MachineList{}
@@ -627,7 +627,7 @@ func CreateFullVAppName(ctx context.Context, cli client.Client, ovdcID string,
 		return vcdCluster.Name, nil
 
 	case infrav1beta3.DCGroup, infrav1beta3.ExternalLoadBalancer, infrav1beta3.UserSpecifiedEdgeGateway:
-		machineDeploymentName, err := GetMachineDeploymentName(ctx, cli, vcdCluster, machine)
+		machineDeploymentName, err := GetNodePoolName(ctx, cli, vcdCluster, machine)
 		if err != nil {
 			return "", fmt.Errorf("unable to get MachineDeployment name from cluster [%s], machine [%s]: [%v]",
 				vcdCluster.Name, machine.Name, err)
