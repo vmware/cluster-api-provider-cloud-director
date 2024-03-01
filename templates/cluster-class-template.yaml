@@ -38,11 +38,11 @@ spec:
     machineInfrastructure:
       ref:
         kind: VCDMachineTemplate
-        apiVersion: infrastructure.cluster.x-k8s.io/v1beta2
+        apiVersion: infrastructure.cluster.x-k8s.io/v1beta3
         name: ${CLUSTER_CLASS_NAME}-control-plane-template
   infrastructure:
     ref:
-      apiVersion: infrastructure.cluster.x-k8s.io/v1beta2
+      apiVersion: infrastructure.cluster.x-k8s.io/v1beta3
       kind: VCDClusterTemplate
       name: ${CLUSTER_CLASS_NAME}-cluster
   workers:
@@ -56,7 +56,7 @@ spec:
               name: ${CLUSTER_CLASS_NAME}-worker-template
           infrastructure:
             ref:
-              apiVersion: infrastructure.cluster.x-k8s.io/v1beta2
+              apiVersion: infrastructure.cluster.x-k8s.io/v1beta3
               kind: VCDMachineTemplate
               name: ${CLUSTER_CLASS_NAME}-worker-template
 ---
@@ -71,7 +71,7 @@ data:
   password: "${VCD_PASSWORD_B64}" # B64 encoded password associated with the user creating the cluster
   refreshToken: "${VCD_REFRESH_TOKEN_B64}" # B64 encoded refresh token of the client registered with VCD for creating clusters. password can be left blank if refresh token is provided
 ---
-apiVersion: infrastructure.cluster.x-k8s.io/v1beta2
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta3
 kind: VCDClusterTemplate
 metadata:
   name: ${CLUSTER_CLASS_NAME}-cluster
@@ -96,7 +96,7 @@ spec:
         httpsProxy: ${HTTPS_PROXY}
         noProxy: ${NO_PROXY}
 ---
-apiVersion: infrastructure.cluster.x-k8s.io/v1beta2
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta3
 kind: VCDMachineTemplate
 metadata:
   name: ${CLUSTER_CLASS_NAME}-control-plane-template
@@ -170,7 +170,7 @@ spec:
             eviction-hard: nodefs.available<0%,nodefs.inodesFree<0%,imagefs.available<0%
             cloud-provider: external
 ---
-apiVersion: infrastructure.cluster.x-k8s.io/v1beta2
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta3
 kind: VCDMachineTemplate
 metadata:
   name: ${CLUSTER_CLASS_NAME}-worker-template

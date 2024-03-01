@@ -13,6 +13,9 @@ func (src *VCDCluster) ConvertTo(dstRaw conversion.Hub) error {
 		return err
 	}
 
+	dst.Spec.MultiZoneSpec.ExternalLoadBalancerConfig.EdgeGatewayZones = v1beta3.EdgeGatewayZones{}
+	dst.Status.MultiZoneStatus.ExternalLoadBalancerConfig.EdgeGatewayZones = v1beta3.EdgeGatewayZones{}
+
 	restored := &v1beta3.VCDCluster{}
 	if ok, err := utilconversion.UnmarshalData(src, restored); err != nil || !ok {
 		return err
