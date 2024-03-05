@@ -127,7 +127,6 @@ type ExternalLoadBalancerConfig struct {
 type EdgeGatewayZones []EdgeGatewayZone
 
 // EdgeGatewayZone provides the details of a zone containing an edge gateway. Used with ExternalLoadBalancer topology.
-// topology.
 type EdgeGatewayZone struct {
 	// Name is the user-defined name of the zone representing the OVDC containing an edge gateway.
 	Name string `json:"name"`

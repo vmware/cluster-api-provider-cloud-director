@@ -310,7 +310,7 @@ func updateClientWithVDC(vcdCluster *infrav1beta3.VCDCluster, client *vcdsdk.Cli
 		if NameChanged {
 			ovdcName = newOvdc.Vdc.Name
 			vcdCluster.Spec.Ovdc = newOvdc.Vdc.Name
-			log.Info("detected change in OVDC name", "ovdcID", newOvdc.Vdc.ID, "new ovdcName", newOvdc.Vdc.Name)
+			log.Info("updating vcdCluster with the following data", "vcdCluster.Status.VcdResourceMap[ovdc].ID", client.VDC.Vdc.ID, "vcdCluster.Status.VcdResourceMap[ovdc].Name", client.VDC.Vdc.Name)
 		}
 	}
 	newOvdc, err := getOvdcByName(client, orgName, ovdcName)
@@ -327,7 +327,8 @@ func createVCDClientFromSecrets(ctx context.Context, client client.Client,
 	vcdCluster *infrav1beta3.VCDCluster, ovdcName string, ovdcScopedClient bool) (*vcdsdk.Client, error) {
 	userCreds, err := getUserCredentialsForCluster(ctx, client, vcdCluster.Spec.UserCredentialsContext)
 	if err != nil {
-		return nil, fmt.Errorf("error getting client credentials to reconcile Cluster [%s] infrastructure: [%v]", vcdCluster.Name, err)
+		return nil, fmt.Errorf("error getting client credentials to reconcile Cluster [%s] infrastructure: [%v]",
+			vcdCluster.Name, err)
 	}
 	vcdClient, err := vcdsdk.NewVCDClientFromSecrets(vcdCluster.Spec.Site, vcdCluster.Spec.Org,
 		ovdcName, vcdCluster.Spec.Org, userCreds.Username, userCreds.Password, userCreds.RefreshToken,
@@ -341,6 +342,7 @@ func createVCDClientFromSecrets(ctx context.Context, client client.Client,
 			return nil, fmt.Errorf("error updating VCD client with VDC to reconcile Cluster [%s] infrastructure: [%v]", vcdCluster.Name, err)
 		}
 	}
+
 	return vcdClient, nil
 }
 
