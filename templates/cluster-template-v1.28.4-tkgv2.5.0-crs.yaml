@@ -86,11 +86,11 @@ spec:
           - 127.0.0.1
       dns:
         imageRepository: projects.registry.vmware.com/tkg # image repository to pull the DNS image from
-        imageTag: v1.10.1_vmware.7 # DNS image tag associated with the TKGm OVA used. This dns version is associated with TKG OVA using Kubernetes version v1.25.7.
+        imageTag: v1.10.1_vmware.13 # DNS image tag associated with the TKGm OVA used. This dns version is associated with TKG OVA using Kubernetes version v1.25.7.
       etcd:
         local:
           imageRepository: projects.registry.vmware.com/tkg # image repository to pull the etcd image from
-          imageTag: v3.5.7_vmware.6 # etcd image tag associated with the TKGm OVA used. This etcd version is associated with TKG OVA using Kubernetes version v1.25.7.
+          imageTag: v3.5.10_vmware.1 # etcd image tag associated with the TKGm OVA used. This etcd version is associated with TKG OVA using Kubernetes version v1.25.7.
       imageRepository: projects.registry.vmware.com/tkg # image repository to use for the rest of kubernetes images
     users:
       - name: root
@@ -115,7 +115,7 @@ spec:
       name: ${CLUSTER_NAME}-control-plane # name of the VCDMachineTemplate object used to deploy control plane VMs. Should be the same name as that of KubeadmControlPlane object
       namespace: ${TARGET_NAMESPACE} # kubernetes namespace of the VCDMachineTemplate object. Should be the same namespace as that of the Cluster object
   replicas: ${CONTROL_PLANE_MACHINE_COUNT} # desired number of control plane nodes for the cluster
-  version: v1.27.5+vmware.1 # Kubernetes version to be used to create (or) upgrade the control plane nodes. Default version for this flavor is v1.27.5+vmware.1-tkg.1.
+  version: v1.28.4+vmware.1 # Kubernetes version to be used to create (or) upgrade the control plane nodes. Default version for this flavor is v1.27.5+vmware.1-tkg.1.
 ---
 apiVersion: infrastructure.cluster.x-k8s.io/v1beta2
 kind: VCDMachineTemplate
@@ -176,4 +176,4 @@ spec:
         kind: VCDMachineTemplate
         name: ${CLUSTER_NAME}-md-0 # name of the VCDMachineTemplate object used to deploy worker nodes
         namespace: ${TARGET_NAMESPACE} # kubernetes namespace of the VCDMachineTemplate object used to deploy worker nodes
-      version: v1.27.5+vmware.1 # Kubernetes version to be used to create (or) upgrade the worker nodes. Default version for this flavor is v1.27.5+vmware.1-tkg.1.
+      version: v1.28.4+vmware.1 # Kubernetes version to be used to create (or) upgrade the worker nodes. Default version for this flavor is v1.27.5+vmware.1-tkg.1.
