@@ -670,17 +670,6 @@ spec:
                     required:
                     - edgeGatewayZones
                     type: object
-                  userSpecifiedEdgeGatewayConfig:
-                    description: UserSpecifiedEdgeGatewayConfig contains configuration
-                      for UserSpecifiedEdgeGateway zone topology.
-                    properties:
-                      edgeGatewayZone:
-                        description: EdgeGatewayZone defines the name of the user-provided
-                          zone containing an edge gateway.
-                        type: string
-                    required:
-                    - edgeGatewayZone
-                    type: object
                   zoneTopology:
                     description: ZoneTopology defines the type of network topology
                       used across zones in a Multi-AZ deployment. Valid options are
@@ -900,17 +889,6 @@ spec:
                         type: array
                     required:
                     - edgeGatewayZones
-                    type: object
-                  userSpecifiedEdgeGatewayConfig:
-                    description: UserSpecifiedEdgeGatewayConfig contains configuration
-                      for UserSpecifiedEdgeGateway zone topology.
-                    properties:
-                      edgeGatewayZone:
-                        description: EdgeGatewayZone defines the name of the user-provided
-                          zone containing an edge gateway.
-                        type: string
-                    required:
-                    - edgeGatewayZone
                     type: object
                   zoneTopology:
                     description: ZoneTopology defines the type of network topology

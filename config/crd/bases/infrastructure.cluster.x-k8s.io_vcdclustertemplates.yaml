@@ -143,19 +143,14 @@ spec:
           API
         properties:
           apiVersion:
-            description: |-
-              APIVersion defines the versioned schema of this representation of an object.
-              Servers should convert recognized schemas to the latest internal value, and
-              may reject unrecognized values.
-              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
             type: string
           kind:
-            description: |-
-              Kind is a string value representing the REST resource this object represents.
-              Servers may infer this from the endpoint the client submits requests to.
-              Cannot be updated.
-              In CamelCase.
-              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
             type: string
           metadata:
             type: object
@@ -196,8 +191,8 @@ spec:
                             type: string
                         type: object
                       multiZoneSpec:
-                        description: |-
-                          MultiZoneSpec provides details of the configuration of the zones in the cluster as well as the NetworkTopologyType
+                        description: MultiZoneSpec provides details of the configuration
+                          of the zones in the cluster as well as the NetworkTopologyType
                           used.
                         properties:
                           dcGroupConfig:
@@ -212,9 +207,9 @@ spec:
                                 description: EdgeGatewayZones defines a list of zones
                                   containing an edge gateway.
                                 items:
-                                  description: |-
-                                    EdgeGatewayZone provides the details of a zone containing an edge gateway. Used with ExternalLoadBalancer topology.
-                                    topology.
+                                  description: EdgeGatewayZone provides the details
+                                    of a zone containing an edge gateway. Used with
+                                    ExternalLoadBalancer topology.
                                   properties:
                                     loadBalancerIP:
                                       description: LoadBalancerIP is the IP address
@@ -240,21 +235,11 @@ spec:
                             required:
                             - edgeGatewayZones
                             type: object
-                          userSpecifiedEdgeGatewayConfig:
-                            description: UserSpecifiedEdgeGatewayConfig contains configuration
-                              for UserSpecifiedEdgeGateway zone topology.
-                            properties:
-                              edgeGatewayZone:
-                                description: EdgeGatewayZone defines the name of the
-                                  user-provided zone containing an edge gateway.
-                                type: string
-                            required:
-                            - edgeGatewayZone
-                            type: object
                           zoneTopology:
-                            description: |-
-                              ZoneTopology defines the type of network topology used across zones in a Multi-AZ deployment.
-                              Valid options are DCGroup, UserSpecifiedEdgeGateway, and ExternalLoadBalancer,
+                            description: ZoneTopology defines the type of network
+                              topology used across zones in a Multi-AZ deployment.
+                              Valid options are DCGroup, UserSpecifiedEdgeGateway,
+                              and ExternalLoadBalancer,
                             type: string
                           zones:
                             description: Zones defines the list of zones that this
@@ -289,9 +274,9 @@ spec:
                       org:
                         type: string
                       ovcdZoneConfigMap:
-                        description: |-
-                          OVDCZoneConfigMap defines the name of a config map storing the mapping Zone -> OVDC in a Multi-AZ
-                          deployment. e.g. zone1 -> ovdc1, zone2 -> ovdc2
+                        description: OVDCZoneConfigMap defines the name of a config
+                          map storing the mapping Zone -> OVDC in a Multi-AZ deployment.
+                          e.g. zone1 -> ovdc1, zone2 -> ovdc2
                         type: string
                       ovdc:
                         type: string
@@ -324,9 +309,9 @@ spec:
                           refreshToken:
                             type: string
                           secretRef:
-                            description: |-
-                              SecretReference represents a Secret Reference. It has enough information to retrieve secret
-                              in any namespace
+                            description: SecretReference represents a Secret Reference.
+                              It has enough information to retrieve secret in any
+                              namespace
                             properties:
                               name:
                                 description: name is unique within a namespace to

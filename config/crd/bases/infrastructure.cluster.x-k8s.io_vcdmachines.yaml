@@ -632,6 +632,10 @@ spec:
                   machine
                 pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                 x-kubernetes-int-or-string: true
+              failureDomain:
+                description: FailureDomain is the failure domain the machine has been
+                  created in.
+                type: string
               nvidiaGpuEnabled:
                 description: NvidiaGPUEnabled is true when a VM should be created
                   with the relevant binaries installed
