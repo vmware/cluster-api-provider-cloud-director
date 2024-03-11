@@ -21,6 +21,8 @@ func (src *VCDMachine) ConvertTo(dstRaw conversion.Hub) error {
 	dst.Spec.ExtraOvdcNetworks = restored.Spec.ExtraOvdcNetworks
 	dst.Spec.VmNamingTemplate = restored.Spec.VmNamingTemplate
 	dst.Spec.FailureDomain = restored.Spec.FailureDomain
+
+	dst.Status.FailureDomain = restored.Status.FailureDomain
 	return nil
 }
 

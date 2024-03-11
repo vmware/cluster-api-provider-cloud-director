@@ -90,13 +90,6 @@ const (
 	// single Avi controller. All the OVDCs in the zones are connected to the same Edge Gateway. One Avi Controller
 	// handles one Virtual Service that fronts the cluster.
 	DCGroup ZoneTopologyType = "DCGroup"
-	// UserSpecifiedEdgeGateway is a topology in which each OVDC has a separate NSX-T ALB and Avi controller. The routed
-	// T-1 networking space is set up so that private IP addresses in one OVDC can route to private IP addresses in
-	// another OVDC. From each Avi controller also, the private IPs are routable.
-	//
-	// For this topology, there is a designated zone that is chosen by the user. The edge on the user-specified zone is
-	// used to create the Load-Balancer for the entire cluster.
-	UserSpecifiedEdgeGateway ZoneTopologyType = "UserSpecifiedEdgeGateway"
 	// ExternalLoadBalancer is the case where each zone has its own edge gateway. There needs to be a user-specified
 	// load-balancer external to the cluster which is also managed by the user.
 	//
@@ -109,12 +102,6 @@ const (
 // DCGroupConfig defines configuration for DCGroup zone topology.
 type DCGroupConfig struct {
 	// TODO: decide on appropriate configuration for this type, or remove this struct
-}
-
-// UserSpecifiedEdgeGatewayConfig defines configuration for UserSpecifiedEdgeGateway zone topology.
-type UserSpecifiedEdgeGatewayConfig struct {
-	// EdgeGatewayZone defines the name of the user-provided zone containing an edge gateway.
-	EdgeGatewayZone string `json:"edgeGatewayZone"`
 }
 
 // ExternalLoadBalancerConfig defines configuration for ExternalLoadBalancer zone topology.
@@ -160,9 +147,6 @@ type MultiZoneSpec struct {
 	// DCGroupConfig contains configuration for DCGroup zone topology.
 	// +optional
 	DCGroupConfig DCGroupConfig `json:"dcGroupConfig,omitempty"`
-	// UserSpecifiedEdgeGatewayConfig contains configuration for UserSpecifiedEdgeGateway zone topology.
-	// +optional
-	UserSpecifiedEdgeGatewayConfig UserSpecifiedEdgeGatewayConfig `json:"userSpecifiedEdgeGatewayConfig,omitempty"`
 	// ExternalLoadBalancerConfig contains configuration for ExternalLoadBalancer zone topology.
 	// +optional
 	ExternalLoadBalancerConfig ExternalLoadBalancerConfig `json:"externalLoadBalancerConfig,omitempty"`
@@ -180,9 +164,6 @@ type MultiZoneStatus struct {
 	// DCGroupConfig contains configuration for DCGroup zone topology.
 	// +optional
 	DCGroupConfig DCGroupConfig `json:"dcGroupConfig,omitempty"`
-	// UserSpecifiedEdgeGatewayConfig contains configuration for UserSpecifiedEdgeGateway zone topology.
-	// +optional
-	UserSpecifiedEdgeGatewayConfig UserSpecifiedEdgeGatewayConfig `json:"userSpecifiedEdgeGatewayConfig,omitempty"`
 	// ExternalLoadBalancerConfig contains configuration for ExternalLoadBalancer zone topology.
 	// +optional
 	ExternalLoadBalancerConfig ExternalLoadBalancerConfig `json:"externalLoadBalancerConfig,omitempty"`

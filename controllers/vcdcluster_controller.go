@@ -387,7 +387,7 @@ func getMapOfEdgeGateways(ctx context.Context, vcdClient *vcdsdk.Client, orgName
 			}
 		}
 		break
-	case infrav1beta3.UserSpecifiedEdgeGateway, infrav1beta3.ExternalLoadBalancer:
+	case infrav1beta3.ExternalLoadBalancer:
 		for _, zone := range multiZoneSpec.Zones {
 			ovdcNetwork, vdc, err := vcdutil.GetAllDetailsForOVDC(ctx, vcdClient, nil, zone.OVDCNetworkName,
 				zone.OVDCName, orgName)
@@ -1202,7 +1202,7 @@ func (r *VCDClusterReconciler) reconcileLoadBalancer(ctx context.Context, vcdClu
 			// if the zone as an IP setup, use it. For the non-multi-AZ, we will pass in the
 			// vcdCluster.Spec.ControlPlaneEndpoint.Host, so no need to check here.
 			switch vcdCluster.Spec.MultiZoneSpec.ZoneTopology {
-			case infrav1beta3.SingleZone, infrav1beta3.DCGroup, infrav1beta3.UserSpecifiedEdgeGateway:
+			case infrav1beta3.SingleZone, infrav1beta3.DCGroup:
 				controlPlaneHost = vcdCluster.Spec.ControlPlaneEndpoint.Host
 				controlPlanePort = vcdCluster.Spec.ControlPlaneEndpoint.Port
 				break
@@ -1356,7 +1356,7 @@ func (r *VCDClusterReconciler) reconcileLoadBalancer(ctx context.Context, vcdClu
 	// to it by the IPAM. In both of these cases, the controlPlaneHost:controlPlanePort will contain the correct
 	// values.
 	switch vcdCluster.Spec.MultiZoneSpec.ZoneTopology {
-	case infrav1beta3.SingleZone, infrav1beta3.DCGroup, infrav1beta3.UserSpecifiedEdgeGateway:
+	case infrav1beta3.SingleZone, infrav1beta3.DCGroup:
 		vcdCluster.Spec.ControlPlaneEndpoint = infrav1beta3.APIEndpoint{
 			Host: controlPlaneHost,
 			Port: controlPlanePort,
@@ -1671,7 +1671,7 @@ func (r *VCDClusterReconciler) reconcileDeleteVApps(ctx context.Context,
 		log.Info("Successfully deleted vApp", "vAppName", vcdCluster.Name,
 			"org", vcdClient.ClusterOrgName, "ovdc", vcdCluster.Spec.Ovdc)
 		break
-	case infrav1beta3.DCGroup, infrav1beta3.UserSpecifiedEdgeGateway, infrav1beta3.ExternalLoadBalancer:
+	case infrav1beta3.DCGroup, infrav1beta3.ExternalLoadBalancer:
 		for _, failureDomain := range vcdCluster.Status.FailureDomains {
 			ovdcName, ok := failureDomain.Attributes["OVDCName"]
 			if !ok {
