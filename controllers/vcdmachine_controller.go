@@ -1177,6 +1177,7 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	vcdMachine.Status.SizingPolicy = vcdMachine.Spec.SizingPolicy
 	vcdMachine.Status.PlacementPolicy = vcdMachine.Spec.PlacementPolicy
 	vcdMachine.Status.NvidiaGPUEnabled = vcdMachine.Spec.EnableNvidiaGPU
+	vcdMachine.Status.FailureDomain = vcdMachine.Spec.FailureDomain
 	conditions.MarkTrue(vcdMachine, ContainerProvisionedCondition)
 	return ctrl.Result{}, nil
 }
