@@ -550,7 +550,7 @@ func (r *VCDMachineReconciler) getOVDCDetailsForMachine(ctx context.Context, mac
 	switch vcdCluster.Spec.MultiZoneSpec.ZoneTopology {
 	case infrav1beta3.SingleZone:
 		return vcdCluster.Spec.Ovdc, vcdCluster.Spec.OvdcNetwork, nil
-	case infrav1beta3.DCGroup, infrav1beta3.ExternalLoadBalancer, infrav1beta3.UserSpecifiedEdgeGateway:
+	case infrav1beta3.DCGroup:
 		failureDomainName := ""
 		failureDomainNames := vcdMachine.Spec.FailureDomain
 		if failureDomainNames == nil {
@@ -626,7 +626,7 @@ func CreateFullVAppName(ctx context.Context, cli client.Client, ovdcID string,
 	case "":
 		return vcdCluster.Name, nil
 
-	case infrav1beta3.DCGroup, infrav1beta3.ExternalLoadBalancer, infrav1beta3.UserSpecifiedEdgeGateway:
+	case infrav1beta3.DCGroup:
 		machineDeploymentName, err := GetNodePoolName(ctx, cli, vcdCluster, machine)
 		if err != nil {
 			return "", fmt.Errorf("unable to get MachineDeployment name from cluster [%s], machine [%s]: [%v]",
@@ -1177,6 +1177,7 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	vcdMachine.Status.SizingPolicy = vcdMachine.Spec.SizingPolicy
 	vcdMachine.Status.PlacementPolicy = vcdMachine.Spec.PlacementPolicy
 	vcdMachine.Status.NvidiaGPUEnabled = vcdMachine.Spec.EnableNvidiaGPU
+	vcdMachine.Status.FailureDomain = vcdMachine.Spec.FailureDomain
 	conditions.MarkTrue(vcdMachine, ContainerProvisionedCondition)
 	return ctrl.Result{}, nil
 }

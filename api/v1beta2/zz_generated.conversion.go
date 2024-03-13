@@ -820,6 +820,7 @@ func autoConvert_v1beta3_VCDMachineStatus_To_v1beta2_VCDMachineStatus(in *v1beta
 	out.NvidiaGPUEnabled = in.NvidiaGPUEnabled
 	out.DiskSize = in.DiskSize
 	out.Conditions = *(*v1beta1.Conditions)(unsafe.Pointer(&in.Conditions))
+	// WARNING: in.FailureDomain requires manual conversion: does not exist in peer-type
 	return nil
 }
 

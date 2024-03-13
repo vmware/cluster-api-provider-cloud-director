@@ -129,6 +129,10 @@ type VCDMachineStatus struct {
 	// Conditions defines current service state of the DockerMachine.
 	// +optional
 	Conditions clusterv1.Conditions `json:"conditions,omitempty"`
+
+	// FailureDomain is the failure domain the machine has been created in.
+	// +optional
+	FailureDomain *string `json:"failureDomain,omitempty"`
 }
 
 // +kubebuilder:object:root=true

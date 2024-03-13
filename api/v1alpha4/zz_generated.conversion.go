@@ -496,6 +496,7 @@ func autoConvert_v1beta3_VCDMachineStatus_To_v1alpha4_VCDMachineStatus(in *v1bet
 	// WARNING: in.NvidiaGPUEnabled requires manual conversion: does not exist in peer-type
 	// WARNING: in.DiskSize requires manual conversion: does not exist in peer-type
 	out.Conditions = *(*apiv1alpha4.Conditions)(unsafe.Pointer(&in.Conditions))
+	// WARNING: in.FailureDomain requires manual conversion: does not exist in peer-type
 	return nil
 }
 

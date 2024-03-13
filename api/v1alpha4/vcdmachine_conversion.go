@@ -43,6 +43,7 @@ func (src *VCDMachine) ConvertTo(dstRaw conversion.Hub) error {
 	dst.Status.PlacementPolicy = restored.Status.PlacementPolicy
 	dst.Status.NvidiaGPUEnabled = restored.Status.NvidiaGPUEnabled
 	dst.Status.DiskSize = restored.Status.DiskSize
+	dst.Status.FailureDomain = restored.Status.FailureDomain
 	return nil
 }
 
