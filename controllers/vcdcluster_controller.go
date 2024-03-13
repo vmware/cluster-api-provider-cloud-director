@@ -387,29 +387,6 @@ func getMapOfEdgeGateways(ctx context.Context, vcdClient *vcdsdk.Client, orgName
 			}
 		}
 		break
-	case infrav1beta3.ExternalLoadBalancer:
-		for _, zone := range multiZoneSpec.Zones {
-			ovdcNetwork, vdc, err := vcdutil.GetAllDetailsForOVDC(ctx, vcdClient, nil, zone.OVDCNetworkName,
-				zone.OVDCName, orgName)
-			if err != nil {
-				return nil, fmt.Errorf("unable to get all details from OVDC Name [%s], OVDC Network Name [%s]"+
-					" and ORG [%s]: [%v]", zone.OVDCName, zone.OVDCNetworkName, orgName, err)
-			}
-			edgeGatewayDetailsMap[zone.Name] = &vcdutil.EdgeGatewayDetails{
-				OvdcNetworkReference: &swagger.EntityReference{
-					Name: ovdcNetwork.Name,
-					Id:   ovdcNetwork.Id,
-				},
-				Vdc: vdc,
-				EdgeGatewayReference: &swagger.EntityReference{
-					Name: ovdcNetwork.Connection.RouterRef.Name,
-					Id:   ovdcNetwork.Connection.RouterRef.Id,
-				},
-				//EndPointHost: zone.LoadBalancerIP,
-				//EndPointPort: zone.LoadBalancerPort,
-			}
-		}
-		break
 	default:
 		return nil, fmt.Errorf("invalid zone topology type [%s] while creating edge gateway mapping", multiZoneSpec.ZoneTopology)
 	}
@@ -1206,10 +1183,6 @@ func (r *VCDClusterReconciler) reconcileLoadBalancer(ctx context.Context, vcdClu
 				controlPlaneHost = vcdCluster.Spec.ControlPlaneEndpoint.Host
 				controlPlanePort = vcdCluster.Spec.ControlPlaneEndpoint.Port
 				break
-
-			case infrav1beta3.ExternalLoadBalancer:
-				// TODO: implement external load balancer topology type
-				break
 			default:
 				// this is an irreconcilable FATAL error; this should be handled by an Admission Controller
 				err := fmt.Errorf("unknown zoneTopology [%s]", vcdCluster.Spec.MultiZoneSpec.ZoneTopology)
@@ -1360,13 +1333,6 @@ func (r *VCDClusterReconciler) reconcileLoadBalancer(ctx context.Context, vcdClu
 		vcdCluster.Spec.ControlPlaneEndpoint = infrav1beta3.APIEndpoint{
 			Host: controlPlaneHost,
 			Port: controlPlanePort,
-		}
-		break
-	case infrav1beta3.ExternalLoadBalancer:
-		// error out if vcdCluster.Spec.ControlPlaneEndpoint is not specified.
-		if vcdCluster.Spec.ControlPlaneEndpoint.Host == "" {
-			return ctrl.Result{}, fmt.Errorf(
-				"load balancer details in vcdCluster.spec.controlPlaneEndpoint not specified for multi zone topology: [%s]", infrav1beta3.ExternalLoadBalancer)
 		}
 		break
 	default:
@@ -1671,7 +1637,7 @@ func (r *VCDClusterReconciler) reconcileDeleteVApps(ctx context.Context,
 		log.Info("Successfully deleted vApp", "vAppName", vcdCluster.Name,
 			"org", vcdClient.ClusterOrgName, "ovdc", vcdCluster.Spec.Ovdc)
 		break
-	case infrav1beta3.DCGroup, infrav1beta3.ExternalLoadBalancer:
+	case infrav1beta3.DCGroup:
 		for _, failureDomain := range vcdCluster.Status.FailureDomains {
 			ovdcName, ok := failureDomain.Attributes["OVDCName"]
 			if !ok {

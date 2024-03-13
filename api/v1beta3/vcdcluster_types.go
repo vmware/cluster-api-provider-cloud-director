@@ -90,37 +90,11 @@ const (
 	// single Avi controller. All the OVDCs in the zones are connected to the same Edge Gateway. One Avi Controller
 	// handles one Virtual Service that fronts the cluster.
 	DCGroup ZoneTopologyType = "DCGroup"
-	// ExternalLoadBalancer is the case where each zone has its own edge gateway. There needs to be a user-specified
-	// load-balancer external to the cluster which is also managed by the user.
-	//
-	// On each edge gateway, there needs to be an LB configured. On each gateway, an LB to control-plane nodes in the
-	// corresponding OVDC is created. There will be a separate layer that is pre-created and managed by the customer
-	// which can multiplex across the load-balancers.
-	ExternalLoadBalancer ZoneTopologyType = "ExternalLoadBalancer"
 )
 
 // DCGroupConfig defines configuration for DCGroup zone topology.
 type DCGroupConfig struct {
 	// TODO: decide on appropriate configuration for this type, or remove this struct
-}
-
-// ExternalLoadBalancerConfig defines configuration for ExternalLoadBalancer zone topology.
-type ExternalLoadBalancerConfig struct {
-	// EdgeGatewayZones defines a list of zones containing an edge gateway.
-	EdgeGatewayZones EdgeGatewayZones `json:"edgeGatewayZones"`
-}
-
-// EdgeGatewayZones defines a list of zones containing an edge gateway. For use with ExternalLoadBalancer topology.
-type EdgeGatewayZones []EdgeGatewayZone
-
-// EdgeGatewayZone provides the details of a zone containing an edge gateway. Used with ExternalLoadBalancer topology.
-type EdgeGatewayZone struct {
-	// Name is the user-defined name of the zone representing the OVDC containing an edge gateway.
-	Name string `json:"name"`
-	// LoadBalancerIP is the IP address of the load balancer configured on the edge gateway for this zone.
-	LoadBalancerIP string `json:"loadBalancerIP"`
-	// LoadBalancerPort is the port of the load balancer configured on the edge gateway for this zone.
-	LoadBalancerPort int `json:"loadBalancerPort"`
 }
 
 // Zone is an Availability Zone in VCD
@@ -147,9 +121,6 @@ type MultiZoneSpec struct {
 	// DCGroupConfig contains configuration for DCGroup zone topology.
 	// +optional
 	DCGroupConfig DCGroupConfig `json:"dcGroupConfig,omitempty"`
-	// ExternalLoadBalancerConfig contains configuration for ExternalLoadBalancer zone topology.
-	// +optional
-	ExternalLoadBalancerConfig ExternalLoadBalancerConfig `json:"externalLoadBalancerConfig,omitempty"`
 	// Zones defines the list of zones that this cluster should be deployed to.
 	// +optional
 	Zones []Zone `json:"zones,omitempty"`
@@ -164,9 +135,6 @@ type MultiZoneStatus struct {
 	// DCGroupConfig contains configuration for DCGroup zone topology.
 	// +optional
 	DCGroupConfig DCGroupConfig `json:"dcGroupConfig,omitempty"`
-	// ExternalLoadBalancerConfig contains configuration for ExternalLoadBalancer zone topology.
-	// +optional
-	ExternalLoadBalancerConfig ExternalLoadBalancerConfig `json:"externalLoadBalancerConfig,omitempty"`
 	// Zones defines the list of zones this cluster is configured with for a Mult-AZ deployment.
 	// +optional
 	Zones []Zone `json:"zones,omitempty"`
