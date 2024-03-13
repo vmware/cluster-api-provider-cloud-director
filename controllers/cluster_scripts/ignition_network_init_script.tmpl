@@ -5,7 +5,7 @@ echo [Match]>/etc/systemd/network/{{$section.Network}}.network
 echo MACAddress={{$section.MACAddress}}>>/etc/systemd/network/{{$section.Network}}.network
 echo [Network]>>/etc/systemd/network/{{$section.Network}}.network
 echo Address={{$section.IPAddress}}/{{$section.NetmaskCidr}}>>/etc/systemd/network/{{$section.Network}}.network
-{{ if $section.Primary -}}
+{{- if $section.Primary }}
 echo Gateway={{ $section.Gateway }}>>/etc/systemd/network/{{$section.Network}}.network
 {{- if $section.DNS1 }}
 echo DNS={{ $section.DNS1 }}>>/etc/systemd/network/{{$section.Network}}.network
@@ -14,5 +14,5 @@ echo DNS={{ $section.DNS1 }}>>/etc/systemd/network/{{$section.Network}}.network
 echo DNS={{ $section.DNS2 }}>>/etc/systemd/network/{{$section.Network}}.network
 {{- end -}}
 {{- end -}}
-{{- end -}}
+{{- end }}
 sudo systemctl restart systemd-networkd
