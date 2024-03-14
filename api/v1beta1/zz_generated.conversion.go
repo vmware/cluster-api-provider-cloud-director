@@ -143,11 +143,6 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}); err != nil {
 		return err
 	}
-	if err := s.AddGeneratedConversionFunc((*v1beta3.VCDMachineStatus)(nil), (*VCDMachineStatus)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1beta3_VCDMachineStatus_To_v1beta1_VCDMachineStatus(a.(*v1beta3.VCDMachineStatus), b.(*VCDMachineStatus), scope)
-	}); err != nil {
-		return err
-	}
 	if err := s.AddGeneratedConversionFunc((*VCDMachineTemplate)(nil), (*v1beta3.VCDMachineTemplate)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1beta1_VCDMachineTemplate_To_v1beta3_VCDMachineTemplate(a.(*VCDMachineTemplate), b.(*v1beta3.VCDMachineTemplate), scope)
 	}); err != nil {
@@ -210,6 +205,11 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}
 	if err := s.AddConversionFunc((*v1beta3.VCDMachineSpec)(nil), (*VCDMachineSpec)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1beta3_VCDMachineSpec_To_v1beta1_VCDMachineSpec(a.(*v1beta3.VCDMachineSpec), b.(*VCDMachineSpec), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddConversionFunc((*v1beta3.VCDMachineStatus)(nil), (*VCDMachineStatus)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1beta3_VCDMachineStatus_To_v1beta1_VCDMachineStatus(a.(*v1beta3.VCDMachineStatus), b.(*VCDMachineStatus), scope)
 	}); err != nil {
 		return err
 	}
