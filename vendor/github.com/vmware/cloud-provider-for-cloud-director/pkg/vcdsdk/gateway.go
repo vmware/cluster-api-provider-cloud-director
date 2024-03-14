@@ -1468,12 +1468,16 @@ func (gm *GatewayManager) IsNSXTBackedGateway() bool {
 // in case the code is unable to determine the required info, it will return false with an error.
 func (gm *GatewayManager) IsUsingIpSpaces() (bool, error) {
 	edgeGatewayName := gm.GatewayRef.Name
-	vdc := gm.Client.VDC
-	if vdc == nil {
-		return false, fmt.Errorf("unable to determine if gateway [%s] is using Ip Spaces or not. nil VDC object in client", edgeGatewayName)
-	}
-	edgeGateway, err := vdc.GetNsxtEdgeGatewayByName(edgeGatewayName)
+	edgeGatewayID := gm.GatewayRef.Id
+	clusterOrg, err := gm.Client.VCDClient.GetOrgByName(gm.Client.ClusterOrgName)
 	if err != nil {
+		return false, fmt.Errorf("error retrieving org [%s]: [%v]", gm.Client.ClusterOrgName, err)
+	}
+	if clusterOrg == nil || clusterOrg.Org == nil {
+		return false, fmt.Errorf("unable to determine if gateway [%s] is using Ip Spaces or not; obtained nil org", edgeGatewayName)
+	}
+	edgeGateway, err := clusterOrg.GetNsxtEdgeGatewayById(edgeGatewayID)
+	if err == nil {
 		return false, fmt.Errorf("unable to determine if gateway [%s] is using Ip Spaces or not. error [%v]", edgeGatewayName, err)
 	}
 
