@@ -45,9 +45,17 @@ Install [clusterctl](https://cluster-api.sigs.k8s.io/user/quick-start.html#insta
 ## Template flavors
 
 - All of the templates to generate the cluster manifests are located at `templates` directory under the root of the github repository.
-- All the flavors listed support only v1beta1 API versions of CAPVCD and Core CAPI.
-- Currently, we have v1.20.8, v1.21.8, v1.22.9, v1.23.10 as template flavors, and they each have their own etcd/dns versions pre-populated.
+- Currently supported flavors:
+
+  - v1.20.8
+  - v1.21.8
+  - v1.22.9
+  - v1.23.10
+  - v1.24.10
+  - v1.25.7
+
   Please ensure your `~/.cluster-api/clusterctl.yaml` has `VCD_TEMPLATE_NAME` matching the correct versions of Kubernetes.
   For example, if `VCD_TEMPLATE_NAME=Ubuntu 20.04 and Kubernetes v1.21.8+vmware.1` then use `v1.21.8-crs` flavor.
+
 - It is strongly recommended to use `v1.y.z-crs` flavors to ensure CNI, CPI and CSI are automatically installed on the
   workload clusters. CNI and CPI are required add-ons for the cluster creation to be successful.
