@@ -13,12 +13,18 @@ The compatible versions of Core CAPI / clusterctl and CAPVCD are listed in the t
 | 1.1.z          | v1.4.0                       |
 | 1.0.z          | v1.1.3                       |
 
+<a name="clusterctl_set_up"></a>
+
+## Set up
+
+Install [clusterctl](https://cluster-api.sigs.k8s.io/user/quick-start.html#install-clusterctl) according to the [version interop table](#version-interop).
+
 <a name="init_management_cluster"></a>
 
 ## Initialize Management cluster
 
 1. Run the below command to initialize the management cluster with the Cluster API and the associated provider for VMware Cloud Director. Ensure the version interop between CAPVCD, Core CAPI, and Clusterctl are correct from the [interop version table](#version-interop)
-   1. For CAPVCD `main`, use `clusterctl init --core cluster-api:v1.4.0 -b kubeadm:v1.4.0 -c kubeadm:v1.4.0 -i vcd:v1.1.0`
+   1. For CAPVCD `1.2.z`, use `clusterctl init --core cluster-api:v1.4.0 -b kubeadm:v1.4.0 -c kubeadm:v1.4.0 -i vcd:v1.2.0`
 2. Apply [CRS definitions](CRS.md#apply_crs) to ensure CNI, CPI and CSI are automatically installed on the workload clusters.
 
 <a name="generate_cluster_manifest"></a>
