@@ -231,6 +231,16 @@ func (vdc *VdcManager) DeleteVApp(VAppName string) error {
 	return nil
 }
 
+func CreateVAppNamePrefix(clusterName string, ovdcID string) (string, error) {
+	parts := strings.Split(ovdcID, ":")
+	if len(parts) != 4 {
+		// urn:vcloud:org:<uuid>
+		return "", fmt.Errorf("invalid URN format for OVDC: [%s]", ovdcID)
+	}
+
+	return fmt.Sprintf("%s_%s", clusterName, parts[3]), nil
+}
+
 // no need to make reentrant since VCD will take care of it and Kubernetes will retry
 func (vdc *VdcManager) GetOrCreateVApp(VAppName string, ovdcNetworkName string) (*govcd.VApp, error) {
 	if vdc.Vdc == nil {
