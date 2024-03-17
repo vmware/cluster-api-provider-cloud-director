@@ -11,6 +11,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"time"
 
 	"github.com/vmware/cluster-api-provider-cloud-director/release"
@@ -70,6 +71,12 @@ func main() {
 	var probeAddr string
 	var syncPeriod time.Duration
 	var concurrency int
+	var webhookPort int
+
+	var useKubernetesHostEnvAsControlPlaneHost bool
+	var useNormalVMsCreationInsteadTKG bool
+	var resizeDiskBeforeNetworkReconciliation bool
+	var passHostnameByGuestInfo bool
 
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
@@ -80,6 +87,17 @@ func main() {
 		"The minimum interval at which watched resources are reconciled (e.g. 15m)")
 	flag.IntVar(&concurrency, "concurrency", 10,
 		"The number of VCD machines to process simultaneously")
+	flag.IntVar(&webhookPort, "webhook-port", 9443,
+		"The number of VCD webhook port")
+
+	flag.BoolVar(&useKubernetesHostEnvAsControlPlaneHost, "use-kubernetes-host-env-as-control-plane-host", false,
+		"Use KUBERNETES_SERVICE_HOST env as control plane host")
+	flag.BoolVar(&useNormalVMsCreationInsteadTKG, "use-normal-vms-creation-instead-tkg", false,
+		"Use normal VMs creation instead TKG vm")
+	flag.BoolVar(&resizeDiskBeforeNetworkReconciliation, "resize-disk-before-network-reconciliation", false,
+		"Resizing vm root disk before network reconciliation")
+	flag.BoolVar(&passHostnameByGuestInfo, "pass-hostname-by-guest-info", false,
+		"Pass hostname to vm by guest info")
 
 	opts := zap.Options{
 		Development: true,
@@ -95,9 +113,11 @@ func main() {
 	setupLog.Info("CAPVCD version", "version", release.Version)
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
-		Scheme:                 myscheme,
-		MetricsBindAddress:     metricsAddr,
-		Port:                   9443,
+		Scheme:             myscheme,
+		MetricsBindAddress: metricsAddr,
+		WebhookServer: webhook.NewServer(webhook.Options{
+			Port: webhookPort,
+		}),
 		SyncPeriod:             &syncPeriod,
 		HealthProbeBindAddress: probeAddr,
 		LeaderElection:         enableLeaderElection,
@@ -112,6 +132,11 @@ func main() {
 
 	if err = (&controllers.VCDMachineReconciler{
 		Client: mgr.GetClient(),
+		Params: controllers.VCDMachineReconcilerParams{
+			UseNormalVms:                          useNormalVMsCreationInsteadTKG,
+			ResizeDiskBeforeNetworkReconciliation: resizeDiskBeforeNetworkReconciliation,
+			PassHostnameByGuestInfo:               passHostnameByGuestInfo,
+		},
 	}).SetupWithManager(ctx, mgr, controller.Options{
 		MaxConcurrentReconciles: concurrency,
 	}); err != nil {
@@ -119,9 +144,14 @@ func main() {
 		os.Exit(1)
 	}
 
+	if _, ok := os.LookupEnv("USE_K8S_ENV_AS_CONTROL_PLANE_IP"); ok {
+		useKubernetesHostEnvAsControlPlaneHost = true
+	}
+
 	if err = (&controllers.VCDClusterReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
+		Client:                                 mgr.GetClient(),
+		Scheme:                                 mgr.GetScheme(),
+		UseKubernetesHostEnvAsControlPlaneHost: useKubernetesHostEnvAsControlPlaneHost,
 	}).SetupWithManager(mgr, controller.Options{
 		MaxConcurrentReconciles: concurrency,
 	}); err != nil {

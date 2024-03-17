@@ -96,9 +96,24 @@ var cloudInitScriptTemplate string
 //go:embed cluster_scripts/ignition_network_init_script.tmpl
 var ignitionNetworkInitScriptTemplate string
 
+type VCDMachineReconcilerParams struct {
+	// UseNormalVms
+	// in third party installations needs to use 'Normal' vmware vms instead of TGK vms
+	UseNormalVms bool
+	// ResizeDiskBeforeNetworkReconciliation
+	// When vm network will bootstrap by cloud init (in DHCP mode) it be able to bootstrap slowly
+	// because vm using default small size disc with small IOPS, and we should resize disc before reconcile networks
+	ResizeDiskBeforeNetworkReconciliation bool
+	// PassHostnameByGuestInfo
+	// When wm will be bootstrapped by third party cloud-init script it may require set hostname before
+	// running the script by GuestInfo
+	PassHostnameByGuestInfo bool
+}
+
 // VCDMachineReconciler reconciles a VCDMachine object
 type VCDMachineReconciler struct {
 	client.Client
+	Params VCDMachineReconcilerParams
 }
 
 // +kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=vcdmachines,verbs=get;list;watch;create;update;patch;delete
@@ -462,6 +477,13 @@ func (r *VCDMachineReconciler) reconcileVMBootstrap(ctx context.Context, vcdClie
 				"guestinfo.userdata.encoding": "base64",
 				"disk.enableUUID":             "1",
 			}
+			if r.Params.PassHostnameByGuestInfo {
+				metadata := fmt.Sprintf(`local-hostname: %s`, vmName)
+				b64metadata := b64.StdEncoding.EncodeToString([]byte(metadata))
+				keyVals["guestinfo.metadata"] = b64metadata
+				keyVals["guestinfo.metadata.encoding"] = "base64"
+				keyVals["guestinfo.hostname"] = vmName
+			}
 		} else if bootstrapFormat == BootstrapFormatIgnition {
 			networkMetadata, err := generateNetworkInitializationScriptForIgnition(vm.VM.NetworkConnectionSection, vdcManager)
 			if err != nil {
@@ -817,11 +839,29 @@ func (r *VCDMachineReconciler) reconcileVM(
 	}
 	if !vmExists {
 		log.Info("Adding infra VM for the machine")
-
-		// vcda-4391 fixed
-		task, err := vdcManager.AddNewTkgVM(vmName, vAppName,
-			vcdMachine.Spec.Catalog, vcdMachine.Spec.Template, vcdMachine.Spec.PlacementPolicy,
-			vcdMachine.Spec.SizingPolicy, vcdMachine.Spec.StorageProfile)
+		var task govcd.Task
+		var err error
+		if r.Params.UseNormalVms {
+			log.Info("Using normal VM")
+			// By default vcloud director supports 2 cloud-init datasources - OVF and Vmware.
+			// In standard distros cloud-init checks OVF datasource first.
+			// CAPSVCD only passes arguments to Vmware cloud-init, so we need to modify cloud-init datasource order and reboot node to apply cloud-init changes.
+			guestCustScript := `#!/usr/bin/env bash
+cat > /etc/cloud/cloud.cfg.d/98-cse-vmware-datasource.cfg <<EOF
+datasource_list: [ "VMware" ]
+EOF
+shutdown -r now
+`
+			task, err = vdcManager.AddNewVM(vmName, vAppName,
+				vcdMachine.Spec.Catalog, vcdMachine.Spec.Template, vcdMachine.Spec.PlacementPolicy,
+				vcdMachine.Spec.SizingPolicy, vcdMachine.Spec.StorageProfile, guestCustScript)
+		} else {
+			log.Info("Using TGK VM")
+			// vcda-4391 fixed
+			task, err = vdcManager.AddNewTkgVM(vmName, vAppName,
+				vcdMachine.Spec.Catalog, vcdMachine.Spec.Template, vcdMachine.Spec.PlacementPolicy,
+				vcdMachine.Spec.SizingPolicy, vcdMachine.Spec.StorageProfile)
+		}
 		if err != nil {
 			capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDMachineCreationError, "", machine.Name,
 				fmt.Sprintf("%v", err))
@@ -854,6 +894,57 @@ func (r *VCDMachineReconciler) reconcileVM(
 
 		// NOTE: VMs are not added to VCDResourceSet intentionally as the VMs can be obtained from the VApp and
 		// 	VCDResourceSet can get bloated with VMs if the cluster contains a large number of worker nodes
+	}
+
+	// in some cases we want to resize disk before starting VM
+	resizeHardDisk := func(vm *govcd.VM, vcdMachine *infrav1beta3.VCDMachine) (res ctrl.Result, retErr error) {
+		// only resize hard disk if the user has requested so by specifying such in the VCDMachineTemplate spec
+		// check isn't strictly required as we ensure that specified number is larger than what's in the template and left
+		// empty this will just be 0. However, this makes it clear from a standpoint of inspecting the code what we are doing
+		if !vcdMachine.Spec.DiskSize.IsZero() {
+			// go-vcd expects value in MB (2^10 = 1024 * 1024 bytes), so we scale it as such
+			diskSize, ok := vcdMachine.Spec.DiskSize.AsInt64()
+			if !ok {
+				capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDMachineCreationError,
+					"", machine.Name, fmt.Sprintf("%v", err))
+				return ctrl.Result{},
+					fmt.Errorf("error while provisioning the infrastructure VM for the machine [%s] of the cluster [%s]; "+
+						"failed to parse disk size quantity [%s]", vm.VM.Name, vApp.VApp.Name, vcdMachine.Spec.DiskSize.String())
+			}
+			diskSize = int64(math.Floor(float64(diskSize) / float64(Mebibyte)))
+			diskSettings := vm.VM.VmSpecSection.DiskSection.DiskSettings
+			// if the specified disk size is less than what is defined in the template, then we ignore the field
+			if len(diskSettings) != 0 && diskSettings[0].SizeMb < diskSize {
+				log.Info(
+					fmt.Sprintf("resizing hard disk on VM for machine [%s] of cluster [%s]; resizing from [%dMB] to [%dMB]",
+						vmName, vAppName, diskSettings[0].SizeMb, diskSize))
+
+				diskSettings[0].SizeMb = diskSize
+				vm.VM.VmSpecSection.DiskSection.DiskSettings = diskSettings
+
+				if _, err = vm.UpdateInternalDisks(vm.VM.VmSpecSection); err != nil {
+					capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDMachineCreationError, "",
+						machine.Name, fmt.Sprintf("%v", err))
+					return ctrl.Result{},
+						errors.Wrapf(err, "Error while provisioning the infrastructure VM for the machine [%s] "+
+							"of the cluster [%s]; failed to resize hard disk", vm.VM.Name, vApp.VApp.Name)
+				}
+			}
+			if err = capvcdRdeManager.RdeManager.RemoveErrorByNameOrIdFromErrorSet(ctx, vcdsdk.ComponentCAPVCD,
+				capisdk.VCDMachineCreationError, "", ""); err != nil {
+				log.Error(err, "failed to remove VCDMachineCreationError from RDE")
+			}
+		}
+
+		return ctrl.Result{}, nil
+	}
+
+	if r.Params.ResizeDiskBeforeNetworkReconciliation {
+		log.Info("Resize hard disk before starting VM")
+		res, err := resizeHardDisk(vm, vcdMachine)
+		if err != nil {
+			return res, nil, "", errors.Wrapf(err, "Cannot resize hard disk")
+		}
 	}
 
 	desiredNetworks := []string{ovdcNetworkName}
@@ -908,41 +999,11 @@ func (r *VCDMachineReconciler) reconcileVM(
 		},
 	}
 
-	// only resize hard disk if the user has requested so by specifying such in the VCDMachineTemplate spec
-	// check isn't strictly required as we ensure that specified number is larger than what's in the template and left
-	// empty this will just be 0. However, this makes it clear from a standpoint of inspecting the code what we are doing
-	if !vcdMachine.Spec.DiskSize.IsZero() {
-		// go-vcd expects value in MB (2^10 = 1024 * 1024 bytes), so we scale it as such
-		diskSize, ok := vcdMachine.Spec.DiskSize.AsInt64()
-		if !ok {
-			capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDMachineCreationError,
-				"", machine.Name, fmt.Sprintf("%v", err))
-			return ctrl.Result{}, nil, "",
-				fmt.Errorf("error while provisioning the infrastructure VM for the machine [%s] of the cluster [%s]; "+
-					"failed to parse disk size quantity [%s]", vm.VM.Name, vApp.VApp.Name, vcdMachine.Spec.DiskSize.String())
-		}
-		diskSize = int64(math.Floor(float64(diskSize) / float64(Mebibyte)))
-		diskSettings := vm.VM.VmSpecSection.DiskSection.DiskSettings
-		// if the specified disk size is less than what is defined in the template, then we ignore the field
-		if len(diskSettings) != 0 && diskSettings[0].SizeMb < diskSize {
-			log.Info(
-				fmt.Sprintf("resizing hard disk on VM for machine [%s] of cluster [%s]; resizing from [%dMB] to [%dMB]",
-					vmName, vAppName, diskSettings[0].SizeMb, diskSize))
-
-			diskSettings[0].SizeMb = diskSize
-			vm.VM.VmSpecSection.DiskSection.DiskSettings = diskSettings
-
-			if _, err = vm.UpdateInternalDisks(vm.VM.VmSpecSection); err != nil {
-				capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDMachineCreationError, "",
-					machine.Name, fmt.Sprintf("%v", err))
-				return ctrl.Result{}, nil, "",
-					errors.Wrapf(err, "Error while provisioning the infrastructure VM for the machine [%s] "+
-						"of the cluster [%s]; failed to resize hard disk", vm.VM.Name, vApp.VApp.Name)
-			}
-		}
-		if err = capvcdRdeManager.RdeManager.RemoveErrorByNameOrIdFromErrorSet(ctx, vcdsdk.ComponentCAPVCD,
-			capisdk.VCDMachineCreationError, "", ""); err != nil {
-			log.Error(err, "failed to remove VCDMachineCreationError from RDE")
+	if !r.Params.ResizeDiskBeforeNetworkReconciliation {
+		log.Info("Resize hard disk after starting VM")
+		res, err := resizeHardDisk(vm, vcdMachine)
+		if err != nil {
+			return res, nil, "", errors.Wrapf(err, "Cannot resize hard disk")
 		}
 	}
 
