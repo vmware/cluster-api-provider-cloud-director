@@ -96,9 +96,36 @@ var cloudInitScriptTemplate string
 //go:embed cluster_scripts/ignition_network_init_script.tmpl
 var ignitionNetworkInitScriptTemplate string
 
+type VCDMachineReconcilerParams struct {
+	// PassHostnameByGuestInfo
+	// When wm will be bootstrapped by third party cloud-init script it may require set hostname before
+	// running the script by GuestInfo
+	PassHostnameByGuestInfo bool
+
+	// DefaultNetworkModeForNewVM
+	// default network mode for new VM used in func getNetworkConnection
+	// in some cases POOL is not good choice
+	// for DHCP mode bootstrap order will be changed:
+	// - create vm in the cloud
+	// - resize root disk for speed up getting IP procedure
+	//   default disk size can have small IOPS and botstrapping will be very slow
+	// - running VM. VM will get IP address after first booting
+	// - reconcile
+	DefaultNetworkModeForNewVM string
+
+	// SkipPostBootstrapPhasesChecking
+	// skip all checks for cloud-init scripts
+	SkipPostBootstrapPhasesChecking bool
+}
+
+func (v *VCDMachineReconcilerParams) UseDHCP() bool {
+	return v.DefaultNetworkModeForNewVM == "DHCP"
+}
+
 // VCDMachineReconciler reconciles a VCDMachine object
 type VCDMachineReconciler struct {
 	client.Client
+	Params VCDMachineReconcilerParams
 }
 
 // +kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=vcdmachines,verbs=get;list;watch;create;update;patch;delete
@@ -237,6 +264,8 @@ var postCustPhases = []string{
 	MeteringConfiguration,
 	ProxyConfiguration,
 }
+
+const debugLevel = 3
 
 func removeFromSlice(remove string, arr []string) []string {
 	for ind, str := range arr {
@@ -378,34 +407,41 @@ func (r *VCDMachineReconciler) reconcileNodeSetupScripts(ctx context.Context, vc
 	var bootstrapData string
 	var bootstrapDataBytes []byte
 	if bootstrapFormat == BootstrapFormatCloudConfig {
-		// Construct a CloudInitScriptInput struct to pass into template.Execute() function to generate the necessary
-		// cloud init script for the relevant node type, i.e. control plane or worker node
-		cloudInitInput := CloudInitScriptInput{
-			HTTPProxy:           vcdCluster.Spec.ProxyConfigSpec.HTTPProxy,
-			HTTPSProxy:          vcdCluster.Spec.ProxyConfigSpec.HTTPSProxy,
-			NoProxy:             vcdCluster.Spec.ProxyConfigSpec.NoProxy,
-			MachineName:         vmName,
-			VcdHostFormatted:    strings.ReplaceAll(vcdCluster.Spec.Site, "/", "\\/"),
-			NvidiaGPU:           false,
-			TKGVersion:          getTKGVersion(cluster),    // needed for both worker & control plane machines for metering
-			ClusterID:           vcdCluster.Status.InfraId, // needed for both worker & control plane machines for metering
-			ResizedControlPlane: isResizedControlPlane,
-		}
-		if !vcdMachine.Spec.Bootstrapped && isInitialControlPlane {
-			cloudInitInput.ControlPlane = true
-		}
+		log.Info("Process cloud config")
+		if !r.Params.SkipPostBootstrapPhasesChecking {
+			// Construct a CloudInitScriptInput struct to pass into template.Execute() function to generate the necessary
+			// cloud init script for the relevant node type, i.e. control plane or worker node
+			cloudInitInput := CloudInitScriptInput{
+				HTTPProxy:           vcdCluster.Spec.ProxyConfigSpec.HTTPProxy,
+				HTTPSProxy:          vcdCluster.Spec.ProxyConfigSpec.HTTPSProxy,
+				NoProxy:             vcdCluster.Spec.ProxyConfigSpec.NoProxy,
+				MachineName:         vmName,
+				VcdHostFormatted:    strings.ReplaceAll(vcdCluster.Spec.Site, "/", "\\/"),
+				NvidiaGPU:           false,
+				TKGVersion:          getTKGVersion(cluster),    // needed for both worker & control plane machines for metering
+				ClusterID:           vcdCluster.Status.InfraId, // needed for both worker & control plane machines for metering
+				ResizedControlPlane: isResizedControlPlane,
+			}
+			if !vcdMachine.Spec.Bootstrapped && isInitialControlPlane {
+				cloudInitInput.ControlPlane = true
+			}
 
-		bootstrapDataBytes, err = MergeJinjaToCloudInitScript(cloudInitInput, bootstrapJinjaScript)
-		if err != nil {
-			capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDMachineScriptGenerationError, "", machine.Name, fmt.Sprintf("%v", err))
+			log.Info("starting MergeJinjaToCloudInitScript")
+			bootstrapDataBytes, err = MergeJinjaToCloudInitScript(cloudInitInput, bootstrapJinjaScript)
+			if err != nil {
+				capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDMachineScriptGenerationError, "", machine.Name, fmt.Sprintf("%v", err))
 
-			return nil, bootstrapFormat, isInitialControlPlane, isResizedControlPlane, errors.Wrapf(err,
-				"Error merging bootstrap jinja script with the cloudInit script for [%s/%s] [%s]",
-				vAppName, machine.Name, bootstrapJinjaScript)
+				return nil, bootstrapFormat, isInitialControlPlane, isResizedControlPlane, errors.Wrapf(err,
+					"Error merging bootstrap jinja script with the cloudInit script for [%s/%s] [%s]",
+					vAppName, machine.Name, bootstrapJinjaScript)
+			}
+			bootstrapData = string(bootstrapDataBytes)
+		} else {
+			bootstrapData = bootstrapJinjaScript
+			bootstrapDataBytes = []byte(bootstrapData)
 		}
-
-		bootstrapData = string(bootstrapDataBytes)
 	} else if bootstrapFormat == BootstrapFormatIgnition {
+		log.V(2).Info("Process ignition")
 		bootstrapDataBytes = []byte(bootstrapJinjaScript)
 		bootstrapData = bootstrapJinjaScript
 	} else {
@@ -436,6 +472,7 @@ func (r *VCDMachineReconciler) reconcileVMBootstrap(ctx context.Context, vcdClie
 	capvcdRdeManager := capisdk.NewCapvcdRdeManager(vcdClient, vcdCluster.Status.InfraId)
 
 	vmStatus, err := vm.GetStatus()
+	log.Info(fmt.Sprintf("Vm status %s", vmStatus))
 	if err != nil {
 		capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDMachineCreationError, "", machine.Name, fmt.Sprintf("%v", err))
 
@@ -453,7 +490,8 @@ func (r *VCDMachineReconciler) reconcileVMBootstrap(ctx context.Context, vcdClie
 
 	if vmStatus != "POWERED_ON" {
 		// try to power on the VM
-		b64BootstrapData := b64.StdEncoding.EncodeToString([]byte(bootstrapData))
+		b64BootstrapData := b64.StdEncoding.EncodeToString(bootstrapData)
+		log.Info(fmt.Sprintf("Vm status is %s. Bootstrap format %s; Bootstrap data %s; b64: %s", vmStatus, bootstrapFormat, string(bootstrapData), b64BootstrapData))
 
 		var keyVals map[string]string
 		if bootstrapFormat == BootstrapFormatCloudConfig {
@@ -462,6 +500,16 @@ func (r *VCDMachineReconciler) reconcileVMBootstrap(ctx context.Context, vcdClie
 				"guestinfo.userdata.encoding": "base64",
 				"disk.enableUUID":             "1",
 			}
+			if r.Params.PassHostnameByGuestInfo {
+				metadata := fmt.Sprintf(`local-hostname: %s`, vmName)
+				b64metadata := b64.StdEncoding.EncodeToString([]byte(metadata))
+				keyVals["guestinfo.metadata"] = b64metadata
+				keyVals["guestinfo.metadata.encoding"] = "base64"
+				keyVals["guestinfo.hostname"] = vmName
+			}
+
+			log.Info(fmt.Sprintf("Vm extra keys for cloud config: %+v", keyVals))
+
 		} else if bootstrapFormat == BootstrapFormatIgnition {
 			networkMetadata, err := generateNetworkInitializationScriptForIgnition(vm.VM.NetworkConnectionSection, vdcManager)
 			if err != nil {
@@ -479,6 +527,7 @@ func (r *VCDMachineReconciler) reconcileVMBootstrap(ctx context.Context, vcdClie
 		}
 
 		keys := capvcdutil.Keys(keyVals)
+		log.Info("Start SetMultiVmExtraConfigKeyValuePairs")
 		task, err := vdcManager.SetMultiVmExtraConfigKeyValuePairs(vm, keyVals, true)
 		if err != nil {
 			capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDMachineCreationError, "", machine.Name, fmt.Sprintf("%v", err))
@@ -492,6 +541,7 @@ func (r *VCDMachineReconciler) reconcileVMBootstrap(ctx context.Context, vcdClie
 			return errors.Wrapf(err, "Error while waiting for task that sets keys [%v] machine [%s/%s]",
 				keys, vAppName, vm.VM.Name)
 		}
+		log.Info("finish SetMultiVmExtraConfigKeyValuePairs")
 		err = capvcdRdeManager.RdeManager.RemoveErrorByNameOrIdFromErrorSet(ctx, vcdsdk.ComponentCAPVCD, capisdk.VCDMachineCreationError, "", machine.Name)
 		if err != nil {
 			log.Error(err, "failed to remove VCDMachineCreationError from RDE", "rdeID", vcdCluster.Status.InfraId)
@@ -518,10 +568,12 @@ func (r *VCDMachineReconciler) reconcileVMBootstrap(ctx context.Context, vcdClie
 		}
 	}
 
-	if hasCloudInitFailedBefore, err := r.hasCloudInitExecutionFailedBefore(vcdClient, vm); hasCloudInitFailedBefore {
-		capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDMachineScriptExecutionError, "", machine.Name, fmt.Sprintf("%v", err))
+	if !r.Params.SkipPostBootstrapPhasesChecking {
+		if hasCloudInitFailedBefore, err := r.hasCloudInitExecutionFailedBefore(vcdClient, vm); hasCloudInitFailedBefore {
+			capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDMachineScriptExecutionError, "", machine.Name, fmt.Sprintf("%v", err))
 
-		return errors.Wrapf(err, "Error bootstrapping the machine [%s/%s]; machine is probably in unreconciliable state", vAppName, vm.VM.Name)
+			return errors.Wrapf(err, "Error bootstrapping the machine [%s/%s]; machine is probably in unreconciliable state", vAppName, vm.VM.Name)
+		}
 	}
 	capvcdRdeManager.AddToEventSet(ctx, capisdk.InfraVmPoweredOn, "", machine.Name, "", skipRDEEventUpdates)
 
@@ -530,35 +582,37 @@ func (r *VCDMachineReconciler) reconcileVMBootstrap(ctx context.Context, vcdClie
 		log.Error(err, "failed to remove VCDMachineCreationError from RDE", "rdeID", vcdCluster.Status.InfraId)
 	}
 
-	if bootstrapFormat == BootstrapFormatCloudConfig {
-		phases := postCustPhases
-		if isInitialControlPlane {
-			phases = append(phases, KubeadmInit)
-		} else {
-			phases = append(phases, KubeadmNodeJoin)
-		}
-
-		if vcdCluster.Spec.ProxyConfigSpec.HTTPSProxy == "" &&
-			vcdCluster.Spec.ProxyConfigSpec.HTTPProxy == "" {
-			phases = removeFromSlice(ProxyConfiguration, phases)
-		}
-
-		for _, phase := range phases {
-			if err = vApp.Refresh(); err != nil {
-				capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDMachineScriptExecutionError, "", machine.Name, fmt.Sprintf("%v", err))
-
-				return errors.Wrapf(err, "Error while bootstrapping the machine [%s/%s]; unable to refresh vapp",
-					vAppName, vm.VM.Name)
+	if !r.Params.SkipPostBootstrapPhasesChecking {
+		if bootstrapFormat == BootstrapFormatCloudConfig {
+			phases := postCustPhases
+			if isInitialControlPlane {
+				phases = append(phases, KubeadmInit)
+			} else {
+				phases = append(phases, KubeadmNodeJoin)
 			}
-			log.Info(fmt.Sprintf("Start: waiting for the bootstrapping phase [%s] to complete", phase))
-			if err = r.waitForPostCustomizationPhase(ctx, vcdClient, vm, phase); err != nil {
-				log.Error(err, fmt.Sprintf("Error waiting for the bootstrapping phase [%s] to complete", phase))
-				capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDMachineScriptExecutionError, "", machine.Name, fmt.Sprintf("%v", err))
 
-				return errors.Wrapf(err, "Error while bootstrapping the machine [%s/%s]; unable to wait for post customization phase [%s]",
-					vAppName, vm.VM.Name, phase)
+			if vcdCluster.Spec.ProxyConfigSpec.HTTPSProxy == "" &&
+				vcdCluster.Spec.ProxyConfigSpec.HTTPProxy == "" {
+				phases = removeFromSlice(ProxyConfiguration, phases)
 			}
-			log.Info(fmt.Sprintf("End: waiting for the bootstrapping phase [%s] to complete", phase))
+
+			for _, phase := range phases {
+				if err = vApp.Refresh(); err != nil {
+					capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDMachineScriptExecutionError, "", machine.Name, fmt.Sprintf("%v", err))
+
+					return errors.Wrapf(err, "Error while bootstrapping the machine [%s/%s]; unable to refresh vapp",
+						vAppName, vm.VM.Name)
+				}
+				log.Info(fmt.Sprintf("Start: waiting for the bootstrapping phase [%s] to complete", phase))
+				if err = r.waitForPostCustomizationPhase(ctx, vcdClient, vm, phase); err != nil {
+					log.Error(err, fmt.Sprintf("Error waiting for the bootstrapping phase [%s] to complete", phase))
+					capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDMachineScriptExecutionError, "", machine.Name, fmt.Sprintf("%v", err))
+
+					return errors.Wrapf(err, "Error while bootstrapping the machine [%s/%s]; unable to wait for post customization phase [%s]",
+						vAppName, vm.VM.Name, phase)
+				}
+				log.Info(fmt.Sprintf("End: waiting for the bootstrapping phase [%s] to complete", phase))
+			}
 		}
 	}
 
@@ -790,12 +844,7 @@ func (r *VCDMachineReconciler) reconcileVAppCreation(ctx context.Context, vcdCli
 	return ctrl.Result{}, nil
 }
 
-func (r *VCDMachineReconciler) reconcileVM(
-	ctx context.Context, vcdClient *vcdsdk.Client, vdcManager *vcdsdk.VdcManager,
-	vApp *govcd.VApp, machine *clusterv1.Machine, vcdMachine *infrav1beta3.VCDMachine,
-	vmName string, ovdcNetworkName string,
-	vcdCluster *infrav1beta3.VCDCluster) (res ctrl.Result, vm *govcd.VM, machineAddress string, retErr error) {
-
+func (r *VCDMachineReconciler) reconcileVM(ctx context.Context, vcdClient *vcdsdk.Client, vdcManager *vcdsdk.VdcManager, vApp *govcd.VApp, machine *clusterv1.Machine, vcdMachine *infrav1beta3.VCDMachine, vmName string, ovdcNetworkName string, vcdCluster *infrav1beta3.VCDCluster, bootstrapFunc func(ctx context.Context, vm *govcd.VM) (ctrl.Result, error)) (res ctrl.Result, vm *govcd.VM, machineAddress string, retErr error) {
 	if vApp == nil || vApp.VApp == nil {
 		return ctrl.Result{}, nil, "", errors.New("reconcileVM is called with nil vApp")
 	}
@@ -856,6 +905,49 @@ func (r *VCDMachineReconciler) reconcileVM(
 		// 	VCDResourceSet can get bloated with VMs if the cluster contains a large number of worker nodes
 	}
 
+	// in some cases we want to resize disk before starting VM
+	resizeHardDisk := func(vm *govcd.VM, vcdMachine *infrav1beta3.VCDMachine) (res ctrl.Result, retErr error) {
+		// only resize hard disk if the user has requested so by specifying such in the VCDMachineTemplate spec
+		// check isn't strictly required as we ensure that specified number is larger than what's in the template and left
+		// empty this will just be 0. However, this makes it clear from a standpoint of inspecting the code what we are doing
+		if !vcdMachine.Spec.DiskSize.IsZero() {
+			// go-vcd expects value in MB (2^10 = 1024 * 1024 bytes), so we scale it as such
+			diskSize, ok := vcdMachine.Spec.DiskSize.AsInt64()
+			if !ok {
+				capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDMachineCreationError,
+					"", machine.Name, fmt.Sprintf("%v", err))
+				return ctrl.Result{},
+					fmt.Errorf("error while provisioning the infrastructure VM for the machine [%s] of the cluster [%s]; "+
+						"failed to parse disk size quantity [%s]", vm.VM.Name, vApp.VApp.Name, vcdMachine.Spec.DiskSize.String())
+			}
+			diskSize = int64(math.Floor(float64(diskSize) / float64(Mebibyte)))
+			diskSettings := vm.VM.VmSpecSection.DiskSection.DiskSettings
+			// if the specified disk size is less than what is defined in the template, then we ignore the field
+			if len(diskSettings) != 0 && diskSettings[0].SizeMb < diskSize {
+				log.Info(
+					fmt.Sprintf("resizing hard disk on VM for machine [%s] of cluster [%s]; resizing from [%dMB] to [%dMB]",
+						vmName, vAppName, diskSettings[0].SizeMb, diskSize))
+
+				diskSettings[0].SizeMb = diskSize
+				vm.VM.VmSpecSection.DiskSection.DiskSettings = diskSettings
+
+				if _, err = vm.UpdateInternalDisks(vm.VM.VmSpecSection); err != nil {
+					capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDMachineCreationError, "",
+						machine.Name, fmt.Sprintf("%v", err))
+					return ctrl.Result{},
+						errors.Wrapf(err, "Error while provisioning the infrastructure VM for the machine [%s] "+
+							"of the cluster [%s]; failed to resize hard disk", vm.VM.Name, vApp.VApp.Name)
+				}
+			}
+			if err = capvcdRdeManager.RdeManager.RemoveErrorByNameOrIdFromErrorSet(ctx, vcdsdk.ComponentCAPVCD,
+				capisdk.VCDMachineCreationError, "", ""); err != nil {
+				log.Error(err, "failed to remove VCDMachineCreationError from RDE")
+			}
+		}
+
+		return ctrl.Result{}, nil
+	}
+
 	// if vm exists, verify that its status is RESOLVED
 	status, err := vm.GetStatus()
 	if err != nil {
@@ -908,11 +1000,24 @@ func (r *VCDMachineReconciler) reconcileVM(
 			machine.Name, vAppName, status)
 	}
 
+	if r.Params.UseDHCP() {
+		log.Info("Resize hard disk before starting VM")
+		res, err := resizeHardDisk(vm, vcdMachine)
+		if err != nil {
+			return res, nil, "", errors.Wrapf(err, "Cannot resize root disk")
+		}
+
+		res, err = bootstrapFunc(ctx, vm)
+		if err != nil {
+			return res, nil, "", errors.Wrapf(err, "Cannot bootstrap VM")
+		}
+	}
+
 	desiredNetworks := []string{ovdcNetworkName}
 	if vcdMachine.Spec.ExtraOvdcNetworks != nil {
 		desiredNetworks = append([]string{ovdcNetworkName}, vcdMachine.Spec.ExtraOvdcNetworks...)
 	}
-	if err = r.reconcileVMNetworks(vdcManager, vApp, vm, desiredNetworks); err != nil {
+	if err = r.reconcileVMNetworks(vdcManager, vApp, vm, desiredNetworks, log); err != nil {
 		log.Error(err, "Error while attaching networks to vApp and VMs")
 		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil, "", nil
 	}
@@ -960,41 +1065,11 @@ func (r *VCDMachineReconciler) reconcileVM(
 		},
 	}
 
-	// only resize hard disk if the user has requested so by specifying such in the VCDMachineTemplate spec
-	// check isn't strictly required as we ensure that specified number is larger than what's in the template and left
-	// empty this will just be 0. However, this makes it clear from a standpoint of inspecting the code what we are doing
-	if !vcdMachine.Spec.DiskSize.IsZero() {
-		// go-vcd expects value in MB (2^10 = 1024 * 1024 bytes), so we scale it as such
-		diskSize, ok := vcdMachine.Spec.DiskSize.AsInt64()
-		if !ok {
-			capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDMachineCreationError,
-				"", machine.Name, fmt.Sprintf("%v", err))
-			return ctrl.Result{}, nil, "",
-				fmt.Errorf("error while provisioning the infrastructure VM for the machine [%s] of the cluster [%s]; "+
-					"failed to parse disk size quantity [%s]", vm.VM.Name, vApp.VApp.Name, vcdMachine.Spec.DiskSize.String())
-		}
-		diskSize = int64(math.Floor(float64(diskSize) / float64(Mebibyte)))
-		diskSettings := vm.VM.VmSpecSection.DiskSection.DiskSettings
-		// if the specified disk size is less than what is defined in the template, then we ignore the field
-		if len(diskSettings) != 0 && diskSettings[0].SizeMb < diskSize {
-			log.Info(
-				fmt.Sprintf("resizing hard disk on VM for machine [%s] of cluster [%s]; resizing from [%dMB] to [%dMB]",
-					vmName, vAppName, diskSettings[0].SizeMb, diskSize))
-
-			diskSettings[0].SizeMb = diskSize
-			vm.VM.VmSpecSection.DiskSection.DiskSettings = diskSettings
-
-			if _, err = vm.UpdateInternalDisks(vm.VM.VmSpecSection); err != nil {
-				capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDMachineCreationError, "",
-					machine.Name, fmt.Sprintf("%v", err))
-				return ctrl.Result{}, nil, "",
-					errors.Wrapf(err, "Error while provisioning the infrastructure VM for the machine [%s] "+
-						"of the cluster [%s]; failed to resize hard disk", vm.VM.Name, vApp.VApp.Name)
-			}
-		}
-		if err = capvcdRdeManager.RdeManager.RemoveErrorByNameOrIdFromErrorSet(ctx, vcdsdk.ComponentCAPVCD,
-			capisdk.VCDMachineCreationError, "", ""); err != nil {
-			log.Error(err, "failed to remove VCDMachineCreationError from RDE")
+	if !r.Params.UseDHCP() {
+		log.Info("Resize hard disk after starting VM")
+		res, err := resizeHardDisk(vm, vcdMachine)
+		if err != nil {
+			return res, nil, "", errors.Wrapf(err, "Cannot resize hard disk")
 		}
 	}
 
@@ -1202,8 +1277,21 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	}
 	log.Info(fmt.Sprintf("Using VM name [%s] in VApp [%s] for the machine [%s]", vmName, vAppName, machine.Name))
 
+	bootstrapData, bootstrapFormat, isInitialControlPlane, isResizedControlPlane, err := r.reconcileNodeSetupScripts(
+		ctx, vcdClient, machine, cluster, vcdMachine, vcdCluster, vAppName, vmName, skipRDEEventUpdates)
+
+	bootstrapFunc := func(ctx context.Context, vm *govcd.VM) (ctrl.Result, error) {
+		err = r.reconcileVMBootstrap(ctx, vcdClient, vdcManager, vApp, vm, vmName, bootstrapData, bootstrapFormat, vcdCluster, machine,
+			isInitialControlPlane, isResizedControlPlane, skipRDEEventUpdates)
+		if err != nil {
+			return ctrl.Result{}, errors.Wrapf(err, "failed to bootstrap VM [%s/%s]", vAppName, vmName)
+		}
+
+		return ctrl.Result{}, nil
+	}
+
 	result, vm, machineAddress, err := r.reconcileVM(ctx, vcdClient, vdcManager, vApp, machine, vcdMachine,
-		vmName, ovdcNetworkName, vcdCluster)
+		vmName, ovdcNetworkName, vcdCluster, bootstrapFunc)
 	if err != nil {
 		capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDMachineError, "", machine.Name, fmt.Sprintf("%v", err))
 		return result, errors.Wrapf(err, "unable to provision infrastructure for VM [%s/%s] in ovdc[%s] with network [%s]",
@@ -1231,9 +1319,6 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	}
 	conditions.MarkTrue(vcdMachine, ContainerProvisionedCondition)
 
-	bootstrapData, bootstrapFormat, isInitialControlPlane, isResizedControlPlane, err := r.reconcileNodeSetupScripts(
-		ctx, vcdClient, machine, cluster, vcdMachine, vcdCluster, vAppName, vmName, skipRDEEventUpdates)
-
 	gateway, err := vcdsdk.NewGatewayManager(ctx, vcdClient, ovdcNetworkName, vcdCluster.Spec.LoadBalancerConfigSpec.VipSubnet, ovdcName)
 	if err != nil {
 		capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDMachineCreationError, "", machine.Name, fmt.Sprintf("%v", err))
@@ -1252,10 +1337,11 @@ func (r *VCDMachineReconciler) reconcileNormal(ctx context.Context, cluster *clu
 		}
 	}
 
-	err = r.reconcileVMBootstrap(ctx, vcdClient, vdcManager, vApp, vm, vmName, bootstrapData, bootstrapFormat, vcdCluster, machine,
-		isInitialControlPlane, isResizedControlPlane, skipRDEEventUpdates)
-	if err != nil {
-		return ctrl.Result{}, errors.Wrapf(err, "failed to bootstrap VM [%s/%s]", vAppName, vmName)
+	if !r.Params.UseDHCP() {
+		res, err := bootstrapFunc(ctx, vm)
+		if err != nil {
+			return res, errors.Wrapf(err, "Cannot bootstrap VM")
+		}
 	}
 
 	// Update load-balancer pool with the IP of the control plane node as a new member.
@@ -1363,7 +1449,7 @@ func getPrimaryNetwork(vm *types.Vm) *types.NetworkConnection {
 
 // reconcileVMNetworks ensures that desired networks are attached to VMs
 // networks[0] refers the primary network
-func (r *VCDMachineReconciler) reconcileVMNetworks(vdcManager *vcdsdk.VdcManager, vApp *govcd.VApp, vm *govcd.VM, networks []string) error {
+func (r *VCDMachineReconciler) reconcileVMNetworks(vdcManager *vcdsdk.VdcManager, vApp *govcd.VApp, vm *govcd.VM, networks []string, log logr.Logger) error {
 	connections, err := vm.GetNetworkConnectionSection()
 	if err != nil {
 		return errors.Wrapf(err, "Failed to get attached networks to VM")
@@ -1377,7 +1463,7 @@ func (r *VCDMachineReconciler) reconcileVMNetworks(vdcManager *vcdsdk.VdcManager
 			return errors.Wrapf(err, "Error ensuring network [%s] is attached to vApp", ovdcNetwork)
 		}
 
-		desiredConnectionArray[index] = getNetworkConnection(connections, ovdcNetwork)
+		desiredConnectionArray[index] = getNetworkConnection(connections, ovdcNetwork, r.Params.DefaultNetworkModeForNewVM, log)
 	}
 
 	if !containsTheSameElements(connections.NetworkConnection, desiredConnectionArray) {
@@ -1419,21 +1505,24 @@ OUTER:
 	return true
 }
 
-func getNetworkConnection(connections *types.NetworkConnectionSection, ovdcNetwork string) *types.NetworkConnection {
-
+func getNetworkConnection(connections *types.NetworkConnectionSection, ovdcNetwork string, defaultMode string, log logr.Logger) *types.NetworkConnection {
 	for _, existingConnection := range connections.NetworkConnection {
 		if existingConnection.Network == ovdcNetwork {
+			log.V(3).Info(fmt.Sprintf("Found network %+v", existingConnection))
 			return existingConnection
 		}
 	}
-
-	return &types.NetworkConnection{
+	res := &types.NetworkConnection{
 		Network:                 ovdcNetwork,
 		NeedsCustomization:      false,
 		IsConnected:             true,
-		IPAddressAllocationMode: "POOL",
+		IPAddressAllocationMode: defaultMode,
 		NetworkAdapterType:      "VMXNET3",
 	}
+
+	log.V(2).Info(fmt.Sprintf("Network not found. Use default %+v", res))
+
+	return res
 }
 
 func ensureNetworkIsAttachedToVApp(vdcManager *vcdsdk.VdcManager, vApp *govcd.VApp, ovdcNetworkName string) error {
