@@ -27,7 +27,7 @@ Setup instructions vary across versions. Please refer to `CLUSTERCTL.md` from th
 ## Initialize Management cluster
 
 1. Run the below command to initialize the management cluster with the Cluster API and the associated provider for VMware Cloud Director. Ensure the version interop between CAPVCD, Core CAPI, and Clusterctl are correct from the [interop version table](#version-interop)
-   1. For CAPVCD `main`, use `clusterctl init --core cluster-api:v1.4.0 -b kubeadm:v1.4.0 -c kubeadm:v1.4.0 -i vcd:v1.1.0`
+   1. For CAPVCD `main`, use `clusterctl init --core cluster-api:v1.5.4 -b kubeadm:v1.5.4 -c kubeadm:v1.5.4 -i vcd:v1.3.0`
 2. Apply [CRS definitions](CRS.md#apply_crs) to ensure CNI, CPI and CSI are automatically installed on the workload clusters.
 
 <a name="generate_cluster_manifest"></a>
