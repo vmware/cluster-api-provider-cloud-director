@@ -1,4 +1,4 @@
-# List of Tanzu Kubernetes Grid (TKG) Releases
+# Tanzu Kubernetes Grid multicloud (TKGm) Release Matrix
 
 | Kubernetes Version | etcd              | coredns                          | Complete Version (unique) | OVA (unique)                                                                  | TKG Product Version(s)               | TKr Version                    |
 | ------------------ | ----------------- | -------------------------------- | ------------------------- | ----------------------------------------------------------------------------- | ------------------------------------ | ------------------------------ |

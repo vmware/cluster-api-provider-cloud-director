@@ -39,6 +39,7 @@ Setup instructions vary across versions. Please refer to `CLUSTERCTL.md` from th
    - One of the variables is RefreshToken. Refer to [How to create refreshToken (or) API token in Cloud Director](https://docs.vmware.com/en/VMware-Cloud-Director/10.3/VMware-Cloud-Director-Tenant-Portal-Guide/GUID-A1B3B2FA-7B2C-4EE1-9D1B-188BE703EEDE.html).
    - Refer to the [script to get Kubernetes, etcd, coredns versions from TKG OVA](WORKLOAD_CLUSTER.md#tkgm_bom) to fill in few variables. Note that you may skip filling
      in few of these variables if you decide to use the existing [clusterctl template flavors](#template_flavors).
+   - If you decide to not use one of the existing clusterctl template flavors, please refer to the [TKG catalog management table](https://github.com/vmware/cluster-api-provider-cloud-director/blob/main/docs/TKGm_RELEASE_MATRIX.md) on the `main` branch
 3. Generate the CAPI manifest file.
    - `clusterctl generate cluster <clusterName> -f v1.21.8-crs > <clusterName>.yaml`.
 4. Create the workload cluster by applying it on the (parent) management cluster.
