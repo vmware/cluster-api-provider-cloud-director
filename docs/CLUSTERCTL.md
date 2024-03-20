@@ -66,7 +66,7 @@ Setup instructions vary across versions. Please refer to `CLUSTERCTL.md` from th
   - v1.28.4
 
   Please ensure your `~/.cluster-api/clusterctl.yaml` has `VCD_TEMPLATE_NAME` matching the correct versions of Kubernetes.
-  For example, if `VCD_TEMPLATE_NAME=Ubuntu 20.04 and Kubernetes v1.21.8+vmware.1` then use `v1.21.8-crs` flavor.
+  For example, if `VCD_TEMPLATE_NAME=Ubuntu 20.04 and Kubernetes v1.28.4+vmware.1` then use `v1.28.4-crs` flavor.
 
 - It is strongly recommended to use `v1.y.z-crs` flavors to ensure CNI, CPI and CSI are automatically installed on the
   workload clusters. CNI and CPI are required add-ons for the cluster creation to be successful.
