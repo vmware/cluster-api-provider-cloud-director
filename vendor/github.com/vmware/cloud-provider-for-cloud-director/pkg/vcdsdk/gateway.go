@@ -1477,7 +1477,7 @@ func (gm *GatewayManager) IsUsingIpSpaces() (bool, error) {
 		return false, fmt.Errorf("unable to determine if gateway [%s] is using Ip Spaces or not; obtained nil org", edgeGatewayName)
 	}
 	edgeGateway, err := clusterOrg.GetNsxtEdgeGatewayById(edgeGatewayID)
-	if err == nil {
+	if err != nil {
 		return false, fmt.Errorf("unable to determine if gateway [%s] is using Ip Spaces or not. error [%v]", edgeGatewayName, err)
 	}
 
