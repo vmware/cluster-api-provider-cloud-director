@@ -28,7 +28,6 @@ import (
 	vcdutil "github.com/vmware/cluster-api-provider-cloud-director/pkg/util"
 	"github.com/vmware/cluster-api-provider-cloud-director/release"
 	"github.com/vmware/go-vcloud-director/v2/govcd"
-	"github.com/vmware/go-vcloud-director/v2/types/v56"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/klog"
@@ -393,13 +392,44 @@ func getMapOfEdgeGateways(ctx context.Context, vcdClient *vcdsdk.Client, orgName
 	return edgeGatewayDetailsMap, nil
 }
 
+func (r *VCDClusterReconciler) getOvdcList(ctx context.Context, vcdOrg *govcd.Org, vcdCluster *infrav1beta3.VCDCluster,
+	vdc *govcd.Vdc) ([]rdeType.Ovdc, error) {
+
+	if vdc == nil && vcdCluster.Spec.MultiZoneSpec.Zones == nil {
+		return nil, fmt.Errorf("VDC and Zones cannot both be nil")
+	}
+
+	if vdc != nil {
+		return []rdeType.Ovdc{
+			{
+				Name:        vdc.Vdc.Name,
+				ID:          vdc.Vdc.ID,
+				OvdcNetwork: vcdCluster.Spec.OvdcNetwork,
+			},
+		}, nil
+	}
+
+	ovdcList := make([]rdeType.Ovdc, 0)
+	for _, zone := range vcdCluster.Spec.MultiZoneSpec.Zones {
+		vdc, err := vcdOrg.GetVDCByNameOrId(zone.OVDCName, false)
+		if err != nil {
+			return nil, fmt.Errorf("unable to get VDC by identifier [%s] in org [%s]: [%v]", zone.OVDCName,
+				vcdOrg.Org.Name, err)
+		}
+		ovdcList = append(ovdcList, rdeType.Ovdc{
+			Name:        vdc.Vdc.Name,
+			ID:          vdc.Vdc.ID,
+			OvdcNetwork: zone.OVDCNetworkName,
+		})
+	}
+
+	return ovdcList, nil
+}
+
 // TODO: Remove uncommented code when decision to only keep capi.yaml as part of RDE spec is finalized
 func (r *VCDClusterReconciler) constructCapvcdRDE(ctx context.Context, cluster *clusterv1.Cluster,
-	vcdCluster *infrav1beta3.VCDCluster, vdc *types.Vdc, vcdOrg *types.Org) (*swagger.DefinedEntity, error) {
+	vcdCluster *infrav1beta3.VCDCluster, vdc *govcd.Vdc, vcdOrg *govcd.Org) (*swagger.DefinedEntity, error) {
 
-	if vdc == nil {
-		return nil, fmt.Errorf("VDC cannot be nil")
-	}
 	if vcdOrg == nil {
 		return nil, fmt.Errorf("org cannot be nil")
 	}
@@ -426,17 +456,16 @@ func (r *VCDClusterReconciler) constructCapvcdRDE(ctx context.Context, cluster *
 
 	orgList := []rdeType.Org{
 		{
-			Name: vcdOrg.Name,
-			ID:   vcdOrg.ID,
+			Name: vcdOrg.Org.Name,
+			ID:   vcdOrg.Org.ID,
 		},
 	}
 	// TODO: retrieve OVDC list from the zones list
-	ovdcList := []rdeType.Ovdc{
-		{
-			Name:        vdc.Name,
-			ID:          vdc.ID,
-			OvdcNetwork: vcdCluster.Spec.OvdcNetwork,
-		},
+
+	ovdcList, err := r.getOvdcList(ctx, vcdOrg, vcdCluster, vdc)
+	if err != nil {
+		return nil, fmt.Errorf("unable to get ovdc list for vdc [%v], zones [%v], org [%s]: [%v]",
+			vdc, vcdCluster.Spec.MultiZoneSpec.Zones, vcdOrg.Org.Name, err)
 	}
 
 	rde := &swagger.DefinedEntity{
@@ -448,8 +477,8 @@ func (r *VCDClusterReconciler) constructCapvcdRDE(ctx context.Context, cluster *
 		ApiVersion: capisdk.CAPVCDClusterEntityApiVersion,
 		Metadata: rdeType.Metadata{
 			Name: vcdCluster.Name,
-			Org:  vcdOrg.Name,
-			Vdc:  vdc.Name,
+			Org:  vcdOrg.Org.Name,
+			Vdc:  vcdCluster.Spec.Ovdc,
 			Site: vcdCluster.Spec.Site,
 		},
 		Spec: rdeType.CAPVCDSpec{},
@@ -513,10 +542,6 @@ func (r *VCDClusterReconciler) constructAndCreateRDEFromCluster(ctx context.Cont
 		return "", fmt.Errorf("vcdClient is nil")
 	}
 
-	if vcdClient.VDC == nil || vcdClient.VDC.Vdc == nil {
-		return "", fmt.Errorf("VDC client in vcdClient object is nil")
-	}
-
 	org, err := getOrgByName(vcdClient, vcdCluster.Spec.Org)
 	if err != nil {
 		return "", fmt.Errorf("error occurred while constructing RDE from cluster [%s]", vcdCluster.Status.InfraId)
@@ -525,7 +550,11 @@ func (r *VCDClusterReconciler) constructAndCreateRDEFromCluster(ctx context.Cont
 		return "", fmt.Errorf("unable to get the org by name [%s]", vcdCluster.Spec.Org)
 	}
 
-	rde, err := r.constructCapvcdRDE(ctx, cluster, vcdCluster, vcdClient.VDC.Vdc, org.Org)
+	var vdc *govcd.Vdc = nil
+	if vcdClient.VDC != nil {
+		vdc = vcdClient.VDC
+	}
+	rde, err := r.constructCapvcdRDE(ctx, cluster, vcdCluster, vdc, org)
 	if err != nil {
 		return "", fmt.Errorf("error occurred while constructing RDE payload for the cluster [%s]: [%v]", vcdCluster.Name, err)
 	}
@@ -767,6 +796,20 @@ func (r *VCDClusterReconciler) reconcileRDE(ctx context.Context, cluster *cluste
 		capvcdStatusPatch["NodePool"] = nodePoolList
 	}
 
+	var vdcObject *govcd.Vdc = nil
+	if vdc != "" {
+		vdcObject, err = org.GetVDCByName(vdc, false)
+		if err != nil {
+			return fmt.Errorf("unable to obtain vdc [%s] in org [%s]: [%v]", vdc, org.Org.Name, err)
+		}
+	}
+
+	ovdcList, err := r.getOvdcList(ctx, org, vcdCluster, vdcObject)
+	if err != nil {
+		return fmt.Errorf("unable to obtain list of OVDCs for cluster [%s] in org [%s]: [%v]",
+			cluster.Name, org.Org.Name, err)
+	}
+
 	vcdResources := rdeType.VCDProperties{
 		Site: vcdCluster.Spec.Site,
 		Org: []rdeType.Org{
@@ -775,13 +818,7 @@ func (r *VCDClusterReconciler) reconcileRDE(ctx context.Context, cluster *cluste
 				ID:   org.Org.ID,
 			},
 		},
-		Ovdc: []rdeType.Ovdc{
-			{
-				Name:        vcdClient.VDC.Vdc.Name,
-				ID:          vcdClient.VDC.Vdc.ID,
-				OvdcNetwork: vcdCluster.Spec.OvdcNetwork,
-			},
-		},
+		Ovdc: ovdcList,
 	}
 	if !reflect.DeepEqual(vcdResources, capvcdStatus.VcdProperties) {
 		capvcdStatusPatch["VcdProperties"] = vcdResources
@@ -1354,7 +1391,7 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	skipRDEEventUpdates := clusterv1.ClusterPhase(cluster.Status.Phase) == clusterv1.ClusterPhaseProvisioned
 
 	// We do not need a VCD client which is scoped to a VDC as we only create load balancer
-	vcdClient, err := loginVCD(ctx, r.Client, vcdCluster, vcdCluster.Spec.Ovdc, true)
+	vcdClient, err := loginVCD(ctx, r.Client, vcdCluster, vcdCluster.Spec.Ovdc, false)
 
 	// close all idle connections when reconciliation is done
 	defer func() {
