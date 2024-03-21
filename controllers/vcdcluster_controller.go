@@ -28,7 +28,6 @@ import (
 	vcdutil "github.com/vmware/cluster-api-provider-cloud-director/pkg/util"
 	"github.com/vmware/cluster-api-provider-cloud-director/release"
 	"github.com/vmware/go-vcloud-director/v2/govcd"
-	"github.com/vmware/go-vcloud-director/v2/types/v56"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/klog"
@@ -393,13 +392,44 @@ func getMapOfEdgeGateways(ctx context.Context, vcdClient *vcdsdk.Client, orgName
 	return edgeGatewayDetailsMap, nil
 }
 
-// TODO: Remove uncommented code when decision to only keep capi.yaml as part of RDE spec is finalized
-func (r *VCDClusterReconciler) constructCapvcdRDE(ctx context.Context, cluster *clusterv1.Cluster,
-	vcdCluster *infrav1beta3.VCDCluster, vdc *types.Vdc, vcdOrg *govcd.Org) (*swagger.DefinedEntity, error) {
+func (r *VCDClusterReconciler) getOvdcList(ctx context.Context, vcdOrg *govcd.Org, vcdCluster *infrav1beta3.VCDCluster,
+	vdc *govcd.Vdc) ([]rdeType.Ovdc, error) {
 
 	if vdc == nil && vcdCluster.Spec.MultiZoneSpec.Zones == nil {
 		return nil, fmt.Errorf("VDC and Zones cannot both be nil")
 	}
+
+	if vdc != nil {
+		return []rdeType.Ovdc{
+			{
+				Name:        vdc.Vdc.Name,
+				ID:          vdc.Vdc.ID,
+				OvdcNetwork: vcdCluster.Spec.OvdcNetwork,
+			},
+		}, nil
+	}
+
+	ovdcList := make([]rdeType.Ovdc, 0)
+	for _, zone := range vcdCluster.Spec.MultiZoneSpec.Zones {
+		vdc, err := vcdOrg.GetVDCByNameOrId(zone.OVDCName, false)
+		if err != nil {
+			return nil, fmt.Errorf("unable to get VDC by identifier [%s] in org [%s]: [%v]", zone.OVDCName,
+				vcdOrg.Org.Name, err)
+		}
+		ovdcList = append(ovdcList, rdeType.Ovdc{
+			Name:        vdc.Vdc.Name,
+			ID:          vdc.Vdc.ID,
+			OvdcNetwork: zone.OVDCNetworkName,
+		})
+	}
+
+	return ovdcList, nil
+}
+
+// TODO: Remove uncommented code when decision to only keep capi.yaml as part of RDE spec is finalized
+func (r *VCDClusterReconciler) constructCapvcdRDE(ctx context.Context, cluster *clusterv1.Cluster,
+	vcdCluster *infrav1beta3.VCDCluster, vdc *govcd.Vdc, vcdOrg *govcd.Org) (*swagger.DefinedEntity, error) {
+
 	if vcdOrg == nil {
 		return nil, fmt.Errorf("org cannot be nil")
 	}
@@ -432,28 +462,10 @@ func (r *VCDClusterReconciler) constructCapvcdRDE(ctx context.Context, cluster *
 	}
 	// TODO: retrieve OVDC list from the zones list
 
-	ovdcList := make([]rdeType.Ovdc, 0)
-	if vdc != nil {
-		ovdcList = []rdeType.Ovdc{
-			{
-				Name:        vdc.Name,
-				ID:          vdc.ID,
-				OvdcNetwork: vcdCluster.Spec.OvdcNetwork,
-			},
-		}
-	} else {
-		for _, zone := range vcdCluster.Spec.MultiZoneSpec.Zones {
-			vdc, err := vcdOrg.GetVDCByNameOrId(zone.OVDCName, false)
-			if err != nil {
-				return nil, fmt.Errorf("unable to get VDC by identifier [%s] in org [%s]: [%v]", zone.OVDCName,
-					vcdOrg.Org.Name, err)
-			}
-			ovdcList = append(ovdcList, rdeType.Ovdc{
-				Name:        vdc.Vdc.Name,
-				ID:          vdc.Vdc.ID,
-				OvdcNetwork: zone.OVDCNetworkName,
-			})
-		}
+	ovdcList, err := r.getOvdcList(ctx, vcdOrg, vcdCluster, vdc)
+	if err != nil {
+		return nil, fmt.Errorf("unable to get ovdc list for vdc [%v], zones [%v], org [%s]: [%v]",
+			vdc, vcdCluster.Spec.MultiZoneSpec.Zones, vcdOrg.Org.Name, err)
 	}
 
 	rde := &swagger.DefinedEntity{
@@ -538,9 +550,9 @@ func (r *VCDClusterReconciler) constructAndCreateRDEFromCluster(ctx context.Cont
 		return "", fmt.Errorf("unable to get the org by name [%s]", vcdCluster.Spec.Org)
 	}
 
-	var vdc *types.Vdc = nil
+	var vdc *govcd.Vdc = nil
 	if vcdClient.VDC != nil {
-		vdc = vcdClient.VDC.Vdc
+		vdc = vcdClient.VDC
 	}
 	rde, err := r.constructCapvcdRDE(ctx, cluster, vcdCluster, vdc, org)
 	if err != nil {
@@ -784,33 +796,18 @@ func (r *VCDClusterReconciler) reconcileRDE(ctx context.Context, cluster *cluste
 		capvcdStatusPatch["NodePool"] = nodePoolList
 	}
 
-	ovdcList := make([]rdeType.Ovdc, 0)
-	if vcdClient.VDC == nil && vcdCluster.Spec.MultiZoneSpec.Zones == nil {
-		return fmt.Errorf("one of VDC or zones should not be nil")
+	var vdcObject *govcd.Vdc = nil
+	if vdc != "" {
+		vdcObject, err = org.GetVDCByName(vdc, false)
+		if err != nil {
+			return fmt.Errorf("unable to obtain vdc [%s] in org [%s]: [%v]", vdc, org.Org.Name, err)
+		}
 	}
-	if vcdClient.VDC != nil {
-		ovdcList = []rdeType.Ovdc{
-			{
-				Name:        vcdClient.VDC.Vdc.Name,
-				ID:          vcdClient.VDC.Vdc.ID,
-				OvdcNetwork: vcdCluster.Spec.OvdcNetwork,
-			},
-		}
-	} else {
-		for _, zone := range vcdCluster.Spec.MultiZoneSpec.Zones {
-			vdc, err := org.GetVDCByNameOrId(zone.OVDCName, false)
-			if err != nil {
-				return fmt.Errorf("unable to find ovdc by identifier [%s] in org [%s]: [%v]", zone.OVDCName,
-					org.Org.Name, err)
-			}
-			ovdcList = append(ovdcList,
-				rdeType.Ovdc{
-					Name:        vdc.Vdc.Name,
-					ID:          vdc.Vdc.ID,
-					OvdcNetwork: zone.OVDCNetworkName,
-				},
-			)
-		}
+
+	ovdcList, err := r.getOvdcList(ctx, org, vcdCluster, vdcObject)
+	if err != nil {
+		return fmt.Errorf("unable to obtain list of OVDCs for cluster [%s] in org [%s]: [%v]",
+			cluster.Name, org.Org.Name, err)
 	}
 
 	vcdResources := rdeType.VCDProperties{
