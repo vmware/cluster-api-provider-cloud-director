@@ -1397,7 +1397,6 @@ func (r *VCDClusterReconciler) reconcileNormal(ctx context.Context, cluster *clu
 	defer func() {
 		if vcdClient != nil && vcdClient.VCDClient != nil {
 			vcdClient.VCDClient.Client.Http.CloseIdleConnections()
-			vcdClient.VCDClient.Client.Http.CloseIdleConnections()
 			log.V(6).Info(fmt.Sprintf("closed connection to the http client [%#v]",
 				vcdClient.VCDClient.Client.Http))
 		}
