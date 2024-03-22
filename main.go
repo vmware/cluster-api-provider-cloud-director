@@ -10,6 +10,7 @@ import (
 	_ "embed"
 	"flag"
 	"fmt"
+	"log"
 	"os"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"time"
@@ -109,6 +110,15 @@ func main() {
 	opts.BindFlags(flag.CommandLine)
 	flag.Parse()
 
+	availableNetworksModes := map[string]struct{}{
+		"POOL":   {},
+		"DHCP":   {},
+		"MANUAL": {},
+	}
+	if _, ok := availableNetworksModes[defaultNetworkModeForNewVM]; !ok {
+		log.Fatal("Incorrect default-network-mode-for-new-vm. Can be POOL, DHCP or MANUAL")
+	}
+
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 	if release.Version == "" {
 		setupLog.Error(fmt.Errorf("release.Version variable should not be empty"), "")
@@ -145,10 +155,6 @@ func main() {
 	}); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "VCDMachine")
 		os.Exit(1)
-	}
-
-	if _, ok := os.LookupEnv("USE_K8S_ENV_AS_CONTROL_PLANE_IP"); ok {
-		useKubernetesHostEnvAsControlPlaneHost = true
 	}
 
 	if err = (&controllers.VCDClusterReconciler{
