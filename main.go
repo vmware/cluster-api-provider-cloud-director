@@ -77,6 +77,7 @@ func main() {
 	var useNormalVMsCreationInsteadTKG bool
 	var resizeDiskBeforeNetworkReconciliation bool
 	var passHostnameByGuestInfo bool
+	var defaultNetworkModeForNewVM string
 
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
@@ -98,6 +99,8 @@ func main() {
 		"Resizing vm root disk before network reconciliation")
 	flag.BoolVar(&passHostnameByGuestInfo, "pass-hostname-by-guest-info", false,
 		"Pass hostname to vm by guest info")
+	flag.StringVar(&defaultNetworkModeForNewVM, "default-network-mode-for-new-vm", "POOL",
+		"The default network mode for new VM. Can be: POOL (default), DHCP, MANUAL")
 
 	opts := zap.Options{
 		Development: true,

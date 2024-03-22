@@ -108,6 +108,11 @@ type VCDMachineReconcilerParams struct {
 	// When wm will be bootstrapped by third party cloud-init script it may require set hostname before
 	// running the script by GuestInfo
 	PassHostnameByGuestInfo bool
+
+	// DefaultNetworkModeForNewVM
+	// default network mode for new VM used in func getNetworkConnection
+	// in some cases POOL is not good choice
+	DefaultNetworkModeForNewVM string
 }
 
 // VCDMachineReconciler reconciles a VCDMachine object
@@ -1386,7 +1391,7 @@ func (r *VCDMachineReconciler) reconcileVMNetworks(vdcManager *vcdsdk.VdcManager
 			return errors.Wrapf(err, "Error ensuring network [%s] is attached to vApp", ovdcNetwork)
 		}
 
-		desiredConnectionArray[index] = getNetworkConnection(connections, ovdcNetwork)
+		desiredConnectionArray[index] = getNetworkConnection(connections, ovdcNetwork, r.Params.DefaultNetworkModeForNewVM)
 	}
 
 	if !containsTheSameElements(connections.NetworkConnection, desiredConnectionArray) {
@@ -1428,7 +1433,7 @@ OUTER:
 	return true
 }
 
-func getNetworkConnection(connections *types.NetworkConnectionSection, ovdcNetwork string) *types.NetworkConnection {
+func getNetworkConnection(connections *types.NetworkConnectionSection, ovdcNetwork string, defaultMode string) *types.NetworkConnection {
 
 	for _, existingConnection := range connections.NetworkConnection {
 		if existingConnection.Network == ovdcNetwork {
@@ -1440,7 +1445,7 @@ func getNetworkConnection(connections *types.NetworkConnectionSection, ovdcNetwo
 		Network:                 ovdcNetwork,
 		NeedsCustomization:      false,
 		IsConnected:             true,
-		IPAddressAllocationMode: "POOL",
+		IPAddressAllocationMode: defaultMode,
 		NetworkAdapterType:      "VMXNET3",
 	}
 }
