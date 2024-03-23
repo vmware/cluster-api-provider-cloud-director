@@ -856,6 +856,57 @@ func (r *VCDMachineReconciler) reconcileVM(
 		// 	VCDResourceSet can get bloated with VMs if the cluster contains a large number of worker nodes
 	}
 
+	// if vm exists, verify that its status is RESOLVED
+	status, err := vm.GetStatus()
+	if err != nil {
+		return ctrl.Result{}, nil, "", errors.Wrapf(err,
+			"Error getting status for machine [%s] in vApp [%s]", machine.Name, vAppName)
+	}
+	log.Info("Machine is in status", "status", status)
+
+	// This is the exhaustive list of statuses as of 10.5.1.1.
+	switch status {
+	case "FAILED_CREATION, SUSPENDED, WAITING_FOR_INPUT, UNKNOWN, UNRECOGNIZED, INCONSISTENT_STATE, REJECTED",
+		"TRANSFER_TIMEOUT":
+		// These are permanent failures
+		capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDMachineCreationError, "",
+			machine.Name, fmt.Sprintf("Machine is in state [%s]", status))
+		return ctrl.Result{}, nil, "", errors.Wrapf(err,
+			"Unable to process VM [%s] in vApp [%s] with status [%s]. Please check VCD logs",
+			machine.Name, vAppName, status)
+
+	case "MIXED", "VAPP_UNDEPLOYED", "VAPP_PARTIALLY_DEPLOYED", "PARTIALLY_POWERED_OFF", "PARTIALLY_SUSPENDED",
+		"SUSPENDED", "WAITING_FOR_INPUT":
+		// These are cases where there is a way to unblock the VM creation. However, currently CAPVCD does not
+		// handle the transition. Hence treat them as permanent failures until there can be actions taken to remediate
+		// the state.
+		capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDMachineCreationError, "",
+			machine.Name, fmt.Sprintf("Machine is in state [%s]", status))
+		return ctrl.Result{}, nil, "", errors.Wrapf(err,
+			"Unable to process VM [%s] in vApp [%s] with status [%s]. Please check VCD logs",
+			machine.Name, vAppName, status)
+
+	case "UNRESOLVED, DEPLOYED, DESCRIPTOR_PENDING, COPYING_CONTENTS, DISK_CONTENTS_PENDING":
+		// this is a case where we can check after some time
+		duration := 5 * time.Second
+		log.Info("Since VM is not created completely, will wait for some time before retrying",
+			"duration", duration, "status", status)
+		return ctrl.Result{RequeueAfter: duration}, nil, "", nil
+
+	case "POWERED_OFF", "POWERED_ON", "RUNNING":
+		// Here the VM is already created and ready to go.
+		log.Info("We can continue the controller for VM", "status", status)
+		break
+
+	default:
+		// Any other status is actually unknown.
+		capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDMachineCreationError, "",
+			machine.Name, fmt.Sprintf("Machine is in unknown state [%s]", status))
+		return ctrl.Result{}, nil, "", errors.Wrapf(err,
+			"Unable to process VM [%s] in vApp [%s] with unknown status [%s]. Please check VCD logs",
+			machine.Name, vAppName, status)
+	}
+
 	desiredNetworks := []string{ovdcNetworkName}
 	if vcdMachine.Spec.ExtraOvdcNetworks != nil {
 		desiredNetworks = append([]string{ovdcNetworkName}, vcdMachine.Spec.ExtraOvdcNetworks...)
