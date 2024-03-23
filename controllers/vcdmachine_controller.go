@@ -856,6 +856,18 @@ func (r *VCDMachineReconciler) reconcileVM(
 		// 	VCDResourceSet can get bloated with VMs if the cluster contains a large number of worker nodes
 	}
 
+	// if vm exists, verify that its status is RESOLVED
+	status, err := vm.GetStatus()
+	if err != nil {
+		return ctrl.Result{}, nil, "", errors.Wrapf(err,
+			"Error getting status for machine [%s] in vApp [%s]", machine.Name, vAppName)
+	}
+	if status != "RESOLVED" {
+		duration := 5 * time.Second
+		log.Info("Since VM is not resolved, will wait for some time before retrying", "duration", duration)
+		return ctrl.Result{RequeueAfter: duration}, nil, "", nil
+	}
+
 	desiredNetworks := []string{ovdcNetworkName}
 	if vcdMachine.Spec.ExtraOvdcNetworks != nil {
 		desiredNetworks = append([]string{ovdcNetworkName}, vcdMachine.Spec.ExtraOvdcNetworks...)
