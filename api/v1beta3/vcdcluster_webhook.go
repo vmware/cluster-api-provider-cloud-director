@@ -47,7 +47,9 @@ var _ webhook.Defaulter = &VCDCluster{}
 func (r *VCDCluster) Default() {
 	vcdclusterlog.Info("default", "name", r.Name)
 
-	// TODO(user): fill in your defaulting logic.
+	if len(r.Spec.MultiZoneSpec.Zones) != 0 && r.Spec.MultiZoneSpec.ZoneTopology == "" {
+		r.Spec.MultiZoneSpec.ZoneTopology = DCGroup
+	}
 }
 
 // TODO(user): change verbs to "verbs=create;update;delete" if you want to enable deletion validation.
@@ -59,7 +61,26 @@ var _ webhook.Validator = &VCDCluster{}
 func (r *VCDCluster) ValidateCreate() (admission.Warnings, error) {
 	vcdclusterlog.Info("validate create", "name", r.Name)
 
-	// TODO(user): fill in your validation logic upon object creation.
+	var errList field.ErrorList
+
+	if len(r.Spec.MultiZoneSpec.Zones) != 0 && r.Spec.Ovdc != "" {
+		errList = append(errList, field.Invalid(field.NewPath("spec", "ovdc"), r.Spec.Ovdc,
+			"field must not be set in a multi-AZ cluster"))
+	}
+
+	if len(r.Spec.MultiZoneSpec.Zones) != 0 && r.Spec.OvdcNetwork != "" {
+		errList = append(errList, field.Invalid(field.NewPath("spec", "ovdcNetwork"), r.Spec.Ovdc,
+			"field must not be set in a multi-AZ cluster"))
+	}
+
+	if len(r.Spec.MultiZoneSpec.Zones) != 0 && r.Spec.MultiZoneSpec.ZoneTopology != DCGroup {
+		errList = append(errList, field.Invalid(field.NewPath("spec", "multiZoneSpec", "zoneTopology"),
+			r.Spec.Ovdc, "invalid value for field (valid values are: DCGroup)"))
+	}
+
+	if len(errList) != 0 {
+		return nil, apierrors.NewInvalid(r.GroupVersionKind().GroupKind(), r.Name, errList)
+	}
 	return nil, nil
 }
 
@@ -67,7 +88,7 @@ func (r *VCDCluster) ValidateCreate() (admission.Warnings, error) {
 func (r *VCDCluster) ValidateUpdate(old runtime.Object) (admission.Warnings, error) {
 	vcdclusterlog.Info("validate update", "name", r.Name)
 
-	var allErrs field.ErrorList
+	var errList field.ErrorList
 
 	oldVCDCluster, ok := old.(*VCDCluster)
 	if !ok {
@@ -77,16 +98,29 @@ func (r *VCDCluster) ValidateUpdate(old runtime.Object) (admission.Warnings, err
 	if !cmp.Equal(oldVCDCluster.Spec.ControlPlaneEndpoint, APIEndpoint{}) &&
 		!cmp.Equal(r.Spec.ControlPlaneEndpoint, oldVCDCluster.Spec.ControlPlaneEndpoint) {
 
-		allErrs = append(allErrs,
-			field.Invalid(field.NewPath("spec", "controlPlaneEndpoint"),
-				r.Spec.ControlPlaneEndpoint, "field is immutable"))
+		errList = append(errList, field.Invalid(field.NewPath("spec", "controlPlaneEndpoint"),
+			r.Spec.ControlPlaneEndpoint, "field is immutable"))
 	}
 
-	if len(allErrs) == 0 {
-		// no errors
-		return nil, nil
+	if len(r.Spec.MultiZoneSpec.Zones) != 0 && r.Spec.Ovdc != "" {
+		errList = append(errList, field.Invalid(field.NewPath("spec", "ovdc"), r.Spec.Ovdc,
+			"field must not be set in a multi-AZ cluster"))
 	}
-	return nil, apierrors.NewInvalid(r.GroupVersionKind().GroupKind(), r.Name, allErrs)
+
+	if len(r.Spec.MultiZoneSpec.Zones) != 0 && r.Spec.OvdcNetwork != "" {
+		errList = append(errList, field.Invalid(field.NewPath("spec", "ovdcNetwork"), r.Spec.Ovdc,
+			"field must not be set in a multi-AZ cluster"))
+	}
+
+	if len(r.Spec.MultiZoneSpec.Zones) != 0 && r.Spec.MultiZoneSpec.ZoneTopology != DCGroup {
+		errList = append(errList, field.Invalid(field.NewPath("spec", "multiZoneSpec", "zoneTopology"),
+			r.Spec.Ovdc, "invalid value for field (valid values are: DCGroup)"))
+	}
+
+	if len(errList) != 0 {
+		return nil, apierrors.NewInvalid(r.GroupVersionKind().GroupKind(), r.Name, errList)
+	}
+	return nil, nil
 }
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type
