@@ -864,7 +864,8 @@ func (r *VCDMachineReconciler) reconcileVM(
 	}
 	log.Info("Machine is in status", "status", status)
 
-	// This is the exhaustive list of statuses as of 10.5.1.1.
+	// This is the exhaustive list of statuses as of 10.5.1.1. Some information about state transitions of a VM can
+	// be found at https://kb.vmware.com/s/article/2145957
 	switch status {
 	case "FAILED_CREATION, SUSPENDED, WAITING_FOR_INPUT, UNKNOWN, UNRECOGNIZED, INCONSISTENT_STATE, REJECTED",
 		"TRANSFER_TIMEOUT":
