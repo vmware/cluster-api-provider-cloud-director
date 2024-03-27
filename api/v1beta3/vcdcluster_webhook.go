@@ -63,19 +63,37 @@ func (r *VCDCluster) ValidateCreate() (admission.Warnings, error) {
 
 	var errList field.ErrorList
 
+	// Ensure that both spec.multiZoneSpec.zones and spec.ovdc are not both set
 	if len(r.Spec.MultiZoneSpec.Zones) != 0 && r.Spec.Ovdc != "" {
 		errList = append(errList, field.Invalid(field.NewPath("spec", "ovdc"), r.Spec.Ovdc,
 			"field must not be set in a multi-AZ cluster"))
 	}
-
+	// Ensure that both spec.multiZoneSpec.zones and spec.ovdcNetwork are not both set
 	if len(r.Spec.MultiZoneSpec.Zones) != 0 && r.Spec.OvdcNetwork != "" {
 		errList = append(errList, field.Invalid(field.NewPath("spec", "ovdcNetwork"), r.Spec.Ovdc,
 			"field must not be set in a multi-AZ cluster"))
 	}
-
+	// Ensure that only valid values for spec.multiZoneSpec.zoneTopology are provided
 	if len(r.Spec.MultiZoneSpec.Zones) != 0 && r.Spec.MultiZoneSpec.ZoneTopology != DCGroup {
 		errList = append(errList, field.Invalid(field.NewPath("spec", "multiZoneSpec", "zoneTopology"),
 			r.Spec.Ovdc, "invalid value for field (valid values are: DCGroup)"))
+	}
+	// Ensure that a non-empty array is provided for spec.multiZoneSpec.zones when spec.multiZoneSpec.zoneTopology is
+	// provided
+	if r.Spec.MultiZoneSpec.ZoneTopology != "" && len(r.Spec.MultiZoneSpec.Zones) == 0 {
+		errList = append(errList, field.Invalid(field.NewPath("spec", "multiZoneSpec", "zones"),
+			r.Spec.Ovdc, "field must not be empty when providing a value for zoneTopology"))
+	}
+	// Ensure that (spec.ovdc and spec.ovdcNetwork) and spec.multiZoneSpec.zones are not both empty
+	if r.Spec.Ovdc == "" && r.Spec.OvdcNetwork == "" && len(r.Spec.MultiZoneSpec.Zones) == 0 {
+		errList = append(errList,
+			field.Invalid(field.NewPath("spec", "ovdc"), r.Spec.Ovdc,
+				"field must not be emtpy when spec.multiZoneSpec.zones is empty"),
+			field.Invalid(field.NewPath("spec", "ovdcNetwork"), r.Spec.Ovdc,
+				"field must not be emtpy when spec.multiZoneSpec.zones is empty"),
+			field.Invalid(field.NewPath("spec", "multiZoneSpec", "zones"), r.Spec.Ovdc,
+				"field must not be emtpy when spec.ovdc and spec.ovdcNetwork are not provided"),
+		)
 	}
 
 	if len(errList) != 0 {
@@ -102,19 +120,37 @@ func (r *VCDCluster) ValidateUpdate(old runtime.Object) (admission.Warnings, err
 			r.Spec.ControlPlaneEndpoint, "field is immutable"))
 	}
 
+	// Ensure that both spec.multiZoneSpec.zones and spec.ovdc are not both set
 	if len(r.Spec.MultiZoneSpec.Zones) != 0 && r.Spec.Ovdc != "" {
 		errList = append(errList, field.Invalid(field.NewPath("spec", "ovdc"), r.Spec.Ovdc,
 			"field must not be set in a multi-AZ cluster"))
 	}
-
+	// Ensure that both spec.multiZoneSpec.zones and spec.ovdcNetwork are not both set
 	if len(r.Spec.MultiZoneSpec.Zones) != 0 && r.Spec.OvdcNetwork != "" {
 		errList = append(errList, field.Invalid(field.NewPath("spec", "ovdcNetwork"), r.Spec.Ovdc,
 			"field must not be set in a multi-AZ cluster"))
 	}
-
+	// Ensure that only valid values for spec.multiZoneSpec.zoneTopology are provided
 	if len(r.Spec.MultiZoneSpec.Zones) != 0 && r.Spec.MultiZoneSpec.ZoneTopology != DCGroup {
 		errList = append(errList, field.Invalid(field.NewPath("spec", "multiZoneSpec", "zoneTopology"),
 			r.Spec.Ovdc, "invalid value for field (valid values are: DCGroup)"))
+	}
+	// Ensure that a non-empty array is provided for spec.multiZoneSpec.zones when spec.multiZoneSpec.zoneTopology is
+	// provided
+	if r.Spec.MultiZoneSpec.ZoneTopology != "" && len(r.Spec.MultiZoneSpec.Zones) == 0 {
+		errList = append(errList, field.Invalid(field.NewPath("spec", "multiZoneSpec", "zones"),
+			r.Spec.Ovdc, "field must not be empty when providing a value for zoneTopology"))
+	}
+	// Ensure that (spec.ovdc and spec.ovdcNetwork) and spec.multiZoneSpec.zones are not both empty
+	if r.Spec.Ovdc == "" && r.Spec.OvdcNetwork == "" && len(r.Spec.MultiZoneSpec.Zones) == 0 {
+		errList = append(errList,
+			field.Invalid(field.NewPath("spec", "ovdc"), r.Spec.Ovdc,
+				"field must not be emtpy when spec.multiZoneSpec.zones is empty"),
+			field.Invalid(field.NewPath("spec", "ovdcNetwork"), r.Spec.Ovdc,
+				"field must not be emtpy when spec.multiZoneSpec.zones is empty"),
+			field.Invalid(field.NewPath("spec", "multiZoneSpec", "zones"), r.Spec.Ovdc,
+				"field must not be emtpy when spec.ovdc and spec.ovdcNetwork are not provided"),
+		)
 	}
 
 	if len(errList) != 0 {
