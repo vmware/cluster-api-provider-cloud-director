@@ -396,7 +396,7 @@ func (r *VCDClusterReconciler) getOvdcList(ctx context.Context, vcdOrg *govcd.Or
 	vdc *govcd.Vdc) ([]rdeType.Ovdc, error) {
 
 	var err error
-	if vdc == nil && vcdCluster.Spec.Ovdc == "" && vcdCluster.Spec.MultiZoneSpec.Zones == nil {
+	if vdc == nil && vcdCluster.Spec.Ovdc == "" && len(vcdCluster.Spec.MultiZoneSpec.Zones) == 0 {
 		return nil, fmt.Errorf("VDC and Zones cannot both be nil")
 	}
 
