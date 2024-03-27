@@ -395,11 +395,27 @@ func getMapOfEdgeGateways(ctx context.Context, vcdClient *vcdsdk.Client, orgName
 func (r *VCDClusterReconciler) getOvdcList(ctx context.Context, vcdOrg *govcd.Org, vcdCluster *infrav1beta3.VCDCluster,
 	vdc *govcd.Vdc) ([]rdeType.Ovdc, error) {
 
-	if vdc == nil && vcdCluster.Spec.MultiZoneSpec.Zones == nil {
+	var err error
+	if vdc == nil && vcdCluster.Spec.Ovdc == "" && len(vcdCluster.Spec.MultiZoneSpec.Zones) == 0 {
 		return nil, fmt.Errorf("VDC and Zones cannot both be nil")
 	}
 
+	// vdc passed in is highest priority, next is spec.ovdc, next is zone list
 	if vdc != nil {
+		return []rdeType.Ovdc{
+			{
+				Name:        vdc.Vdc.Name,
+				ID:          vdc.Vdc.ID,
+				OvdcNetwork: vcdCluster.Spec.OvdcNetwork,
+			},
+		}, nil
+	}
+
+	if vcdCluster.Spec.Ovdc != "" {
+		if vdc, err = vcdOrg.GetVDCByNameOrId(vcdCluster.Spec.Ovdc, false); err != nil {
+			return nil, fmt.Errorf("unable to get ovdc by identifier [%s] in org [%s]: [%v]",
+				vcdCluster.Spec.Ovdc, vcdOrg.Org.Name, err)
+		}
 		return []rdeType.Ovdc{
 			{
 				Name:        vdc.Vdc.Name,
