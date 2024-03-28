@@ -40,8 +40,8 @@ Setup instructions vary across versions. Please refer to `CLUSTERCTL.md` from th
    - Refer to the [script to get Kubernetes, etcd, coredns versions from TKG OVA](WORKLOAD_CLUSTER.md#tkgm_bom) to fill in few variables. Note that you may skip filling
      in few of these variables if you decide to use the existing [clusterctl template flavors](#template_flavors).
    - If you decide to not use one of the existing clusterctl template flavors, please refer to the [TKGm release matrix](https://github.com/vmware/cluster-api-provider-cloud-director/blob/main/docs/TKGm_RELEASE_MATRIX.md) on the `main` branch
-3. Generate the CAPI manifest file.
-   - `clusterctl generate cluster <clusterName> -f v1.21.8-crs > <clusterName>.yaml`.
+3. Generate the CAPI manifest file. Please check the [templates](/templates) folder for relevant CRS versions.
+   - `clusterctl generate cluster <clusterName> -f v1.28.4-crs > <clusterName>.yaml`.
 4. Create the workload cluster by applying it on the (parent) management cluster.
    - `kubectl apply -f <clusterName>.yaml`
 5. [Apply CRS labels](CRS.md#apply_crs_labels) and [enable the resultant add-ons like CPI, CSI to access VCD resources](CRS.md#enable_add_ons)
@@ -66,7 +66,7 @@ Setup instructions vary across versions. Please refer to `CLUSTERCTL.md` from th
   - v1.28.4
 
   Please ensure your `~/.cluster-api/clusterctl.yaml` has `VCD_TEMPLATE_NAME` matching the correct versions of Kubernetes.
-  For example, if `VCD_TEMPLATE_NAME=Ubuntu 20.04 and Kubernetes v1.21.8+vmware.1` then use `v1.21.8-crs` flavor.
+  For example, if `VCD_TEMPLATE_NAME=Ubuntu 20.04 and Kubernetes v1.28.4+vmware.1` then use `v1.28.4-crs` flavor.
 
 - It is strongly recommended to use `v1.y.z-crs` flavors to ensure CNI, CPI and CSI are automatically installed on the
   workload clusters. CNI and CPI are required add-ons for the cluster creation to be successful.
