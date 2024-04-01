@@ -151,13 +151,13 @@ type VCDClusterSpec struct {
 	Site string `json:"site"`
 	// +kubebuilder:validation:Required
 	Org string `json:"org"`
-	// +kubebuilder:validation:Required
+	// +optional
 	Ovdc string `json:"ovdc"`
-	// +kubebuilder:validation:Required
+	// +optional
 	OvdcNetwork string `json:"ovdcNetwork"`
 	// +kubebuilder:validation:Required
 	UserCredentialsContext UserCredentialsContext `json:"userContext"`
-	// + optional
+	// +optional
 	RDEId string `json:"rdeId,omitempty"`
 	// +optional
 	ParentUID string `json:"parentUid,omitempty"`
