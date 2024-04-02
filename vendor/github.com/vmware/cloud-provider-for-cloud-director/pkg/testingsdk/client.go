@@ -24,13 +24,13 @@ type TestClient struct {
 }
 
 type VCDAuthParams struct {
-	Host         string
-	OvdcName     string
-	OrgName      string
-	Username     string
-	RefreshToken string
-	UserOrg      string
-	GetVdcClient bool // This will need to be set to true as it's needed for CSI, but may not be needed for other use cases
+	Host           string
+	OvdcIdentifier string
+	OrgName        string
+	Username       string
+	RefreshToken   string
+	UserOrg        string
+	GetVdcClient   bool // This will need to be set to true as it's needed for CSI, but may not be needed for other use cases
 }
 
 type DeployParams struct {

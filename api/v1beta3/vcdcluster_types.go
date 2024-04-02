@@ -101,8 +101,8 @@ type DCGroupConfig struct {
 type Zone struct {
 	// Name defines the name of this zone.
 	Name string `json:"name"`
-	// OVDCName defines the actual name of the OVDC which corresponds to this zone.
-	OVDCName string `json:"ovdcName"`
+	// OVDC defines the name or URN-ID of the OVDC which corresponds to this zone.
+	OVDC string `json:"ovdc"`
 	// OVDCNetworkName defines the OVDC network for this zone.
 	OVDCNetworkName string `json:"ovdcNetworkName"`
 	// ControlPlaneZone defines whether a control plane node can be deployed to this zone.

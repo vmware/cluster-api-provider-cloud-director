@@ -76,29 +76,31 @@ func (orgManager *OrgManager) GetComputePolicyDetailsFromName(computePolicyName 
 }
 
 func (orgManager *OrgManager) SearchVMAcrossVDCs(vmName string, clusterName string, vmId string,
-	ovdcNameList []string) (*govcd.VM, string, error) {
+	ovdcIdentifierList []string, isMultiZoneCluster bool) (*govcd.VM, string, error) {
 
 	org, err := orgManager.Client.VCDClient.GetOrgByName(orgManager.OrgName)
 	if err != nil {
 		return nil, "", fmt.Errorf("unable to get org by name [%s]: [%v]", orgManager.OrgName, err)
 	}
 
-	for _, ovdcName := range ovdcNameList {
+	for _, ovdcIdentifier := range ovdcIdentifierList {
 		klog.Infof("Looking for VM [name:%s],[id:%s] of cluster [%s] in OVDC [%s]",
-			vmName, vmId, clusterName, ovdcName)
+			vmName, vmId, clusterName, ovdcIdentifier)
 
-		vdc, err := org.GetVDCByName(ovdcName, true)
+		vdc, err := org.GetVDCByNameOrId(ovdcIdentifier, true)
 		if err != nil {
-			klog.Infof("unable to query VDC [%s] in Org [%s] by name: [%v]",
-				ovdcName, orgManager.OrgName, err)
+			klog.Infof("unable to query VDC [%s] in Org [%s] by identifier: [%v]",
+				ovdcIdentifier, orgManager.OrgName, err)
 			continue
 		}
-
-		vAppNamePrefix, err := CreateVAppNamePrefix(clusterName, vdc.Vdc.ID)
-		if err != nil {
-			klog.Infof("Unable to create a vApp name prefix for cluster [%s] in OVDC [%s] with OVDC ID [%s]: [%v]",
-				clusterName, vdc.Vdc.Name, vdc.Vdc.ID, err)
-			continue
+		vAppNamePrefix := clusterName
+		if isMultiZoneCluster {
+			vAppNamePrefix, err = CreateVAppNamePrefix(clusterName, vdc.Vdc.ID)
+			if err != nil {
+				klog.Infof("Unable to create a vApp name prefix for cluster [%s] in OVDC [%s] with OVDC ID [%s]: [%v]",
+					clusterName, vdc.Vdc.Name, vdc.Vdc.ID, err)
+				continue
+			}
 		}
 
 		klog.Infof("Looking for vApps with a prefix of [%s]", vAppNamePrefix)
@@ -137,7 +139,7 @@ func (orgManager *OrgManager) SearchVMAcrossVDCs(vmName string, clusterName stri
 		}
 
 		klog.Infof("Could not find VM [name:%s],[id:%s] of cluster [%s] in OVDC [%s]",
-			vmName, vmId, clusterName, ovdcName)
+			vmName, vmId, clusterName, ovdcIdentifier)
 	}
 
 	return nil, "", govcd.ErrorEntityNotFound

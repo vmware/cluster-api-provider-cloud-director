@@ -228,8 +228,8 @@ spec:
                                 name:
                                   description: Name defines the name of this zone.
                                   type: string
-                                ovdcName:
-                                  description: OVDCName defines the actual name of
+                                ovdc:
+                                  description: OVDC defines the name or URN-ID of
                                     the OVDC which corresponds to this zone.
                                   type: string
                                 ovdcNetworkName:
@@ -239,7 +239,7 @@ spec:
                               required:
                               - controlPlaneZone
                               - name
-                              - ovdcName
+                              - ovdc
                               - ovdcNetworkName
                               type: object
                             type: array
@@ -301,8 +301,6 @@ spec:
                         type: object
                     required:
                     - org
-                    - ovdc
-                    - ovdcNetwork
                     - site
                     - userContext
                     type: object

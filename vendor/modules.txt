@@ -268,7 +268,7 @@ github.com/spf13/cast
 # github.com/spf13/pflag v1.0.5
 ## explicit; go 1.12
 github.com/spf13/pflag
-# github.com/vmware/cloud-provider-for-cloud-director v0.0.0-20240315171752-0c0403c006c5
+# github.com/vmware/cloud-provider-for-cloud-director v0.0.0-20240403204926-7a46afa77f52
 ## explicit; go 1.21
 github.com/vmware/cloud-provider-for-cloud-director/pkg/testingsdk
 github.com/vmware/cloud-provider-for-cloud-director/pkg/util

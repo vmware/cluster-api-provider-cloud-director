@@ -39,12 +39,12 @@ type GatewayManager struct {
 }
 
 // CacheGatewayDetails get gateway reference and cache some details in client object
-func (gm *GatewayManager) cacheGatewayDetails(ctx context.Context, ovdcName string) error {
+func (gm *GatewayManager) cacheGatewayDetails(ctx context.Context, ovdcIdentifier string) error {
 	if gm.NetworkName == "" {
 		return fmt.Errorf("network name should not be empty")
 	}
 
-	ovdcNetwork, err := gm.getOVDCNetwork(ctx, gm.NetworkName, ovdcName)
+	ovdcNetwork, err := gm.getOVDCNetwork(ctx, gm.NetworkName, ovdcIdentifier)
 	if err != nil {
 		return fmt.Errorf("unable to get OVDC network [%s]: [%v]", gm.NetworkName, err)
 	}
@@ -73,7 +73,8 @@ func (gm *GatewayManager) cacheGatewayDetails(ctx context.Context, ovdcName stri
 	return nil
 }
 
-func NewGatewayManager(ctx context.Context, client *Client, networkName string, ipamSubnet string, ovdcName string) (*GatewayManager, error) {
+func NewGatewayManager(ctx context.Context, client *Client, networkName string, ipamSubnet string,
+	Identifier string) (*GatewayManager, error) {
 	if networkName == "" {
 		return nil, fmt.Errorf("empty network name specified while creating GatewayManger")
 	}
@@ -84,14 +85,14 @@ func NewGatewayManager(ctx context.Context, client *Client, networkName string, 
 		IPAMSubnet:  ipamSubnet,
 	}
 
-	err := gateway.cacheGatewayDetails(ctx, ovdcName)
+	err := gateway.cacheGatewayDetails(ctx, Identifier)
 	if err != nil {
 		return nil, fmt.Errorf("error caching gateway related details: [%v]", err)
 	}
 	return &gateway, nil
 }
 
-func (gm *GatewayManager) getOVDCNetwork(ctx context.Context, networkName string, ovdcName string) (*swaggerClient.VdcNetwork, error) {
+func (gm *GatewayManager) getOVDCNetwork(ctx context.Context, networkName string, ovdcIdentifier string) (*swaggerClient.VdcNetwork, error) {
 	if networkName == "" {
 		return nil, fmt.Errorf("network name should not be empty")
 	}
@@ -120,9 +121,12 @@ func (gm *GatewayManager) getOVDCNetwork(ctx context.Context, networkName string
 		}
 
 		for _, ovdcNetwork := range ovdcNetworks.Values {
-			if ovdcNetwork.Name == gm.NetworkName && (ovdcNetwork.OrgVdc == nil || ovdcNetwork.OrgVdc.Name == ovdcName) {
+			if ovdcNetwork.Name == gm.NetworkName && ovdcNetwork.OrgVdc != nil &&
+				(ovdcNetwork.OrgVdc.Name == ovdcIdentifier ||
+					ovdcNetwork.OrgVdc.Id == ovdcIdentifier) {
 				if networkFound {
-					return nil, fmt.Errorf("found more than one network with the name [%s] in the org [%s] - please ensure the network name is unique within an org", gm.NetworkName, client.ClusterOrgName)
+					return nil, fmt.Errorf("found more than one network with the name [%s] in the org [%s] - "+
+						"please ensure the network name is unique within an org", gm.NetworkName, client.ClusterOrgName)
 				}
 				ovdcNetworkID = ovdcNetwork.Id
 				networkFound = true

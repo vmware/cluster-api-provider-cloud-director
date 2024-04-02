@@ -153,7 +153,7 @@ func getOvdcByID(client *vcdsdk.Client, orgName string, ovdcID string) (*govcd.V
 	if err != nil {
 		return nil, fmt.Errorf("error occurred when getting ovdc by ID [%s]: [%v]", ovdcID, err)
 	}
-	ovdc, err := org.GetVDCById(ovdcID, true)
+	ovdc, err := org.GetVDCByNameOrId(ovdcID, true)
 	if err != nil {
 		if err == govcd.ErrorEntityNotFound {
 			return nil, err
@@ -171,7 +171,7 @@ func getOvdcByName(client *vcdsdk.Client, orgName string, ovdcName string) (*gov
 	if err != nil {
 		return nil, fmt.Errorf("error occurred when getting ovdc by Name [%s]: [%v]", ovdcName, err)
 	}
-	ovdc, err := org.GetVDCByName(ovdcName, true)
+	ovdc, err := org.GetVDCByNameOrId(ovdcName, true)
 	if err != nil {
 		if err == govcd.ErrorEntityNotFound {
 			return nil, err

@@ -39,24 +39,24 @@ type EdgeGatewayDetails struct {
 	EndPointPort         int
 }
 
-func GetOVDCFromOVDCName(vcdClient *govcd.VCDClient, orgName string, ovdcName string) (*govcd.Vdc, error) {
+func GetOVDCFromOVDCIdentifier(vcdClient *govcd.VCDClient, orgName string, ovdcIdentifier string) (*govcd.Vdc, error) {
 	org, err := vcdClient.GetOrgByName(orgName)
 	if err != nil {
 		return nil, fmt.Errorf("unable to get org from name [%s]: [%v]", orgName, err)
 	}
 
-	vdc, err := org.GetVDCByName(ovdcName, true)
+	vdc, err := org.GetVDCByNameOrId(ovdcIdentifier, true)
 	if err != nil {
-		return nil, fmt.Errorf("unable to get OVDC [%s] from org [%s]: [%v]", ovdcName, orgName, err)
+		return nil, fmt.Errorf("unable to get OVDC [%s] from org [%s]: [%v]", ovdcIdentifier, orgName, err)
 	}
 
 	return vdc, nil
 }
 
-// GetOVDCNetwork AMK:TODO is borrowed from gatewayManager.getOVDCNetwork with some minor changes since the former
+// GetOVDCNetwork :TODO is borrowed from gatewayManager.getOVDCNetwork with some minor changes since the former
 // is not exported. This is tech debt and needs to be cleaned up
 func GetOVDCNetwork(ctx context.Context, client *vcdsdk.Client,
-	ovdcNetworkName string, ovdcName string) (*swagger.VdcNetwork, error) {
+	ovdcNetworkName string, ovdcIdentifier string) (*swagger.VdcNetwork, error) {
 
 	if ovdcNetworkName == "" {
 		return nil, fmt.Errorf("ovdc network name should not be empty")
@@ -85,7 +85,9 @@ func GetOVDCNetwork(ctx context.Context, client *vcdsdk.Client,
 		}
 
 		for _, ovdcNetwork := range ovdcNetworks.Values {
-			if ovdcNetwork.Name == ovdcNetworkName && (ovdcNetwork.OrgVdc == nil || ovdcNetwork.OrgVdc.Name == ovdcName) {
+			if ovdcNetwork.Name == ovdcNetworkName && ovdcNetwork.OrgVdc != nil &&
+				(ovdcNetwork.OrgVdc.Name == ovdcIdentifier ||
+					ovdcNetwork.OrgVdc.Id == ovdcIdentifier) {
 				if networkFound {
 					return nil, fmt.Errorf(
 						"found more than one network with the name [%s] in the org [%s] - "+
@@ -109,48 +111,6 @@ func GetOVDCNetwork(ctx context.Context, client *vcdsdk.Client,
 	}
 
 	return &ovdcNetwork, nil
-}
-
-func GetAllDetailsForOVDC(ctx context.Context, client *vcdsdk.Client, vdc *govcd.Vdc, ovdcNetworkName string,
-	ovdcName string, orgName string) (*swagger.VdcNetwork, *govcd.Vdc, error) {
-
-	var err error
-	if vdc == nil {
-		vdc, err = GetOVDCFromOVDCName(client.VCDClient, orgName, ovdcName)
-		if err != nil {
-			return nil, nil, fmt.Errorf(
-				"unable to get VDC for Org [%s], OVDC Name [%s]: [%v]", orgName, ovdcName, err)
-		}
-	}
-	if vdc.Vdc == nil {
-		return nil, nil, fmt.Errorf("nil Vdc object in vdc")
-	}
-
-	ovdcNetwork, err := GetOVDCNetwork(ctx, client, ovdcNetworkName, ovdcName)
-	if err != nil {
-		return nil, nil, fmt.Errorf("unable to get OVDC Network [%s] in VDC [%s] and org [%s]: [%v]",
-			ovdcNetworkName, ovdcName, orgName, err)
-	}
-
-	if ovdcNetwork == nil {
-		return nil, nil, fmt.Errorf(
-			"obtained nil ovdcNetwork for OVDC network [%s] in VDC [%s] and org [%s]: [%v]",
-			ovdcNetworkName, ovdcName, orgName, err)
-	}
-
-	if ovdcNetwork.Connection == nil {
-		return nil, nil, fmt.Errorf(
-			"obtained nil Connection field in OVDC network [%s] in VDC [%s] and org [%s]: [%v]",
-			ovdcNetworkName, ovdcName, orgName, err)
-	}
-
-	if ovdcNetwork.Connection.RouterRef == nil {
-		return nil, nil, fmt.Errorf(
-			"obtained nil Connection.RouterRef (gateway) field in OVDC network [%s] in VDC [%s] and org [%s]: [%v]",
-			ovdcNetworkName, ovdcName, orgName, err)
-	}
-
-	return ovdcNetwork, vdc, nil
 }
 
 func CreateVAppNamePrefix(clusterName string, ovdcID string) (string, error) {

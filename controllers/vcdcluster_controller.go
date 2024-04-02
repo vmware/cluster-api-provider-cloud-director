@@ -225,7 +225,7 @@ func getLBDetailsForCluster(vcdCluster *infrav1beta3.VCDCluster) (ovdcName, ovdc
 		if len(vcdCluster.Spec.MultiZoneSpec.Zones) == 0 {
 			return
 		}
-		ovdcName = vcdCluster.Spec.MultiZoneSpec.Zones[0].OVDCName
+		ovdcName = vcdCluster.Spec.MultiZoneSpec.Zones[0].OVDC
 		ovdcNetworkName = vcdCluster.Spec.MultiZoneSpec.Zones[0].OVDCNetworkName
 		controlPlaneHost = vcdCluster.Spec.ControlPlaneEndpoint.Host
 		controlPlanePort = vcdCluster.Spec.ControlPlaneEndpoint.Port
@@ -294,7 +294,7 @@ func validateDerivedRDEProperties(vcdCluster *infrav1beta3.VCDCluster, infraID s
 }
 
 // updateClientWithVDC is to add the latest VDC into vcdClient.
-// Reminder: Although vcdcluster provides array for vcdResourceMap[ovdc], vcdcluster should use only one OVDC in CAPVCD 1.1
+// Reminder: Although vcdcluster provides array for vcdResourceMap[ovdc], vcdcluster should use only one OVDC until CAPVCD 1.4
 func updateClientWithVDC(vcdCluster *infrav1beta3.VCDCluster, client *vcdsdk.Client, ovdcName string) error {
 	log := ctrl.LoggerFrom(context.Background())
 	orgName := vcdCluster.Spec.Org
@@ -317,7 +317,7 @@ func updateClientWithVDC(vcdCluster *infrav1beta3.VCDCluster, client *vcdsdk.Cli
 		return fmt.Errorf("failed to get the ovdc by the name [%s]: [%v]", ovdcName, err)
 	}
 	client.VDC = newOvdc
-	client.ClusterOVDCName = newOvdc.Vdc.Name
+	client.ClusterOVDCIdentifier = newOvdc.Vdc.ID
 
 	return nil
 }
@@ -362,14 +362,14 @@ func getMapOfEdgeGateways(ctx context.Context, vcdClient *vcdsdk.Client, orgName
 		// All the VDCs share the same OVDC network and edge gateway. So we can avoid multiple VCD API calls by caching the
 		// OVDC network
 		z := multiZoneSpec.Zones[0]
-		cachedVDCNetwork, err := vcdutil.GetOVDCNetwork(ctx, vcdClient, z.OVDCNetworkName, z.OVDCName)
+		cachedVDCNetwork, err := vcdutil.GetOVDCNetwork(ctx, vcdClient, z.OVDCNetworkName, z.OVDC)
 		if err != nil {
 			return nil, fmt.Errorf("error occurred while caching OVDC network details: [%v]", err)
 		}
 		for _, zone := range multiZoneSpec.Zones {
-			vdc, err := vcdutil.GetOVDCFromOVDCName(vcdClient.VCDClient, orgName, zone.OVDCName)
+			vdc, err := vcdutil.GetOVDCFromOVDCIdentifier(vcdClient.VCDClient, orgName, zone.OVDC)
 			if err != nil {
-				return nil, fmt.Errorf("error occurred while getting details for the OVDC [%s]: [%v]", zone.OVDCName, err)
+				return nil, fmt.Errorf("error occurred while getting details for the OVDC [%s]: [%v]", zone.OVDC, err)
 			}
 			edgeGatewayDetailsMap[zone.Name] = &vcdutil.EdgeGatewayDetails{
 				OvdcNetworkReference: &swagger.EntityReference{
@@ -427,9 +427,9 @@ func (r *VCDClusterReconciler) getOvdcList(ctx context.Context, vcdOrg *govcd.Or
 
 	ovdcList := make([]rdeType.Ovdc, 0)
 	for _, zone := range vcdCluster.Spec.MultiZoneSpec.Zones {
-		vdc, err := vcdOrg.GetVDCByNameOrId(zone.OVDCName, false)
+		vdc, err := vcdOrg.GetVDCByNameOrId(zone.OVDC, false)
 		if err != nil {
-			return nil, fmt.Errorf("unable to get VDC by identifier [%s] in org [%s]: [%v]", zone.OVDCName,
+			return nil, fmt.Errorf("unable to get VDC by identifier [%s] in org [%s]: [%v]", zone.OVDC,
 				vcdOrg.Org.Name, err)
 		}
 		ovdcList = append(ovdcList, rdeType.Ovdc{
@@ -624,14 +624,14 @@ func (r *VCDClusterReconciler) reconcileRDE(ctx context.Context, cluster *cluste
 		return fmt.Errorf("failed to get RDE with ID [%s] for cluster [%s]: [%v]", vcdCluster.Status.InfraId, vcdCluster.Name, err)
 	}
 
-	// TODO(VCDA-3107): Should we be updating org and vdc information here.
+	// TODO(VCDA-3107): Should we be updating org and vdcIdentifier information here.
 	metadataPatch := make(map[string]interface{})
 	if org.Org.Name != capvcdMetadata.Org {
 		metadataPatch["Org"] = org.Org.Name
 	}
 
-	vdc := vcdCluster.Spec.Ovdc
-	if vdc != capvcdMetadata.Vdc {
+	vdcIdentifier := vcdCluster.Spec.Ovdc
+	if vdcIdentifier != capvcdMetadata.Vdc {
 		metadataPatch["Vdc"] = capvcdMetadata.Vdc
 	}
 
@@ -813,10 +813,10 @@ func (r *VCDClusterReconciler) reconcileRDE(ctx context.Context, cluster *cluste
 	}
 
 	var vdcObject *govcd.Vdc = nil
-	if vdc != "" {
-		vdcObject, err = org.GetVDCByName(vdc, false)
+	if vdcIdentifier != "" {
+		vdcObject, err = org.GetVDCByNameOrId(vdcIdentifier, false)
 		if err != nil {
-			return fmt.Errorf("unable to obtain vdc [%s] in org [%s]: [%v]", vdc, org.Org.Name, err)
+			return fmt.Errorf("unable to obtain vdc [%s] in org [%s]: [%v]", vdcIdentifier, org.Org.Name, err)
 		}
 	}
 
@@ -1101,7 +1101,7 @@ func (r *VCDClusterReconciler) reconcileLoadBalancer(ctx context.Context, vcdClu
 					{
 						Name:             "",
 						OVDCNetworkName:  vcdCluster.Spec.OvdcNetwork,
-						OVDCName:         vcdCluster.Spec.Ovdc,
+						OVDC:             vcdCluster.Spec.Ovdc,
 						ControlPlaneZone: true,
 					},
 				},
@@ -1152,7 +1152,7 @@ func (r *VCDClusterReconciler) reconcileLoadBalancer(ctx context.Context, vcdClu
 				ControlPlane: zone.ControlPlaneZone,
 				Attributes: map[string]string{
 					"OVDCName":         edgeGatewayDetails.Vdc.Vdc.Name,
-					"OVDCID":           edgeGatewayDetails.Vdc.Vdc.ID,
+					"OvdcId":           edgeGatewayDetails.Vdc.Vdc.ID,
 					"OVDCNetworkName":  edgeGatewayDetails.OvdcNetworkReference.Name,
 					"OVDCNetworkID":    edgeGatewayDetails.OvdcNetworkReference.Id,
 					"EdgeGatewayName":  edgeGatewayDetails.EdgeGatewayReference.Name,
@@ -1692,29 +1692,29 @@ func (r *VCDClusterReconciler) reconcileDeleteVApps(ctx context.Context,
 		break
 	case infrav1beta3.DCGroup:
 		for _, failureDomain := range vcdCluster.Status.FailureDomains {
-			ovdcName, ok := failureDomain.Attributes["OVDCName"]
+			ovdcName, ok := failureDomain.Attributes["OVDC"]
 			if !ok {
-				log.Error(fmt.Errorf("unable to get OVDCName from failuredomain [%v]", failureDomain),
+				log.Error(fmt.Errorf("unable to get OVDC from failuredomain [%v]", failureDomain),
 					"will skip deleting vApp in failureDomain")
 				continue
 			}
-			ovdcID, ok := failureDomain.Attributes["OVDCID"]
+			ovdcIdentifier, ok := failureDomain.Attributes["OvdcId"]
 			if !ok {
-				log.Error(fmt.Errorf("unable to get OVDCID from failuredomain [%v]", failureDomain),
+				log.Error(fmt.Errorf("unable to get OvdcId from failuredomain [%v]", failureDomain),
 					"will skip deleting vApp in failureDomain")
 				continue
 			}
-			vAppNamePrefix, err := vcdutil.CreateVAppNamePrefix(vcdCluster.Name, ovdcID)
+			vAppNamePrefix, err := vcdutil.CreateVAppNamePrefix(vcdCluster.Name, ovdcIdentifier)
 			if err != nil {
 				return ctrl.Result{}, errors.Wrapf(err,
 					"unable to create vApp name prefix from cluster name [%s] and OVDC ID [%s]",
-					vcdCluster.Name, ovdcID)
+					vcdCluster.Name, ovdcIdentifier)
 			}
-			vdc, err := getOvdcByID(vcdClient, vcdCluster.Spec.Org, ovdcID)
+			vdc, err := getOvdcByID(vcdClient, vcdCluster.Spec.Org, ovdcIdentifier)
 			if err != nil {
 				return ctrl.Result{}, errors.Wrapf(err,
 					"unable to get OVDC [%s] by ID [%s] in org [%s] for cluster [%s]",
-					ovdcName, ovdcID, vcdCluster.Spec.Org, vcdCluster.Name)
+					ovdcName, ovdcIdentifier, vcdCluster.Spec.Org, vcdCluster.Name)
 			}
 
 			for _, vApp := range vdc.GetVappList() {
