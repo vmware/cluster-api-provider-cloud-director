@@ -10,7 +10,9 @@ import (
 	_ "embed"
 	"flag"
 	"fmt"
+	"log"
 	"os"
+	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"time"
 
 	"github.com/vmware/cluster-api-provider-cloud-director/release"
@@ -70,6 +72,12 @@ func main() {
 	var probeAddr string
 	var syncPeriod time.Duration
 	var concurrency int
+	var webhookPort int
+
+	var useKubernetesHostEnvAsControlPlaneHost bool
+	var passHostnameByGuestInfo bool
+	var skipPostBootstrapPhasesChecking bool
+	var defaultNetworkModeForNewVM string
 
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
@@ -80,6 +88,17 @@ func main() {
 		"The minimum interval at which watched resources are reconciled (e.g. 15m)")
 	flag.IntVar(&concurrency, "concurrency", 10,
 		"The number of VCD machines to process simultaneously")
+	flag.IntVar(&webhookPort, "webhook-port", 9443,
+		"The number of VCD webhook port")
+
+	flag.BoolVar(&useKubernetesHostEnvAsControlPlaneHost, "use-kubernetes-host-env-as-control-plane-host", false,
+		"Use KUBERNETES_SERVICE_HOST env as control plane host")
+	flag.BoolVar(&passHostnameByGuestInfo, "pass-hostname-by-guest-info", false,
+		"Pass hostname to vm by guest info")
+	flag.BoolVar(&skipPostBootstrapPhasesChecking, "skip-post-bootstrap-phases-checking", false,
+		"Skip post bootstrap checking for cloud init bootstrap script")
+	flag.StringVar(&defaultNetworkModeForNewVM, "default-network-mode-for-new-vm", "POOL",
+		"The default network mode for new VM. Can be: POOL (default), DHCP, MANUAL")
 
 	opts := zap.Options{
 		Development: true,
@@ -88,6 +107,15 @@ func main() {
 	opts.BindFlags(flag.CommandLine)
 	flag.Parse()
 
+	availableNetworksModes := map[string]struct{}{
+		"POOL":   {},
+		"DHCP":   {},
+		"MANUAL": {},
+	}
+	if _, ok := availableNetworksModes[defaultNetworkModeForNewVM]; !ok {
+		log.Fatal("Incorrect default-network-mode-for-new-vm. Can be POOL, DHCP or MANUAL")
+	}
+
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 	if release.Version == "" {
 		setupLog.Error(fmt.Errorf("release.Version variable should not be empty"), "")
@@ -95,9 +123,11 @@ func main() {
 	setupLog.Info("CAPVCD version", "version", release.Version)
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
-		Scheme:                 myscheme,
-		MetricsBindAddress:     metricsAddr,
-		Port:                   9443,
+		Scheme:             myscheme,
+		MetricsBindAddress: metricsAddr,
+		WebhookServer: webhook.NewServer(webhook.Options{
+			Port: webhookPort,
+		}),
 		SyncPeriod:             &syncPeriod,
 		HealthProbeBindAddress: probeAddr,
 		LeaderElection:         enableLeaderElection,
@@ -110,8 +140,17 @@ func main() {
 
 	ctx := context.Background()
 
+	mrParams := controllers.VCDMachineReconcilerParams{
+		PassHostnameByGuestInfo:         passHostnameByGuestInfo,
+		DefaultNetworkModeForNewVM:      defaultNetworkModeForNewVM,
+		SkipPostBootstrapPhasesChecking: skipPostBootstrapPhasesChecking,
+	}
+
+	setupLog.Info(fmt.Sprintf("Machine reconciler params %+v", mrParams))
+
 	if err = (&controllers.VCDMachineReconciler{
 		Client: mgr.GetClient(),
+		Params: mrParams,
 	}).SetupWithManager(ctx, mgr, controller.Options{
 		MaxConcurrentReconciles: concurrency,
 	}); err != nil {
@@ -120,8 +159,9 @@ func main() {
 	}
 
 	if err = (&controllers.VCDClusterReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
+		Client:                                 mgr.GetClient(),
+		Scheme:                                 mgr.GetScheme(),
+		UseKubernetesHostEnvAsControlPlaneHost: useKubernetesHostEnvAsControlPlaneHost,
 	}).SetupWithManager(mgr, controller.Options{
 		MaxConcurrentReconciles: concurrency,
 	}); err != nil {
