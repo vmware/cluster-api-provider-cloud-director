@@ -7,6 +7,9 @@ metadata:
     cni: antrea
     ccm: external
     csi: external
+    cluster-role.tkg.tanzu.vmware.com/management: ""
+    tanzuKubernetesRelease: ${TARGET_TANZUKUBERNETESRELEASE}
+    tkg.tanzu.vmware.com/cluster-name: ${CLUSTER_NAME}
 spec:
   clusterNetwork:
     pods:
