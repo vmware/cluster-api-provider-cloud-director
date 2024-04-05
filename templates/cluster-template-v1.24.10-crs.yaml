@@ -8,7 +8,7 @@ metadata:
     ccm: external
     csi: external
     cluster-role.tkg.tanzu.vmware.com/management: ""
-    tanzuKubernetesRelease: ${TARGET_TANZUKUBERNETESRELEASE}
+    tanzuKubernetesRelease: "v1.24.10---vmware.1-tkg.2"
     tkg.tanzu.vmware.com/cluster-name: ${CLUSTER_NAME}
 spec:
   clusterNetwork:
