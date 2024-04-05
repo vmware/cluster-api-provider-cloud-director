@@ -33,9 +33,9 @@ var (
 )
 
 type VdcManager struct {
-	OrgName string
-	VdcName string
-	Vdc     *govcd.Vdc
+	OrgName       string
+	VdcIdentifier string
+	Vdc           *govcd.Vdc
 	// client should be refreshed
 	Client *Client
 }
@@ -135,18 +135,18 @@ func convertItemsToMarshalItems(items []*VirtualHardwareItem) []*VirtualHardware
 	return marshalItems
 }
 
-func NewVDCManager(client *Client, orgName string, vdcName string) (*VdcManager, error) {
+func NewVDCManager(client *Client, orgName string, vdcIdentifier string) (*VdcManager, error) {
 	if orgName == "" {
 		orgName = client.ClusterOrgName
 	}
-	if vdcName == "" {
-		vdcName = client.ClusterOVDCName
+	if vdcIdentifier == "" {
+		vdcIdentifier = client.ClusterOVDCIdentifier
 	}
 
 	vdcManager := &VdcManager{
-		Client:  client,
-		OrgName: orgName,
-		VdcName: vdcName,
+		Client:        client,
+		OrgName:       orgName,
+		VdcIdentifier: vdcIdentifier,
 	}
 	err := vdcManager.cacheVdcDetails()
 	if err != nil {
@@ -161,9 +161,9 @@ func (vdc *VdcManager) cacheVdcDetails() error {
 		return fmt.Errorf("unable to get org from name [%s]: [%v]", vdc.OrgName, err)
 	}
 
-	vdc.Vdc, err = org.GetVDCByName(vdc.VdcName, true)
+	vdc.Vdc, err = org.GetVDCByNameOrId(vdc.VdcIdentifier, true)
 	if err != nil {
-		return fmt.Errorf("unable to get Vdc [%s] from org [%s]: [%v]", vdc.VdcName, vdc.OrgName, err)
+		return fmt.Errorf("unable to get Vdc [%s] from org [%s]: [%v]", vdc.VdcIdentifier, vdc.OrgName, err)
 	}
 	return nil
 }
@@ -195,7 +195,7 @@ func (vdc *VdcManager) DeleteVApp(VAppName string) error {
 	defer vdc.Client.RWLock.Unlock()
 
 	if vdc.Vdc == nil {
-		return fmt.Errorf("no Vdc created with name [%s]", vdc.Client.ClusterOVDCName)
+		return fmt.Errorf("no Vdc created with name [%s]", vdc.Client.ClusterOVDCIdentifier)
 	}
 	vApp, err := vdc.Vdc.GetVAppByName(VAppName, true)
 	if err != nil {
@@ -244,13 +244,13 @@ func CreateVAppNamePrefix(clusterName string, ovdcID string) (string, error) {
 // no need to make reentrant since VCD will take care of it and Kubernetes will retry
 func (vdc *VdcManager) GetOrCreateVApp(VAppName string, ovdcNetworkName string) (*govcd.VApp, error) {
 	if vdc.Vdc == nil {
-		return nil, fmt.Errorf("no Vdc created with name [%s]", vdc.Client.ClusterOVDCName)
+		return nil, fmt.Errorf("no Vdc created with name [%s]", vdc.Client.ClusterOVDCIdentifier)
 	}
 
 	vApp, err := vdc.Vdc.GetVAppByName(VAppName, true)
 	if err != nil && err != govcd.ErrorEntityNotFound {
 		return nil, fmt.Errorf("unable to get vApp [%s] from Vdc [%s]: [%v]",
-			VAppName, vdc.Client.ClusterOVDCName, err)
+			VAppName, vdc.Client.ClusterOVDCIdentifier, err)
 	} else if vApp != nil {
 		if vApp.VApp == nil {
 			return nil, fmt.Errorf("vApp [%s] is invalid", VAppName)
@@ -274,7 +274,7 @@ func (vdc *VdcManager) GetOrCreateVApp(VAppName string, ovdcNetworkName string) 
 	vApp, err = vdc.Vdc.GetVAppByName(VAppName, true)
 	if err != nil {
 		return nil, fmt.Errorf("unable to get vApp [%s] from Vdc [%s]: [%v]",
-			VAppName, vdc.Client.ClusterOVDCName, err)
+			VAppName, vdc.Client.ClusterOVDCIdentifier, err)
 	}
 
 	if err := vdc.addOvdcNetworkToVApp(vApp, ovdcNetworkName); err != nil {
@@ -654,13 +654,13 @@ func (vdc *VdcManager) AddNewVM(vmName string, VAppName string, catalogName stri
 	placementPolicyName string, computePolicyName string, storageProfileName string, guestCustScript string) (govcd.Task, error) {
 
 	if vdc.Vdc == nil {
-		return govcd.Task{}, fmt.Errorf("no Vdc created with name [%s]", vdc.VdcName)
+		return govcd.Task{}, fmt.Errorf("no Vdc created with name [%s]", vdc.VdcIdentifier)
 	}
 
 	vApp, err := vdc.Vdc.GetVAppByName(VAppName, true)
 	if err != nil {
 		return govcd.Task{}, fmt.Errorf("unable to get vApp [%s] from Vdc [%s]: [%v]",
-			VAppName, vdc.VdcName, err)
+			VAppName, vdc.VdcIdentifier, err)
 	}
 
 	orgManager, err := NewOrgManager(vdc.Client, vdc.Client.ClusterOrgName)
@@ -683,7 +683,7 @@ func (vdc *VdcManager) AddNewVM(vmName string, VAppName string, catalogName stri
 	storageProfile, err := vdc.getStorageProfile(storageProfileName)
 	if err != nil {
 		return govcd.Task{}, fmt.Errorf("unable to find storage Profile [%s] in ovdc [%s]: [%v]", storageProfileName,
-			vdc.VdcName, err)
+			vdc.VdcIdentifier, err)
 	}
 
 	// these are the settings used in VMware Cloud Director
@@ -798,7 +798,7 @@ func (vdc *VdcManager) WaitForGuestScriptCompletion(VAppName, vmName string) err
 	vApp, err := vdc.Vdc.GetVAppByName(VAppName, true)
 	if err != nil {
 		return fmt.Errorf("unable to get vApp [%s] from Vdc [%s]: [%v]",
-			VAppName, vdc.Client.ClusterOVDCName, err)
+			VAppName, vdc.Client.ClusterOVDCIdentifier, err)
 	}
 
 	vm, err := vApp.GetVMByName(vmName, false)
@@ -856,10 +856,10 @@ func (vdc *VdcManager) AddMetadataToVApp(VAppName string, paramMap map[string]st
 	vApp, err := vdc.Vdc.GetVAppByName(VAppName, true)
 	if err != nil {
 		if err == govcd.ErrorEntityNotFound {
-			return fmt.Errorf("cannot get the vApp [%s] from Vdc [%s]: [%v]", VAppName, vdc.VdcName, err)
+			return fmt.Errorf("cannot get the vApp [%s] from Vdc [%s]: [%v]", VAppName, vdc.VdcIdentifier, err)
 		}
 		return fmt.Errorf("error while getting vApp [%s] from Vdc [%s]: [%v]",
-			VAppName, vdc.VdcName, err)
+			VAppName, vdc.VdcIdentifier, err)
 	}
 	if vApp == nil || vApp.VApp == nil {
 		return fmt.Errorf("cannot add metadata to a nil vApp")

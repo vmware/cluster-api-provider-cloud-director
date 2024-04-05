@@ -12,7 +12,7 @@ func getTestVCDClient(params *VCDAuthParams) (*vcdsdk.Client, error) {
 	return vcdsdk.NewVCDClientFromSecrets(
 		params.Host,
 		params.OrgName,
-		params.OvdcName,
+		params.OvdcIdentifier,
 		params.UserOrg,
 		params.Username,
 		"",

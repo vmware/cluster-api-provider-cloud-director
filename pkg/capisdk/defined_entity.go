@@ -182,7 +182,7 @@ func (capvcdRdeManager *CapvcdRdeManager) SetIsManagementClusterInRDE(ctx contex
 	return nil
 }
 
-// PatchRDE : Update only specific fields in the RDE. Takes in a map with keys, which contain "." delimitted
+// PatchRDE : Update only specific fields in the RDE. Takes in a map with keys, which contain "." delimited
 // strings, representing the spec, metadata and cavcd status fields to be updated.
 // Example: To patch only the "spec.capiYaml", "metadata.name", "status.capvcd.version" portion of the RDE, specPatch map should be something like this -
 // specPatch["CapiYaml"] = updated-yaml
