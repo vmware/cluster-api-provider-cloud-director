@@ -58,7 +58,7 @@ ETCD_VERSION: v3.4.13_vmware.14 # Ignore this property if you are using one of t
 DNS_VERSION: v1.7.0_vmware.12 # Ignore this property if you are using one of the existing flavors
 POD_CIDR: "100.96.0.0/11"
 SERVICE_CIDR: "100.64.0.0/13"
-TARGET_TANZUKUBERNETESRELEASE: ""
+TARGET_TANZUKUBERNETESRELEASE: "v1.28.4---vmware.1-tkg.1"
 TKG_VERSION: v1.4.2 # Ignore this property if you are using one of the existing flavors
 HTTP_PROXY:  "http://USERNAME:PASSWORD@SERVER:PORT"
 HTTPS_PROXY:  "https://USERNAME:PASSWORD@SERVER:PORT"
