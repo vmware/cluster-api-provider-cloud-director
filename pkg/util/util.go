@@ -83,10 +83,10 @@ func GetOVDCNetwork(ctx context.Context, client *vcdsdk.Client,
 		if len(ovdcNetworks.Values) == 0 {
 			break
 		}
-
 		for _, ovdcNetwork := range ovdcNetworks.Values {
-			if ovdcNetwork.Name == ovdcNetworkName && ovdcNetwork.OrgVdc != nil &&
-				(ovdcNetwork.OrgVdc.Name == ovdcIdentifier ||
+			if ovdcNetwork.Name == ovdcNetworkName &&
+				(ovdcNetwork.OrgVdc == nil ||
+					ovdcNetwork.OrgVdc.Name == ovdcIdentifier ||
 					ovdcNetwork.OrgVdc.Id == ovdcIdentifier) {
 				if networkFound {
 					return nil, fmt.Errorf(
