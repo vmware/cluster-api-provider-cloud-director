@@ -211,3 +211,86 @@ func CreateNewMachineDeployment(ctx context.Context, client *vcdsdk.Client, clus
 
 	return newMachineDeployment, nil
 }
+
+func CreateNewMachineDeploymentWithFailureDomain(ctx context.Context, client *vcdsdk.Client, clusterId string, nodePoolName string, nodePoolSize int64, failureDomainName string) (map[string]interface{}, error) {
+	newMachineDeployment, err := getWorkerNodePoolObjectBase(ctx, client, clusterId, MachineDeployment)
+	if err != nil {
+		return nil, fmt.Errorf("unable to get MachineDeployment: [%v]", err)
+	}
+
+	// change node pool name in metadata
+	metadataIf, ok := newMachineDeployment["metadata"]
+	if !ok {
+		return nil, fmt.Errorf("MachineDeployment base has no metadata attribute")
+	}
+	metadata, ok := metadataIf.(map[string]interface{})
+	if !ok {
+		return nil, fmt.Errorf("could not convert %s.metadata to map", VCDMachineTemplate)
+	}
+	metadata["name"] = nodePoolName
+	newMachineDeployment["metadata"] = metadata
+
+	// change node pool name in spec.template.spec.bootstrap.configRef.name
+	specMap, err := GetMapBySpecName(newMachineDeployment, "spec", MachineDeployment)
+	if err != nil {
+		return nil, fmt.Errorf("error converting %s.spec to map: [%v]", MachineDeployment, err)
+	}
+
+	templateIf, ok := specMap["template"]
+	if !ok {
+		return nil, fmt.Errorf("specMap has no template attribute")
+	}
+	template, ok := templateIf.(map[string]interface{})
+	if !ok {
+		return nil, fmt.Errorf("unable to convert spec.template to map")
+	}
+	spec2If, ok := template["spec"]
+	if !ok {
+		return nil, fmt.Errorf("spec.template has no spec attribute")
+	}
+	spec2, ok := spec2If.(map[string]interface{})
+	if !ok {
+		return nil, fmt.Errorf("unable to convert spec.template.spec to map")
+	}
+	bootstrapIf, ok := spec2["bootstrap"]
+	if !ok {
+		return nil, fmt.Errorf("spec.template.spec has no bootstrap attribute")
+	}
+	bootstrap, ok := bootstrapIf.(map[string]interface{})
+	if !ok {
+		return nil, fmt.Errorf("unable to convert spec.template.spec.bootstrap to map")
+	}
+	configRefIf, ok := bootstrap["configRef"]
+	if !ok {
+		return nil, fmt.Errorf("spec.template.spec.bootstrap has no configRef attribute")
+	}
+	configRef, ok := configRefIf.(map[string]interface{})
+	if !ok {
+		return nil, fmt.Errorf("unable to convert spec.template.spec.bootstrap.configRef to map")
+	}
+	configRef["name"] = nodePoolName
+
+	// change node pool name in spec.template.spec.infrastructureRef.name
+	infrastructureRefIf, ok := spec2["infrastructureRef"]
+	if !ok {
+		return nil, fmt.Errorf("spec.template.spec has no infrastructureRef attribute")
+	}
+	infrastructureRef, ok := infrastructureRefIf.(map[string]interface{})
+	if !ok {
+		return nil, fmt.Errorf("unable to convert spec.template.spec.infrastructureRef to map")
+	}
+	infrastructureRef["name"] = nodePoolName
+
+	// propagating changes up
+	// also change spec.replicas to nodePoolSize
+	bootstrap["configRef"] = configRef
+	spec2["bootstrap"] = bootstrap
+	spec2["infrastructureRef"] = infrastructureRef
+	spec2["failureDomain"] = failureDomainName
+	template["spec"] = spec2
+	specMap["template"] = template
+	specMap["replicas"] = nodePoolSize
+	newMachineDeployment["spec"] = specMap
+
+	return newMachineDeployment, nil
+}
