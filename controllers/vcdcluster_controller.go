@@ -1151,7 +1151,7 @@ func (r *VCDClusterReconciler) reconcileLoadBalancer(ctx context.Context, vcdClu
 			vcdCluster.Status.FailureDomains[zone.Name] = clusterv1.FailureDomainSpec{
 				ControlPlane: zone.ControlPlaneZone,
 				Attributes: map[string]string{
-					"OVDCName":         edgeGatewayDetails.Vdc.Vdc.Name,
+					"OVDC":             edgeGatewayDetails.Vdc.Vdc.Name,
 					"OvdcId":           edgeGatewayDetails.Vdc.Vdc.ID,
 					"OVDCNetworkName":  edgeGatewayDetails.OvdcNetworkReference.Name,
 					"OVDCNetworkID":    edgeGatewayDetails.OvdcNetworkReference.Id,
