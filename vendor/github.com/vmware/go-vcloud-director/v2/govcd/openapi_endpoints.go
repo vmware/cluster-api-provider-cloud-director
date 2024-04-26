@@ -38,6 +38,8 @@ var endpointMinApiVersions = map[string]string{
 	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointQosProfiles:                "36.2", // VCD 10.3.2+ (NSX-T only)
 	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointEdgeGatewayQos:             "36.2", // VCD 10.3.2+ (NSX-T only)
 	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointEdgeGatewayDhcpForwarder:   "36.1", // VCD 10.3.1+ (NSX-T only)
+	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointEdgeGatewayDns:             "37.0", // VCD 10.4.0+ (NSX-T only)
+	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointEdgeGatewayL2VpnTunnel:     "35.0", // VCD 10.2.0+ (NSX-T only)
 	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointEdgeGatewaySlaacProfile:    "35.0",
 	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointEdgeGatewayStaticRoutes:    "37.0", // VCD 10.4.0+ (NSX-T only)
 	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointEdgeGateways:               "34.0",
@@ -48,6 +50,7 @@ var endpointMinApiVersions = map[string]string{
 	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointNsxtNatRules:                       "34.0",
 	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointNsxtFirewallRules:                  "34.0",
 	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointOrgVdcNetworks:                     "32.0", // VCD 9.7+ for NSX-V, 10.1+ for NSX-T
+	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointOrgVdcNetworkSegmentProfiles:       "37.0",
 	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointOrgVdcNetworksDhcp:                 "32.0", // VCD 9.7+ for NSX-V, 10.1+ for NSX-T
 	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointOrgVdcNetworksDhcpBindings:         "36.1", // VCD 10.3.1+ (NSX-T only)
 	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointVdcCapabilities:                    "32.0",
@@ -73,12 +76,13 @@ var endpointMinApiVersions = map[string]string{
 	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointRdeEntitiesBehaviorsInvocations:    "35.0", // VCD 10.2+
 
 	// IP Spaces
-	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointIpSpaces:               "37.1", // VCD 10.4.1+
-	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointIpSpaceSummaries:       "37.1", // VCD 10.4.1+
-	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointIpSpaceUplinks:         "37.1", // VCD 10.4.1+
-	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointIpSpaceUplinksAllocate: "37.1", // VCD 10.4.1+
-	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointIpSpaceIpAllocations:   "37.1", // VCD 10.4.1+
-	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointIpSpaceOrgAssignments:  "37.1", // VCD 10.4.1+
+	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointIpSpaces:                     "37.1", // VCD 10.4.1+
+	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointIpSpaceSummaries:             "37.1", // VCD 10.4.1+
+	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointIpSpaceUplinks:               "37.1", // VCD 10.4.1+
+	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointIpSpaceUplinksAllocate:       "37.1", // VCD 10.4.1+
+	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointIpSpaceIpAllocations:         "37.1", // VCD 10.4.1+
+	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointIpSpaceOrgAssignments:        "37.1", // VCD 10.4.1+
+	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointIpSpaceFloatingIpSuggestions: "37.1", // VCD 10.4.1+
 
 	// NSX-T ALB (Advanced/AVI Load Balancer) support was introduced in 10.2
 	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointAlbController:                    "35.0", // VCD 10.2+
@@ -105,13 +109,20 @@ var endpointMinApiVersions = map[string]string{
 	types.OpenApiPathVersion2_0_0 + types.OpenApiEndpointVdcComputePolicies:         "35.0",
 	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointVdcNetworkProfile:          "36.0", // VCD 10.3+
 
-	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointVirtualCenters:         "36.0",
-	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointResourcePools:          "36.0",
-	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointResourcePoolsBrowseAll: "36.2",
-	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointResourcePoolHardware:   "36.0",
-	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointNetworkPools:           "36.0",
-	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointNetworkPoolSummaries:   "36.0",
-	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointStorageProfiles:        "33.0",
+	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointVirtualCenters:                           "36.0",
+	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointResourcePools:                            "36.0",
+	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointResourcePoolsBrowseAll:                   "36.2",
+	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointResourcePoolHardware:                     "36.0",
+	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointNetworkPools:                             "36.0",
+	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointNetworkPoolSummaries:                     "36.0",
+	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointStorageProfiles:                          "33.0",
+	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointNsxtSegmentProfileTemplates:              "36.2",
+	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointNsxtGlobalDefaultSegmentProfileTemplates: "36.2",
+	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointNsxtSegmentIpDiscoveryProfiles:           "36.2",
+	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointNsxtSegmentMacDiscoveryProfiles:          "36.2",
+	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointNsxtSegmentSpoofGuardProfiles:            "36.2",
+	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointNsxtSegmentQosProfiles:                   "36.2",
+	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointNsxtSegmentSecurityProfiles:              "36.2",
 
 	// Extensions API endpoints. These are not versioned
 	types.OpenApiEndpointExtensionsUi:                    "35.0", // VCD 10.2+
@@ -123,9 +134,14 @@ var endpointMinApiVersions = map[string]string{
 	types.OpenApiEndpointExtensionsUiTenantsUnpublish:    "35.0", // VCD 10.2+
 
 	// Endpoints for managing tokens and service accounts
-	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointTokens:              "36.1", // VCD 10.3.1+
-	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointServiceAccounts:     "37.0", // VCD 10.4.0+
-	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointServiceAccountGrant: "37.0", // VCD 10.4.0+
+	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointTokens:                   "36.1", // VCD 10.3.1+
+	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointServiceAccounts:          "37.0", // VCD 10.4.0+
+	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointServiceAccountGrant:      "37.0", // VCD 10.4.0+
+	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointImportableTransportZones: "33.0",
+	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointVCenterDistributedSwitch: "33.0",
+
+	// Endpoint for managing vGPU profiles
+	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointVgpuProfile: "36.2",
 }
 
 // endpointElevatedApiVersions endpoint elevated API versions
@@ -194,9 +210,17 @@ var endpointElevatedApiVersions = map[string][]string{
 		//"35.0", // Introduced support
 		"37.1", // Exposes computed field `UsingIpSpace` in `types.EdgeGatewayUplinks`
 	},
+	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointEdgeGatewayDns: {
+		"37.0", // Introduced support
+		"38.0", // New field SnatRuleExternalIpAddress
+	},
 	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointIpSpaceUplinksAllocate: {
 		//"37.1", // Introduced support
 		"37.2", // Adds 'value' field
+	},
+	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointIpSpaces: {
+		//"37.1", // Introduced support
+		"38.0", // Adds 'DefaultGatewayServiceConfig' structure for firewall and NAT rule creation
 	},
 }
 

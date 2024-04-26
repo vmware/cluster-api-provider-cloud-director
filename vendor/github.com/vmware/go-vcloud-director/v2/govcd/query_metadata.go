@@ -62,7 +62,7 @@ func queryFieldsOnDemand(queryType string) ([]string, error) {
 		vmFields = []string{"catalogName", "container", "containerName", "datastoreName", "description",
 			"gcStatus", "guestOs", "hardwareVersion", "hostName", "isAutoNature", "isDeleted", "isDeployed", "isPublished",
 			"isVAppTemplate", "isVdcEnabled", "memoryMB", "moref", "name", "numberOfCpus", "org", "status",
-			"storageProfileName", "vc", "vdc", "vmToolsVersion", "containerStatus", "pvdcHighestSupportedHardwareVersion",
+			"storageProfileName", "vc", "vdc", "vdcName", "vmToolsVersion", "containerStatus", "pvdcHighestSupportedHardwareVersion",
 			"isComputePolicyCompliant", "vmSizingPolicyId", "vmPlacementPolicyId", "encrypted", "dateCreated",
 			"totalStorageAllocatedMb", "isExpired"}
 		vappFields = []string{"creationDate", "isBusy", "isDeployed", "isEnabled", "isExpired", "isInMaintenanceMode", "isPublic",
@@ -175,6 +175,12 @@ func addResults(queryType string, cumulativeResults, newResults Results) (Result
 	case types.QtResourcePool:
 		cumulativeResults.Results.ResourcePoolRecord = append(cumulativeResults.Results.ResourcePoolRecord, newResults.Results.ResourcePoolRecord...)
 		size = len(newResults.Results.ResourcePoolRecord)
+	case types.QtVappNetwork:
+		cumulativeResults.Results.VappNetworkRecord = append(cumulativeResults.Results.VappNetworkRecord, newResults.Results.VappNetworkRecord...)
+		size = len(newResults.Results.VappNetworkRecord)
+	case types.QtAdminVappNetwork:
+		cumulativeResults.Results.AdminVappNetworkRecord = append(cumulativeResults.Results.AdminVappNetworkRecord, newResults.Results.AdminVappNetworkRecord...)
+		size = len(newResults.Results.AdminVappNetworkRecord)
 
 	default:
 		return Results{}, 0, fmt.Errorf("query type %s not supported", queryType)
@@ -212,6 +218,8 @@ func (client *Client) cumulativeQueryWithHeaders(queryType string, params, notEn
 		types.QtResourcePool,
 		types.QtNetworkPool,
 		types.QtProviderVdcStorageProfile,
+		types.QtVappNetwork,
+		types.QtAdminVappNetwork,
 	}
 	// Make sure the query type is supported
 	// We need to check early, as queries that would return less than 25 items (default page size) would succeed,
@@ -225,6 +233,13 @@ func (client *Client) cumulativeQueryWithHeaders(queryType string, params, notEn
 	}
 	if !isSupported {
 		return Results{}, fmt.Errorf("[cumulativeQuery] query type %s not supported", queryType)
+	}
+
+	if params == nil {
+		params = make(map[string]string)
+	}
+	if len(notEncodedParams) == 0 {
+		notEncodedParams = map[string]string{"type": queryType}
 	}
 
 	result, err := client.QueryWithNotEncodedParamsWithHeaders(params, notEncodedParams, headers)

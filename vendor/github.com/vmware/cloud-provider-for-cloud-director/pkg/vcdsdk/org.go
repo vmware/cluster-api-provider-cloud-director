@@ -5,7 +5,6 @@ import (
 	"github.com/go-openapi/errors"
 	"github.com/vmware/go-vcloud-director/v2/govcd"
 	"github.com/vmware/go-vcloud-director/v2/types/v56"
-	"k8s.io/klog/v2"
 	"net/url"
 	"strings"
 )
@@ -76,70 +75,69 @@ func (orgManager *OrgManager) GetComputePolicyDetailsFromName(computePolicyName 
 }
 
 func (orgManager *OrgManager) SearchVMAcrossVDCs(vmName string, clusterName string, vmId string,
-	ovdcIdentifierList []string, isMultiZoneCluster bool) (*govcd.VM, string, error) {
+	isMultiZoneCluster bool) (*govcd.VM, string, error) {
 
 	org, err := orgManager.Client.VCDClient.GetOrgByName(orgManager.OrgName)
 	if err != nil {
 		return nil, "", fmt.Errorf("unable to get org by name [%s]: [%v]", orgManager.OrgName, err)
 	}
 
-	for _, ovdcIdentifier := range ovdcIdentifierList {
-		klog.Infof("Looking for VM [name:%s],[id:%s] of cluster [%s] in OVDC [%s]",
-			vmName, vmId, clusterName, ovdcIdentifier)
+	var vmRecordList []*types.QueryResultVMRecordType = nil
 
-		vdc, err := org.GetVDCByNameOrId(ovdcIdentifier, true)
+	if vmName != "" {
+		vmRecordList, err = govcd.QueryVmList(types.VmQueryFilterOnlyDeployed, &orgManager.Client.VCDClient.Client,
+			map[string]string{"name": vmName})
 		if err != nil {
-			klog.Infof("unable to query VDC [%s] in Org [%s] by identifier: [%v]",
-				ovdcIdentifier, orgManager.OrgName, err)
-			continue
+			return nil, "", fmt.Errorf("unable to query all VMs using name [%s]: [%v]", vmName, err)
 		}
-		vAppNamePrefix := clusterName
-		if isMultiZoneCluster {
-			vAppNamePrefix, err = CreateVAppNamePrefix(clusterName, vdc.Vdc.ID)
+	} else if vmId != "" {
+		vmRecordList, err = govcd.QueryVmList(types.VmQueryFilterOnlyDeployed, &orgManager.Client.VCDClient.Client,
+			map[string]string{"id": vmId})
+		if err != nil {
+			return nil, "", fmt.Errorf("unable to query all VMs using ID [%s]: [%v]", vmId, err)
+		}
+	} else {
+		return nil, "", fmt.Errorf("unable to query VM when name and ID are both not provided")
+	}
+
+	for _, vmRecord := range vmRecordList {
+		if vmId != "" || // there is no need to correlate VM ID since it is unique across VCD
+			(vmName != "" && vmRecord.Name == vmName) {
+			vdc, err := org.GetVDCByHref(vmRecord.VdcHREF)
 			if err != nil {
-				klog.Infof("Unable to create a vApp name prefix for cluster [%s] in OVDC [%s] with OVDC ID [%s]: [%v]",
-					clusterName, vdc.Vdc.Name, vdc.Vdc.ID, err)
-				continue
+				return nil, "", fmt.Errorf("found vm [%s, %s] in VDC with HREF[%s], but VDC could not be queried: [%v]",
+					vmName, vmId, vmRecord.VdcHREF, err)
 			}
-		}
 
-		klog.Infof("Looking for vApps with a prefix of [%s]", vAppNamePrefix)
-		vAppList := vdc.GetVappList()
-		// check if the VM exists in any cluster-vApps in this OVDC
-		for _, vApp := range vAppList {
-			if strings.HasPrefix(vApp.Name, vAppNamePrefix) {
-				// check if VM exists
-				klog.Infof("Looking for VM [name:%s],[id:%s] in vApp [%s] in OVDC [%s] is a vApp in cluster [%s]",
-					vmName, vmId, vApp.Name, vdc.Vdc.Name, clusterName)
-				vdcManager, err := NewVDCManager(orgManager.Client, orgManager.OrgName, vdc.Vdc.Name)
-				if err != nil {
-					return nil, "", fmt.Errorf("error creating VDCManager object for VDC [%s]: [%v]",
-						vdc.Vdc.Name, err)
-				}
+			vm, err := orgManager.Client.VCDClient.Client.GetVMByHref(vmRecord.HREF)
+			if err != nil {
+				return nil, "", fmt.Errorf("unable to find VM [%s, %s] by HREF [%s]: [%v]",
+					vmName, vmId, vmRecord.HREF, err)
+			}
 
-				var vm *govcd.VM = nil
-				if vmName != "" {
-					vm, err = vdcManager.FindVMByName(vApp.Name, vmName)
-				} else if vmId != "" {
-					vm, err = vdcManager.FindVMByUUID(vApp.Name, vmId)
-				} else {
-					return nil, "", fmt.Errorf("either vm name [%s] or ID [%s] should be passed", vmName, vmId)
+			vApp, err := vm.GetParentVApp()
+			if err != nil {
+				return nil, "", fmt.Errorf("unable to get parent of VM [%s, %s]: [%v]", vmName, vmId, err)
+			}
+
+			if isMultiZoneCluster {
+				vdcUUID := vdc.Vdc.ID
+				vdcIdParts := strings.Split(vdc.Vdc.ID, ":")
+				if len(vdcIdParts) == 4 {
+					vdcUUID = vdcIdParts[3]
 				}
-				if err != nil {
-					klog.Infof("Could not find VM [name:%s],[id:%s] in vApp [%s] of Cluster [%s] in OVDC [%s]: [%v]",
-						vmName, vmId, vApp.Name, clusterName, vdc.Vdc.Name, err)
+				// In this case we need to check if the vApp Name is a proper prefix
+				if !strings.HasPrefix(vApp.VApp.Name, fmt.Sprintf("%s_%s", clusterName, vdcUUID)) {
 					continue
 				}
-
-				// If we reach here, we found the VM
-				klog.Infof("Found VM [name:%s],[id:%s] in vApp [%s] of Cluster [%s] in OVDC [%s]: [%v]",
-					vmName, vmId, vApp.Name, clusterName, vdc.Vdc.Name, err)
-				return vm, vdc.Vdc.Name, nil
+			} else {
+				if vApp.VApp.Name != clusterName {
+					continue
+				}
 			}
-		}
 
-		klog.Infof("Could not find VM [name:%s],[id:%s] of cluster [%s] in OVDC [%s]",
-			vmName, vmId, clusterName, ovdcIdentifier)
+			return vm, vdc.Vdc.Name, nil
+		}
 	}
 
 	return nil, "", govcd.ErrorEntityNotFound

@@ -583,6 +583,7 @@ type VdcStorageProfileConfiguration struct {
 // https://vdc-repo.vmware.com/vmwb-repository/dcr-public/7a028e78-bd37-4a6a-8298-9c26c7eeb9aa/09142237-dd46-4dee-8326-e07212fb63a8/doc/doc/types/VdcStorageProfileType.html
 // https://vdc-repo.vmware.com/vmwb-repository/dcr-public/71e12563-bc11-4d64-821d-92d30f8fcfa1/7424bf8e-aec2-44ad-be7d-b98feda7bae0/doc/doc/types/AdminVdcStorageProfileType.html
 type VdcStorageProfile struct {
+	ID                        string                         `xml:"id,attr"`
 	Xmlns                     string                         `xml:"xmlns,attr"`
 	Name                      string                         `xml:"name,attr"`
 	Enabled                   *bool                          `xml:"Enabled,omitempty"`
@@ -941,8 +942,8 @@ type OrgLdapSettingsType struct {
 	Type    string   `xml:"type,attr,omitempty"` // The MIME type of the entity.
 	Link    LinkList `xml:"Link,omitempty"`      // A reference to an entity or operation associated with this object.
 
-	CustomUsersOu         string                 `xml:"CustomUsersOu,omitempty"`         // If OrgLdapMode is SYSTEM, specifies an LDAP attribute=value pair to use for OU (organizational unit).
 	OrgLdapMode           string                 `xml:"OrgLdapMode,omitempty"`           // LDAP mode you want
+	CustomUsersOu         string                 `xml:"CustomUsersOu,omitempty"`         // If OrgLdapMode is SYSTEM, specifies an LDAP attribute=value pair to use for OU (organizational unit).
 	CustomOrgLdapSettings *CustomOrgLdapSettings `xml:"CustomOrgLdapSettings,omitempty"` // Needs to be set if user chooses custom mode
 }
 
@@ -1132,6 +1133,14 @@ type PublishExternalCatalogParams struct {
 	Password                 string `xml:"Password,omitempty"`                 // Password required when connecting to the endpoint.
 	IsCachedEnabled          *bool  `xml:"IsCacheEnabled,omitempty"`           // True enables content caching for this catalog. All items in the catalog are created and stored in transfer storage. If false, items are not placed in transfer storage until they are requested by a subscriber. Note that access to this attribute is reserved to users with role that includes the right 'Catalog: VCSP Publish Subscribe Caching'.
 	PreserveIdentityInfoFlag *bool  `xml:"PreserveIdentityInfoFlag,omitempty"` // True includes BIOS UUIDs and MAC addresses in the downloaded OVF package. If false, those information will be excluded.
+}
+
+// PublishCatalogParams represents the configuration parameters of a catalog published to other orgs.
+// It is used in conjunction with the "IsPublished" state of the catalog itself
+type PublishCatalogParams struct {
+	XMLName     xml.Name `xml:"PublishCatalogParams"`
+	Xmlns       string   `xml:"xmlns,attr,omitempty"`
+	IsPublished *bool    `xml:"IsPublished,omitempty"` // True enables  publication (read-only access)
 }
 
 // ExternalCatalogSubscription represents the configuration parameters for a catalog that has an external subscription
@@ -1573,6 +1582,7 @@ type VAppTemplate struct {
 	NetworkConnectionSection *NetworkConnectionSection `xml:"NetworkConnectionSection,omitempty"`
 	LeaseSettingsSection     *LeaseSettingsSection     `xml:"LeaseSettingsSection,omitempty"`
 	CustomizationSection     *CustomizationSection     `xml:"CustomizationSection,omitempty"`
+	ProductSection           *ProductSection           `xml:"ProductSection,omitempty"`
 	// OVF Section needs to be added
 	// Section               Section              `xml:"Section,omitempty"`
 }
@@ -1594,6 +1604,46 @@ type VAppTemplateForUpdate struct {
 	// Elements
 	Link        LinkList `xml:"Link,omitempty"`        // A reference to an entity or operation associated with this object.
 	Description string   `xml:"Description,omitempty"` // Optional description.
+}
+
+// CaptureVAppParams is a configuration that can be supplied for capturing a vApp template from
+// existing vApp
+type CaptureVAppParams struct {
+	XMLName xml.Name `xml:"CaptureVAppParams"`
+
+	Xmlns    string `xml:"xmlns,attr"`
+	XmlnsNs0 string `xml:"xmlns:ns0,attr,omitempty"`
+
+	// Name of vApp template
+	Name string `xml:"name,attr"`
+	// Description of vApp template
+	Description string `xml:"Description,omitempty"`
+
+	// Source vApp reference. At least HREF field must be set
+	Source *Reference `xml:"Source"`
+
+	// CustomizationSection section
+	CustomizationSection CaptureVAppParamsCustomizationSection `xml:"CustomizationSection"`
+
+	// TargetCatalogItem can be used to overwrite existing item. To overwrite an existing vApp
+	// template with the one created by this capture, place a reference to the existing template
+	// here. Otherwise, the operation creates a new vApp template.
+	TargetCatalogItem *Reference `xml:"TargetCatalogItem,omitempty"`
+
+	// CopyTpmOnInstantiate defines if TPM device is copied (`true`) to instantiated vApp from this
+	// template or `false` if a new TPM device is created for instantiated vApp.
+	// Note. Supported on VCD 10.4.2+
+	CopyTpmOnInstantiate *bool `xml:"CopyTpmOnInstantiate"`
+}
+
+// CaptureVAppParamsCustomizationSection settings for CaptureVAppParams type
+type CaptureVAppParamsCustomizationSection struct {
+	// This field must contain value "CustomizeOnInstantiate Settings" so that API does not reject
+	// the request
+	Info string `xml:"ns0:Info,omitempty"`
+	// CustomizeOnInstantiate marks if instantiating this template applies customization settings
+	// (`true`). `false` creates an identical copy.
+	CustomizeOnInstantiate bool `xml:"CustomizeOnInstantiate"`
 }
 
 // VMDiskChange represents a virtual machine only with Disk setting update part
@@ -1619,18 +1669,25 @@ type DiskSection struct {
 
 // DiskSettings from Vm/VmSpecSection/DiskSection struct
 type DiskSettings struct {
-	DiskId              string     `xml:"DiskId,omitempty"`              // Specifies a unique identifier for this disk in the scope of the corresponding VM. This element is optional when creating a VM, but if it is provided it should be unique. This element is mandatory when updating an existing disk.
-	SizeMb              int64      `xml:"SizeMb"`                        // The size of the disk in MB.
-	UnitNumber          int        `xml:"UnitNumber"`                    // The device number on the SCSI or IDE controller of the disk.
-	BusNumber           int        `xml:"BusNumber"`                     //	The number of the SCSI or IDE controller itself.
-	AdapterType         string     `xml:"AdapterType"`                   // The type of disk controller, e.g. IDE vs SCSI and if SCSI bus-logic vs LSI logic.
-	ThinProvisioned     *bool      `xml:"ThinProvisioned,omitempty"`     // Specifies whether the disk storage is pre-allocated or allocated on demand.
-	Disk                *Reference `xml:"Disk,omitempty"`                // Specifies reference to a named disk.
-	StorageProfile      *Reference `xml:"StorageProfile,omitempty"`      // Specifies reference to a storage profile to be associated with the disk.
-	OverrideVmDefault   bool       `xml:"overrideVmDefault"`             // Specifies that the disk storage profile overrides the VM's default storage profile.
-	Iops                *int64     `xml:"iops,omitempty"`                // Specifies the IOPS for the disk.
-	VirtualQuantity     *int64     `xml:"VirtualQuantity,omitempty"`     // The actual size of the disk.
-	VirtualQuantityUnit string     `xml:"VirtualQuantityUnit,omitempty"` // The units in which VirtualQuantity is measured.
+	DiskId              string        `xml:"DiskId,omitempty"`              // Specifies a unique identifier for this disk in the scope of the corresponding VM. This element is optional when creating a VM, but if it is provided it should be unique. This element is mandatory when updating an existing disk.
+	SizeMb              int64         `xml:"SizeMb"`                        // The size of the disk in MB.
+	UnitNumber          int           `xml:"UnitNumber"`                    // The device number on the SCSI or IDE controller of the disk.
+	BusNumber           int           `xml:"BusNumber"`                     //	The number of the SCSI or IDE controller itself.
+	AdapterType         string        `xml:"AdapterType"`                   // The type of disk controller, e.g. IDE vs SCSI and if SCSI bus-logic vs LSI logic.
+	ThinProvisioned     *bool         `xml:"ThinProvisioned,omitempty"`     // Specifies whether the disk storage is pre-allocated or allocated on demand.
+	Disk                *Reference    `xml:"Disk,omitempty"`                // Specifies reference to a named disk.
+	StorageProfile      *Reference    `xml:"StorageProfile,omitempty"`      // Specifies reference to a storage profile to be associated with the disk.
+	OverrideVmDefault   bool          `xml:"overrideVmDefault"`             // Specifies that the disk storage profile overrides the VM's default storage profile.
+	IopsAllocation      *IopsResource `xml:"IopsAllocation"`                // IOPS definition for the disk - added in 10.4 in replacement of 'iops'
+	VirtualQuantity     *int64        `xml:"VirtualQuantity,omitempty"`     // The actual size of the disk.
+	VirtualQuantityUnit string        `xml:"VirtualQuantityUnit,omitempty"` // The units in which VirtualQuantity is measured.
+}
+
+type IopsResource struct {
+	Reservation int64  `xml:"Reservation"` // The amount of reservation of IOPS on the underlying virtualization infrastructure. This is a read-only.
+	Limit       int64  `xml:"Limit"`       // The limit for how much of IOPS can be consumed on the underlying virtualization infrastructure. This is only valid when the resource allocation is not unlimited.
+	SharesLevel string `xml:"SharesLevel"` // LOW - NORMAL - HIGH - CUSTOM
+	Shares      int64  `xml:"Shares"`      // Custom priority for IOPS. This is a read-only.
 }
 
 // MediaSection from Vm/VmSpecSection struct
@@ -2362,6 +2419,8 @@ type QueryResultRecordsType struct {
 	VmGroupsRecord                  []*QueryResultVmGroupsRecordType                  `xml:"VmGroupsRecord"`                  // A record representing a VM Group
 	TaskRecord                      []*QueryResultTaskRecordType                      `xml:"TaskRecord"`                      // A record representing a Task
 	AdminTaskRecord                 []*QueryResultTaskRecordType                      `xml:"AdminTaskRecord"`                 // A record representing an Admin Task
+	VappNetworkRecord               []*QueryResultVappNetworkRecordType               `xml:"VAppNetworkRecord"`               // A record representing a vApp network
+	AdminVappNetworkRecord          []*QueryResultVappNetworkRecordType               `xml:"AdminVAppNetworkRecord"`          // A record representing an admin vApp network
 }
 
 // QueryResultVmGroupsRecordType represent a VM Groups record
@@ -2373,6 +2432,32 @@ type QueryResultVmGroupsRecordType struct {
 	ClusterName    string `xml:"clusterName,attr,omitempty"`
 	VcenterId      string `xml:"vcId,attr,omitempty"`
 	NamedVmGroupId string `xml:"namedVmGroupId,attr,omitempty"`
+}
+
+type QueryResultVappNetworkRecordType struct {
+	HREF                   string    `xml:"href,attr,omitempty"`
+	ID                     string    `xml:"id,attr,omitempty"`
+	Name                   string    `xml:"name,attr,omitempty"`
+	Type                   string    `xml:"linkType,attr,omitempty"`
+	IpScopeId              string    `xml:"ipScopeId,attr,omitempty"`
+	IpScopeInherited       bool      `xml:"ipScopeInherited,attr,omitempty"`
+	Gateway                string    `xml:"gateway,attr,omitempty"`
+	Netmask                string    `xml:"netmask,attr,omitempty"`
+	SubnetPrefixLength     int       `xml:"subnetPrefixLength,attr,omitempty"`
+	Dns1                   string    `xml:"dns1,attr,omitempty"`
+	Dns2                   string    `xml:"dns2,attr,omitempty"`
+	DnsSuffix              string    `xml:"dnsSuffix,attr,omitempty"`
+	Vapp                   string    `xml:"vApp,attr,omitempty"`            // the HREF of the parent vApp
+	VappName               string    `xml:"vAppName,attr,omitempty"`        // the name of the parent vApp
+	LinkNetworkName        string    `xml:"linkNetworkName,attr,omitempty"` // this field is filled when called in tenant context
+	RealNetworkName        string    `xml:"realNetworkName,attr,omitempty"`
+	RealNetworkPortgroupId string    `xml:"realNetworkPortgroupId,attr,omitempty"`
+	VCenterName            string    `xml:"vcName,attr,omitempty"`
+	VCenter                string    `xml:"vc,attr,omitempty"`
+	IsBusy                 bool      `xml:"isBusy,attr,omitempty"`
+	IsLinked               bool      `xml:"isLinked,attr,omitempty"`
+	RetainNicResources     bool      `xml:"retainNicResources,attr,omitempty"`
+	Metadata               *Metadata `xml:"Metadata,omitempty"`
 }
 
 // QueryResultResourcePoolRecordType represent a Resource Pool record
@@ -2549,6 +2634,7 @@ type QueryResultVMRecordType struct {
 	OwnerName                string    `xml:"ownerName,attr,omitempty"`
 	Owner                    string    `xml:"owner,attr,omitempty"`
 	VdcHREF                  string    `xml:"vdc,attr,omitempty"`
+	VdcName                  string    `xml:"vdcName,attr,omitempty"`
 	VAppTemplate             bool      `xml:"isVAppTemplate,attr,omitempty"`
 	Deleted                  bool      `xml:"isDeleted,attr,omitempty"`
 	GuestOS                  string    `xml:"guestOs,attr,omitempty"`
@@ -3386,4 +3472,98 @@ type EnableStorageProfile struct {
 
 type RemoveStorageProfile struct {
 	RemoveStorageProfile []*Reference `json:"removeStorageProfile"`
+}
+
+// VirtualHardwareVersion describes supported hardware by the VMs created on the VDC
+type VirtualHardwareVersion struct {
+	HardDiskAdapter           []*HardDiskAdapter                 `xml:"HardDiskAdapter"`
+	Link                      Link                               `xml:"Link"`
+	MaxCPUs                   int                                `xml:"maxCPUs"`
+	MaxCoresPerSocket         int                                `xml:"maxCoresPerSocket"`
+	MaxMemorySizeMb           int                                `xml:"maxMemorySizeMb"`
+	MaxNICs                   int                                `xml:"maxNICs"`
+	Name                      string                             `xml:"name"`
+	SupportedMemorySizeGb     []int                              `xml:"supportedMemorySizeGb"`
+	SupportedCoresPerSocket   []int                              `xml:"supportedCoresPerSocket"`
+	SupportedOperatingSystems *SupportedOperatingSystemsInfoType `xml:"supportedOperatingSystems"`
+
+	SupportsHotAdd     *bool `xml:"supportsHotAdd"`
+	SupportsHotPlugPCI *bool `xml:"supportsHotPlugPCI"`
+	SupportsNestedHV   *bool `xml:"supportsNestedHV"`
+}
+
+// HardDiskAdapter describes a hard disk controller type
+type HardDiskAdapter struct {
+	Id                string `xml:"id,attr"`
+	LegacyId          int    `xml:"legacyId,attr"`
+	Name              string `xml:"name,attr"`
+	MaximumDiskSizeGb int    `xml:"maximumDiskSizeGb,attr"`
+
+	BusNumberRanges struct {
+		Begin int `xml:"begin,attr"`
+		End   int `xml:"end,attr"`
+	} `xml:"BusNumberRanges>Range"`
+	UnitNumberRanges struct {
+		Begin int `xml:"begin,attr"`
+		End   int `xml:"end,attr"`
+	} `xml:"UnitNumberRanges>Range"`
+
+	ReservedBusUnitNumber struct {
+		BusNumber  int `xml:"busNumber,attr"`
+		UnitNumber int `xml:"unitNumber,attr"`
+	} `xml:"ReservedBusUnitNumber"`
+}
+
+// SupportedOperatingSystemsInfoType describes what operating system families a hardware version supports
+type SupportedOperatingSystemsInfoType struct {
+	Link                      *Link
+	OperatingSystemFamilyInfo []*OperatingSystemFamilyInfoType `xml:"OperatingSystemFamilyInfo"`
+}
+
+// OperatingSystemFamilyInfoType describes operating systems of a given OS family
+type OperatingSystemFamilyInfoType struct {
+	Name                    string                     `xml:"Name"`
+	OperatingSystemFamilyId *int                       `xml:"OperatingSystemFamilyId"`
+	OperatingSystems        []*OperatingSystemInfoType `xml:"OperatingSystem"`
+}
+
+// OperatingSystemInfoType describes a operating system
+type OperatingSystemInfoType struct {
+	OperatingSystemId          *int   `xml:"OperatingSystemId,omitempty"`
+	DefaultHardDiskAdapterType string `xml:"DefaultHardDiskAdapterType"`
+	SupportedHardDiskAdapter   []struct {
+		Ref string `xml:"ref,attr"`
+	} `xml:"SupportedHardDiskAdapter,omitempty"`
+	MinimumHardDiskSizeGigabytes *int   `xml:"MinimumHardDiskSizeGigabytes"`
+	MinimumMemoryMegabytes       *int   `xml:"MinimumMemoryMegabytes"`
+	Name                         string `xml:"Name"`
+	InternalName                 string `xml:"InternalName"`
+	Supported                    *bool  `xml:"Supported"`
+	SupportLevel                 string `xml:"SupportLevel"`
+	X64                          *bool  `xml:"x64"`
+	MaximumCpuCount              *int   `xml:"MaximumCpuCount"`
+	MaximumCoresPerSocket        *int   `xml:"MaximumCoresPerSocket"`
+	MaximumSocketCount           *int   `xml:"MaximumSocketCount"`
+	MinimumHardwareVersion       *int   `xml:"MinimumHardwareVersion"`
+	PersonalizationEnabled       *bool  `xml:"PersonalizationEnabled"`
+	PersonalizationAuto          *bool  `xml:"PersonalizationAuto"`
+	SysprepPackagingSupported    *bool  `xml:"SysprepPackagingSupported"`
+	SupportsMemHotAdd            *bool  `xml:"SupportsMemHotAdd"`
+	CimOsId                      *int   `xml:"cimOsId"`
+	CimVersion                   *int   `xml:"CimVersion"`
+	SupportedForCreate           *bool  `xml:"SupportedForCreate"`
+
+	RecommendedNIC []struct {
+		Name string `xml:"name,attr"`
+		Id   *int   `xml:"id,attr,omitempty"`
+	} `xml:"RecommendedNIC"`
+
+	SupportedNICType []struct {
+		Name string `xml:"name,attr"`
+		Id   *int   `xml:"id,attr,omitempty"`
+	} `xml:"SupportedNICType"`
+
+	RecommendedFirmware string   `xml:"RecommendedFirmware"`
+	SupportedFirmware   []string `xml:"SupportedFirmware"`
+	SupportsTPM         *bool    `xml:"SupportsTPM"`
 }

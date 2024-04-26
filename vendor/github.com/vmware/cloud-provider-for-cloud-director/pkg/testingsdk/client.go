@@ -193,6 +193,50 @@ func (tc *TestClient) GetK8sVersion() (*version.Info, error) {
 	return tc.Cs.(*kubernetes.Clientset).Discovery().ServerVersion()
 }
 
+// GetZoneMapFromZoneConfigMap reads the zone config map and returns a map of zoneName -> ovdcName
+func (tc *TestClient) GetZoneMapFromZoneConfigMap(zoneCM *apiv1.ConfigMap) (map[string]string, error) {
+	data := zoneCM.Data
+
+	zoneYaml, ok := data["vcloud-cse-zones.yaml"]
+	if !ok {
+		return nil, fmt.Errorf("no data present")
+	}
+	var zoneCfgMap map[string]interface{}
+	err := yaml.Unmarshal([]byte(zoneYaml), &zoneCfgMap)
+	if err != nil {
+		return nil, fmt.Errorf("err occurred: [%v]", err)
+	}
+	zoneInfoListIf, ok := zoneCfgMap["zones"]
+	if !ok {
+		return nil, fmt.Errorf("zone config map doesn't have zone list")
+	}
+
+	zoneInfoList, ok := zoneInfoListIf.([]interface{})
+	if !ok {
+		return nil, fmt.Errorf("failed to convert zoneInfoList interface to array")
+	}
+
+	zoneMap := make(map[string]string)
+	for _, zoneInfoIf := range zoneInfoList {
+		zoneInfo, ok := zoneInfoIf.(map[string]interface{})
+		if !ok {
+			return nil, fmt.Errorf("failed to convert zone entry in zone config map [%v] to map[string]string", zoneInfoIf)
+		}
+		name, ok := zoneInfo["name"]
+		if !ok {
+			return nil, fmt.Errorf("zone entry in zone map doesn't have a zone name")
+		}
+		ovdcName, ok := zoneInfo["ovdcName"]
+		if !ok {
+			return nil, fmt.Errorf("zone entry in zone map doesn't have OVDC name")
+		}
+		nameStr := name.(string)
+		ovdcNameStr := ovdcName.(string)
+		zoneMap[nameStr] = ovdcNameStr
+	}
+	return zoneMap, nil
+}
+
 func (tc *TestClient) GetIpamSubnetFromConfigMap(cm *apiv1.ConfigMap) (string, error) {
 	data := cm.Data
 	ccmYaml, ok := data["vcloud-ccm-config.yaml"]
