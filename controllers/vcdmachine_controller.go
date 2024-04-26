@@ -752,7 +752,7 @@ func (r *VCDMachineReconciler) reconcileVAppCreation(ctx context.Context, vcdCli
 	//		"vAppID", clusterVApp.VApp.ID)
 	//}
 
-	if metadataMap != nil && !vcdCluster.Status.VAppMetadataUpdated {
+	if metadataMap != nil {
 		if err := vdcManager.AddMetadataToVApp(vAppName, metadataMap); err != nil {
 			capvcdRdeManager.AddToErrorSet(ctx, capisdk.VCDClusterError, "", vAppName,
 				fmt.Sprintf("failed to add metadata into vApp [%s]: [%v]", vcdCluster.Name, err))
