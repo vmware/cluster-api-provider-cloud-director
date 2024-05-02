@@ -266,15 +266,9 @@ func (vdc *VdcManager) GetOrCreateVApp(VAppName string, ovdcNetworkName string) 
 	}
 
 	// vapp not found, so create one
-	err = vdc.Vdc.ComposeRawVApp(VAppName, fmt.Sprintf("Description for [%s]", VAppName))
+	vApp, err = vdc.Vdc.CreateRawVApp(VAppName, fmt.Sprintf("Description for [%s]", VAppName))
 	if err != nil {
 		return nil, fmt.Errorf("unable to compose raw vApp with name [%s]: [%v]", VAppName, err)
-	}
-
-	vApp, err = vdc.Vdc.GetVAppByName(VAppName, true)
-	if err != nil {
-		return nil, fmt.Errorf("unable to get vApp [%s] from Vdc [%s]: [%v]",
-			VAppName, vdc.Client.ClusterOVDCIdentifier, err)
 	}
 
 	if err := vdc.addOvdcNetworkToVApp(vApp, ovdcNetworkName); err != nil {

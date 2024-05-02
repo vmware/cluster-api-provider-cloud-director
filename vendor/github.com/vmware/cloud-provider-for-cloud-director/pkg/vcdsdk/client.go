@@ -137,7 +137,7 @@ func (client *Client) RefreshBearerToken() error {
 // NewVCDClientFromSecrets :
 // host, orgName, userOrg, refreshToken, insecure, user, password
 
-// New method from (vdcClient, vdcName) return *govcd.Vdc
+// New method from (vdcClient, vdcIdentifier) return *govcd.Vdc
 func NewVCDClientFromSecrets(host string, orgName string, vdcIdentifier string, userOrg string,
 	user string, password string, refreshToken string, insecure bool, getVdcClient bool) (*Client, error) {
 

@@ -86,7 +86,7 @@ vcd:
       # NSX-T tier-0 VRF router used for external network tests
       tier0routerVrf: tier-0-router-vrf
       # Gateway QoS Profile used for NSX-T Edge Gateway Rate Limiting (defined in NSX-T Manager)
-      gatewayQosProfile: Gateway QoS Profile 1 
+      gatewayQosProfile: Gateway QoS Profile 1
       # Existing External Network with correct configuration
       externalNetwork: tier0-backed-external-network
       # Existing NSX-T based VDC
@@ -97,18 +97,30 @@ vcd:
       edgeGateway: nsxt-gw-name
       # Existing NSX-T segment to test NSX-T Imported Org Vdc network
       nsxtImportSegment: vcd-org-vdc-imported-network-backing
+      # Existing NSX-T segment to test Edge Gateway Uplinks
+      nsxtImportSegment2: vcd-org-vdc-imported-network-backing2
       # Existing NSX-T Edge Cluster name
       nsxtEdgeCluster: existing-nsxt-edge-cluster
-      # AVI Controller URL 
+      # AVI Controller URL
       nsxtAlbControllerUrl: https://unknown-hostname.com
       # AVI Controller username
       nsxtAlbControllerUser: admin
       # AVI Controller password
       nsxtAlbControllerPassword: CHANGE-ME
-      # AVI Controller importable Cloud name 
+      # AVI Controller importable Cloud name
       nsxtAlbImportableCloud: NSXT AVI Cloud
       # Service Engine Group name within (Should be configured in Active Standby mode)
       nsxtAlbServiceEngineGroup: active-standby-service-engine-group
+      # IP Discovery profile defined in NSX-T Manager
+      ipDiscoveryProfile: "ip-discovery-profile"
+      # MAC Discovery profile defined in NSX-T Manager
+      macDiscoveryProfile: "mac-discovery-profile"
+      # Spoof Guard profile defined in NSX-T Manager
+      spoofGuardProfile: "spoof-guard-profile"
+      # QoS profile defined in NSX-T Manager
+      qosProfile: "qos-profile"
+      # Segment Security profile defined in NSX-T Manager
+      segmentSecurityProfile: "segment-security-profile"
     # An Org catalog, possibly containing at least one item
     catalog:
         name: mycat
@@ -119,6 +131,8 @@ vcd:
         # One item in the NSX-T catalog. It will be used to compose test vApps. Some tests rely on it
         # being Photon OS. If it is not Photon OS - some tests will be skipped
         nsxtCatalogItem: my-nsxt-item
+        # Item in the NSX-T catalog that has a newer hardware version and supports EFI boot.
+        catalogItemWithEfiSupport: my-cat-item-with-efi-support
         #
         # An optional description for the catalog. Its test will be skipped if omitted.
         # If provided, it must be the current description of the catalog
@@ -237,3 +251,24 @@ media:
   mediaName: uploadedMediaName
   # Existing media in NSX-T backed VDC
   nsxtBackedMediaName: nsxtMediaName
+  # A valid UI Plugin to use in tests
+  uiPluginPath: ../test-resources/ui_plugin.zip
+cse:
+  # The CSE version installed in VCD
+  version: "4.2.0"
+  # The organization where Container Service Extension (CSE) Server is running
+  solutionsOrg: "solutions_org"
+  # The organization where the Kubernetes clusters are created
+  tenantOrg: "tenant_org"
+  # The VDC where the Kubernetes clusters are created
+  tenantVdc: "tenant_vdc"
+  # The network which the Kubernetes clusters use
+  routedNetwork: "tenant_net_routed"
+  # The edge gateway which the Kubernetes clusters use
+  edgeGateway: "tenant_edgegateway"
+  # The storage profile which the Kubernetes clusters use
+  storageProfile: "*"
+  # The catalog which the Kubernetes clusters use
+  ovaCatalog: "tkgm_catalog"
+  # The TKGm OVA which the Kubernetes clusters use
+  ovaName: "ubuntu-2004-kube-v1.25.7+vmware.2-tkg.1-8a74b9f12e488c54605b3537acb683bc"

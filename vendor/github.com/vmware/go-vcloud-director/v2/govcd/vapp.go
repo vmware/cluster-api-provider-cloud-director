@@ -60,7 +60,7 @@ type DhcpSettings struct {
 }
 
 // Returns the vdc where the vapp resides in.
-func (vapp *VApp) getParentVDC() (Vdc, error) {
+func (vapp *VApp) GetParentVDC() (Vdc, error) {
 	for _, link := range vapp.VApp.Link {
 		if (link.Type == types.MimeVDC || link.Type == types.MimeAdminVDC) && link.Rel == "up" {
 
@@ -159,9 +159,11 @@ func (vapp *VApp) AddRawVM(vAppComposition *types.ReComposeVAppParams) (*VM, err
 	apiEndpoint.Path += "/action/recomposeVApp"
 
 	// Return the task
-	task, err := vapp.client.ExecuteTaskRequest(apiEndpoint.String(), http.MethodPost, types.MimeRecomposeVappParams, "error instantiating a new VM: %s", vAppComposition)
+	task, err := vapp.client.ExecuteTaskRequestWithApiVersion(apiEndpoint.String(), http.MethodPost,
+		types.MimeRecomposeVappParams, "error instantiating a new VM: %s",
+		vAppComposition, vapp.client.GetSpecificApiVersionOnCondition(">=37.1", "37.1"))
 	if err != nil {
-		return nil, fmt.Errorf("error instantiating a new VM: %s", err)
+		return nil, err
 	}
 
 	err = task.WaitTaskCompletion()
@@ -618,7 +620,7 @@ func (vapp *VApp) ChangeStorageProfile(name string) (Task, error) {
 		return Task{}, fmt.Errorf("vApp doesn't contain any children, interrupting customization")
 	}
 
-	vdc, err := vapp.getParentVDC()
+	vdc, err := vapp.GetParentVDC()
 	if err != nil {
 		return Task{}, fmt.Errorf("error retrieving parent VDC for vApp %s", vapp.VApp.Name)
 	}
@@ -1440,7 +1442,7 @@ func (vapp *VApp) getOrgInfo() (*TenantContext, error) {
 		return previous, nil
 	}
 	var err error
-	vdc, err := vapp.getParentVDC()
+	vdc, err := vapp.GetParentVDC()
 	if err != nil {
 		return nil, err
 	}
@@ -1512,7 +1514,7 @@ func (vapp *VApp) Rename(newName string) error {
 }
 
 func (vapp *VApp) getTenantContext() (*TenantContext, error) {
-	parentVdc, err := vapp.getParentVDC()
+	parentVdc, err := vapp.GetParentVDC()
 	if err != nil {
 		return nil, err
 	}
@@ -1540,7 +1542,7 @@ func (vapp *VApp) RenewLease(deploymentLeaseInSeconds, storageLeaseInSeconds int
 		}
 	}
 	if href == "" {
-		return fmt.Errorf("link to update lease sttings not found for vApp %s", vapp.VApp.Name)
+		return fmt.Errorf("link to update lease settings not found for vApp %s", vapp.VApp.Name)
 	}
 
 	var leaseSettings = types.UpdateLeaseSettingsSection{

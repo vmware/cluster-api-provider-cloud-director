@@ -221,6 +221,8 @@ type VdcComputePolicyV2 struct {
 	IsVgpuPolicy           bool                     `json:"isVgpuPolicy,omitempty"`
 	PvdcNamedVmGroupsMap   []PvdcNamedVmGroupsMap   `json:"pvdcNamedVmGroupsMap,omitempty"`
 	PvdcLogicalVmGroupsMap []PvdcLogicalVmGroupsMap `json:"pvdcLogicalVmGroupsMap,omitempty"`
+	PvdcVgpuClustersMap    []PvdcVgpuClustersMap    `json:"pvdcVgpuClustersMap,omitempty"`
+	VgpuProfiles           []VgpuProfile            `json:"vgpuProfiles,omitempty"`
 }
 
 // PvdcNamedVmGroupsMap is a combination of a reference to a Provider VDC and a list of references to Named VM Groups.
@@ -235,6 +237,11 @@ type PvdcNamedVmGroupsMap struct {
 type PvdcLogicalVmGroupsMap struct {
 	LogicalVmGroups OpenApiReferences `json:"logicalVmGroups,omitempty"`
 	Pvdc            OpenApiReference  `json:"pvdc,omitempty"`
+}
+
+type PvdcVgpuClustersMap struct {
+	Clusters []string         `json:"clusters,omitempty"`
+	Pvdc     OpenApiReference `json:"pvdc,omitempty"`
 }
 
 // OpenApiReference is a generic reference type commonly used throughout OpenAPI endpoints
@@ -573,24 +580,24 @@ type OpenApiSupportedHardwareVersions struct {
 
 // NetworkPool is the full data retrieved for a provider network pool
 type NetworkPool struct {
-	Status             string             `json:"status"`
-	Id                 string             `json:"id"`
+	Status             string             `json:"status,omitempty"`
+	Id                 string             `json:"id,omitempty"`
 	Name               string             `json:"name"`
 	Description        string             `json:"description"`
 	PoolType           string             `json:"poolType"`
-	PromiscuousMode    bool               `json:"promiscuousMode"`
-	TotalBackingsCount int                `json:"totalBackingsCount"`
-	UsedBackingsCount  int                `json:"usedBackingsCount"`
+	PromiscuousMode    bool               `json:"promiscuousMode,omitempty"`
+	TotalBackingsCount int                `json:"totalBackingsCount,omitempty"`
+	UsedBackingsCount  int                `json:"usedBackingsCount,omitempty"`
 	ManagingOwnerRef   OpenApiReference   `json:"managingOwnerRef"`
 	Backing            NetworkPoolBacking `json:"backing"`
 }
 
 // NetworkPoolBacking is the definition of the objects supporting the network pool
 type NetworkPoolBacking struct {
-	VlanIdRanges     VlanIdRanges       `json:"vlanIdRanges"`
-	VdsRefs          []OpenApiReference `json:"vdsRefs"`
-	PortGroupRefs    []OpenApiReference `json:"portGroupRefs"`
-	TransportZoneRef OpenApiReference   `json:"transportZoneRef"`
+	VlanIdRanges     VlanIdRanges       `json:"vlanIdRanges,omitempty"`
+	VdsRefs          []OpenApiReference `json:"vdsRefs,omitempty"`
+	PortGroupRefs    []OpenApiReference `json:"portGroupRefs,omitempty"`
+	TransportZoneRef OpenApiReference   `json:"transportZoneRef,omitempty"`
 	ProviderRef      OpenApiReference   `json:"providerRef"`
 }
 
@@ -598,6 +605,7 @@ type VlanIdRanges struct {
 	Values []VlanIdRange `json:"values"`
 }
 
+// VlanIdRange is a component of a network pool of type VLAN
 type VlanIdRange struct {
 	StartId int `json:"startId"`
 	EndId   int `json:"endId"`
@@ -630,4 +638,55 @@ type UploadSpec struct {
 	Size         int64  `json:"size,omitempty"`
 	Checksum     string `json:"checksum,omitempty"`
 	ChecksumAlgo string `json:"checksumAlgo,omitempty"`
+}
+
+type TransportZones struct {
+	Values []*TransportZone `json:"values"`
+}
+
+// TransportZone is a backing component of a network pool of type 'GENEVE' (NSX-T backed)
+type TransportZone struct {
+	Id              string `json:"id"`
+	Name            string `json:"name"`
+	Type            string `json:"type,omitempty"`
+	AlreadyImported bool   `json:"alreadyImported"`
+}
+
+// VcenterDistributedSwitch is a backing component of a network pool of type VLAN
+type VcenterDistributedSwitch struct {
+	BackingRef    OpenApiReference `json:"backingRef"`
+	VirtualCenter OpenApiReference `json:"virtualCenter"`
+}
+
+// OpenApiMetadataEntry represents a metadata entry in VCD.
+type OpenApiMetadataEntry struct {
+	ID           string                  `json:"id,omitempty"`         // UUID for OpenApiMetadataEntry. This is immutable
+	IsPersistent bool                    `json:"persistent,omitempty"` // Persistent entries can be copied over on some entity operation, for example: Creating a copy of an Org VDC, capturing a vApp to a template, instantiating a catalog item as a VM, etc.
+	IsReadOnly   bool                    `json:"readOnly,omitempty"`   // The kind of level of access organizations of the entry’s domain have
+	KeyValue     OpenApiMetadataKeyValue `json:"keyValue,omitempty"`   // Contains core metadata entry data
+}
+
+// OpenApiMetadataKeyValue contains core metadata entry data.
+type OpenApiMetadataKeyValue struct {
+	Domain    string                    `json:"domain,omitempty"`    // Only meaningful for providers. Allows them to share entries with their tenants. Currently, accepted values are: `TENANT`, `PROVIDER`, where that is the ascending sort order of the enumeration.
+	Key       string                    `json:"key,omitempty"`       // Key of the metadata entry
+	Value     OpenApiMetadataTypedValue `json:"value,omitempty"`     // Value of the metadata entry
+	Namespace string                    `json:"namespace,omitempty"` // Namespace of the metadata entry
+}
+
+// OpenApiMetadataTypedValue the type and value of the metadata entry.
+type OpenApiMetadataTypedValue struct {
+	Value interface{} `json:"value,omitempty"` // The Value is anything because it depends on the Type field.
+	Type  string      `json:"type,omitempty"`
+}
+
+// VgpuProfile uniquely represents a type of vGPU
+// vGPU Profiles are fetched from your NVIDIA GRID GPU enabled Clusters in vCenter.
+type VgpuProfile struct {
+	Id                 string `json:"id"`
+	Name               string `json:"name"`
+	TenantFacingName   string `json:"tenantFacingName"`
+	Instructions       string `json:"instructions,omitempty"`
+	AllowMultiplePerVm bool   `json:"allowMultiplePerVm"`
+	Count              int    `json:"count,omitempty"`
 }

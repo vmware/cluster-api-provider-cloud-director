@@ -2,12 +2,13 @@ package govcd
 
 import (
 	"fmt"
-	"github.com/vmware/go-vcloud-director/v2/types/v56"
-	"github.com/vmware/go-vcloud-director/v2/util"
 	"io"
 	"net/http"
 	"net/url"
 	"time"
+
+	"github.com/vmware/go-vcloud-director/v2/types/v56"
+	"github.com/vmware/go-vcloud-director/v2/util"
 )
 
 // ProviderVdc is the basic Provider VDC structure, contains the minimum set of attributes.
@@ -422,7 +423,7 @@ func (pvdc *ProviderVdcExtended) DeleteResourcePools(resourcePools []*ResourcePo
 			return fmt.Errorf("resource pool %s not found in provider VDC %s", rp.ResourcePool.Name, pvdc.VMWProviderVdc.Name)
 		}
 		if foundUsed.IsPrimary {
-			return fmt.Errorf("resource pool %s (%s) caannot be removed, because it is the primary one for provider VDC %s",
+			return fmt.Errorf("resource pool %s (%s) can not be removed, because it is the primary one for provider VDC %s",
 				rp.ResourcePool.Name, rp.ResourcePool.Moref, pvdc.VMWProviderVdc.Name)
 		}
 		if foundUsed.IsEnabled {
@@ -462,11 +463,11 @@ func (pvdc *ProviderVdcExtended) DeleteResourcePools(resourcePools []*ResourcePo
 
 // GetResourcePools returns the Resource Pools belonging to this provider VDC
 func (pvdc *ProviderVdcExtended) GetResourcePools() ([]*types.QueryResultResourcePoolRecordType, error) {
-	resourcePools, err := pvdc.client.cumulativeQuery(types.QtResourcePool, map[string]string{
+	resourcePools, err := pvdc.client.cumulativeQuery(types.QtResourcePool, nil, map[string]string{
 		"type":          types.QtResourcePool,
 		"filter":        fmt.Sprintf("providerVdc==%s", url.QueryEscape(extractUuid(pvdc.VMWProviderVdc.HREF))),
 		"filterEncoded": "true",
-	}, nil)
+	})
 	if err != nil {
 		return nil, fmt.Errorf("could not get the Resource pool: %s", err)
 	}

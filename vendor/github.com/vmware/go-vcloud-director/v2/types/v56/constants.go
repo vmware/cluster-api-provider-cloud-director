@@ -101,6 +101,8 @@ const (
 	MimeVM = "application/vnd.vmware.vcloud.vm+xml"
 	// Mime for instantiate vApp template params
 	MimeInstantiateVappTemplateParams = "application/vnd.vmware.vcloud.instantiateVAppTemplateParams+xml"
+	// Mime for capture vApp into template
+	MimeCaptureVappTemplateParams = "application/vnd.vmware.vcloud.captureVAppParams+xml"
 	// Mime for clone vApp template params
 	MimeCloneVapp = "application/vnd.vmware.vcloud.cloneVAppParams+xml"
 	// Mime for product section
@@ -139,6 +141,8 @@ const (
 	MimeLeaseSettingSection = "application/vnd.vmware.vcloud.leaseSettingsSection+xml"
 	// Mime to publish external catalog
 	PublishExternalCatalog = "application/vnd.vmware.admin.publishExternalCatalogParams+xml"
+	// Mime to publish a catalog
+	PublishCatalog = "application/vnd.vmware.admin.publishCatalogParams+xml"
 	// Mime to subscribe to an external catalog
 	MimeSubscribeToExternalCatalog = "application/vnd.vmware.admin.externalCatalogSubscriptionParams+json"
 	// Mime to identify a media item
@@ -150,6 +154,8 @@ const (
 	// Mime to identify organization federation settings (SAML) XML and JSON
 	MimeFederationSettingsXml  = "application/vnd.vmware.admin.organizationFederationSettings+xml"
 	MimeFederationSettingsJson = "application/vnd.vmware.admin.organizationFederationSettings+json"
+	// Mime to handle virtual hardware versions
+	MimeVirtualHardwareVersion = "application/vnd.vmware.vcloud.virtualHardwareVersion+xml"
 )
 
 const (
@@ -278,6 +284,8 @@ const (
 	QtResourcePool              = "resourcePool"              // Resource Pool
 	QtNetworkPool               = "networkPool"               // Network Pool
 	QtProviderVdcStorageProfile = "providerVdcStorageProfile" // StorageProfile of Provider VDC
+	QtVappNetwork               = "vAppNetwork"
+	QtAdminVappNetwork          = "adminVAppNetwork"
 )
 
 // AdminQueryTypes returns the corresponding "admin" query type for each regular type
@@ -380,12 +388,17 @@ const (
 	OpenApiEndpointEdgeGateways                       = "edgeGateways/"
 	OpenApiEndpointEdgeGatewayQos                     = "edgeGateways/%s/qos"
 	OpenApiEndpointEdgeGatewayDhcpForwarder           = "edgeGateways/%s/dhcpForwarder"
+	OpenApiEndpointEdgeGatewayDns                     = "edgeGateways/%s/dns"
 	OpenApiEndpointEdgeGatewaySlaacProfile            = "edgeGateways/%s/slaacProfile"
 	OpenApiEndpointEdgeGatewayStaticRoutes            = "edgeGateways/%s/routing/staticRoutes/"
 	OpenApiEndpointEdgeGatewayUsedIpAddresses         = "edgeGateways/%s/usedIpAddresses"
 	OpenApiEndpointNsxtFirewallRules                  = "edgeGateways/%s/firewall/rules"
+	OpenApiEndpointEdgeGatewayL2VpnTunnel             = "edgeGateways/%s/l2vpn/tunnels/"
+	OpenApiEndpointEdgeGatewayL2VpnTunnelStatistics   = "edgeGateways/%s/l2vpn/tunnels/%s/metrics"
+	OpenApiEndpointEdgeGatewayL2VpnTunnelStatus       = "edgeGateways/%s/l2vpn/tunnels/%s/status"
 	OpenApiEndpointFirewallGroups                     = "firewallGroups/"
 	OpenApiEndpointOrgVdcNetworks                     = "orgVdcNetworks/"
+	OpenApiEndpointOrgVdcNetworkSegmentProfiles       = "orgVdcNetworks/%s/segmentProfiles"
 	OpenApiEndpointOrgVdcNetworksDhcp                 = "orgVdcNetworks/%s/dhcp"
 	OpenApiEndpointOrgVdcNetworksDhcpBindings         = "orgVdcNetworks/%s/dhcp/bindings/"
 	OpenApiEndpointNsxtNatRules                       = "edgeGateways/%s/nat/rules/"
@@ -432,14 +445,25 @@ const (
 	OpenApiEndpointExtensionsUiTenantsPublish         = "extensions/ui/%s/tenants/publish"
 	OpenApiEndpointExtensionsUiTenantsUnpublishAll    = "extensions/ui/%s/tenants/unpublishAll"
 	OpenApiEndpointExtensionsUiTenantsUnpublish       = "extensions/ui/%s/tenants/unpublish"
+	OpenApiEndpointImportableTransportZones           = "nsxTResources/importableTransportZones"
+	OpenApiEndpointVCenterDistributedSwitch           = "virtualCenters/resources/dvSwitches"
+
+	OpenApiEndpointNsxtSegmentProfileTemplates              = "segmentProfileTemplates/"
+	OpenApiEndpointNsxtGlobalDefaultSegmentProfileTemplates = "segmentProfileTemplates/default"
+	OpenApiEndpointNsxtSegmentIpDiscoveryProfiles           = "nsxTResources/segmentIpDiscoveryProfiles"
+	OpenApiEndpointNsxtSegmentMacDiscoveryProfiles          = "nsxTResources/segmentMacDiscoveryProfiles"
+	OpenApiEndpointNsxtSegmentSpoofGuardProfiles            = "nsxTResources/segmentSpoofGuardProfiles"
+	OpenApiEndpointNsxtSegmentQosProfiles                   = "nsxTResources/segmentQoSProfiles"
+	OpenApiEndpointNsxtSegmentSecurityProfiles              = "nsxTResources/segmentSecurityProfiles"
 
 	// IP Spaces
-	OpenApiEndpointIpSpaces               = "ipSpaces/"
-	OpenApiEndpointIpSpaceSummaries       = "ipSpaces/summaries"
-	OpenApiEndpointIpSpaceUplinks         = "ipSpaceUplinks/"
-	OpenApiEndpointIpSpaceUplinksAllocate = "ipSpaces/%s/allocate"     // '%s' is IP Space ID
-	OpenApiEndpointIpSpaceIpAllocations   = "ipSpaces/%s/allocations/" // '%s' is IP Space ID
-	OpenApiEndpointIpSpaceOrgAssignments  = "ipSpaces/orgAssignments/" // '%s' is IP Space ID
+	OpenApiEndpointIpSpaces                     = "ipSpaces/"
+	OpenApiEndpointIpSpaceSummaries             = "ipSpaces/summaries"
+	OpenApiEndpointIpSpaceUplinks               = "ipSpaceUplinks/"
+	OpenApiEndpointIpSpaceUplinksAllocate       = "ipSpaces/%s/allocate"     // '%s' is IP Space ID
+	OpenApiEndpointIpSpaceIpAllocations         = "ipSpaces/%s/allocations/" // '%s' is IP Space ID
+	OpenApiEndpointIpSpaceOrgAssignments        = "ipSpaces/orgAssignments/" // '%s' is IP Space ID
+	OpenApiEndpointIpSpaceFloatingIpSuggestions = "ipSpaces/floatingIpSuggestions/"
 
 	// NSX-T ALB related endpoints
 
@@ -463,6 +487,9 @@ const (
 	OpenApiEndpointServiceAccountGrant = "deviceLookup/grant"
 	OpenApiEndpointTokens              = "tokens/"
 	OpenApiEndpointServiceAccounts     = "serviceAccounts/"
+
+	// OpenApiEndpointVgpuProfile is used to query vGPU profiles
+	OpenApiEndpointVgpuProfile = "vgpuProfiles"
 )
 
 // Header keys to run operations in tenant context
@@ -586,6 +613,10 @@ const (
 	MetadataReadOnlyVisibility  string = "READONLY"
 	MetadataHiddenVisibility    string = "PRIVATE"
 	MetadataReadWriteVisibility string = "READWRITE"
+
+	OpenApiMetadataStringEntry  string = "StringEntry"
+	OpenApiMetadataNumberEntry  string = "NumberEntry"
+	OpenApiMetadataBooleanEntry string = "BoolEntry"
 )
 
 const (
@@ -687,4 +718,21 @@ const (
 	SamlNamespaceMd     = "urn:oasis:names:tc:SAML:2.0:metadata"
 	SamlNamespaceDs     = "http://www.w3.org/2000/09/xmldsig#"
 	SamlNamespaceHoksso = "urn:oasis:names:tc:SAML:2.0:profiles:holder-of-key:SSO:browser"
+)
+
+// Values used to identify the type of network pool
+const (
+	NetworkPoolVxlanType     = "VXLAN" // NSX-V backed network pool. Only used as read-only
+	NetworkPoolVlanType      = "VLAN"
+	NetworkPoolGeneveType    = "GENEVE"
+	NetworkPoolPortGroupType = "PORTGROUP_BACKED"
+)
+
+// BackingUseConstraint is a constraint about the use of a backing in a network pool
+type BackingUseConstraint string
+
+const (
+	BackingUseExplicit       BackingUseConstraint = "use-explicit-name"   // use explicitly named backing
+	BackingUseWhenOnlyOne    BackingUseConstraint = "use-when-only-one"   // use automatically when only one was found
+	BackingUseFirstAvailable BackingUseConstraint = "use-first-available" // use the first available backing with no conditions
 )

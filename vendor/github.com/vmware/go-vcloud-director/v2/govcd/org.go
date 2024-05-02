@@ -130,8 +130,15 @@ func CreateCatalogWithStorageProfile(client *Client, links types.LinkList, Name,
 	catalog := NewAdminCatalog(client)
 	_, err := client.ExecuteRequest(createOrgLink.HREF, http.MethodPost,
 		"application/vnd.vmware.admin.catalog+xml", "error creating catalog: %s", vcomp, catalog.AdminCatalog)
+	if err != nil {
+		return nil, err
+	}
 
-	return catalog, err
+	err = catalog.WaitForTasks()
+	if err != nil {
+		return nil, err
+	}
+	return catalog, nil
 }
 
 // CreateCatalog creates a catalog with given name and description under
@@ -140,6 +147,17 @@ func CreateCatalogWithStorageProfile(client *Client, links types.LinkList, Name,
 // API Documentation: https://code.vmware.com/apis/220/vcloud#/doc/doc/operations/POST-CreateCatalog.html
 func (org *Org) CreateCatalog(name, description string) (Catalog, error) {
 	catalog, err := org.CreateCatalogWithStorageProfile(name, description, nil)
+	if err != nil {
+		return Catalog{}, err
+	}
+	catalog.parent = org
+
+	err = catalog.Refresh()
+	if err != nil {
+		return Catalog{}, err
+	}
+	// Make sure that the creation task is finished
+	err = catalog.WaitForTasks()
 	if err != nil {
 		return Catalog{}, err
 	}
@@ -581,4 +599,18 @@ func queryCatalogList(client *Client, filterFields map[string]string) ([]*types.
 	}
 	util.Logger.Printf("[DEBUG] QueryCatalogList returned with : %#v and error: %s", catalogs, err)
 	return catalogs, nil
+}
+
+// GetVappByHref returns a vApp reference by running a VCD API call
+// If no valid vApp is found, it returns a nil VApp reference and an error
+func (org *Org) GetVAppByHref(vappHref string) (*VApp, error) {
+	newVapp := NewVApp(org.client)
+
+	_, err := org.client.ExecuteRequest(vappHref, http.MethodGet,
+		"", "error retrieving vApp: %s", nil, newVapp.VApp)
+
+	if err != nil {
+		return nil, err
+	}
+	return newVapp, nil
 }

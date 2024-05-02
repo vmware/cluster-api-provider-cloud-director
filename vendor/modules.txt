@@ -268,14 +268,14 @@ github.com/spf13/cast
 # github.com/spf13/pflag v1.0.5
 ## explicit; go 1.12
 github.com/spf13/pflag
-# github.com/vmware/cloud-provider-for-cloud-director v0.0.0-20240422223843-6dd634aca882
+# github.com/vmware/cloud-provider-for-cloud-director v0.0.0-20240426203125-2d6e9efaf23d
 ## explicit; go 1.21
 github.com/vmware/cloud-provider-for-cloud-director/pkg/testingsdk
 github.com/vmware/cloud-provider-for-cloud-director/pkg/util
 github.com/vmware/cloud-provider-for-cloud-director/pkg/vcdsdk
 github.com/vmware/cloud-provider-for-cloud-director/pkg/vcdswaggerclient_37_2
-# github.com/vmware/go-vcloud-director/v2 v2.21.0
-## explicit; go 1.19
+# github.com/vmware/go-vcloud-director/v2 v2.24.0
+## explicit; go 1.21
 github.com/vmware/go-vcloud-director/v2/govcd
 github.com/vmware/go-vcloud-director/v2/types/v56
 github.com/vmware/go-vcloud-director/v2/util
