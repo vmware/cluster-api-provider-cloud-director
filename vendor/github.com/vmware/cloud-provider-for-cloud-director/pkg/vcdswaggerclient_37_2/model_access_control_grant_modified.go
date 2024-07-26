@@ -14,12 +14,14 @@ package swagger
 type AccessControlGrant struct {
 	// VcloudId URN identifier for ACL grant 
 	Id string `json:"id,omitempty"`
-	// The tenant this grant applies in. This is managed by the system and depends on the organization the requester operates in at the time of creation and the actual principal type. 
-	Tenant *EntityReference `json:"tenant,omitempty"`
-	// Indicates whether this access control grant is based on user memberships or entitlements 
+	// The tenant this grant applies in. This is managed by the system and depends on the organization the requester operates in at the time of creation and the actual principal type.
+	// Tenant *EntityReference `json:"tenant,omitempty"` -> This doesn't work even with Postman
+	// The tenant this grant applies in. This is referenced by their organization ID.
+	MemberId string `json:"memberId"`
+	// Indicates whether this access control grant is based on user memberships or entitlements
 	GrantType string `json:"grantType"`
-	// The object that this access control grant applies to 
+	// The object that this access control grant applies to
 	ObjectId string `json:"objectId,omitempty"`
-	// The ID of the level of access which the subject will be granted. 
+	// The ID of the level of access which the subject will be granted.
 	AccessLevelId string `json:"accessLevelId"`
 }

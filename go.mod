@@ -1,6 +1,8 @@
 module github.com/vmware/cluster-api-provider-cloud-director
 
-go 1.20
+go 1.21
+
+toolchain go1.22.5
 
 require (
 	github.com/Masterminds/sprig/v3 v3.2.3
@@ -12,7 +14,7 @@ require (
 	github.com/onsi/ginkgo/v2 v2.14.0
 	github.com/onsi/gomega v1.30.0
 	github.com/pkg/errors v0.9.1
-	github.com/vmware/cloud-provider-for-cloud-director v0.0.0-20240214001708-af504c145ad5
+	github.com/vmware/cloud-provider-for-cloud-director v0.0.0-20240725204714-a0a0e916a5ed
 	github.com/vmware/go-vcloud-director/v2 v2.21.0
 	go.uber.org/zap v1.26.0
 	gopkg.in/yaml.v2 v2.4.0

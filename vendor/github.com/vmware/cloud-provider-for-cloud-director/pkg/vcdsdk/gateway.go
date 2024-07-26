@@ -1468,29 +1468,31 @@ func (gm *GatewayManager) IsNSXTBackedGateway() bool {
 // in case the code is unable to determine the required info, it will return false with an error.
 func (gm *GatewayManager) IsUsingIpSpaces() (bool, error) {
 	edgeGatewayName := gm.GatewayRef.Name
-	vdc := gm.Client.VDC
-	if vdc == nil {
-		return false, fmt.Errorf("unable to determine if gateway [%s] is using Ip Spaces or not. nil VDC object in client", edgeGatewayName)
-	}
-	edgeGateway, err := vdc.GetNsxtEdgeGatewayByName(edgeGatewayName)
+	edgeGatewayID := gm.GatewayRef.Id
+	clusterOrg, err := gm.Client.VCDClient.GetOrgByName(gm.Client.ClusterOrgName)
 	if err != nil {
-		return false, fmt.Errorf("unable to determine if gateway [%s] is using Ip Spaces or not. error [%v]", edgeGatewayName, err)
+		return false, fmt.Errorf("error retrieving org [%s]: [%v]", gm.Client.ClusterOrgName, err)
+	}
+	if clusterOrg == nil || clusterOrg.Org == nil {
+		return false, fmt.Errorf("unable to determine if gateway [%s] of org [%s] is using Ip Spaces or not; obtained nil org", edgeGatewayName, gm.Client.ClusterOrgName)
+	}
+	edgeGateway, err := clusterOrg.GetNsxtEdgeGatewayById(edgeGatewayID)
+	if err != nil {
+		return false, fmt.Errorf("unable to determine if gateway [%s] of org [%s]  is using Ip Spaces or not. error [%v]", edgeGatewayName, gm.Client.ClusterOrgName, err)
 	}
 
 	edgeGatewayUplinks := edgeGateway.EdgeGateway.EdgeGatewayUplinks
-	if edgeGatewayUplinks != nil {
-		if len(edgeGatewayUplinks) != 1 {
-			return false, fmt.Errorf("found invalid number of uplinks for gateway [%s], expecting 1", edgeGatewayName)
+	if edgeGatewayUplinks == nil || len(edgeGatewayUplinks) == 0 {
+		return false, fmt.Errorf("no uplinks were found for gateway [%s], expecting atleast 1 uplink", edgeGatewayName)
+	}
+	for _, edgeGatewayUplink := range edgeGatewayUplinks {
+		if edgeGatewayUplink.UsingIpSpace != nil && *edgeGatewayUplink.UsingIpSpace {
+			return true, nil
 		}
-	} else {
-		return false, fmt.Errorf("no uplinks were found for gateway [%s], expecting 1", edgeGatewayName)
+		// If uplink doesn't support IP Spaces, or we are unable to determine it, check the next uplink
 	}
-
-	result := edgeGatewayUplinks[0].UsingIpSpace
-	if result == nil {
-		return false, fmt.Errorf("unable to determine if gateway [%s] is using IP spaces or not", edgeGatewayName)
-	}
-	return *result, nil
+	// if we reach here, edge gateway doesn't support IP Spaces
+	return false, nil
 }
 
 func (gm *GatewayManager) GetLoadBalancerPool(ctx context.Context, lbPoolName string) (*swaggerClient.EntityReference, error) {

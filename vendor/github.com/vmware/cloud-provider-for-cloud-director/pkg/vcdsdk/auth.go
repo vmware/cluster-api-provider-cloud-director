@@ -99,6 +99,7 @@ func (config *VCDAuthConfig) GetSwaggerClientFromSecrets() (*govcd.VCDClient, *s
 	swaggerConfig37.HTTPClient = &http.Client{
 		Transport: &http.Transport{
 			TLSClientConfig: &tls.Config{InsecureSkipVerify: config.Insecure},
+			Proxy:           http.ProxyFromEnvironment,
 		},
 	}
 	apiClient37 := swaggerClient.NewAPIClient(swaggerConfig37)
