@@ -67,8 +67,8 @@ help: ## Display this help.
 
 .PHONY: vendor
 vendor: ## Update go mod dependencies.
-	go mod edit -go=1.21
-	go mod tidy -compat=1.21
+	go mod edit -go=1.22
+	go mod tidy -compat=1.22
 	go mod vendor
 
 .PHONY: fmt

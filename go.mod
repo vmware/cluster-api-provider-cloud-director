@@ -1,6 +1,8 @@
 module github.com/vmware/cluster-api-provider-cloud-director
 
-go 1.21
+go 1.22
+
+toolchain go1.22.6
 
 require (
 	github.com/Masterminds/sprig/v3 v3.2.3
@@ -14,7 +16,7 @@ require (
 	github.com/onsi/gomega v1.30.0
 	github.com/pkg/errors v0.9.1
 	github.com/vmware/cloud-provider-for-cloud-director v0.0.0-20240422223843-6dd634aca882
-	github.com/vmware/go-vcloud-director/v2 v2.21.0
+	github.com/vmware/go-vcloud-director/v2 v2.26.0-alpha.6
 	go.uber.org/zap v1.26.0
 	gopkg.in/yaml.v2 v2.4.0
 	k8s.io/api v0.29.0
@@ -82,13 +84,14 @@ require (
 	github.com/spf13/pflag v1.0.5 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	golang.org/x/crypto v0.21.0 // indirect
+	golang.org/x/exp v0.0.0-20240119083558-1b970713d09a // indirect
 	golang.org/x/net v0.23.0 // indirect
 	golang.org/x/oauth2 v0.12.0 // indirect
 	golang.org/x/sys v0.18.0 // indirect
 	golang.org/x/term v0.18.0 // indirect
 	golang.org/x/text v0.14.0 // indirect
 	golang.org/x/time v0.3.0 // indirect
-	golang.org/x/tools v0.16.1 // indirect
+	golang.org/x/tools v0.17.0 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.4.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/protobuf v1.33.0 // indirect
