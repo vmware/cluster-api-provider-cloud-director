@@ -17,6 +17,8 @@ import (
 	"github.com/vmware/go-vcloud-director/v2/util"
 )
 
+const labelGlobalDefaultSegmentProfileTemplate = "Global Default Segment Profile Template"
+
 // Simple structure to pass Edge Gateway creation parameters.
 type EdgeGatewayCreation struct {
 	ExternalNetworks           []string // List of external networks to be linked to this gateway
@@ -428,8 +430,9 @@ func getOrgHREFById(vcdClient *VCDClient, orgId string) (string, error) {
 // E.g. filter could look like: name==vC1
 func QueryVirtualCenters(vcdClient *VCDClient, filter string) ([]*types.QueryResultVirtualCenterRecordType, error) {
 	results, err := vcdClient.QueryWithNotEncodedParams(nil, map[string]string{
-		"type":   "virtualCenter",
-		"filter": filter,
+		"type":         "virtualCenter",
+		"filter":       filter,
+		"filterEncode": "true",
 	})
 	if err != nil {
 		return nil, err
@@ -720,6 +723,26 @@ func getExtension(client *Client) (*types.Extension, error) {
 	return extensions, err
 }
 
+// GetStorageProfileById fetches a storage profile using its ID.
+func (vcdClient *VCDClient) GetStorageProfileById(id string) (*types.VdcStorageProfile, error) {
+	return getStorageProfileById(&vcdClient.Client, id)
+}
+
+// getStorageProfileById fetches a storage profile using its ID.
+func getStorageProfileById(client *Client, id string) (*types.VdcStorageProfile, error) {
+	storageProfileHref := client.VCDHREF
+	storageProfileHref.Path += "/admin/vdcStorageProfile/" + extractUuid(id)
+
+	vdcStorageProfile := &types.VdcStorageProfile{}
+
+	_, err := client.ExecuteRequest(storageProfileHref.String(), http.MethodGet, "", "error retrieving storage profile: %s", nil, vdcStorageProfile)
+	if err != nil {
+		return nil, err
+	}
+
+	return vdcStorageProfile, nil
+}
+
 // GetStorageProfileByHref fetches storage profile using provided HREF.
 // Deprecated: use client.GetStorageProfileByHref or vcdClient.GetStorageProfileByHref
 func GetStorageProfileByHref(vcdClient *VCDClient, url string) (*types.VdcStorageProfile, error) {
@@ -736,9 +759,7 @@ func (client *Client) GetStorageProfileByHref(url string) (*types.VdcStorageProf
 
 	vdcStorageProfile := &types.VdcStorageProfile{}
 
-	// only from 35.0 API version IOPS settings are added to response
-	_, err := client.ExecuteRequestWithApiVersion(url, http.MethodGet,
-		"", "error retrieving storage profile: %s", nil, vdcStorageProfile, client.GetSpecificApiVersionOnCondition(">= 35.0", "35.0"))
+	_, err := client.ExecuteRequest(url, http.MethodGet, "", "error retrieving storage profile: %s", nil, vdcStorageProfile)
 	if err != nil {
 		return nil, err
 	}
@@ -754,9 +775,8 @@ func (client *Client) GetStorageProfileByHref(url string) (*types.VdcStorageProf
 // 4. [NOT FOUND] The name does not match any of the storage profiles
 func (vcdClient *VCDClient) QueryProviderVdcStorageProfileByName(name, providerVDCHref string) (*types.QueryResultProviderVdcStorageProfileRecordType, error) {
 
-	results, err := vcdClient.Client.cumulativeQuery(types.QtProviderVdcStorageProfile, map[string]string{
-		"type": types.QtProviderVdcStorageProfile,
-	}, nil)
+	results, err := vcdClient.Client.cumulativeQuery(types.QtProviderVdcStorageProfile, nil, map[string]string{
+		"type": types.QtProviderVdcStorageProfile})
 	if err != nil {
 		return nil, err
 	}
@@ -932,6 +952,18 @@ func (vcdClient *VCDClient) QueryNsxtManagerByName(name string) ([]*types.QueryR
 		"type":          "nsxTManager",
 		"filter":        fmt.Sprintf("name==%s", url.QueryEscape(name)),
 		"filterEncoded": "true",
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return results.Results.NsxtManagerRecord, nil
+}
+
+// QueryNsxtManagers retrieves all NSX-T managers available in VCD
+func (vcdClient *VCDClient) QueryNsxtManagers() ([]*types.QueryResultNsxtManagerRecordType, error) {
+	results, err := vcdClient.QueryWithNotEncodedParams(nil, map[string]string{
+		"type": "nsxTManager",
 	})
 	if err != nil {
 		return nil, err
@@ -1141,6 +1173,38 @@ func QueryAdminOrgVdcStorageProfileByID(vcdCli *VCDClient, id string) (*types.Qu
 	return results.Results.AdminOrgVdcStorageProfileRecord[0], nil
 }
 
+// queryAdminOrgVdcStorageProfilesByVdcId finds all Storage Profiles of a VDC
+func queryAdminOrgVdcStorageProfilesByVdcId(client *Client, vdcId string) ([]*types.QueryResultAdminOrgVdcStorageProfileRecordType, error) {
+	if !client.IsSysAdmin {
+		return nil, errors.New("can't query type QueryResultAdminOrgVdcStorageProfileRecordType as Tenant user")
+	}
+	results, err := client.QueryWithNotEncodedParams(nil, map[string]string{
+		"type":          types.QtAdminOrgVdcStorageProfile,
+		"filter":        fmt.Sprintf("vdc==%s", url.QueryEscape(vdcId)),
+		"filterEncoded": "true",
+	})
+	if err != nil {
+		return nil, err
+	}
+	return results.Results.AdminOrgVdcStorageProfileRecord, nil
+}
+
+// queryOrgVdcStorageProfilesByVdcId finds all Storage Profiles of a VDC
+func queryOrgVdcStorageProfilesByVdcId(client *Client, vdcId string) ([]*types.QueryResultOrgVdcStorageProfileRecordType, error) {
+	if client.IsSysAdmin {
+		return nil, errors.New("can't query type QueryResultAdminOrgVdcStorageProfileRecordType as System administrator")
+	}
+	results, err := client.QueryWithNotEncodedParams(nil, map[string]string{
+		"type":          types.QtOrgVdcStorageProfile,
+		"filter":        fmt.Sprintf("vdc==%s", url.QueryEscape(vdcId)),
+		"filterEncoded": "true",
+	})
+	if err != nil {
+		return nil, err
+	}
+	return results.Results.OrgVdcStorageProfileRecord, nil
+}
+
 // QueryOrgVdcStorageProfileByID finds a StorageProfile of VDC by ID
 func QueryOrgVdcStorageProfileByID(vcdCli *VCDClient, id string) (*types.QueryResultOrgVdcStorageProfileRecordType, error) {
 	if vcdCli.Client.IsSysAdmin {
@@ -1161,4 +1225,23 @@ func QueryOrgVdcStorageProfileByID(vcdCli *VCDClient, id string) (*types.QueryRe
 		return nil, fmt.Errorf("more than one Storage Profile found with ID %s", id)
 	}
 	return results.Results.OrgVdcStorageProfileRecord[0], nil
+}
+
+// GetGlobalDefaultSegmentProfileTemplates retrieves VCD global configuration for Segment Profile Templates
+func (vcdClient *VCDClient) GetGlobalDefaultSegmentProfileTemplates() (*types.NsxtGlobalDefaultSegmentProfileTemplate, error) {
+	c := crudConfig{
+		endpoint:    types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointNsxtGlobalDefaultSegmentProfileTemplates,
+		entityLabel: labelGlobalDefaultSegmentProfileTemplate,
+	}
+
+	return getInnerEntity[types.NsxtGlobalDefaultSegmentProfileTemplate](&vcdClient.Client, c)
+}
+
+// UpdateGlobalDefaultSegmentProfileTemplates updates VCD global configuration for Segment Profile Templates
+func (vcdClient *VCDClient) UpdateGlobalDefaultSegmentProfileTemplates(entityConfig *types.NsxtGlobalDefaultSegmentProfileTemplate) (*types.NsxtGlobalDefaultSegmentProfileTemplate, error) {
+	c := crudConfig{
+		endpoint:    types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointNsxtGlobalDefaultSegmentProfileTemplates,
+		entityLabel: labelGlobalDefaultSegmentProfileTemplate,
+	}
+	return updateInnerEntity(&vcdClient.Client, c, entityConfig)
 }

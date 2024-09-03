@@ -107,6 +107,50 @@ type ExternalNetworkV2 struct {
 	// be used to dedicate this external network to the specified Organization.
 	DedicatedOrg *OpenApiReference `json:"dedicatedOrg,omitempty"`
 
+	// NatAndFirewallServiceIntention defines different types of intentions to configure NAT and
+	// firewall rules:
+	// * PROVIDER_GATEWAY - Allow management of NAT and firewall rules only on Provider Gateways.
+	//
+	// * EDGE_GATEWAY - Allow management of NAT and firewall rules only on Edge Gateways.
+	//
+	// * PROVIDER_AND_EDGE_GATEWAY - Allow management of NAT and firewall rules on both the Provider
+	// and Edge gateways.
+	//
+	// This only applies to external networks backed by NSX-T Tier-0 router (i.e. Provider Gateway)
+	// and is unset otherwise. Public Provider Gateway supports only EDGE_GATEWAY_ONLY. All other
+	// values are ignored. Private Provider Gateway can support all the intentions and if unset, the
+	// default is EDGE_GATEWAY.
+	//
+	// This field requires VCD 10.5.1+ (API 38.1+)
+	NatAndFirewallServiceIntention string `json:"natAndFirewallServiceIntention,omitempty"`
+
+	// NetworkRouteAdvertisementIntention configures different types of route advertisement
+	// intentions for routed Org VDC network connected to Edge Gateway that is connected to this
+	// Provider Gateway. Possible values are:
+	//
+	// * IP_SPACE_UPLINKS_ADVERTISED_STRICT - All networks within IP Space associated with IP Space
+	// Uplink will be advertised by default. This can be changed on an individual network level
+	// later, if necessary. All other networks outside of IP Spaces associated with IP Space Uplinks
+	// cannot be configured to be advertised.
+	//
+	// * IP_SPACE_UPLINKS_ADVERTISED_FLEXIBLE - All networks within IP Space associated with IP
+	// Space Uplink will be advertised by default. This can be changed on an individual network
+	// level later, if necessary. All other networks outside of IP Spaces associated with IP Space
+	// Uplinks are not advertised by default but can be configured to be advertised after creation.
+	//
+	// * ALL_NETWORKS_ADVERTISED - All networks, regardless on whether they fall inside of any IP
+	// Spaces associated with IP Space Uplinks, will be advertised by default. This can be changed
+	// on an individual network level later, if necessary.
+	//
+	// This only applies to external networks backed by NSX-T Tier-0 router (i.e. Provider Gateway)
+	// and is unset otherwise. Public Provider Gateway supports only
+	// IP_SPACE_UPLINKS_ADVERTISED_STRICT. All other values are ignored. Private Provider Gateway
+	// can support all the intentions and if unset, the default is also
+	// IP_SPACE_UPLINKS_ADVERTISED_STRICT.
+	//
+	// This field requires VCD 10.5.1+ (API 38.1+)
+	NetworkRouteAdvertisementIntention string `json:"networkRouteAdvertisementIntention,omitempty"`
+
 	// TotalIpCount contains the number of IP addresses defined by the static ip pools. If the
 	// network contains any IPv6 subnets, the total ip count will be null.
 	TotalIpCount *int `json:"totalIpCount,omitempty"`
@@ -221,6 +265,8 @@ type VdcComputePolicyV2 struct {
 	IsVgpuPolicy           bool                     `json:"isVgpuPolicy,omitempty"`
 	PvdcNamedVmGroupsMap   []PvdcNamedVmGroupsMap   `json:"pvdcNamedVmGroupsMap,omitempty"`
 	PvdcLogicalVmGroupsMap []PvdcLogicalVmGroupsMap `json:"pvdcLogicalVmGroupsMap,omitempty"`
+	PvdcVgpuClustersMap    []PvdcVgpuClustersMap    `json:"pvdcVgpuClustersMap,omitempty"`
+	VgpuProfiles           []VgpuProfile            `json:"vgpuProfiles,omitempty"`
 }
 
 // PvdcNamedVmGroupsMap is a combination of a reference to a Provider VDC and a list of references to Named VM Groups.
@@ -235,6 +281,11 @@ type PvdcNamedVmGroupsMap struct {
 type PvdcLogicalVmGroupsMap struct {
 	LogicalVmGroups OpenApiReferences `json:"logicalVmGroups,omitempty"`
 	Pvdc            OpenApiReference  `json:"pvdc,omitempty"`
+}
+
+type PvdcVgpuClustersMap struct {
+	Clusters []string         `json:"clusters,omitempty"`
+	Pvdc     OpenApiReference `json:"pvdc,omitempty"`
 }
 
 // OpenApiReference is a generic reference type commonly used throughout OpenAPI endpoints
@@ -512,6 +563,17 @@ type DefinedEntity struct {
 	State      *string                `json:"state,omitempty"`      // Every entity is created in the "PRE_CREATED" state. Once an entity is ready to be validated against its schema, it will transition in another state - RESOLVED, if the entity is valid according to the schema, or RESOLUTION_ERROR otherwise. If an entity in an "RESOLUTION_ERROR" state is updated, it will transition to the inital "PRE_CREATED" state without performing any validation. If its in the "RESOLVED" state, then it will be validated against the entity type schema and throw an exception if its invalid
 	Owner      *OpenApiReference      `json:"owner,omitempty"`      // The owner of the defined entity
 	Org        *OpenApiReference      `json:"org,omitempty"`        // The organization of the defined entity.
+	Message    string                 `json:"message,omitempty"`    // A message field that might be populated in case entity Resolution fails
+}
+
+// DefinedEntityAccess describes Access Control structure for an RDE
+type DefinedEntityAccess struct {
+	Id            string           `json:"id,omitempty"`
+	Tenant        OpenApiReference `json:"tenant"`
+	GrantType     string           `json:"grantType"`
+	ObjectId      string           `json:"objectId,omitempty"`
+	AccessLevelID string           `json:"accessLevelId"`
+	MemberID      string           `json:"memberId"`
 }
 
 type VSphereVirtualCenter struct {
@@ -573,24 +635,24 @@ type OpenApiSupportedHardwareVersions struct {
 
 // NetworkPool is the full data retrieved for a provider network pool
 type NetworkPool struct {
-	Status             string             `json:"status"`
-	Id                 string             `json:"id"`
+	Status             string             `json:"status,omitempty"`
+	Id                 string             `json:"id,omitempty"`
 	Name               string             `json:"name"`
 	Description        string             `json:"description"`
 	PoolType           string             `json:"poolType"`
-	PromiscuousMode    bool               `json:"promiscuousMode"`
-	TotalBackingsCount int                `json:"totalBackingsCount"`
-	UsedBackingsCount  int                `json:"usedBackingsCount"`
+	PromiscuousMode    bool               `json:"promiscuousMode,omitempty"`
+	TotalBackingsCount int                `json:"totalBackingsCount,omitempty"`
+	UsedBackingsCount  int                `json:"usedBackingsCount,omitempty"`
 	ManagingOwnerRef   OpenApiReference   `json:"managingOwnerRef"`
 	Backing            NetworkPoolBacking `json:"backing"`
 }
 
 // NetworkPoolBacking is the definition of the objects supporting the network pool
 type NetworkPoolBacking struct {
-	VlanIdRanges     VlanIdRanges       `json:"vlanIdRanges"`
-	VdsRefs          []OpenApiReference `json:"vdsRefs"`
-	PortGroupRefs    []OpenApiReference `json:"portGroupRefs"`
-	TransportZoneRef OpenApiReference   `json:"transportZoneRef"`
+	VlanIdRanges     VlanIdRanges       `json:"vlanIdRanges,omitempty"`
+	VdsRefs          []OpenApiReference `json:"vdsRefs,omitempty"`
+	PortGroupRefs    []OpenApiReference `json:"portGroupRefs,omitempty"`
+	TransportZoneRef OpenApiReference   `json:"transportZoneRef,omitempty"`
 	ProviderRef      OpenApiReference   `json:"providerRef"`
 }
 
@@ -598,6 +660,7 @@ type VlanIdRanges struct {
 	Values []VlanIdRange `json:"values"`
 }
 
+// VlanIdRange is a component of a network pool of type VLAN
 type VlanIdRange struct {
 	StartId int `json:"startId"`
 	EndId   int `json:"endId"`
@@ -630,4 +693,106 @@ type UploadSpec struct {
 	Size         int64  `json:"size,omitempty"`
 	Checksum     string `json:"checksum,omitempty"`
 	ChecksumAlgo string `json:"checksumAlgo,omitempty"`
+}
+
+type TransportZones struct {
+	Values []*TransportZone `json:"values"`
+}
+
+// TransportZone is a backing component of a network pool of type 'GENEVE' (NSX-T backed)
+type TransportZone struct {
+	Id              string `json:"id"`
+	Name            string `json:"name"`
+	Type            string `json:"type,omitempty"`
+	AlreadyImported bool   `json:"alreadyImported"`
+}
+
+// VcenterDistributedSwitch is a backing component of a network pool of type VLAN
+type VcenterDistributedSwitch struct {
+	BackingRef    OpenApiReference `json:"backingRef"`
+	VirtualCenter OpenApiReference `json:"virtualCenter"`
+}
+
+// OpenApiMetadataEntry represents a metadata entry in VCD.
+type OpenApiMetadataEntry struct {
+	ID           string                  `json:"id,omitempty"`         // UUID for OpenApiMetadataEntry. This is immutable
+	IsPersistent bool                    `json:"persistent,omitempty"` // Persistent entries can be copied over on some entity operation, for example: Creating a copy of an Org VDC, capturing a vApp to a template, instantiating a catalog item as a VM, etc.
+	IsReadOnly   bool                    `json:"readOnly,omitempty"`   // The kind of level of access organizations of the entry’s domain have
+	KeyValue     OpenApiMetadataKeyValue `json:"keyValue,omitempty"`   // Contains core metadata entry data
+}
+
+// OpenApiMetadataKeyValue contains core metadata entry data.
+type OpenApiMetadataKeyValue struct {
+	Domain    string                    `json:"domain,omitempty"`    // Only meaningful for providers. Allows them to share entries with their tenants. Currently, accepted values are: `TENANT`, `PROVIDER`, where that is the ascending sort order of the enumeration.
+	Key       string                    `json:"key,omitempty"`       // Key of the metadata entry
+	Value     OpenApiMetadataTypedValue `json:"value,omitempty"`     // Value of the metadata entry
+	Namespace string                    `json:"namespace,omitempty"` // Namespace of the metadata entry
+}
+
+// OpenApiMetadataTypedValue the type and value of the metadata entry.
+type OpenApiMetadataTypedValue struct {
+	Value interface{} `json:"value,omitempty"` // The Value is anything because it depends on the Type field.
+	Type  string      `json:"type,omitempty"`
+}
+
+// VgpuProfile uniquely represents a type of vGPU
+// vGPU Profiles are fetched from your NVIDIA GRID GPU enabled Clusters in vCenter.
+type VgpuProfile struct {
+	Id                 string `json:"id"`
+	Name               string `json:"name"`
+	TenantFacingName   string `json:"tenantFacingName"`
+	Instructions       string `json:"instructions,omitempty"`
+	AllowMultiplePerVm bool   `json:"allowMultiplePerVm"`
+	Count              int    `json:"count,omitempty"`
+}
+
+type OpenApiOrg struct {
+	Id             string `json:"id"`
+	Name           string `json:"name"`
+	DisplayName    string `json:"displayName"`
+	Description    string `json:"description"`
+	IsEnabled      bool   `json:"isEnabled"`
+	OrgVdcCount    int    `json:"orgVdcCount"`
+	CatalogCount   int    `json:"catalogCount"`
+	VappCount      int    `json:"vappCount"`
+	RunningVMCount int    `json:"runningVMCount"`
+	UserCount      int    `json:"userCount"`
+	DiskCount      int    `json:"diskCount"`
+	CanPublish     bool   `json:"canPublish"`
+}
+
+// ExternalEndpoint is part of the API extensibility framework.
+// They allow requests to be directly proxied over HTTP to an external endpoint.
+type ExternalEndpoint struct {
+	Name        string `json:"name,omitempty"`        // The name of the external endpoint
+	ID          string `json:"id,omitempty"`          // The unique id of the external endpoint
+	Version     string `json:"version,omitempty"`     // The external endpoint's version. The version should follow semantic versioning rules. Versions with pre-release extension are not allowed. The combination of vendor-namespace-version must be unique
+	Vendor      string `json:"vendor,omitempty"`      // The vendor name. The combination of vendor-namespace-version must be unique
+	Enabled     bool   `json:"enabled"`               // Whether the external endpoint is enabled or not
+	Description string `json:"description,omitempty"` // Description of the defined entity
+	RootUrl     string `json:"rootUrl,omitempty"`     // The external endpoint which requests will be redirected to. The rootUrl must be a valid URL of https protocol
+}
+
+// ApiFilter is part of the API extensibility framework.
+// They allow external systems (external services and external endpoints) to extend the standard API included with VCD
+// with custom URLs or custom processing of request's responses.
+type ApiFilter struct {
+	ID             string            `json:"id,omitempty"`             // The unique id of the API filter
+	ExternalSystem *OpenApiReference `json:"externalSystem,omitempty"` // Entity reference used to describe VCD entities
+	UrlMatcher     *UrlMatcher       `json:"urlMatcher,omitempty"`
+
+	// The responseContentType is expressed as a MIME Content-Type string. Responses whose Content-Type attribute has a value
+	// that matches this string are routed to the service. responseContentType is mutually exclusive with urlMatcher.
+	ResponseContentType *string `json:"responseContentType,omitempty"`
+}
+
+// UrlMatcher consists of urlPattern and urlScope which together identify a URL which will be serviced by an external system.
+// For example, if you want the external system to service all requests matching '/ext-api/custom/.', the URL Matcher object should be:
+// { "urlPattern": "/custom/.", "urlScope": "EXT_API" }.
+// It is important to note that in the case of EXT_UI_TENANT urlScope, the tenant name is not part of the urlPattern.
+// The urlPattern will match the request after the tenant name - if request is "/ext-ui/tenant/testOrg/custom/test",
+// the pattern will match against "/custom/test".
+type UrlMatcher struct {
+	UrlPattern string `json:"urlPattern,omitempty"`
+	UrlScope   string `json:"urlScope,omitempty"` // EXT_API, EXT_UI_PROVIDER, EXT_UI_TENANT corresponding to /ext-api, /ext-ui/provider, /ext-ui/tenant/<tenant-name>
 }
