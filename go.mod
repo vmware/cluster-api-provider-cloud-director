@@ -1,6 +1,8 @@
 module github.com/vmware/cluster-api-provider-cloud-director
 
-go 1.21
+go 1.22
+
+toolchain go1.22.6
 
 toolchain go1.22.3
 
@@ -15,7 +17,7 @@ require (
 	github.com/onsi/gomega v1.32.0
 	github.com/pkg/errors v0.9.1
 	github.com/vmware/cloud-provider-for-cloud-director v0.0.0-20240725204714-a0a0e916a5ed
-	github.com/vmware/go-vcloud-director/v2 v2.21.0
+	github.com/vmware/go-vcloud-director/v2 v2.26.0-alpha.6
 	go.uber.org/zap v1.26.0
 	gopkg.in/yaml.v2 v2.4.0
 	k8s.io/api v0.29.3
@@ -98,7 +100,7 @@ require (
 	go.opentelemetry.io/proto/otlp v1.0.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	golang.org/x/crypto v0.21.0 // indirect
-	golang.org/x/exp v0.0.0-20230905200255-921286631fa9 // indirect
+	golang.org/x/exp v0.0.0-20240119083558-1b970713d09a // indirect
 	golang.org/x/net v0.23.0 // indirect
 	golang.org/x/oauth2 v0.18.0 // indirect
 	golang.org/x/sync v0.6.0 // indirect

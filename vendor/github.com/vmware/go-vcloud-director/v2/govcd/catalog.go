@@ -59,7 +59,7 @@ func (catalog *Catalog) Delete(force, recursive bool) error {
 		// A catalog cannot be removed if it has active tasks, or if any of its items have active tasks
 		err = catalog.consumeTasks()
 		if err != nil {
-			return err
+			return fmt.Errorf("error while consuming tasks from catalog %s: %s", catalog.Catalog.Name, err)
 		}
 	}
 
@@ -94,7 +94,7 @@ func (catalog *Catalog) consumeTasks() error {
 		"status": "running,preRunning,queued",
 	})
 	if err != nil {
-		return err
+		return fmt.Errorf("error getting task list from catalog %s: %s", catalog.Catalog.Name, err)
 	}
 	var taskList []string
 	addTask := func(status, href string) {
@@ -119,7 +119,7 @@ func (catalog *Catalog) consumeTasks() error {
 	}
 	catalogItemRefs, err := catalog.QueryCatalogItemList()
 	if err != nil {
-		return err
+		return fmt.Errorf("error getting catalog %s items list: %s", catalog.Catalog.Name, err)
 	}
 	for _, task := range allTasks {
 		for _, ref := range catalogItemRefs {
@@ -131,7 +131,10 @@ func (catalog *Catalog) consumeTasks() error {
 		}
 	}
 	_, err = catalog.client.WaitTaskListCompletion(taskList, true)
-	return err
+	if err != nil {
+		return fmt.Errorf("error while waiting for task list completion for catalog %s: %s", catalog.Catalog.Name, err)
+	}
+	return nil
 }
 
 // Envelope is a ovf description root element. File contains information for vmdk files.
@@ -355,6 +358,53 @@ func (cat *Catalog) UploadOvfByLink(ovfUrl, itemName, description string) (Task,
 	util.Logger.Printf("[TRACE] task for vcd import created. \n")
 
 	return task, nil
+}
+
+// CaptureVappTemplate captures a vApp template from an existing vApp
+func (cat *Catalog) CaptureVappTemplate(captureParams *types.CaptureVAppParams) (*VAppTemplate, error) {
+	task, err := cat.CaptureVappTemplateAsync(captureParams)
+	if err != nil {
+		return nil, err
+	}
+
+	err = task.WaitTaskCompletion()
+	if err != nil {
+		return nil, err
+	}
+
+	if task.Task == nil || task.Task.Owner == nil || task.Task.Owner.HREF == "" {
+		return nil, fmt.Errorf("task does not have Owner HREF populated: %#v", task)
+	}
+
+	// After the task is finished, owner field contains the resulting vApp template
+	return cat.GetVappTemplateByHref(task.Task.Owner.HREF)
+}
+
+// CaptureVappTemplateAsync triggers vApp template capturing task and returns it
+//
+// Note. If 'CaptureVAppParams.CopyTpmOnInstantiate' is set, it will be unset for VCD versions
+// before 10.4.2 as it would break API call
+func (cat *Catalog) CaptureVappTemplateAsync(captureParams *types.CaptureVAppParams) (Task, error) {
+	util.Logger.Printf("[TRACE] Capturing vApp template to catalog %s", cat.Catalog.Name)
+	if captureParams == nil {
+		return Task{}, fmt.Errorf("input CaptureVAppParams cannot be nil")
+	}
+
+	captureTemplateHref := cat.client.VCDHREF
+	captureTemplateHref.Path += fmt.Sprintf("/catalog/%s/action/captureVApp", extractUuid(cat.Catalog.ID))
+
+	captureParams.Xmlns = types.XMLNamespaceVCloud
+	captureParams.XmlnsNs0 = types.XMLNamespaceOVF
+
+	util.Logger.Printf("[TRACE] Url for capturing vApp template: %s", captureTemplateHref.String())
+
+	if cat.client.APIVCDMaxVersionIs("< 37.2") {
+		captureParams.CopyTpmOnInstantiate = nil
+		util.Logger.Println("[TRACE] Explicitly unsetting 'CopyTpmOnInstantiate' because it was not supported before VCD 10.4.2")
+	}
+
+	return cat.client.ExecuteTaskRequest(captureTemplateHref.String(), http.MethodPost,
+		types.MimeCaptureVappTemplateParams, "error capturing vApp Template: %s", captureParams)
 }
 
 // Upload files for vCD created upload links. Different approach then vmdk file are
@@ -827,7 +877,14 @@ func removeCatalogItemOnError(client *Client, vappTemplateLink *url.URL, itemNam
 	}
 }
 
+// UploadMediaImage uploads a media image to the catalog
 func (cat *Catalog) UploadMediaImage(mediaName, mediaDescription, filePath string, uploadPieceSize int64) (UploadTask, error) {
+	return cat.UploadMediaFile(mediaName, mediaDescription, filePath, uploadPieceSize, true)
+}
+
+// UploadMediaFile uploads any file to the catalog.
+// However, if checkFileIsIso is true, only .ISO are allowed.
+func (cat *Catalog) UploadMediaFile(fileName, mediaDescription, filePath string, uploadPieceSize int64, checkFileIsIso bool) (UploadTask, error) {
 
 	if *cat == (Catalog{}) {
 		return UploadTask{}, errors.New("catalog can not be empty or nil")
@@ -838,9 +895,11 @@ func (cat *Catalog) UploadMediaImage(mediaName, mediaDescription, filePath strin
 		return UploadTask{}, err
 	}
 
-	isISOGood, err := verifyIso(mediaFilePath)
-	if err != nil || !isISOGood {
-		return UploadTask{}, fmt.Errorf("[ERROR] File %s isn't correct iso file: %#v", mediaFilePath, err)
+	if checkFileIsIso {
+		isISOGood, err := verifyIso(mediaFilePath)
+		if err != nil || !isISOGood {
+			return UploadTask{}, fmt.Errorf("[ERROR] File %s isn't correct iso file: %#v", mediaFilePath, err)
+		}
 	}
 
 	file, e := os.Stat(mediaFilePath)
@@ -850,8 +909,8 @@ func (cat *Catalog) UploadMediaImage(mediaName, mediaDescription, filePath strin
 	fileSize := file.Size()
 
 	for _, catalogItemName := range getExistingCatalogItems(cat) {
-		if catalogItemName == mediaName {
-			return UploadTask{}, fmt.Errorf("media item '%s' already exists. Upload with different name", mediaName)
+		if catalogItemName == fileName {
+			return UploadTask{}, fmt.Errorf("media item '%s' already exists. Upload with different name", fileName)
 		}
 	}
 
@@ -860,17 +919,17 @@ func (cat *Catalog) UploadMediaImage(mediaName, mediaDescription, filePath strin
 		return UploadTask{}, err
 	}
 
-	media, err := createMedia(cat.client, catalogItemUploadURL.String(), mediaName, mediaDescription, fileSize)
+	media, err := createMedia(cat.client, catalogItemUploadURL.String(), fileName, mediaDescription, fileSize)
 	if err != nil {
 		return UploadTask{}, fmt.Errorf("[ERROR] Issue creating media: %#v", err)
 	}
 
-	createdMedia, err := queryMedia(cat.client, media.Entity.HREF, mediaName)
+	createdMedia, err := queryMedia(cat.client, media.Entity.HREF, fileName)
 	if err != nil {
 		return UploadTask{}, err
 	}
 
-	return executeUpload(cat.client, createdMedia, mediaFilePath, mediaName, fileSize, uploadPieceSize)
+	return executeUpload(cat.client, createdMedia, mediaFilePath, fileName, fileSize, uploadPieceSize)
 }
 
 // Refresh gets a fresh copy of the catalog from vCD
@@ -1079,12 +1138,12 @@ func (cat *Catalog) PublishToExternalOrganizations(publishExternalCatalog types.
 		return fmt.Errorf("cannot publish to external organization, Object is empty")
 	}
 
-	url := cat.Catalog.HREF
-	if url == "nil" || url == "" {
+	catalogUrl := cat.Catalog.HREF
+	if catalogUrl == "nil" || catalogUrl == "" {
 		return fmt.Errorf("cannot publish to external organization, HREF is empty")
 	}
 
-	err := publishToExternalOrganizations(cat.client, url, nil, publishExternalCatalog)
+	err := publishToExternalOrganizations(cat.client, catalogUrl, nil, publishExternalCatalog)
 	if err != nil {
 		return err
 	}
@@ -1171,7 +1230,19 @@ func (client *Client) GetCatalogByHref(catalogHref string) (*Catalog, error) {
 	if err != nil {
 		return nil, err
 	}
-
+	// Setting the catalog parent, necessary to handle the tenant context
+	org := NewOrg(client)
+	for _, link := range cat.Catalog.Link {
+		if link.Rel == "up" && link.Type == types.MimeOrg {
+			_, err = client.ExecuteRequest(link.HREF, http.MethodGet,
+				"", "error retrieving parent Org: %s", nil, org.Org)
+			if err != nil {
+				return nil, fmt.Errorf("error retrieving catalog parent: %s", err)
+			}
+			break
+		}
+	}
+	cat.parent = org
 	return cat, nil
 }
 
@@ -1204,4 +1275,19 @@ func (client *Client) GetCatalogByName(parentOrg, catalogName string) (*Catalog,
 		parents = fmt.Sprintf(" - Found catalog %s in Orgs %v", catalogName, parentOrgs)
 	}
 	return nil, fmt.Errorf("no catalog '%s' found in Org %s%s", catalogName, parentOrg, parents)
+}
+
+// WaitForTasks waits for the catalog's tasks to complete
+func (cat *Catalog) WaitForTasks() error {
+	if ResourceInProgress(cat.Catalog.Tasks) {
+		err := WaitResource(func() (*types.TasksInProgress, error) {
+			err := cat.Refresh()
+			if err != nil {
+				return nil, err
+			}
+			return cat.Catalog.Tasks, nil
+		})
+		return err
+	}
+	return nil
 }
