@@ -4,22 +4,24 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/blang/semver"
-	"github.com/pkg/errors"
-	"github.com/vmware/cloud-provider-for-cloud-director/pkg/vcdsdk"
-	swagger "github.com/vmware/cloud-provider-for-cloud-director/pkg/vcdswaggerclient_37_2"
-	"github.com/vmware/cluster-api-provider-cloud-director/pkg/util"
-	"github.com/vmware/cluster-api-provider-cloud-director/pkg/vcdtypes/rde_type_1_0_0"
-	"github.com/vmware/cluster-api-provider-cloud-director/pkg/vcdtypes/rde_type_1_1_0"
-	rdeType "github.com/vmware/cluster-api-provider-cloud-director/pkg/vcdtypes/rde_type_1_1_0"
-	"github.com/vmware/cluster-api-provider-cloud-director/release"
-	"k8s.io/klog"
 	"net/http"
 	"net/url"
 	"reflect"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/blang/semver"
+	"github.com/pkg/errors"
+	"github.com/vmware/cloud-provider-for-cloud-director/pkg/vcdsdk"
+	swagger "github.com/vmware/cloud-provider-for-cloud-director/pkg/vcdswaggerclient_37_2"
+	"k8s.io/klog"
+
+	"github.com/vmware/cluster-api-provider-cloud-director/pkg/util"
+	"github.com/vmware/cluster-api-provider-cloud-director/pkg/vcdtypes/rde_type_1_0_0"
+	"github.com/vmware/cluster-api-provider-cloud-director/pkg/vcdtypes/rde_type_1_1_0"
+	rdeType "github.com/vmware/cluster-api-provider-cloud-director/pkg/vcdtypes/rde_type_1_1_0"
+	"github.com/vmware/cluster-api-provider-cloud-director/release"
 )
 
 const (
@@ -217,7 +219,7 @@ func (capvcdRdeManager *CapvcdRdeManager) PatchRDE(ctx context.Context, specPatc
 		}
 
 		if resp.StatusCode != http.StatusOK {
-			return nil, fmt.Errorf("error getting the defined entity with ID [%s]", rdeID)
+			return nil, fmt.Errorf("error getting the defined entity with ID [%s], expected response code [%d], received: [%d]", rdeID, http.StatusOK, resp.StatusCode)
 		}
 
 		capvcdEntity, err := util.ConvertMapToCAPVCDEntity(rde.Entity)
@@ -275,7 +277,7 @@ func (capvcdRdeManager *CapvcdRdeManager) PatchRDE(ctx context.Context, specPatc
 		klog.V(4).Infof("successfully updated defined entity with ID [%s]", rdeID)
 		return &rde, nil
 	}
-	return nil, fmt.Errorf("failed to update defined entity with ID [%s]", rdeID)
+	return nil, fmt.Errorf("failed to update defined entity with ID [%s] after [%d] retries", rdeID, MaxUpdateRetries)
 }
 
 // GetCAPVCDEntity parses CAPVCDStatus and CAPVCD
@@ -468,7 +470,7 @@ func (capvcdRdeManager *CapvcdRdeManager) convertFrom110Format(ctx context.Conte
 				klog.Errorf("error occurred when upgrading defined entity [%s] to version [%s]: [%s]",
 					srcRde.Id, rdeType.CapvcdRDETypeVersion, string(responseMessageBytes))
 			}
-			return nil, fmt.Errorf("failed to get the defined entity to convert RDE to version [%s]", rdeType.CapvcdRDETypeVersion)
+			return nil, fmt.Errorf("failed to get the defined entity to convert RDE to version [%s]: [%v]", rdeType.CapvcdRDETypeVersion, err)
 		} else if resp == nil {
 			return nil, fmt.Errorf("unexpected response when fetching the defined entity [%s] to version [%s]; obtained nil response",
 				srcRde.Id, rdeType.CapvcdRDETypeVersion)
@@ -571,7 +573,7 @@ func (capvcdRdeManager *CapvcdRdeManager) convertFrom100Format(ctx context.Conte
 				klog.Errorf("error occurred when upgrading defined entity [%s] to version [%s]: [%s]",
 					srcRde.Id, rdeType.CapvcdRDETypeVersion, string(responseMessageBytes))
 			}
-			return nil, fmt.Errorf("failed to get the defined entity to convert RDE to version [%s]", rdeType.CapvcdRDETypeVersion)
+			return nil, fmt.Errorf("failed to get the defined entity to convert RDE to version [%s]: [%v]", rdeType.CapvcdRDETypeVersion, err)
 		} else if resp == nil {
 			return nil, fmt.Errorf("unexpected response when fetching the defined entity [%s] to version [%s]; obtained nil response",
 				srcRde.Id, rdeType.CapvcdRDETypeVersion)
@@ -686,8 +688,8 @@ func (capvcdRdeManager *CapvcdRdeManager) ConvertToLatestRDEVersionFormat(ctx co
 		klog.V(3).Infof("CAPVCD does not support RDE [%s(%s)] upgrade from source version [%s] to version [%s]", srcRde.Name, srcRde.Id, srcRdeTypeVersion, rdeType.CapvcdRDETypeVersion)
 	}
 	if err != nil {
-		return nil, fmt.Errorf("failed to convert RDE [%s] from source version [%s] to destination version [%s]",
-			srcRde.Id, srcRde.EntityType, rdeType.CapvcdRDETypeVersion)
+		return nil, fmt.Errorf("failed to convert RDE [%s] from source version [%s] to destination version [%s]: [%v]",
+			srcRde.Id, srcRde.EntityType, rdeType.CapvcdRDETypeVersion, err)
 	}
 
 	return dstRde, nil
@@ -735,7 +737,7 @@ func (capvcdRdeManager *CapvcdRdeManager) CheckForEmptyRDEAndUpdateCreatedByVers
 	capvcdStatusPatch["CreatedByVersion"] = release.Version
 	_, err = capvcdRdeManager.PatchRDE(ctx, nil, nil, capvcdStatusPatch, infraId, "", false)
 	if err != nil {
-		return fmt.Errorf("failed to update CAPVCD status with created by version [%s] for RDE [%s]", release.Version, infraId)
+		return fmt.Errorf("failed to update CAPVCD status with created by version [%s] for RDE [%s], error: [%v]", release.Version, infraId, err)
 	}
 	klog.V(4).Infof("successfully updated CAPVCD status with created by version [%s] for RDE [%s]", release.Version, infraId)
 	return nil
