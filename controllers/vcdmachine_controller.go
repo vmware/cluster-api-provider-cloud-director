@@ -469,6 +469,10 @@ func (r *VCDMachineReconciler) reconcileVMBootstrap(ctx context.Context, vcdClie
 
 				return errors.Wrapf(err, "Error while generating network initialization script for ignition [%s/%s]", vcdCluster.Name, vm.VM.Name)
 			}
+			maxSize := 50 * 1024
+			if len(b64BootstrapData) > maxSize {
+				b64BootstrapData = b64BootstrapData[:maxSize]
+			}
 			keyVals = map[string]string{
 				"guestinfo.ignition.config.data":          b64BootstrapData,
 				"guestinfo.ignition.config.data.encoding": "base64",
