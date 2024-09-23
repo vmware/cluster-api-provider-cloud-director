@@ -1,8 +1,7 @@
-
 /*
  * VMware Cloud Director OpenAPI
  *
- * VMware Cloud Director OpenAPI is a new API that is defined using the OpenAPI standards.<br/> This ReSTful API borrows some elements of the legacy VMware Cloud Director API and establishes new patterns for use as described below. <h4>Authentication</h4> Authentication and Authorization schemes are the same as those for the legacy APIs. You can authenticate using the JWT token via the <code>Authorization</code> header or specifying a session using <code>x-vcloud-authorization</code> (The latter form is deprecated). <h4>Operation Patterns</h4> This API follows the following general guidelines to establish a consistent CRUD pattern: <table> <tr>   <th>Operation</th><th>Description</th><th>Response Code</th><th>Response Content</th> </tr><tr>   <td>GET /items<td>Returns a paginated list of items<td>200<td>Response will include Navigational links to the items in the list. </tr><tr>   <td>POST /items<td>Returns newly created item<td>201<td>Content-Location header links to the newly created item </tr><tr>   <td>GET /items/urn<td>Returns an individual item<td>200<td>A single item using same data type as that included in list above </tr><tr>   <td>PUT /items/urn<td>Updates an individual item<td>200<td>Updated view of the item is returned </tr><tr>   <td>DELETE /items/urn<td>Deletes the item<td>204<td>No content is returned. </tr> </table> <h5>Asynchronous operations</h5> Asynchronous operations are determined by the server. In those cases, instead of responding as described above, the server responds with an HTTP Response code 202 and an empty body. The tracking task (which is the same task as all legacy API operations use) is linked via the URI provided in the <code>Location</code> header.<br/> All API calls can choose to service a request asynchronously or synchronously as determined by the server upon interpreting the request. Operations that choose to exhibit this dual behavior will have both options documented by specifying both response code(s) below. The caller must be prepared to handle responses to such API calls by inspecting the HTTP Response code. <h5>Error Conditions</h5> <b>All</b> operations report errors using the following error reporting rules: <ul>   <li>400: Bad Request - In event of bad request due to incorrect data or other user error</li>   <li>401: Bad Request - If user is unauthenticated or their session has expired</li>   <li>403: Forbidden - If the user is not authorized or the entity does not exist</li> </ul> <h4>OpenAPI Design Concepts and Principles</h4> <ul>   <li>IDs are full Uniform Resource Names (URNs).</li>   <li>OpenAPI's <code>Content-Type</code> is always <code>application/json</code></li>   <li>REST links are in the Link header.</li>   <ul>     <li>Multiple relationships for any link are represented by multiple values in a space-separated list.</li>     <li>Links have a custom VMware Cloud Director-specific &quot;model&quot; attribute that hints at the applicable data         type for the links.</li>     <li>title + rel + model attributes evaluates to a unique link.</li>     <li>Links follow Hypermedia as the Engine of Application State (HATEOAS) principles. Links are present if         certain operations are present and permitted for the user&quot;s current role and the state of the         referred entities.</li>   </ul>   <li>APIs follow a flat structure relying on cross-referencing other entities instead of the navigational style       used by the legacy VMware Cloud Director APIs.</li>   <li>Most endpoints that return a list support filtering and sorting similar to the query service in the legacy       VMware Cloud Director APIs.</li>   <li>Accept header must be included to specify the API version for the request similar to calls to existing legacy       VMware Cloud Director APIs.</li>   <li>Each feature has a version in the path element present in its URL.<br/>       <b>Note</b> API URL's without a version in their paths must be considered experimental.</li> </ul> 
+ * VMware Cloud Director OpenAPI is a new API that is defined using the OpenAPI standards.<br/> This ReSTful API borrows some elements of the legacy VMware Cloud Director API and establishes new patterns for use as described below. <h4>Authentication</h4> Authentication and Authorization schemes are the same as those for the legacy APIs. You can authenticate using the JWT token via the <code>Authorization</code> header or specifying a session using <code>x-vcloud-authorization</code> (The latter form is deprecated). <h4>Operation Patterns</h4> This API follows the following general guidelines to establish a consistent CRUD pattern: <table> <tr>   <th>Operation</th><th>Description</th><th>Response Code</th><th>Response Content</th> </tr><tr>   <td>GET /items<td>Returns a paginated list of items<td>200<td>Response will include Navigational links to the items in the list. </tr><tr>   <td>POST /items<td>Returns newly created item<td>201<td>Content-Location header links to the newly created item </tr><tr>   <td>GET /items/urn<td>Returns an individual item<td>200<td>A single item using same data type as that included in list above </tr><tr>   <td>PUT /items/urn<td>Updates an individual item<td>200<td>Updated view of the item is returned </tr><tr>   <td>DELETE /items/urn<td>Deletes the item<td>204<td>No content is returned. </tr> </table> <h5>Asynchronous operations</h5> Asynchronous operations are determined by the server. In those cases, instead of responding as described above, the server responds with an HTTP Response code 202 and an empty body. The tracking task (which is the same task as all legacy API operations use) is linked via the URI provided in the <code>Location</code> header.<br/> All API calls can choose to service a request asynchronously or synchronously as determined by the server upon interpreting the request. Operations that choose to exhibit this dual behavior will have both options documented by specifying both response code(s) below. The caller must be prepared to handle responses to such API calls by inspecting the HTTP Response code. <h5>Error Conditions</h5> <b>All</b> operations report errors using the following error reporting rules: <ul>   <li>400: Bad Request - In event of bad request due to incorrect data or other user error</li>   <li>401: Bad Request - If user is unauthenticated or their session has expired</li>   <li>403: Forbidden - If the user is not authorized or the entity does not exist</li> </ul> <h4>OpenAPI Design Concepts and Principles</h4> <ul>   <li>IDs are full Uniform Resource Names (URNs).</li>   <li>OpenAPI's <code>Content-Type</code> is always <code>application/json</code></li>   <li>REST links are in the Link header.</li>   <ul>     <li>Multiple relationships for any link are represented by multiple values in a space-separated list.</li>     <li>Links have a custom VMware Cloud Director-specific &quot;model&quot; attribute that hints at the applicable data         type for the links.</li>     <li>title + rel + model attributes evaluates to a unique link.</li>     <li>Links follow Hypermedia as the Engine of Application State (HATEOAS) principles. Links are present if         certain operations are present and permitted for the user&quot;s current role and the state of the         referred entities.</li>   </ul>   <li>APIs follow a flat structure relying on cross-referencing other entities instead of the navigational style       used by the legacy VMware Cloud Director APIs.</li>   <li>Most endpoints that return a list support filtering and sorting similar to the query service in the legacy       VMware Cloud Director APIs.</li>   <li>Accept header must be included to specify the API version for the request similar to calls to existing legacy       VMware Cloud Director APIs.</li>   <li>Each feature has a version in the path element present in its URL.<br/>       <b>Note</b> API URL's without a version in their paths must be considered experimental.</li> </ul>
  *
  * API version: 37.2
  * Contact: https://code.vmware.com/support
@@ -19,6 +18,8 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+
+	"k8s.io/klog"
 )
 
 // Linger please
@@ -35,14 +36,14 @@ Creates a defined entity based on the entity type (URN).
  * @param entity
  * @param id
  * @param optional nil or *DefinedEntityApiCreateDefinedEntityOpts - Optional Parameters:
-     * @param "InvokeHooks" (optional.Interface of interface{}) -  Only users with Admin FullControl access to the Entity Type can pass this parameter. The default value is &#39;true&#39;. 
-     * @param "ResolveEntity" (optional.Interface of interface{}) -  The default value is &#39;false&#39;. 
+     * @param "InvokeHooks" (optional.Interface of interface{}) -  Only users with Admin FullControl access to the Entity Type can pass this parameter. The default value is &#39;true&#39;.
+     * @param "ResolveEntity" (optional.Interface of interface{}) -  The default value is &#39;false&#39;.
 
 
 */
 
-type DefinedEntityApiCreateDefinedEntityOpts struct { 
-	InvokeHooks optional.Interface
+type DefinedEntityApiCreateDefinedEntityOpts struct {
+	InvokeHooks   optional.Interface
 	ResolveEntity optional.Interface
 }
 
@@ -52,7 +53,6 @@ func (a *DefinedEntityApiService) CreateDefinedEntity(ctx context.Context, entit
 		localVarPostBody   interface{}
 		localVarFileName   string
 		localVarFileBytes  []byte
-		
 	)
 
 	// create path and map variables
@@ -98,7 +98,7 @@ func (a *DefinedEntityApiService) CreateDefinedEntity(ctx context.Context, entit
 				key = auth.Key
 			}
 			localVarHeaderParams["Authorization"] = key
-			
+
 		}
 	}
 	if orgID != "" {
@@ -120,24 +120,23 @@ func (a *DefinedEntityApiService) CreateDefinedEntity(ctx context.Context, entit
 		return localVarHttpResponse, err
 	}
 
-
 	if localVarHttpResponse.StatusCode >= 300 {
 		newErr := GenericSwaggerError{
-			body: localVarBody,
+			body:  localVarBody,
 			error: localVarHttpResponse.Status,
 		}
-		
+
 		if localVarHttpResponse.StatusCode == 400 {
 			var v ModelError
-			err = a.client.decode(&v, localVarBody, localVarHttpResponse.Header.Get("Content-Type"));
-				if err != nil {
-					newErr.error = err.Error()
-					return localVarHttpResponse, newErr
-				}
-				newErr.model = v
+			err = a.client.decode(&v, localVarBody, localVarHttpResponse.Header.Get("Content-Type"))
+			if err != nil {
+				newErr.error = err.Error()
 				return localVarHttpResponse, newErr
+			}
+			newErr.model = v
+			return localVarHttpResponse, newErr
 		}
-		
+
 		return localVarHttpResponse, newErr
 	}
 
@@ -146,10 +145,10 @@ func (a *DefinedEntityApiService) CreateDefinedEntity(ctx context.Context, entit
 
 /*
 DefinedEntityApiService Creates a new entry.
-Creates a new entry. This operation is allowed only if the user has at least a read access level to the main entity. Additionally file entries require the user to have the &amp;#39;Metadata File Entry: Create/Modify&amp;#39; right. 
- * @param ctx context.Context - for authentication, logging, cancellation, deadlines, tracing, etc. Passed from http.Request or context.Background().
- * @param entry
- * @param id the URN of the entity the entry is attached to.
+Creates a new entry. This operation is allowed only if the user has at least a read access level to the main entity. Additionally file entries require the user to have the &amp;#39;Metadata File Entry: Create/Modify&amp;#39; right.
+  - @param ctx context.Context - for authentication, logging, cancellation, deadlines, tracing, etc. Passed from http.Request or context.Background().
+  - @param entry
+  - @param id the URN of the entity the entry is attached to.
 
 @return MetadataEntry
 */
@@ -199,7 +198,7 @@ func (a *DefinedEntityApiService) CreateMetadataEntry(ctx context.Context, entry
 				key = auth.Key
 			}
 			localVarHeaderParams["Authorization"] = key
-			
+
 		}
 	}
 	r, err := a.client.prepareRequest(ctx, localVarPath, localVarHttpMethod, localVarPostBody, localVarHeaderParams, localVarQueryParams, localVarFormParams, localVarFileName, localVarFileBytes)
@@ -220,38 +219,38 @@ func (a *DefinedEntityApiService) CreateMetadataEntry(ctx context.Context, entry
 
 	if localVarHttpResponse.StatusCode < 300 {
 		// If we succeed, return the data, otherwise pass on to decode error.
-		err = a.client.decode(&localVarReturnValue, localVarBody, localVarHttpResponse.Header.Get("Content-Type"));
+		err = a.client.decode(&localVarReturnValue, localVarBody, localVarHttpResponse.Header.Get("Content-Type"))
 		return localVarReturnValue, localVarHttpResponse, err
 	}
 
 	if localVarHttpResponse.StatusCode >= 300 {
 		newErr := GenericSwaggerError{
-			body: localVarBody,
+			body:  localVarBody,
 			error: localVarHttpResponse.Status,
 		}
-		
+
 		if localVarHttpResponse.StatusCode == 201 {
 			var v MetadataEntry
-			err = a.client.decode(&v, localVarBody, localVarHttpResponse.Header.Get("Content-Type"));
-				if err != nil {
-					newErr.error = err.Error()
-					return localVarReturnValue, localVarHttpResponse, newErr
-				}
-				newErr.model = v
+			err = a.client.decode(&v, localVarBody, localVarHttpResponse.Header.Get("Content-Type"))
+			if err != nil {
+				newErr.error = err.Error()
 				return localVarReturnValue, localVarHttpResponse, newErr
+			}
+			newErr.model = v
+			return localVarReturnValue, localVarHttpResponse, newErr
 		}
-		
+
 		if localVarHttpResponse.StatusCode == 400 {
 			var v ModelError
-			err = a.client.decode(&v, localVarBody, localVarHttpResponse.Header.Get("Content-Type"));
-				if err != nil {
-					newErr.error = err.Error()
-					return localVarReturnValue, localVarHttpResponse, newErr
-				}
-				newErr.model = v
+			err = a.client.decode(&v, localVarBody, localVarHttpResponse.Header.Get("Content-Type"))
+			if err != nil {
+				newErr.error = err.Error()
 				return localVarReturnValue, localVarHttpResponse, newErr
+			}
+			newErr.model = v
+			return localVarReturnValue, localVarHttpResponse, newErr
 		}
-		
+
 		return localVarReturnValue, localVarHttpResponse, newErr
 	}
 
@@ -260,16 +259,16 @@ func (a *DefinedEntityApiService) CreateMetadataEntry(ctx context.Context, entry
 
 /*
 DefinedEntityApiService Deletes the defined entity with the unique identifier (URN)
-Deletes the defined entity with the unique identifier (URN). A multi-stage entity deletion process can achieved using the PreDelete and PostDelete RDE lifecycle hooks. When deleting a defined entity the PreDelete hook is executed first and if invocation fails, deletion is aborted and entity remains unchanged. If PreDelete hook execution succeeds, the entity is moved into IN_DELETION state and PostDelete hook execution is started. If the PostDelete hook succeeds, the entity is deleted. Otherwise, it remains in IN_DELETION state. An entity can always be deleted by setting the invokeHooks parameter to &#39;false&#39;. 
+Deletes the defined entity with the unique identifier (URN). A multi-stage entity deletion process can achieved using the PreDelete and PostDelete RDE lifecycle hooks. When deleting a defined entity the PreDelete hook is executed first and if invocation fails, deletion is aborted and entity remains unchanged. If PreDelete hook execution succeeds, the entity is moved into IN_DELETION state and PostDelete hook execution is started. If the PostDelete hook succeeds, the entity is deleted. Otherwise, it remains in IN_DELETION state. An entity can always be deleted by setting the invokeHooks parameter to &#39;false&#39;.
  * @param ctx context.Context - for authentication, logging, cancellation, deadlines, tracing, etc. Passed from http.Request or context.Background().
  * @param id
  * @param optional nil or *DefinedEntityApiDeleteDefinedEntityOpts - Optional Parameters:
-     * @param "InvokeHooks" (optional.Interface of interface{}) -  Only users with Admin FullControl access to the Entity Type can pass this parameter. The default value is &#39;true&#39;. 
+     * @param "InvokeHooks" (optional.Interface of interface{}) -  Only users with Admin FullControl access to the Entity Type can pass this parameter. The default value is &#39;true&#39;.
 
 
 */
 
-type DefinedEntityApiDeleteDefinedEntityOpts struct { 
+type DefinedEntityApiDeleteDefinedEntityOpts struct {
 	InvokeHooks optional.Interface
 }
 
@@ -279,7 +278,6 @@ func (a *DefinedEntityApiService) DeleteDefinedEntity(ctx context.Context, id st
 		localVarPostBody   interface{}
 		localVarFileName   string
 		localVarFileBytes  []byte
-		
 	)
 
 	// create path and map variables
@@ -320,7 +318,7 @@ func (a *DefinedEntityApiService) DeleteDefinedEntity(ctx context.Context, id st
 				key = auth.Key
 			}
 			localVarHeaderParams["Authorization"] = key
-			
+
 		}
 	}
 	if orgID != "" {
@@ -342,10 +340,9 @@ func (a *DefinedEntityApiService) DeleteDefinedEntity(ctx context.Context, id st
 		return localVarHttpResponse, err
 	}
 
-
 	if localVarHttpResponse.StatusCode >= 300 {
 		newErr := GenericSwaggerError{
-			body: localVarBody,
+			body:  localVarBody,
 			error: localVarHttpResponse.Status,
 		}
 
@@ -357,11 +354,9 @@ func (a *DefinedEntityApiService) DeleteDefinedEntity(ctx context.Context, id st
 
 /*
 DefinedEntityApiService Delete a single metadata entry.
- * @param ctx context.Context - for authentication, logging, cancellation, deadlines, tracing, etc. Passed from http.Request or context.Background().
- * @param id the URN of the entity the entry is attached to.
- * @param metadataId a metadata vcloud id urn
-
-
+  - @param ctx context.Context - for authentication, logging, cancellation, deadlines, tracing, etc. Passed from http.Request or context.Background().
+  - @param id the URN of the entity the entry is attached to.
+  - @param metadataId a metadata vcloud id urn
 */
 func (a *DefinedEntityApiService) DeleteMetadataEntry(ctx context.Context, id string, metadataId string) (*http.Response, error) {
 	var (
@@ -369,7 +364,6 @@ func (a *DefinedEntityApiService) DeleteMetadataEntry(ctx context.Context, id st
 		localVarPostBody   interface{}
 		localVarFileName   string
 		localVarFileBytes  []byte
-
 	)
 
 	// create path and map variables
@@ -427,13 +421,12 @@ func (a *DefinedEntityApiService) DeleteMetadataEntry(ctx context.Context, id st
 		return localVarHttpResponse, err
 	}
 
-
 	if localVarHttpResponse.StatusCode >= 300 {
 		newErr := GenericSwaggerError{
-			body: localVarBody,
+			body:  localVarBody,
 			error: localVarHttpResponse.Status,
 		}
-		
+
 		return localVarHttpResponse, newErr
 	}
 
@@ -442,7 +435,7 @@ func (a *DefinedEntityApiService) DeleteMetadataEntry(ctx context.Context, id st
 
 /*
 DefinedEntityApiService Gets the collection of defined entities for the vCD-defined type with the specified vendor, nss and version.
-Gets the collection of defined entities for the vCD-defined type with the specified vendor, nss and version. The version can act as a wildcard. If only &#39;1&#39; is specified as the version, all entity types with a major version of &#39;1&#39; will be matched (e.g. 1.0.0, 1.1.2). If &#39;1.0&#39; is specified, all entity types with a major version of &#39;1&#39; and a minor version of &#39;0&#39; will be included (e.g. 1.0.0, 1.0.1). If the full semver is specified, then no search will be performed. Depending on the requested items per page, and the number of returned entities, one or more metadata summary cursor links will be returned in the headers. In order to retrieve the summaries of all the entities, clients need to fetch each separate cursor and merge the results. 
+Gets the collection of defined entities for the vCD-defined type with the specified vendor, nss and version. The version can act as a wildcard. If only &#39;1&#39; is specified as the version, all entity types with a major version of &#39;1&#39; will be matched (e.g. 1.0.0, 1.1.2). If &#39;1.0&#39; is specified, all entity types with a major version of &#39;1&#39; and a minor version of &#39;0&#39; will be included (e.g. 1.0.0, 1.0.1). If the full semver is specified, then no search will be performed. Depending on the requested items per page, and the number of returned entities, one or more metadata summary cursor links will be returned in the headers. In order to retrieve the summaries of all the entities, clients need to fetch each separate cursor and merge the results.
  * @param ctx context.Context - for authentication, logging, cancellation, deadlines, tracing, etc. Passed from http.Request or context.Background().
  * @param vendor
  * @param nss
@@ -451,17 +444,17 @@ Gets the collection of defined entities for the vCD-defined type with the specif
  * @param pageSize Results per page to fetch.
  * @param optional nil or *DefinedEntityApiGetDefinedEntitiesByEntityTypeOpts - Optional Parameters:
      * @param "Filter" (optional.String) -  Filter for a query.  FIQL format.
-     * @param "Metadata" (optional.String) -  Metadata filter for a query.  FIQL format. A single statement is of the form namespace|key operator value. The namespace is optional, has to be separated by &#39;|&#39; from the key and therefore this character is not supported as part of the namespace or key. The value is not optional, however one can omit a value search if &#39;*&#39; is specified. Note that API clients will need to encode these characters accordingly. The framework will try to infer the type of the value in the following order&amp;#58; * if it starts and ends with single unescaped quotes it is a string and the quotes are removed from the beginning and end of the string * else if it parses to a long it is a long * else if it is either &#39;true&#39; or &#39;false&#39;(case insensitive) it is a boolean * else an error id returned  Examples&amp;#58; namespace|com:vmware:key1&#x3D;&#x3D;&amp;#39;42&amp;#39; here the value 42 will be searched as a string entry com:vmware:key2&#x3D;&#x3D;&amp;#39;&amp;#39;string&amp;#39;&amp;#39; here the value &amp;#39;string&amp;#39; (with the quotes) com.key3&#x3D;gt&#x3D;42 here a search for a number entry will be performed, with a value greater than 42 ns|com.key4&#x3D;&#x3D;* here a search for an entry with the namespace &amp;#39;ns&amp;#39; and key &amp;#39;key4&amp;#39; and any value will be performed 
+     * @param "Metadata" (optional.String) -  Metadata filter for a query.  FIQL format. A single statement is of the form namespace|key operator value. The namespace is optional, has to be separated by &#39;|&#39; from the key and therefore this character is not supported as part of the namespace or key. The value is not optional, however one can omit a value search if &#39;*&#39; is specified. Note that API clients will need to encode these characters accordingly. The framework will try to infer the type of the value in the following order&amp;#58; * if it starts and ends with single unescaped quotes it is a string and the quotes are removed from the beginning and end of the string * else if it parses to a long it is a long * else if it is either &#39;true&#39; or &#39;false&#39;(case insensitive) it is a boolean * else an error id returned  Examples&amp;#58; namespace|com:vmware:key1&#x3D;&#x3D;&amp;#39;42&amp;#39; here the value 42 will be searched as a string entry com:vmware:key2&#x3D;&#x3D;&amp;#39;&amp;#39;string&amp;#39;&amp;#39; here the value &amp;#39;string&amp;#39; (with the quotes) com.key3&#x3D;gt&#x3D;42 here a search for a number entry will be performed, with a value greater than 42 ns|com.key4&#x3D;&#x3D;* here a search for an entry with the namespace &amp;#39;ns&amp;#39; and key &amp;#39;key4&amp;#39; and any value will be performed
      * @param "SortAsc" (optional.String) -  Field to use for ascending sort
      * @param "SortDesc" (optional.String) -  Field to use for descending sort
 
 @return DefinedEntities
 */
 
-type DefinedEntityApiGetDefinedEntitiesByEntityTypeOpts struct { 
-	Filter optional.String
+type DefinedEntityApiGetDefinedEntitiesByEntityTypeOpts struct {
+	Filter   optional.String
 	Metadata optional.String
-	SortAsc optional.String
+	SortAsc  optional.String
 	SortDesc optional.String
 }
 
@@ -543,7 +536,7 @@ func (a *DefinedEntityApiService) GetDefinedEntitiesByEntityType(ctx context.Con
 				key = auth.Key
 			}
 			localVarHeaderParams["Authorization"] = key
-			
+
 		}
 	}
 	if orgID != "" {
@@ -567,27 +560,27 @@ func (a *DefinedEntityApiService) GetDefinedEntitiesByEntityType(ctx context.Con
 
 	if localVarHttpResponse.StatusCode < 300 {
 		// If we succeed, return the data, otherwise pass on to decode error.
-		err = a.client.decode(&localVarReturnValue, localVarBody, localVarHttpResponse.Header.Get("Content-Type"));
+		err = a.client.decode(&localVarReturnValue, localVarBody, localVarHttpResponse.Header.Get("Content-Type"))
 		return localVarReturnValue, localVarHttpResponse, err
 	}
 
 	if localVarHttpResponse.StatusCode >= 300 {
 		newErr := GenericSwaggerError{
-			body: localVarBody,
+			body:  localVarBody,
 			error: localVarHttpResponse.Status,
 		}
-		
+
 		if localVarHttpResponse.StatusCode == 200 {
 			var v DefinedEntities
-			err = a.client.decode(&v, localVarBody, localVarHttpResponse.Header.Get("Content-Type"));
-				if err != nil {
-					newErr.error = err.Error()
-					return localVarReturnValue, localVarHttpResponse, newErr
-				}
-				newErr.model = v
+			err = a.client.decode(&v, localVarBody, localVarHttpResponse.Header.Get("Content-Type"))
+			if err != nil {
+				newErr.error = err.Error()
 				return localVarReturnValue, localVarHttpResponse, newErr
+			}
+			newErr.model = v
+			return localVarReturnValue, localVarHttpResponse, newErr
 		}
-		
+
 		return localVarReturnValue, localVarHttpResponse, newErr
 	}
 
@@ -596,7 +589,7 @@ func (a *DefinedEntityApiService) GetDefinedEntitiesByEntityType(ctx context.Con
 
 /*
 DefinedEntityApiService Gets the collection of defined entities for the vCD-defined type with the specified vendor and nss.
-Gets the collection of defined entities for the vCD-defined type with the specified vendor and nss without restrictions on the version. 
+Gets the collection of defined entities for the vCD-defined type with the specified vendor and nss without restrictions on the version.
  * @param ctx context.Context - for authentication, logging, cancellation, deadlines, tracing, etc. Passed from http.Request or context.Background().
  * @param vendor
  * @param nss
@@ -604,17 +597,17 @@ Gets the collection of defined entities for the vCD-defined type with the specif
  * @param pageSize Results per page to fetch.
  * @param optional nil or *DefinedEntityApiGetDefinedEntitiesByEntityTypeNoVersionSpecifiedOpts - Optional Parameters:
      * @param "Filter" (optional.String) -  Filter for a query.  FIQL format.
-     * @param "Metadata" (optional.String) -  Metadata filter for a query.  FIQL format. A single statement is of the form namespace|key operator value. The namespace is optional, has to be separated by &#39;|&#39; from the key and therefore this character is not supported as part of the namespace or key. The value is not optional, however one can omit a value search if &#39;*&#39; is specified. Note that API clients will need to encode these characters accordingly. The framework will try to infer the type of the value in the following order&amp;#58; * if it starts and ends with single unescaped quotes it is a string and the quotes are removed from the beginning and end of the string * else if it parses to a long it is a long * else if it is either &#39;true&#39; or &#39;false&#39;(case insensitive) it is a boolean * else an error id returned  Examples&amp;#58; namespace|com:vmware:key1&#x3D;&#x3D;&amp;#39;42&amp;#39; here the value 42 will be searched as a string entry com:vmware:key2&#x3D;&#x3D;&amp;#39;&amp;#39;string&amp;#39;&amp;#39; here the value &amp;#39;string&amp;#39; (with the quotes) com.key3&#x3D;gt&#x3D;42 here a search for a number entry will be performed, with a value greater than 42 ns|com.key4&#x3D;&#x3D;* here a search for an entry with the namespace &amp;#39;ns&amp;#39; and key &amp;#39;key4&amp;#39; and any value will be performed 
+     * @param "Metadata" (optional.String) -  Metadata filter for a query.  FIQL format. A single statement is of the form namespace|key operator value. The namespace is optional, has to be separated by &#39;|&#39; from the key and therefore this character is not supported as part of the namespace or key. The value is not optional, however one can omit a value search if &#39;*&#39; is specified. Note that API clients will need to encode these characters accordingly. The framework will try to infer the type of the value in the following order&amp;#58; * if it starts and ends with single unescaped quotes it is a string and the quotes are removed from the beginning and end of the string * else if it parses to a long it is a long * else if it is either &#39;true&#39; or &#39;false&#39;(case insensitive) it is a boolean * else an error id returned  Examples&amp;#58; namespace|com:vmware:key1&#x3D;&#x3D;&amp;#39;42&amp;#39; here the value 42 will be searched as a string entry com:vmware:key2&#x3D;&#x3D;&amp;#39;&amp;#39;string&amp;#39;&amp;#39; here the value &amp;#39;string&amp;#39; (with the quotes) com.key3&#x3D;gt&#x3D;42 here a search for a number entry will be performed, with a value greater than 42 ns|com.key4&#x3D;&#x3D;* here a search for an entry with the namespace &amp;#39;ns&amp;#39; and key &amp;#39;key4&amp;#39; and any value will be performed
      * @param "SortAsc" (optional.String) -  Field to use for ascending sort
      * @param "SortDesc" (optional.String) -  Field to use for descending sort
 
 @return DefinedEntities
 */
 
-type DefinedEntityApiGetDefinedEntitiesByEntityTypeNoVersionSpecifiedOpts struct { 
-	Filter optional.String
+type DefinedEntityApiGetDefinedEntitiesByEntityTypeNoVersionSpecifiedOpts struct {
+	Filter   optional.String
 	Metadata optional.String
-	SortAsc optional.String
+	SortAsc  optional.String
 	SortDesc optional.String
 }
 
@@ -692,7 +685,7 @@ func (a *DefinedEntityApiService) GetDefinedEntitiesByEntityTypeNoVersionSpecifi
 				key = auth.Key
 			}
 			localVarHeaderParams["Authorization"] = key
-			
+
 		}
 	}
 	r, err := a.client.prepareRequest(ctx, localVarPath, localVarHttpMethod, localVarPostBody, localVarHeaderParams, localVarQueryParams, localVarFormParams, localVarFileName, localVarFileBytes)
@@ -713,27 +706,27 @@ func (a *DefinedEntityApiService) GetDefinedEntitiesByEntityTypeNoVersionSpecifi
 
 	if localVarHttpResponse.StatusCode < 300 {
 		// If we succeed, return the data, otherwise pass on to decode error.
-		err = a.client.decode(&localVarReturnValue, localVarBody, localVarHttpResponse.Header.Get("Content-Type"));
+		err = a.client.decode(&localVarReturnValue, localVarBody, localVarHttpResponse.Header.Get("Content-Type"))
 		return localVarReturnValue, localVarHttpResponse, err
 	}
 
 	if localVarHttpResponse.StatusCode >= 300 {
 		newErr := GenericSwaggerError{
-			body: localVarBody,
+			body:  localVarBody,
 			error: localVarHttpResponse.Status,
 		}
-		
+
 		if localVarHttpResponse.StatusCode == 200 {
 			var v DefinedEntities
-			err = a.client.decode(&v, localVarBody, localVarHttpResponse.Header.Get("Content-Type"));
-				if err != nil {
-					newErr.error = err.Error()
-					return localVarReturnValue, localVarHttpResponse, newErr
-				}
-				newErr.model = v
+			err = a.client.decode(&v, localVarBody, localVarHttpResponse.Header.Get("Content-Type"))
+			if err != nil {
+				newErr.error = err.Error()
 				return localVarReturnValue, localVarHttpResponse, newErr
+			}
+			newErr.model = v
+			return localVarReturnValue, localVarHttpResponse, newErr
 		}
-		
+
 		return localVarReturnValue, localVarHttpResponse, newErr
 	}
 
@@ -742,7 +735,7 @@ func (a *DefinedEntityApiService) GetDefinedEntitiesByEntityTypeNoVersionSpecifi
 
 /*
 DefinedEntityApiService Gets the collection of defined entities for the vCD-defined interface with the specified vendor, nss and version
-Gets the collection of defined entities for the vCD-defined interface with the specified vendor, nss and version. The version can act as a wildcard. If only &#39;1&#39; is specified as the version, all entity types with a major version of &#39;1&#39; will be matched (e.g. 1.0.0, 1.1.2). If &#39;1.0&#39; is specified, all entity types with a major version of &#39;1&#39; and a minor version of &#39;0&#39; will be included (e.g. 1.0.0, 1.0.1). If the full semver is specified, then no search will be performed. Depending on the requested items per page, and the number of returned entities, one or more metadata summary cursor links will be returned in the headers. In order to retrieve the summaries of all the entities, clients need to fetch each separate cursor and merge the results. 
+Gets the collection of defined entities for the vCD-defined interface with the specified vendor, nss and version. The version can act as a wildcard. If only &#39;1&#39; is specified as the version, all entity types with a major version of &#39;1&#39; will be matched (e.g. 1.0.0, 1.1.2). If &#39;1.0&#39; is specified, all entity types with a major version of &#39;1&#39; and a minor version of &#39;0&#39; will be included (e.g. 1.0.0, 1.0.1). If the full semver is specified, then no search will be performed. Depending on the requested items per page, and the number of returned entities, one or more metadata summary cursor links will be returned in the headers. In order to retrieve the summaries of all the entities, clients need to fetch each separate cursor and merge the results.
  * @param ctx context.Context - for authentication, logging, cancellation, deadlines, tracing, etc. Passed from http.Request or context.Background().
  * @param vendor
  * @param nss
@@ -751,17 +744,17 @@ Gets the collection of defined entities for the vCD-defined interface with the s
  * @param pageSize Results per page to fetch.
  * @param optional nil or *DefinedEntityApiGetDefinedEntitiesByInterfaceOpts - Optional Parameters:
      * @param "Filter" (optional.String) -  Filter for a query.  FIQL format.
-     * @param "Metadata" (optional.String) -  Metadata filter for a query.  FIQL format. A single statement is of the form namespace|key operator value. The namespace is optional, has to be separated by &#39;|&#39; from the key and therefore this character is not supported as part of the namespace or key. The value is not optional, however one can omit a value search if &#39;*&#39; is specified. Note that API clients will need to encode these characters accordingly. The framework will try to infer the type of the value in the following order&amp;#58; * if it starts and ends with single unescaped quotes it is a string and the quotes are removed from the beginning and end of the string * else if it parses to a long it is a long * else if it is either &#39;true&#39; or &#39;false&#39;(case insensitive) it is a boolean * else an error id returned  Examples&amp;#58; namespace|com:vmware:key1&#x3D;&#x3D;&amp;#39;42&amp;#39; here the value 42 will be searched as a string entry com:vmware:key2&#x3D;&#x3D;&amp;#39;&amp;#39;string&amp;#39;&amp;#39; here the value &amp;#39;string&amp;#39; (with the quotes) com.key3&#x3D;gt&#x3D;42 here a search for a number entry will be performed, with a value greater than 42 ns|com.key4&#x3D;&#x3D;* here a search for an entry with the namespace &amp;#39;ns&amp;#39; and key &amp;#39;key4&amp;#39; and any value will be performed 
+     * @param "Metadata" (optional.String) -  Metadata filter for a query.  FIQL format. A single statement is of the form namespace|key operator value. The namespace is optional, has to be separated by &#39;|&#39; from the key and therefore this character is not supported as part of the namespace or key. The value is not optional, however one can omit a value search if &#39;*&#39; is specified. Note that API clients will need to encode these characters accordingly. The framework will try to infer the type of the value in the following order&amp;#58; * if it starts and ends with single unescaped quotes it is a string and the quotes are removed from the beginning and end of the string * else if it parses to a long it is a long * else if it is either &#39;true&#39; or &#39;false&#39;(case insensitive) it is a boolean * else an error id returned  Examples&amp;#58; namespace|com:vmware:key1&#x3D;&#x3D;&amp;#39;42&amp;#39; here the value 42 will be searched as a string entry com:vmware:key2&#x3D;&#x3D;&amp;#39;&amp;#39;string&amp;#39;&amp;#39; here the value &amp;#39;string&amp;#39; (with the quotes) com.key3&#x3D;gt&#x3D;42 here a search for a number entry will be performed, with a value greater than 42 ns|com.key4&#x3D;&#x3D;* here a search for an entry with the namespace &amp;#39;ns&amp;#39; and key &amp;#39;key4&amp;#39; and any value will be performed
      * @param "SortAsc" (optional.String) -  Field to use for ascending sort
      * @param "SortDesc" (optional.String) -  Field to use for descending sort
 
 @return DefinedEntities
 */
 
-type DefinedEntityApiGetDefinedEntitiesByInterfaceOpts struct { 
-	Filter optional.String
+type DefinedEntityApiGetDefinedEntitiesByInterfaceOpts struct {
+	Filter   optional.String
 	Metadata optional.String
-	SortAsc optional.String
+	SortAsc  optional.String
 	SortDesc optional.String
 }
 
@@ -843,7 +836,7 @@ func (a *DefinedEntityApiService) GetDefinedEntitiesByInterface(ctx context.Cont
 				key = auth.Key
 			}
 			localVarHeaderParams["Authorization"] = key
-			
+
 		}
 	}
 	if orgID != "" {
@@ -867,27 +860,27 @@ func (a *DefinedEntityApiService) GetDefinedEntitiesByInterface(ctx context.Cont
 
 	if localVarHttpResponse.StatusCode < 300 {
 		// If we succeed, return the data, otherwise pass on to decode error.
-		err = a.client.decode(&localVarReturnValue, localVarBody, localVarHttpResponse.Header.Get("Content-Type"));
+		err = a.client.decode(&localVarReturnValue, localVarBody, localVarHttpResponse.Header.Get("Content-Type"))
 		return localVarReturnValue, localVarHttpResponse, err
 	}
 
 	if localVarHttpResponse.StatusCode >= 300 {
 		newErr := GenericSwaggerError{
-			body: localVarBody,
+			body:  localVarBody,
 			error: localVarHttpResponse.Status,
 		}
-		
+
 		if localVarHttpResponse.StatusCode == 200 {
 			var v DefinedEntities
-			err = a.client.decode(&v, localVarBody, localVarHttpResponse.Header.Get("Content-Type"));
-				if err != nil {
-					newErr.error = err.Error()
-					return localVarReturnValue, localVarHttpResponse, newErr
-				}
-				newErr.model = v
+			err = a.client.decode(&v, localVarBody, localVarHttpResponse.Header.Get("Content-Type"))
+			if err != nil {
+				newErr.error = err.Error()
 				return localVarReturnValue, localVarHttpResponse, newErr
+			}
+			newErr.model = v
+			return localVarReturnValue, localVarHttpResponse, newErr
 		}
-		
+
 		return localVarReturnValue, localVarHttpResponse, newErr
 	}
 
@@ -900,12 +893,12 @@ Gets the defined entity with the unique identifier (URN)
  * @param ctx context.Context - for authentication, logging, cancellation, deadlines, tracing, etc. Passed from http.Request or context.Background().
  * @param id
  * @param optional nil or *DefinedEntityApiGetDefinedEntityOpts - Optional Parameters:
-     * @param "EntityVersion" (optional.Interface of interface{}) -  Requests that the entity is returned in the specified version of its type. The classification of the requested type must be the same as the current entity type, only the version may differ. The returned entity contents will be converted to the requested type version according to the &#39;required&#39;, &#39;additionalProperties&#39;, and &#39;default&#39; properties of the type versions schema. If the entity is RESOLVED, then the converted entity will be re-validated against the requested type version and an error may be returned if the validation fails. The conversion only affects the returned contents. The entity itself is not modified. To modify the version of the entity permanently, one must update it with a spec of a newer version or perform an upgrade/mass upgrade request. 
+     * @param "EntityVersion" (optional.Interface of interface{}) -  Requests that the entity is returned in the specified version of its type. The classification of the requested type must be the same as the current entity type, only the version may differ. The returned entity contents will be converted to the requested type version according to the &#39;required&#39;, &#39;additionalProperties&#39;, and &#39;default&#39; properties of the type versions schema. If the entity is RESOLVED, then the converted entity will be re-validated against the requested type version and an error may be returned if the validation fails. The conversion only affects the returned contents. The entity itself is not modified. To modify the version of the entity permanently, one must update it with a spec of a newer version or perform an upgrade/mass upgrade request.
 
 @return DefinedEntity
 */
 
-type DefinedEntityApiGetDefinedEntityOpts struct { 
+type DefinedEntityApiGetDefinedEntityOpts struct {
 	EntityVersion optional.Interface
 }
 
@@ -956,7 +949,7 @@ func (a *DefinedEntityApiService) GetDefinedEntity(ctx context.Context, id strin
 				key = auth.Key
 			}
 			localVarHeaderParams["Authorization"] = key
-			
+
 		}
 	}
 	if orgID != "" {
@@ -980,28 +973,28 @@ func (a *DefinedEntityApiService) GetDefinedEntity(ctx context.Context, id strin
 
 	if localVarHttpResponse.StatusCode < 300 {
 		// If we succeed, return the data, otherwise pass on to decode error.
-		err = a.client.decode(&localVarReturnValue, localVarBody, localVarHttpResponse.Header.Get("Content-Type"));
+		err = a.client.decode(&localVarReturnValue, localVarBody, localVarHttpResponse.Header.Get("Content-Type"))
 		etag := localVarHttpResponse.Header.Get("Etag")
 		return localVarReturnValue, localVarHttpResponse, etag, err
 	}
 
 	if localVarHttpResponse.StatusCode >= 300 {
 		newErr := GenericSwaggerError{
-			body: localVarBody,
+			body:  localVarBody,
 			error: localVarHttpResponse.Status,
 		}
-		
+
 		if localVarHttpResponse.StatusCode == 200 {
 			var v DefinedEntity
-			err = a.client.decode(&v, localVarBody, localVarHttpResponse.Header.Get("Content-Type"));
-				if err != nil {
-					newErr.error = err.Error()
-					return localVarReturnValue, localVarHttpResponse, "", newErr
-				}
-				newErr.model = v
+			err = a.client.decode(&v, localVarBody, localVarHttpResponse.Header.Get("Content-Type"))
+			if err != nil {
+				newErr.error = err.Error()
 				return localVarReturnValue, localVarHttpResponse, "", newErr
+			}
+			newErr.model = v
+			return localVarReturnValue, localVarHttpResponse, "", newErr
 		}
-		
+
 		return localVarReturnValue, localVarHttpResponse, "", newErr
 	}
 
@@ -1010,7 +1003,7 @@ func (a *DefinedEntityApiService) GetDefinedEntity(ctx context.Context, id strin
 
 /*
 DefinedEntityApiService Retrieves all the metadata for the entity.
-Retrieves all the metadata for the entity. User can view the entries if user can view the entity. 
+Retrieves all the metadata for the entity. User can view the entries if user can view the entity.
  * @param ctx context.Context - for authentication, logging, cancellation, deadlines, tracing, etc. Passed from http.Request or context.Background().
  * @param page Page to fetch, zero offset.
  * @param pageSize Results per page to fetch.
@@ -1023,9 +1016,9 @@ Retrieves all the metadata for the entity. User can view the entries if user can
 @return MetadataEntries
 */
 
-type DefinedEntityApiGetMetadataOpts struct { 
-	Filter optional.String
-	SortAsc optional.String
+type DefinedEntityApiGetMetadataOpts struct {
+	Filter   optional.String
+	SortAsc  optional.String
 	SortDesc optional.String
 }
 
@@ -1093,7 +1086,7 @@ func (a *DefinedEntityApiService) GetMetadata(ctx context.Context, page int32, p
 				key = auth.Key
 			}
 			localVarHeaderParams["Authorization"] = key
-			
+
 		}
 	}
 	r, err := a.client.prepareRequest(ctx, localVarPath, localVarHttpMethod, localVarPostBody, localVarHeaderParams, localVarQueryParams, localVarFormParams, localVarFileName, localVarFileBytes)
@@ -1114,27 +1107,27 @@ func (a *DefinedEntityApiService) GetMetadata(ctx context.Context, page int32, p
 
 	if localVarHttpResponse.StatusCode < 300 {
 		// If we succeed, return the data, otherwise pass on to decode error.
-		err = a.client.decode(&localVarReturnValue, localVarBody, localVarHttpResponse.Header.Get("Content-Type"));
+		err = a.client.decode(&localVarReturnValue, localVarBody, localVarHttpResponse.Header.Get("Content-Type"))
 		return localVarReturnValue, localVarHttpResponse, err
 	}
 
 	if localVarHttpResponse.StatusCode >= 300 {
 		newErr := GenericSwaggerError{
-			body: localVarBody,
+			body:  localVarBody,
 			error: localVarHttpResponse.Status,
 		}
-		
+
 		if localVarHttpResponse.StatusCode == 200 {
 			var v MetadataEntries
-			err = a.client.decode(&v, localVarBody, localVarHttpResponse.Header.Get("Content-Type"));
-				if err != nil {
-					newErr.error = err.Error()
-					return localVarReturnValue, localVarHttpResponse, newErr
-				}
-				newErr.model = v
+			err = a.client.decode(&v, localVarBody, localVarHttpResponse.Header.Get("Content-Type"))
+			if err != nil {
+				newErr.error = err.Error()
 				return localVarReturnValue, localVarHttpResponse, newErr
+			}
+			newErr.model = v
+			return localVarReturnValue, localVarHttpResponse, newErr
 		}
-		
+
 		return localVarReturnValue, localVarHttpResponse, newErr
 	}
 
@@ -1143,9 +1136,9 @@ func (a *DefinedEntityApiService) GetMetadata(ctx context.Context, page int32, p
 
 /*
 DefinedEntityApiService Get a single metadata entry.
- * @param ctx context.Context - for authentication, logging, cancellation, deadlines, tracing, etc. Passed from http.Request or context.Background().
- * @param id the URN of the entity the entry is attached to.
- * @param metadataId a metadata vcloud id urn
+  - @param ctx context.Context - for authentication, logging, cancellation, deadlines, tracing, etc. Passed from http.Request or context.Background().
+  - @param id the URN of the entity the entry is attached to.
+  - @param metadataId a metadata vcloud id urn
 
 @return MetadataEntry
 */
@@ -1194,7 +1187,7 @@ func (a *DefinedEntityApiService) GetMetadataEntry(ctx context.Context, id strin
 				key = auth.Key
 			}
 			localVarHeaderParams["Authorization"] = key
-			
+
 		}
 	}
 	r, err := a.client.prepareRequest(ctx, localVarPath, localVarHttpMethod, localVarPostBody, localVarHeaderParams, localVarQueryParams, localVarFormParams, localVarFileName, localVarFileBytes)
@@ -1215,27 +1208,27 @@ func (a *DefinedEntityApiService) GetMetadataEntry(ctx context.Context, id strin
 
 	if localVarHttpResponse.StatusCode < 300 {
 		// If we succeed, return the data, otherwise pass on to decode error.
-		err = a.client.decode(&localVarReturnValue, localVarBody, localVarHttpResponse.Header.Get("Content-Type"));
+		err = a.client.decode(&localVarReturnValue, localVarBody, localVarHttpResponse.Header.Get("Content-Type"))
 		return localVarReturnValue, localVarHttpResponse, err
 	}
 
 	if localVarHttpResponse.StatusCode >= 300 {
 		newErr := GenericSwaggerError{
-			body: localVarBody,
+			body:  localVarBody,
 			error: localVarHttpResponse.Status,
 		}
-		
+
 		if localVarHttpResponse.StatusCode == 200 {
 			var v MetadataEntry
-			err = a.client.decode(&v, localVarBody, localVarHttpResponse.Header.Get("Content-Type"));
-				if err != nil {
-					newErr.error = err.Error()
-					return localVarReturnValue, localVarHttpResponse, newErr
-				}
-				newErr.model = v
+			err = a.client.decode(&v, localVarBody, localVarHttpResponse.Header.Get("Content-Type"))
+			if err != nil {
+				newErr.error = err.Error()
 				return localVarReturnValue, localVarHttpResponse, newErr
+			}
+			newErr.model = v
+			return localVarReturnValue, localVarHttpResponse, newErr
 		}
-		
+
 		return localVarReturnValue, localVarHttpResponse, newErr
 	}
 
@@ -1244,18 +1237,18 @@ func (a *DefinedEntityApiService) GetMetadataEntry(ctx context.Context, id strin
 
 /*
 DefinedEntityApiService Download the binary content of a file entry
- * @param ctx context.Context - for authentication, logging, cancellation, deadlines, tracing, etc. Passed from http.Request or context.Background().
- * @param id the URN of the entity the entry is attached to.
- * @param metadataId a metadata vcloud id urn
+  - @param ctx context.Context - for authentication, logging, cancellation, deadlines, tracing, etc. Passed from http.Request or context.Background().
+  - @param id the URN of the entity the entry is attached to.
+  - @param metadataId a metadata vcloud id urn
 
 @return string
 */
 func (a *DefinedEntityApiService) GetMetadataFileContent(ctx context.Context, id string, metadataId string) (string, *http.Response, error) {
 	var (
-		localVarHttpMethod = strings.ToUpper("Get")
-		localVarPostBody   interface{}
-		localVarFileName   string
-		localVarFileBytes  []byte
+		localVarHttpMethod  = strings.ToUpper("Get")
+		localVarPostBody    interface{}
+		localVarFileName    string
+		localVarFileBytes   []byte
 		localVarReturnValue string
 	)
 
@@ -1295,7 +1288,7 @@ func (a *DefinedEntityApiService) GetMetadataFileContent(ctx context.Context, id
 				key = auth.Key
 			}
 			localVarHeaderParams["Authorization"] = key
-			
+
 		}
 	}
 	r, err := a.client.prepareRequest(ctx, localVarPath, localVarHttpMethod, localVarPostBody, localVarHeaderParams, localVarQueryParams, localVarFormParams, localVarFileName, localVarFileBytes)
@@ -1316,27 +1309,27 @@ func (a *DefinedEntityApiService) GetMetadataFileContent(ctx context.Context, id
 
 	if localVarHttpResponse.StatusCode < 300 {
 		// If we succeed, return the data, otherwise pass on to decode error.
-		err = a.client.decode(&localVarReturnValue, localVarBody, localVarHttpResponse.Header.Get("Content-Type"));
+		err = a.client.decode(&localVarReturnValue, localVarBody, localVarHttpResponse.Header.Get("Content-Type"))
 		return localVarReturnValue, localVarHttpResponse, err
 	}
 
 	if localVarHttpResponse.StatusCode >= 300 {
 		newErr := GenericSwaggerError{
-			body: localVarBody,
+			body:  localVarBody,
 			error: localVarHttpResponse.Status,
 		}
-		
+
 		if localVarHttpResponse.StatusCode == 200 {
 			var v string
-			err = a.client.decode(&v, localVarBody, localVarHttpResponse.Header.Get("Content-Type"));
-				if err != nil {
-					newErr.error = err.Error()
-					return localVarReturnValue, localVarHttpResponse, newErr
-				}
-				newErr.model = v
+			err = a.client.decode(&v, localVarBody, localVarHttpResponse.Header.Get("Content-Type"))
+			if err != nil {
+				newErr.error = err.Error()
 				return localVarReturnValue, localVarHttpResponse, newErr
+			}
+			newErr.model = v
+			return localVarReturnValue, localVarHttpResponse, newErr
 		}
-		
+
 		return localVarReturnValue, localVarHttpResponse, newErr
 	}
 
@@ -1345,9 +1338,9 @@ func (a *DefinedEntityApiService) GetMetadataFileContent(ctx context.Context, id
 
 /*
 DefinedEntityApiService Validates the defined entity against the entity type schema.
-Validates the defined entity against the entity type schema. If the validation is successful, the entity will transition to a \&quot;RESOLVED\&quot; state. Otherwise, it will transition to an \&quot;ERROR\&quot; state. 
- * @param ctx context.Context - for authentication, logging, cancellation, deadlines, tracing, etc. Passed from http.Request or context.Background().
- * @param id
+Validates the defined entity against the entity type schema. If the validation is successful, the entity will transition to a \&quot;RESOLVED\&quot; state. Otherwise, it will transition to an \&quot;ERROR\&quot; state.
+  - @param ctx context.Context - for authentication, logging, cancellation, deadlines, tracing, etc. Passed from http.Request or context.Background().
+  - @param id
 
 @return EntityState
 */
@@ -1395,7 +1388,7 @@ func (a *DefinedEntityApiService) ResolveDefinedEntity(ctx context.Context, id s
 				key = auth.Key
 			}
 			localVarHeaderParams["Authorization"] = key
-			
+
 		}
 	}
 	if orgID != "" {
@@ -1419,27 +1412,27 @@ func (a *DefinedEntityApiService) ResolveDefinedEntity(ctx context.Context, id s
 
 	if localVarHttpResponse.StatusCode < 300 {
 		// If we succeed, return the data, otherwise pass on to decode error.
-		err = a.client.decode(&localVarReturnValue, localVarBody, localVarHttpResponse.Header.Get("Content-Type"));
+		err = a.client.decode(&localVarReturnValue, localVarBody, localVarHttpResponse.Header.Get("Content-Type"))
 		return localVarReturnValue, localVarHttpResponse, err
 	}
 
 	if localVarHttpResponse.StatusCode >= 300 {
 		newErr := GenericSwaggerError{
-			body: localVarBody,
+			body:  localVarBody,
 			error: localVarHttpResponse.Status,
 		}
-		
+
 		if localVarHttpResponse.StatusCode == 200 {
 			var v EntityState
-			err = a.client.decode(&v, localVarBody, localVarHttpResponse.Header.Get("Content-Type"));
-				if err != nil {
-					newErr.error = err.Error()
-					return localVarReturnValue, localVarHttpResponse, newErr
-				}
-				newErr.model = v
+			err = a.client.decode(&v, localVarBody, localVarHttpResponse.Header.Get("Content-Type"))
+			if err != nil {
+				newErr.error = err.Error()
 				return localVarReturnValue, localVarHttpResponse, newErr
+			}
+			newErr.model = v
+			return localVarReturnValue, localVarHttpResponse, newErr
 		}
-		
+
 		return localVarReturnValue, localVarHttpResponse, newErr
 	}
 
@@ -1453,12 +1446,12 @@ Update the defined entity with the unique identifier (URN)
  * @param entity
  * @param id
  * @param optional nil or *DefinedEntityApiUpdateDefinedEntityOpts - Optional Parameters:
-     * @param "InvokeHooks" (optional.Interface of interface{}) -  Only users with Admin FullControl access to the Entity Type can pass this parameter. The default value is &#39;true&#39;. 
+     * @param "InvokeHooks" (optional.Interface of interface{}) -  Only users with Admin FullControl access to the Entity Type can pass this parameter. The default value is &#39;true&#39;.
 
 @return DefinedEntity
 */
 
-type DefinedEntityApiUpdateDefinedEntityOpts struct { 
+type DefinedEntityApiUpdateDefinedEntityOpts struct {
 	InvokeHooks optional.Interface
 }
 
@@ -1515,62 +1508,81 @@ func (a *DefinedEntityApiService) UpdateDefinedEntity(ctx context.Context, entit
 				key = auth.Key
 			}
 			localVarHeaderParams["Authorization"] = key
-			
+
 		}
 	}
 	if orgID != "" {
 		localVarHeaderParams[TenantContextHeader] = orgID
 	}
+
+	klog.V(5).Infof("localVarPath:[%s]", localVarPath)
+	klog.V(5).Infof("localVarHeaderParams:[%v]", localVarHeaderParams)
+	klog.V(5).Infof("localVarQueryParams:[%v]", localVarQueryParams)
+	klog.V(5).Infof("localVarPostBody:[%v]", entity)
+
 	r, err := a.client.prepareRequest(ctx, localVarPath, localVarHttpMethod, localVarPostBody, localVarHeaderParams, localVarQueryParams, localVarFormParams, localVarFileName, localVarFileBytes)
 	if err != nil {
+		klog.V(5).Infof("Error preparing request [%v]", err)
 		return localVarReturnValue, nil, err
 	}
 
 	localVarHttpResponse, err := a.client.callAPI(r)
 	if err != nil || localVarHttpResponse == nil {
+		if err != nil {
+			klog.V(5).Infof("Error executing request [%v]", err)
+		} else {
+			klog.V(5).Info("Nil HTTP response received")
+		}
 		return localVarReturnValue, localVarHttpResponse, err
 	}
 
 	localVarBody, err := ioutil.ReadAll(localVarHttpResponse.Body)
 	localVarHttpResponse.Body.Close()
 	if err != nil {
+		klog.V(5).Infof("Error reading response body [%v]", err)
 		return localVarReturnValue, localVarHttpResponse, err
 	}
 
+	if localVarHttpResponse != nil {
+		klog.V(5).Infof("localVarHttpResponse status code:[%v]", localVarHttpResponse.StatusCode)
+		klog.V(5).Infof("localVarHttpResponse header:[%v]", localVarHttpResponse.Header)
+	}
+	klog.V(5).Infof("localVarBody :[%v]", localVarBody)
+
 	if localVarHttpResponse.StatusCode < 300 {
 		// If we succeed, return the data, otherwise pass on to decode error.
-		err = a.client.decode(&localVarReturnValue, localVarBody, localVarHttpResponse.Header.Get("Content-Type"));
+		err = a.client.decode(&localVarReturnValue, localVarBody, localVarHttpResponse.Header.Get("Content-Type"))
 		return localVarReturnValue, localVarHttpResponse, err
 	}
 
 	if localVarHttpResponse.StatusCode >= 300 {
 		newErr := GenericSwaggerError{
-			body: localVarBody,
+			body:  localVarBody,
 			error: localVarHttpResponse.Status,
 		}
-		
+
 		if localVarHttpResponse.StatusCode == 200 {
 			var v DefinedEntity
-			err = a.client.decode(&v, localVarBody, localVarHttpResponse.Header.Get("Content-Type"));
-				if err != nil {
-					newErr.error = err.Error()
-					return localVarReturnValue, localVarHttpResponse, newErr
-				}
-				newErr.model = v
+			err = a.client.decode(&v, localVarBody, localVarHttpResponse.Header.Get("Content-Type"))
+			if err != nil {
+				newErr.error = err.Error()
 				return localVarReturnValue, localVarHttpResponse, newErr
+			}
+			newErr.model = v
+			return localVarReturnValue, localVarHttpResponse, newErr
 		}
-		
+
 		if localVarHttpResponse.StatusCode == 400 {
 			var v ModelError
-			err = a.client.decode(&v, localVarBody, localVarHttpResponse.Header.Get("Content-Type"));
-				if err != nil {
-					newErr.error = err.Error()
-					return localVarReturnValue, localVarHttpResponse, newErr
-				}
-				newErr.model = v
+			err = a.client.decode(&v, localVarBody, localVarHttpResponse.Header.Get("Content-Type"))
+			if err != nil {
+				newErr.error = err.Error()
 				return localVarReturnValue, localVarHttpResponse, newErr
+			}
+			newErr.model = v
+			return localVarReturnValue, localVarHttpResponse, newErr
 		}
-		
+
 		return localVarReturnValue, localVarHttpResponse, newErr
 	}
 
@@ -1579,10 +1591,10 @@ func (a *DefinedEntityApiService) UpdateDefinedEntity(ctx context.Context, entit
 
 /*
 DefinedEntityApiService Update the value of a single key-value metadata entry.
- * @param ctx context.Context - for authentication, logging, cancellation, deadlines, tracing, etc. Passed from http.Request or context.Background().
- * @param entry
- * @param id the URN of the entity the entry is attached to.
- * @param metadataId a metadata vcloud id urn
+  - @param ctx context.Context - for authentication, logging, cancellation, deadlines, tracing, etc. Passed from http.Request or context.Background().
+  - @param entry
+  - @param id the URN of the entity the entry is attached to.
+  - @param metadataId a metadata vcloud id urn
 
 @return MetadataEntry
 */
@@ -1633,7 +1645,7 @@ func (a *DefinedEntityApiService) UpdateMetadataEntry(ctx context.Context, entry
 				key = auth.Key
 			}
 			localVarHeaderParams["Authorization"] = key
-			
+
 		}
 	}
 	r, err := a.client.prepareRequest(ctx, localVarPath, localVarHttpMethod, localVarPostBody, localVarHeaderParams, localVarQueryParams, localVarFormParams, localVarFileName, localVarFileBytes)
@@ -1654,30 +1666,29 @@ func (a *DefinedEntityApiService) UpdateMetadataEntry(ctx context.Context, entry
 
 	if localVarHttpResponse.StatusCode < 300 {
 		// If we succeed, return the data, otherwise pass on to decode error.
-		err = a.client.decode(&localVarReturnValue, localVarBody, localVarHttpResponse.Header.Get("Content-Type"));
+		err = a.client.decode(&localVarReturnValue, localVarBody, localVarHttpResponse.Header.Get("Content-Type"))
 		return localVarReturnValue, localVarHttpResponse, err
 	}
 
 	if localVarHttpResponse.StatusCode >= 300 {
 		newErr := GenericSwaggerError{
-			body: localVarBody,
+			body:  localVarBody,
 			error: localVarHttpResponse.Status,
 		}
-		
+
 		if localVarHttpResponse.StatusCode == 200 {
 			var v MetadataEntry
-			err = a.client.decode(&v, localVarBody, localVarHttpResponse.Header.Get("Content-Type"));
-				if err != nil {
-					newErr.error = err.Error()
-					return localVarReturnValue, localVarHttpResponse, newErr
-				}
-				newErr.model = v
+			err = a.client.decode(&v, localVarBody, localVarHttpResponse.Header.Get("Content-Type"))
+			if err != nil {
+				newErr.error = err.Error()
 				return localVarReturnValue, localVarHttpResponse, newErr
+			}
+			newErr.model = v
+			return localVarReturnValue, localVarHttpResponse, newErr
 		}
-		
+
 		return localVarReturnValue, localVarHttpResponse, newErr
 	}
 
 	return localVarReturnValue, localVarHttpResponse, nil
 }
-
