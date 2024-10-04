@@ -152,8 +152,8 @@ type MachineDeploymentSpec struct {
 // MachineDeploymentStrategy describes how to replace existing machines
 // with new ones.
 type MachineDeploymentStrategy struct {
-	// Type of deployment.
-	// Default is RollingUpdate.
+	// Type of deployment. Allowed values are RollingUpdate and OnDelete.
+	// The default is RollingUpdate.
 	// +kubebuilder:validation:Enum=RollingUpdate;OnDelete
 	// +optional
 	Type MachineDeploymentStrategyType `json:"type,omitempty"`
@@ -162,6 +162,11 @@ type MachineDeploymentStrategy struct {
 	// MachineDeploymentStrategyType = RollingUpdate.
 	// +optional
 	RollingUpdate *MachineRollingUpdateDeployment `json:"rollingUpdate,omitempty"`
+
+	// Remediation controls the strategy of remediating unhealthy machines
+	// and how remediating operations should occur during the lifecycle of the dependant MachineSets.
+	// +optional
+	Remediation *RemediationStrategy `json:"remediation,omitempty"`
 }
 
 // ANCHOR_END: MachineDeploymentStrategy
@@ -210,6 +215,31 @@ type MachineRollingUpdateDeployment struct {
 }
 
 // ANCHOR_END: MachineRollingUpdateDeployment
+
+// ANCHOR: RemediationStrategy
+
+// RemediationStrategy allows to define how the MachineSet can control scaling operations.
+type RemediationStrategy struct {
+	// MaxInFlight determines how many in flight remediations should happen at the same time.
+	//
+	// Remediation only happens on the MachineSet with the most current revision, while
+	// older MachineSets (usually present during rollout operations) aren't allowed to remediate.
+	//
+	// Note: In general (independent of remediations), unhealthy machines are always
+	// prioritized during scale down operations over healthy ones.
+	//
+	// MaxInFlight can be set to a fixed number or a percentage.
+	// Example: when this is set to 20%, the MachineSet controller deletes at most 20% of
+	// the desired replicas.
+	//
+	// If not set, remediation is limited to all machines (bounded by replicas)
+	// under the active MachineSet's management.
+	//
+	// +optional
+	MaxInFlight *intstr.IntOrString `json:"maxInFlight,omitempty"`
+}
+
+// ANCHOR_END: RemediationStrategy
 
 // ANCHOR: MachineDeploymentStatus
 
@@ -337,7 +367,7 @@ type MachineDeploymentList struct {
 }
 
 func init() {
-	SchemeBuilder.Register(&MachineDeployment{}, &MachineDeploymentList{})
+	objectTypes = append(objectTypes, &MachineDeployment{}, &MachineDeploymentList{})
 }
 
 // GetConditions returns the set of conditions for the machinedeployment.

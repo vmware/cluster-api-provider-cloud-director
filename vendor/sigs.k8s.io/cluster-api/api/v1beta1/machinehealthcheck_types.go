@@ -17,9 +17,19 @@ limitations under the License.
 package v1beta1
 
 import (
+	"time"
+
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+)
+
+var (
+	// DefaultNodeStartupTimeout is the time allowed for a node to start up.
+	// Can be made longer as part of spec if required for particular provider.
+	// 10 minutes should allow the instance to start and the node to join the
+	// cluster on most providers.
+	DefaultNodeStartupTimeout = metav1.Duration{Duration: 10 * time.Minute}
 )
 
 // ANCHOR: MachineHealthCheckSpec
@@ -54,9 +64,17 @@ type MachineHealthCheckSpec struct {
 	// +kubebuilder:validation:Pattern=^\[[0-9]+-[0-9]+\]$
 	UnhealthyRange *string `json:"unhealthyRange,omitempty"`
 
-	// Machines older than this duration without a node will be considered to have
-	// failed and will be remediated.
-	// If not set, this value is defaulted to 10 minutes.
+	// NodeStartupTimeout allows to set the maximum time for MachineHealthCheck
+	// to consider a Machine unhealthy if a corresponding Node isn't associated
+	// through a `Spec.ProviderID` field.
+	//
+	// The duration set in this field is compared to the greatest of:
+	// - Cluster's infrastructure ready condition timestamp (if and when available)
+	// - Control Plane's initialized condition timestamp (if and when available)
+	// - Machine's infrastructure ready condition timestamp (if and when available)
+	// - Machine's metadata creation timestamp
+	//
+	// Defaults to 10 minutes.
 	// If you wish to disable this feature, set the value explicitly to 0.
 	// +optional
 	NodeStartupTimeout *metav1.Duration `json:"nodeStartupTimeout,omitempty"`
@@ -169,5 +187,5 @@ type MachineHealthCheckList struct {
 }
 
 func init() {
-	SchemeBuilder.Register(&MachineHealthCheck{}, &MachineHealthCheckList{})
+	objectTypes = append(objectTypes, &MachineHealthCheck{}, &MachineHealthCheckList{})
 }

@@ -13,12 +13,13 @@ import (
 	"fmt"
 	"math"
 	"reflect"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"sigs.k8s.io/yaml"
 	"strconv"
 	"strings"
 	"text/template"
 	"time"
+
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"sigs.k8s.io/yaml"
 
 	"github.com/Masterminds/sprig/v3"
 	"github.com/go-logr/logr"
@@ -26,9 +27,6 @@ import (
 	"github.com/pkg/errors"
 	cpiutil "github.com/vmware/cloud-provider-for-cloud-director/pkg/util"
 	"github.com/vmware/cloud-provider-for-cloud-director/pkg/vcdsdk"
-	infrav1 "github.com/vmware/cluster-api-provider-cloud-director/api/v1beta2"
-	"github.com/vmware/cluster-api-provider-cloud-director/pkg/capisdk"
-	"github.com/vmware/cluster-api-provider-cloud-director/release"
 	"github.com/vmware/go-vcloud-director/v2/govcd"
 	"github.com/vmware/go-vcloud-director/v2/types/v56"
 	corev1 "k8s.io/api/core/v1"
@@ -46,6 +44,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/source"
+
+	infrav1 "github.com/vmware/cluster-api-provider-cloud-director/api/v1beta2"
+	"github.com/vmware/cluster-api-provider-cloud-director/pkg/capisdk"
+	"github.com/vmware/cluster-api-provider-cloud-director/release"
 )
 
 type CloudInitScriptInput struct {
@@ -59,7 +61,7 @@ type CloudInitScriptInput struct {
 	ResizedControlPlane bool   // resized node type: worker | control_plane
 	VcdHostFormatted    string // vcd host
 	TKGVersion          string // tkgVersion
-	ClusterID           string //cluster id
+	ClusterID           string // cluster id
 }
 
 const (
@@ -1372,8 +1374,8 @@ func (r *VCDMachineReconciler) reconcileDelete(ctx context.Context, cluster *clu
 // SetupWithManager sets up the controller with the Manager.
 func (r *VCDMachineReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager,
 	options controller.Options) error {
-	clusterToVCDMachines, err := util.ClusterToObjectsMapper(mgr.GetClient(),
-		&infrav1.VCDMachineList{}, mgr.GetScheme())
+	clusterToVCDMachines, err := util.ClusterToTypedObjectsMapper(mgr.GetClient(), &infrav1.VCDMachineList{},
+		mgr.GetScheme())
 	if err != nil {
 		return err
 	}

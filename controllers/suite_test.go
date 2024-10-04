@@ -18,7 +18,8 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	infrastructurev1alpha4 "github.com/vmware/cluster-api-provider-cloud-director/api/v1alpha4"
+	infrastructurev1beta1 "github.com/vmware/cluster-api-provider-cloud-director/api/v1beta1"
+	infrastructurev1beta2 "github.com/vmware/cluster-api-provider-cloud-director/api/v1beta2"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -52,10 +53,10 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 	Expect(cfg).NotTo(BeNil())
 
-	err = infrastructurev1alpha4.AddToScheme(scheme.Scheme)
+	err = infrastructurev1beta1.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
 
-	err = infrastructurev1alpha4.AddToScheme(scheme.Scheme)
+	err = infrastructurev1beta2.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
 
 	//+kubebuilder:scaffold:scheme

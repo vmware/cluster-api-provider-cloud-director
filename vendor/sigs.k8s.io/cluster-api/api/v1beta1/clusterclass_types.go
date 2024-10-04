@@ -150,6 +150,11 @@ type WorkersClass struct {
 	// a set of worker nodes.
 	// +optional
 	MachineDeployments []MachineDeploymentClass `json:"machineDeployments,omitempty"`
+
+	// MachinePools is a list of machine pool classes that can be used to create
+	// a set of worker nodes.
+	// +optional
+	MachinePools []MachinePoolClass `json:"machinePools,omitempty"`
 }
 
 // MachineDeploymentClass serves as a template to define a set of worker nodes of the cluster
@@ -263,8 +268,17 @@ type MachineHealthCheckClass struct {
 	// +kubebuilder:validation:Pattern=^\[[0-9]+-[0-9]+\]$
 	UnhealthyRange *string `json:"unhealthyRange,omitempty"`
 
-	// Machines older than this duration without a node will be considered to have
-	// failed and will be remediated.
+	// NodeStartupTimeout allows to set the maximum time for MachineHealthCheck
+	// to consider a Machine unhealthy if a corresponding Node isn't associated
+	// through a `Spec.ProviderID` field.
+	//
+	// The duration set in this field is compared to the greatest of:
+	// - Cluster's infrastructure ready condition timestamp (if and when available)
+	// - Control Plane's initialized condition timestamp (if and when available)
+	// - Machine's infrastructure ready condition timestamp (if and when available)
+	// - Machine's metadata creation timestamp
+	//
+	// Defaults to 10 minutes.
 	// If you wish to disable this feature, set the value explicitly to 0.
 	// +optional
 	NodeStartupTimeout *metav1.Duration `json:"nodeStartupTimeout,omitempty"`
@@ -277,6 +291,87 @@ type MachineHealthCheckClass struct {
 	// a controller that lives outside of Cluster API.
 	// +optional
 	RemediationTemplate *corev1.ObjectReference `json:"remediationTemplate,omitempty"`
+}
+
+// MachinePoolClass serves as a template to define a pool of worker nodes of the cluster
+// provisioned using `ClusterClass`.
+type MachinePoolClass struct {
+	// Class denotes a type of machine pool present in the cluster,
+	// this name MUST be unique within a ClusterClass and can be referenced
+	// in the Cluster to create a managed MachinePool.
+	Class string `json:"class"`
+
+	// Template is a local struct containing a collection of templates for creation of
+	// MachinePools objects representing a pool of worker nodes.
+	Template MachinePoolClassTemplate `json:"template"`
+
+	// FailureDomains is the list of failure domains the MachinePool should be attached to.
+	// Must match a key in the FailureDomains map stored on the cluster object.
+	// NOTE: This value can be overridden while defining a Cluster.Topology using this MachinePoolClass.
+	// +optional
+	FailureDomains []string `json:"failureDomains,omitempty"`
+
+	// NamingStrategy allows changing the naming pattern used when creating the MachinePool.
+	// +optional
+	NamingStrategy *MachinePoolClassNamingStrategy `json:"namingStrategy,omitempty"`
+
+	// NodeDrainTimeout is the total amount of time that the controller will spend on draining a node.
+	// The default value is 0, meaning that the node can be drained without any time limitations.
+	// NOTE: NodeDrainTimeout is different from `kubectl drain --timeout`
+	// NOTE: This value can be overridden while defining a Cluster.Topology using this MachinePoolClass.
+	// +optional
+	NodeDrainTimeout *metav1.Duration `json:"nodeDrainTimeout,omitempty"`
+
+	// NodeVolumeDetachTimeout is the total amount of time that the controller will spend on waiting for all volumes
+	// to be detached. The default value is 0, meaning that the volumes can be detached without any time limitations.
+	// NOTE: This value can be overridden while defining a Cluster.Topology using this MachinePoolClass.
+	// +optional
+	NodeVolumeDetachTimeout *metav1.Duration `json:"nodeVolumeDetachTimeout,omitempty"`
+
+	// NodeDeletionTimeout defines how long the controller will attempt to delete the Node that the Machine
+	// hosts after the Machine Pool is marked for deletion. A duration of 0 will retry deletion indefinitely.
+	// Defaults to 10 seconds.
+	// NOTE: This value can be overridden while defining a Cluster.Topology using this MachinePoolClass.
+	// +optional
+	NodeDeletionTimeout *metav1.Duration `json:"nodeDeletionTimeout,omitempty"`
+
+	// Minimum number of seconds for which a newly created machine pool should
+	// be ready.
+	// Defaults to 0 (machine will be considered available as soon as it
+	// is ready)
+	// NOTE: This value can be overridden while defining a Cluster.Topology using this MachinePoolClass.
+	MinReadySeconds *int32 `json:"minReadySeconds,omitempty"`
+}
+
+// MachinePoolClassTemplate defines how a MachinePool generated from a MachinePoolClass
+// should look like.
+type MachinePoolClassTemplate struct {
+	// Metadata is the metadata applied to the MachinePool.
+	// At runtime this metadata is merged with the corresponding metadata from the topology.
+	// +optional
+	Metadata ObjectMeta `json:"metadata,omitempty"`
+
+	// Bootstrap contains the bootstrap template reference to be used
+	// for the creation of the Machines in the MachinePool.
+	Bootstrap LocalObjectTemplate `json:"bootstrap"`
+
+	// Infrastructure contains the infrastructure template reference to be used
+	// for the creation of the MachinePool.
+	Infrastructure LocalObjectTemplate `json:"infrastructure"`
+}
+
+// MachinePoolClassNamingStrategy defines the naming strategy for machine pool objects.
+type MachinePoolClassNamingStrategy struct {
+	// Template defines the template to use for generating the name of the MachinePool object.
+	// If not defined, it will fallback to `{{ .cluster.name }}-{{ .machinePool.topologyName }}-{{ .random }}`.
+	// If the templated string exceeds 63 characters, it will be trimmed to 58 characters and will
+	// get concatenated with a random suffix of length 5.
+	// The templating mechanism provides the following arguments:
+	// * `.cluster.name`: The name of the cluster object.
+	// * `.random`: A random alphanumeric string, without vowels, of length 5.
+	// * `.machinePool.topologyName`: The name of the MachinePool topology (Cluster.spec.topology.workers.machinePools[].name).
+	// +optional
+	Template *string `json:"template,omitempty"`
 }
 
 // IsZero returns true if none of the values of MachineHealthCheckClass are defined.
@@ -296,8 +391,30 @@ type ClusterClassVariable struct {
 	// required, this will be specified inside the schema.
 	Required bool `json:"required"`
 
+	// Metadata is the metadata of a variable.
+	// It can be used to add additional data for higher level tools to
+	// a ClusterClassVariable.
+	// +optional
+	Metadata ClusterClassVariableMetadata `json:"metadata,omitempty"`
+
 	// Schema defines the schema of the variable.
 	Schema VariableSchema `json:"schema"`
+}
+
+// ClusterClassVariableMetadata is the metadata of a variable.
+// It can be used to add additional data for higher level tools to
+// a ClusterClassVariable.
+type ClusterClassVariableMetadata struct {
+	// Map of string keys and values that can be used to organize and categorize
+	// (scope and select) variables.
+	// +optional
+	Labels map[string]string `json:"labels,omitempty"`
+
+	// Annotations is an unstructured key value map that can be used to store and
+	// retrieve arbitrary metadata.
+	// They are not queryable.
+	// +optional
+	Annotations map[string]string `json:"annotations,omitempty"`
 }
 
 // VariableSchema defines the schema of a variable.
@@ -507,11 +624,24 @@ type PatchSelectorMatch struct {
 	// .spec.workers.machineDeployments.
 	// +optional
 	MachineDeploymentClass *PatchSelectorMatchMachineDeploymentClass `json:"machineDeploymentClass,omitempty"`
+
+	// MachinePoolClass selects templates referenced in specific MachinePoolClasses in
+	// .spec.workers.machinePools.
+	// +optional
+	MachinePoolClass *PatchSelectorMatchMachinePoolClass `json:"machinePoolClass,omitempty"`
 }
 
 // PatchSelectorMatchMachineDeploymentClass selects templates referenced
 // in specific MachineDeploymentClasses in .spec.workers.machineDeployments.
 type PatchSelectorMatchMachineDeploymentClass struct {
+	// Names selects templates by class names.
+	// +optional
+	Names []string `json:"names,omitempty"`
+}
+
+// PatchSelectorMatchMachinePoolClass selects templates referenced
+// in specific MachinePoolClasses in .spec.workers.machinePools.
+type PatchSelectorMatchMachinePoolClass struct {
 	// Names selects templates by class names.
 	// +optional
 	Names []string `json:"names,omitempty"`
@@ -634,6 +764,12 @@ type ClusterClassStatusVariableDefinition struct {
 	// required, this will be specified inside the schema.
 	Required bool `json:"required"`
 
+	// Metadata is the metadata of a variable.
+	// It can be used to add additional data for higher level tools to
+	// a ClusterClassVariable.
+	// +optional
+	Metadata ClusterClassVariableMetadata `json:"metadata,omitempty"`
+
 	// Schema defines the schema of the variable.
 	Schema VariableSchema `json:"schema"`
 }
@@ -660,5 +796,5 @@ type ClusterClassList struct {
 }
 
 func init() {
-	SchemeBuilder.Register(&ClusterClass{}, &ClusterClassList{})
+	objectTypes = append(objectTypes, &ClusterClass{}, &ClusterClassList{})
 }

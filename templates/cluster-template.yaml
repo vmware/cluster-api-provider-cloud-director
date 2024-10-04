@@ -90,13 +90,13 @@ spec:
           - localhost
           - 127.0.0.1
       dns:
-        imageRepository: projects.registry.vmware.com/tkg # image repository to pull the DNS image from
+        imageRepository: projects.packages.broadcom.com/tkg # image repository to pull the DNS image from
         imageTag: ${DNS_VERSION} # DNS image tag associated with the TKGm OVA used. The values must be retrieved from the TKGm ova BOM. Refer to the github documentation for more details
       etcd:
         local:
-          imageRepository: projects.registry.vmware.com/tkg # image repository to pull the etcd image from
+          imageRepository: projects.packages.broadcom.com/tkg # image repository to pull the etcd image from
           imageTag: ${ETCD_VERSION} # etcd image tag associated with the TKGm OVA used. The values must be retrieved from the TKGm ova BOM. Refer to the github documentation for more details
-      imageRepository: projects.registry.vmware.com/tkg # image repository to use for the rest of kubernetes images
+      imageRepository: projects.packages.broadcom.com/tkg # image repository to use for the rest of kubernetes images
     users:
       - name: root
         sshAuthorizedKeys:
