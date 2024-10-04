@@ -46,7 +46,6 @@ var (
 	myscheme = runtime.NewScheme()
 	setupLog = ctrl.Log.WithName("setup")
 
-	metricsAddr          string
 	enableLeaderElection bool
 	probeAddr            string
 	syncPeriod           time.Duration
