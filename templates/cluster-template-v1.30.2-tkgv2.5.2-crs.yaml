@@ -93,7 +93,7 @@ spec:
       etcd:
         local:
           imageRepository: projects.packages.broadcom.com/tkg # image repository to pull the etcd image from
-          imageTag: v3.5.12+vmware.5 # etcd image tag associated with the TKGm OVA used. This etcd version is associated with TKG OVA using Kubernetes version v1.28.4.
+          imageTag: v3.5.12_vmware.5 # etcd image tag associated with the TKGm OVA used. This etcd version is associated with TKG OVA using Kubernetes version v1.28.4.
       imageRepository: projects.packages.broadcom.com/tkg # image repository to use for the rest of kubernetes images
     users:
       - name: root
