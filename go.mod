@@ -4,8 +4,6 @@ go 1.22
 
 toolchain go1.22.6
 
-toolchain go1.22.3
-
 require (
 	github.com/Masterminds/sprig/v3 v3.2.3
 	github.com/antihax/optional v1.0.0
@@ -16,6 +14,7 @@ require (
 	github.com/onsi/ginkgo/v2 v2.17.1
 	github.com/onsi/gomega v1.32.0
 	github.com/pkg/errors v0.9.1
+	github.com/spf13/pflag v1.0.5
 	github.com/vmware/cloud-provider-for-cloud-director v0.0.0-20240725204714-a0a0e916a5ed
 	github.com/vmware/go-vcloud-director/v2 v2.26.0-alpha.6
 	go.uber.org/zap v1.26.0
@@ -88,7 +87,6 @@ require (
 	github.com/shopspring/decimal v1.3.1 // indirect
 	github.com/spf13/cast v1.6.0 // indirect
 	github.com/spf13/cobra v1.8.0 // indirect
-	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/stoewer/go-strcase v1.2.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.46.0 // indirect
 	go.opentelemetry.io/otel v1.20.0 // indirect
