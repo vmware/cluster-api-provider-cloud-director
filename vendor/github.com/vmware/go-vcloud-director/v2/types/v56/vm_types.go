@@ -65,6 +65,7 @@ type Vm struct {
 	ProductSection *ProductSection `xml:"ProductSection,omitempty"`
 	ComputePolicy  *ComputePolicy  `xml:"ComputePolicy,omitempty"` // accessible only from version API 33.0
 	Media          *Reference      `xml:"Media,omitempty"`         // Reference to the media object to insert in a new VM.
+	BootOptions    *BootOptions    `xml:"BootOptions,omitempty"`   // Accessible only from API version 37.1+
 }
 
 type RuntimeInfoSection struct {
@@ -82,6 +83,7 @@ type VmSpecSection struct {
 	Modified          *bool             `xml:"Modified,attr,omitempty"`
 	Info              string            `xml:"ovf:Info"`
 	OsType            string            `xml:"OsType,omitempty"`            // The type of the OS. This parameter may be omitted when using the VmSpec to update the contents of an existing VM.
+	Firmware          string            `xml:"Firmware,omitempty"`          // Available since API 37.1. VM's Firmware, can be either 'bios' or 'efi'.
 	NumCpus           *int              `xml:"NumCpus,omitempty"`           // Number of CPUs. This parameter may be omitted when using the VmSpec to update the contents of an existing VM.
 	NumCoresPerSocket *int              `xml:"NumCoresPerSocket,omitempty"` // Number of cores among which to distribute CPUs in this virtual machine. This parameter may be omitted when using the VmSpec to update the contents of an existing VM.
 	CpuResourceMhz    *CpuResourceMhz   `xml:"CpuResourceMhz,omitempty"`    // CPU compute resources. This parameter may be omitted when using the VmSpec to update the contents of an existing VM.
@@ -92,6 +94,16 @@ type VmSpecSection struct {
 	VmToolsVersion    string            `xml:"VmToolsVersion,omitempty"`    // VMware tools version of this VM.
 	VirtualCpuType    string            `xml:"VirtualCpuType,omitempty"`    // The capabilities settings for this VM. This parameter may be omitted when using the VmSpec to update the contents of an existing VM.
 	TimeSyncWithHost  *bool             `xml:"TimeSyncWithHost,omitempty"`  // Synchronize the VM's time with the host.
+}
+
+// BootOptions allows to specify boot options of a VM
+type BootOptions struct {
+	BootDelay            *int   `xml:"BootDelay,omitempty"`            // Delay between power-on and boot of the VM
+	EnterBiosSetup       *bool  `xml:"EnterBIOSSetup,omitempty"`       // Set to false on the next boot
+	BootRetryEnabled     *bool  `xml:"BootRetryEnabled,omitempty"`     // Available since API 37.1
+	BootRetryDelay       *int   `xml:"BootRetryDelay,omitempty"`       // Available since API 37.1. Doesn't have an effect if BootRetryEnabled is set to false
+	EfiSecureBootEnabled *bool  `xml:"EfiSecureBootEnabled,omitempty"` // Available since API 37.1
+	NetworkBootProtocol  string `xml:"NetworkBootProtocol,omitempty"`  // Available since API 37.1
 }
 
 // RecomposeVAppParamsForEmptyVm represents a vApp structure which allows to create VM.
@@ -113,7 +125,8 @@ type CreateItem struct {
 	VmSpecSection             *VmSpecSection             `xml:"VmSpecSection,omitempty"`
 	StorageProfile            *Reference                 `xml:"StorageProfile,omitempty"`
 	ComputePolicy             *ComputePolicy             `xml:"ComputePolicy,omitempty"` // accessible only from version API 33.0
-	BootImage                 *Media                     `xml:"Media,omitempty"`         // boot image as vApp template. Href, Id and name needed.
+	BootOptions               *BootOptions               `xml:"BootOptions,omitempty"`
+	BootImage                 *Media                     `xml:"Media,omitempty"` // boot image as vApp template. Href, Id and name needed.
 }
 
 // ComputePolicy represents structure to manage VM compute polices, part of RecomposeVAppParams structure.
@@ -207,4 +220,55 @@ type Adapter struct {
 	Mac        string `xml:"mac,attr"`
 	Network    string `xml:"network,attr"`
 	UnitNumber string `xml:"unitNumber,attr"`
+}
+
+// RequestVirtualHardwareSection is used to start a request in VM Extra Configuration set
+type RequestVirtualHardwareSection struct {
+	// Extends OVF Section_Type
+	XMLName xml.Name `xml:"ovf:VirtualHardwareSection"`
+	Xmlns   string   `xml:"xmlns,attr,omitempty"`
+	Ovf     string   `xml:"xmlns:ovf,attr"`
+	Vssd    string   `xml:"xmlns:vssd,attr"`
+	Rasd    string   `xml:"xmlns:rasd,attr"`
+	Ns2     string   `xml:"xmlns:ns2,attr"`
+	Ns3     string   `xml:"xmlns:ns3,attr"`
+	Ns4     string   `xml:"xmlns:ns4,attr"`
+	Ns5     string   `xml:"xmlns:ns5,attr"`
+	Vmw     string   `xml:"xmlns:vmw,attr"`
+
+	Info   string     `xml:"ovf:Info"`
+	HREF   string     `xml:"href,attr,omitempty"`
+	Type   string     `xml:"type,attr,omitempty"`
+	System []InnerXML `xml:"ovf:System,omitempty"`
+	Item   []InnerXML `xml:"ovf:Item,omitempty"`
+
+	ExtraConfigs []*ExtraConfigMarshal `xml:"vmw:ExtraConfig,omitempty"`
+}
+
+// ResponseVirtualHardwareSection is used to get a response
+type ResponseVirtualHardwareSection struct {
+	// Extends OVF Section_Type
+	XMLName xml.Name `xml:"VirtualHardwareSection"`
+	Xmlns   string   `xml:"vcloud,attr,omitempty"`
+	Ovf     string   `xml:"xmlns:ovf,attr"`
+	Ns4     string   `xml:"xmlns:ns4,attr"`
+	Vssd    string   `xml:"xmlns:vssd,attr"`
+	Rasd    string   `xml:"xmlns:rasd,attr"`
+	Vmw     string   `xml:"xmlns:vmw,attr"`
+
+	Info string `xml:"Info"`
+	HREF string `xml:"href,attr,omitempty"`
+	Type string `xml:"type,attr,omitempty"`
+
+	System []InnerXML `xml:"System,omitempty"`
+	Item   []InnerXML `xml:"Item,omitempty"`
+
+	ExtraConfigs []*ExtraConfig `xml:"ExtraConfig,omitempty"`
+}
+
+// ExtraConfig describes an Extra Configuration item
+type ExtraConfig struct {
+	Key      string `xml:"key,attr"`
+	Value    string `xml:"value,attr"`
+	Required bool   `xml:"required,attr"`
 }

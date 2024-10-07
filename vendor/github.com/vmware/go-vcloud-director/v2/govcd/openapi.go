@@ -251,6 +251,10 @@ func (client *Client) OpenApiPostItemAsyncWithHeaders(apiVersion string, urlRef 
 		return Task{}, fmt.Errorf("POST request expected async task (HTTP response 202), got %d", resp.StatusCode)
 	}
 
+	// The response shouldn't have payload as the main information should be in "Location" header
+	util.ProcessResponseOutput(util.FuncNameCallStack(), resp, "")
+	debugShowResponse(resp, []byte("SKIPPED RESPONSE"))
+
 	err = resp.Body.Close()
 	if err != nil {
 		return Task{}, fmt.Errorf("error closing response body: %s", err)
@@ -548,6 +552,13 @@ func (client *Client) OpenApiDeleteItem(apiVersion string, urlRef *url.URL, para
 		return err
 	}
 
+	bodyBytes, err := rewrapRespBodyNoopCloser(resp)
+	if err != nil {
+		return err
+	}
+	util.ProcessResponseOutput(util.FuncNameCallStack(), resp, string(bodyBytes))
+	debugShowResponse(resp, bodyBytes)
+
 	// resp is ignored below because it would be the same as above
 	_, err = checkRespWithErrType(types.BodyTypeJSON, resp, err, &types.OpenApiError{})
 	if err != nil {
@@ -753,7 +764,13 @@ func (client *Client) newOpenApiRequest(apiVersion string, params url.Values, me
 		}
 	}
 	for k, v := range additionalHeader {
-		req.Header.Add(k, v)
+		if strings.Contains(v, "{{MEDIA_TYPE}}") || strings.Contains(v, "{{API_VERSION}}") {
+			v = strings.Replace(v, "{{MEDIA_TYPE}}", types.JSONMime, 1)
+			v = strings.Replace(v, "{{API_VERSION}}", apiVersion, 1)
+			req.Header.Set(k, v)
+		} else {
+			req.Header.Add(k, v)
+		}
 	}
 
 	// Inject JSON mime type if there are no overwrites
@@ -762,6 +779,7 @@ func (client *Client) newOpenApiRequest(apiVersion string, params url.Values, me
 	}
 
 	setHttpUserAgent(client.UserAgent, req)
+	setVcloudClientRequestId(client.RequestIdFunc, req)
 
 	// Avoids passing data if the logging of requests is disabled
 	if util.LogHttpRequest {
