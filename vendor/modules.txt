@@ -317,9 +317,10 @@ github.com/vmware/cloud-provider-for-cloud-director/pkg/testingsdk
 github.com/vmware/cloud-provider-for-cloud-director/pkg/util
 github.com/vmware/cloud-provider-for-cloud-director/pkg/vcdsdk
 github.com/vmware/cloud-provider-for-cloud-director/pkg/vcdswaggerclient_37_2
-# github.com/vmware/go-vcloud-director/v2 v2.21.0
-## explicit; go 1.19
+# github.com/vmware/go-vcloud-director/v2 v2.26.0
+## explicit; go 1.22
 github.com/vmware/go-vcloud-director/v2/govcd
+github.com/vmware/go-vcloud-director/v2/govcd/internal/udf
 github.com/vmware/go-vcloud-director/v2/types/v56
 github.com/vmware/go-vcloud-director/v2/util
 # go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.46.0
@@ -393,11 +394,12 @@ golang.org/x/crypto/bcrypt
 golang.org/x/crypto/blowfish
 golang.org/x/crypto/pbkdf2
 golang.org/x/crypto/scrypt
-# golang.org/x/exp v0.0.0-20230905200255-921286631fa9
+# golang.org/x/exp v0.0.0-20240119083558-1b970713d09a
 ## explicit; go 1.20
 golang.org/x/exp/constraints
 golang.org/x/exp/maps
 golang.org/x/exp/slices
+golang.org/x/exp/utf8string
 # golang.org/x/net v0.23.0
 ## explicit; go 1.18
 golang.org/x/net/context

@@ -38,6 +38,8 @@ var endpointMinApiVersions = map[string]string{
 	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointQosProfiles:                "36.2", // VCD 10.3.2+ (NSX-T only)
 	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointEdgeGatewayQos:             "36.2", // VCD 10.3.2+ (NSX-T only)
 	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointEdgeGatewayDhcpForwarder:   "36.1", // VCD 10.3.1+ (NSX-T only)
+	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointEdgeGatewayDns:             "37.0", // VCD 10.4.0+ (NSX-T only)
+	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointEdgeGatewayL2VpnTunnel:     "35.0", // VCD 10.2.0+ (NSX-T only)
 	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointEdgeGatewaySlaacProfile:    "35.0",
 	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointEdgeGatewayStaticRoutes:    "37.0", // VCD 10.4.0+ (NSX-T only)
 	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointEdgeGateways:               "34.0",
@@ -48,6 +50,7 @@ var endpointMinApiVersions = map[string]string{
 	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointNsxtNatRules:                       "34.0",
 	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointNsxtFirewallRules:                  "34.0",
 	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointOrgVdcNetworks:                     "32.0", // VCD 9.7+ for NSX-V, 10.1+ for NSX-T
+	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointOrgVdcNetworkSegmentProfiles:       "37.0",
 	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointOrgVdcNetworksDhcp:                 "32.0", // VCD 9.7+ for NSX-V, 10.1+ for NSX-T
 	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointOrgVdcNetworksDhcpBindings:         "36.1", // VCD 10.3.1+ (NSX-T only)
 	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointVdcCapabilities:                    "32.0",
@@ -68,34 +71,41 @@ var endpointMinApiVersions = map[string]string{
 	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointRdeTypeBehaviors:                   "35.0", // VCD 10.2+
 	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointRdeTypeBehaviorAccessControls:      "35.0", // VCD 10.2+
 	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointRdeEntities:                        "35.0", // VCD 10.2+
+	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointRdeEntityAccessControls:            "35.0", // VCD 10.2+
 	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointRdeEntitiesTypes:                   "35.0", // VCD 10.2+
 	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointRdeEntitiesResolve:                 "35.0", // VCD 10.2+
 	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointRdeEntitiesBehaviorsInvocations:    "35.0", // VCD 10.2+
+	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointExternalEndpoints:                  "38.1", // VCD 10.5.1+
+	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointApiFilters:                         "38.1", // VCD 10.5.1+
 
 	// IP Spaces
-	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointIpSpaces:               "37.1", // VCD 10.4.1+
-	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointIpSpaceSummaries:       "37.1", // VCD 10.4.1+
-	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointIpSpaceUplinks:         "37.1", // VCD 10.4.1+
-	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointIpSpaceUplinksAllocate: "37.1", // VCD 10.4.1+
-	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointIpSpaceIpAllocations:   "37.1", // VCD 10.4.1+
-	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointIpSpaceOrgAssignments:  "37.1", // VCD 10.4.1+
+	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointIpSpaces:                     "37.1", // VCD 10.4.1+
+	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointIpSpaceSummaries:             "37.1", // VCD 10.4.1+
+	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointIpSpaceUplinks:               "37.1", // VCD 10.4.1+
+	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointIpSpaceUplinksAllocate:       "37.1", // VCD 10.4.1+
+	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointIpSpaceIpAllocations:         "37.1", // VCD 10.4.1+
+	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointIpSpaceOrgAssignments:        "37.1", // VCD 10.4.1+
+	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointIpSpaceFloatingIpSuggestions: "37.1", // VCD 10.4.1+
 
 	// NSX-T ALB (Advanced/AVI Load Balancer) support was introduced in 10.2
-	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointAlbController:                    "35.0", // VCD 10.2+
-	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointAlbImportableClouds:              "35.0", // VCD 10.2+
-	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointAlbImportableServiceEngineGroups: "35.0", // VCD 10.2+
-	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointAlbCloud:                         "35.0", // VCD 10.2+
-	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointAlbServiceEngineGroups:           "35.0", // VCD 10.2+
-	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointAlbEdgeGateway:                   "35.0", // VCD 10.2+
-	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointAlbServiceEngineGroupAssignments: "35.0", // VCD 10.2+
-	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointAlbPools:                         "35.0", // VCD 10.2+
-	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointAlbPoolSummaries:                 "35.0", // VCD 10.2+
-	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointAlbVirtualServices:               "35.0", // VCD 10.2+
-	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointAlbVirtualServiceSummaries:       "35.0", // VCD 10.2+
-	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointSSLCertificateLibrary:            "35.0", // VCD 10.2+
-	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointSSLCertificateLibraryOld:         "35.0", // VCD 10.2+ and deprecated from 10.3
-	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointVdcGroupsDfwRules:                "35.0", // VCD 10.2+
-	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointNetworkContextProfiles:           "35.0", // VCD 10.2+
+	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointAlbController:                      "35.0", // VCD 10.2+
+	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointAlbImportableClouds:                "35.0", // VCD 10.2+
+	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointAlbImportableServiceEngineGroups:   "35.0", // VCD 10.2+
+	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointAlbCloud:                           "35.0", // VCD 10.2+
+	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointAlbServiceEngineGroups:             "35.0", // VCD 10.2+
+	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointAlbEdgeGateway:                     "35.0", // VCD 10.2+
+	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointAlbServiceEngineGroupAssignments:   "35.0", // VCD 10.2+
+	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointAlbPools:                           "35.0", // VCD 10.2+
+	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointAlbPoolSummaries:                   "35.0", // VCD 10.2+
+	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointAlbVirtualServices:                 "35.0", // VCD 10.2+
+	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointAlbVirtualServiceSummaries:         "35.0", // VCD 10.2+
+	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointAlbVirtualServiceHttpRequestRules:  "38.0", // VCD 10.5+
+	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointAlbVirtualServiceHttpResponseRules: "38.0", // VCD 10.5+
+	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointAlbVirtualServiceHttpSecurityRules: "38.0", // VCD 10.5+
+	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointSSLCertificateLibrary:              "35.0", // VCD 10.2+
+	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointSSLCertificateLibraryOld:           "35.0", // VCD 10.2+ and deprecated from 10.3
+	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointVdcGroupsDfwRules:                  "35.0", // VCD 10.2+
+	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointNetworkContextProfiles:             "35.0", // VCD 10.2+
 
 	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointEdgeBgpNeighbor:          "35.0", // VCD 10.2+
 	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointEdgeBgpConfigPrefixLists: "35.0", // VCD 10.2+
@@ -105,13 +115,20 @@ var endpointMinApiVersions = map[string]string{
 	types.OpenApiPathVersion2_0_0 + types.OpenApiEndpointVdcComputePolicies:         "35.0",
 	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointVdcNetworkProfile:          "36.0", // VCD 10.3+
 
-	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointVirtualCenters:         "36.0",
-	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointResourcePools:          "36.0",
-	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointResourcePoolsBrowseAll: "36.2",
-	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointResourcePoolHardware:   "36.0",
-	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointNetworkPools:           "36.0",
-	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointNetworkPoolSummaries:   "36.0",
-	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointStorageProfiles:        "33.0",
+	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointVirtualCenters:                           "36.0",
+	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointResourcePools:                            "36.0",
+	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointResourcePoolsBrowseAll:                   "36.2",
+	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointResourcePoolHardware:                     "36.0",
+	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointNetworkPools:                             "36.0",
+	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointNetworkPoolSummaries:                     "36.0",
+	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointStorageProfiles:                          "33.0",
+	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointNsxtSegmentProfileTemplates:              "36.2",
+	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointNsxtGlobalDefaultSegmentProfileTemplates: "36.2",
+	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointNsxtSegmentIpDiscoveryProfiles:           "36.2",
+	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointNsxtSegmentMacDiscoveryProfiles:          "36.2",
+	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointNsxtSegmentSpoofGuardProfiles:            "36.2",
+	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointNsxtSegmentQosProfiles:                   "36.2",
+	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointNsxtSegmentSecurityProfiles:              "36.2",
 
 	// Extensions API endpoints. These are not versioned
 	types.OpenApiEndpointExtensionsUi:                    "35.0", // VCD 10.2+
@@ -123,9 +140,20 @@ var endpointMinApiVersions = map[string]string{
 	types.OpenApiEndpointExtensionsUiTenantsUnpublish:    "35.0", // VCD 10.2+
 
 	// Endpoints for managing tokens and service accounts
-	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointTokens:              "36.1", // VCD 10.3.1+
-	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointServiceAccounts:     "37.0", // VCD 10.4.0+
-	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointServiceAccountGrant: "37.0", // VCD 10.4.0+
+	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointTokens:                   "36.1", // VCD 10.3.1+
+	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointServiceAccounts:          "37.0", // VCD 10.4.0+
+	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointServiceAccountGrant:      "37.0", // VCD 10.4.0+
+	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointImportableTransportZones: "33.0",
+	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointVCenterDistributedSwitch: "33.0",
+
+	// Endpoint for managing vGPU profiles
+	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointVgpuProfile: "36.2",
+
+	// Orgs
+	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointOrgs: "37.0",
+
+	// NSX-T Tier 0 router interfaces that can be used for IP Space uplink assignment
+	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointNsxtTier0RouterInterfaces: "38.0",
 }
 
 // endpointElevatedApiVersions endpoint elevated API versions
@@ -140,6 +168,7 @@ var endpointElevatedApiVersions = map[string][]string{
 		"35.0", // Deprecates field BackingType in favor of BackingTypeValue
 		"36.0", // Adds support new type of BackingTypeValue - IMPORTED_T_LOGICAL_SWITCH (backed by NSX-T segment)
 		"37.1", // Adds support for IP Spaces with new fields - UsingIpSpace, DedicatedOrg
+		"38.1", // Adds support for NAT, Firewall and Route Advertisement intention configuration
 	},
 	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointVdcGroupsDfwRules: {
 		//"35.0", // Basic minimum required version
@@ -193,10 +222,23 @@ var endpointElevatedApiVersions = map[string][]string{
 	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointEdgeGateways: {
 		//"35.0", // Introduced support
 		"37.1", // Exposes computed field `UsingIpSpace` in `types.EdgeGatewayUplinks`
+		"39.0", // Adds support for DISTRIBUTED_ONLY `deploymentMode`
+	},
+	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointEdgeGatewayDns: {
+		"37.0", // Introduced support
+		"38.0", // New field SnatRuleExternalIpAddress
 	},
 	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointIpSpaceUplinksAllocate: {
 		//"37.1", // Introduced support
 		"37.2", // Adds 'value' field
+	},
+	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointIpSpaces: {
+		//"37.1", // Introduced support
+		"38.0", // Adds 'DefaultGatewayServiceConfig' structure for firewall and NAT rule creation
+	},
+	types.OpenApiPathVersion1_0_0 + types.OpenApiEndpointIpSpaceUplinks: {
+		//"37.1", // Introduced support
+		"38.0", // Adds 'Interfaces' structure for associating particular Tier-0 router interfaces
 	},
 }
 
@@ -273,13 +315,19 @@ func (client *Client) getOpenApiHighestElevatedVersion(endpoint string) (string,
 		util.Logger.Printf("[DEBUG] Checking if elevated version '%s' is supported by VCD instance for endpoint '%s'",
 			elevatedVersion.Original(), endpoint)
 		// Check if maximum VCD API version supported is greater or equal to elevated version
-		if client.APIVCDMaxVersionIs(fmt.Sprintf(">= %s", elevatedVersion.Original())) {
+
+		if client.APIVCDMaxVersionIs(fmt.Sprintf(">= %s", elevatedVersion.Original())) &&
+			!client.APIClientVersionIs(fmt.Sprintf("> %s", elevatedVersion.Original())) {
 			util.Logger.Printf("[DEBUG] Elevated version '%s' is supported by VCD instance for endpoint '%s'",
 				elevatedVersion.Original(), endpoint)
 			// highest version found - store it and abort the loop
 			supportedElevatedVersion = elevatedVersion.Original()
 			break
+		} else {
+			util.Logger.Printf("[DEBUG] Skipped Elevated version '%s' for endpoint '%s', Default minimum version '%s'",
+				elevatedVersion.Original(), endpoint, client.APIVersion)
 		}
+
 		util.Logger.Printf("[DEBUG] API version '%s' is not supported by VCD instance for endpoint '%s'",
 			elevatedVersion.Original(), endpoint)
 	}

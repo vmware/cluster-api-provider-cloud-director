@@ -83,9 +83,8 @@ func (vdc *Vdc) CreateDisk(diskCreateParams *types.DiskCreateParams) (Task, erro
 
 	disk := NewDisk(vdc.client)
 
-	_, err = vdc.client.ExecuteRequestWithApiVersion(createDiskLink.HREF, http.MethodPost,
-		createDiskLink.Type, "error create disk: %s", diskCreateParams, disk.Disk,
-		vdc.client.GetSpecificApiVersionOnCondition(">= 36.0", "36.0"))
+	_, err = vdc.client.ExecuteRequest(createDiskLink.HREF, http.MethodPost,
+		createDiskLink.Type, "error create disk: %s", diskCreateParams, disk.Disk)
 	if err != nil {
 		return Task{}, err
 	}
@@ -94,6 +93,9 @@ func (vdc *Vdc) CreateDisk(diskCreateParams *types.DiskCreateParams) (Task, erro
 		return Task{}, errors.New("error cannot find disk creation task in API response")
 	}
 	task := NewTask(vdc.client)
+	if disk.Disk.Tasks == nil || len(disk.Disk.Tasks.Task) == 0 {
+		return Task{}, fmt.Errorf("no task found after disk %s creation", diskCreateParams.Disk.Name)
+	}
 	task.Task = disk.Disk.Tasks.Task[0]
 
 	util.Logger.Printf("[TRACE] AFTER CREATE DISK\n %s\n", prettyDisk(*disk.Disk))
@@ -162,9 +164,8 @@ func (disk *Disk) Update(newDiskInfo *types.Disk) (Task, error) {
 	}
 
 	// Return the task
-	return disk.client.ExecuteTaskRequestWithApiVersion(updateDiskLink.HREF, http.MethodPut,
-		updateDiskLink.Type, "error updating disk: %s", xmlPayload,
-		disk.client.GetSpecificApiVersionOnCondition(">= 36.0", "36.0"))
+	return disk.client.ExecuteTaskRequest(updateDiskLink.HREF, http.MethodPut,
+		updateDiskLink.Type, "error updating disk: %s", xmlPayload)
 }
 
 // Remove an independent disk
@@ -223,9 +224,8 @@ func (disk *Disk) Refresh() error {
 
 	unmarshalledDisk := &types.Disk{}
 
-	_, err := disk.client.ExecuteRequestWithApiVersion(disk.Disk.HREF, http.MethodGet,
-		"", "error refreshing independent disk: %s", nil, unmarshalledDisk,
-		disk.client.GetSpecificApiVersionOnCondition(">= 36.0", "36.0"))
+	_, err := disk.client.ExecuteRequest(disk.Disk.HREF, http.MethodGet,
+		"", "error refreshing independent disk: %s", nil, unmarshalledDisk)
 	if err != nil {
 		return err
 	}
@@ -319,9 +319,8 @@ func (vdc *Vdc) QueryDisk(diskName string) (DiskRecord, error) {
 		typeMedia = "adminDisk"
 	}
 
-	results, err := vdc.QueryWithNotEncodedParamsWithApiVersion(nil, map[string]string{"type": typeMedia,
-		"filter": "name==" + url.QueryEscape(diskName) + ";vdc==" + vdc.vdcId(), "filterEncoded": "true"},
-		vdc.client.GetSpecificApiVersionOnCondition(">= 36.0", "36.0"))
+	results, err := vdc.QueryWithNotEncodedParams(nil, map[string]string{"type": typeMedia,
+		"filter": "name==" + url.QueryEscape(diskName) + ";vdc==" + vdc.vdcId(), "filterEncoded": "true"})
 	if err != nil {
 		return DiskRecord{}, fmt.Errorf("error querying disk %s", err)
 	}
@@ -354,9 +353,8 @@ func (vdc *Vdc) QueryDisks(diskName string) (*[]*types.DiskRecordType, error) {
 		typeMedia = "adminDisk"
 	}
 
-	results, err := vdc.QueryWithNotEncodedParamsWithApiVersion(nil, map[string]string{"type": typeMedia,
-		"filter": "name==" + url.QueryEscape(diskName) + ";vdc==" + vdc.vdcId(), "filterEncoded": "true"},
-		vdc.client.GetSpecificApiVersionOnCondition(">= 36.0", "36.0"))
+	results, err := vdc.QueryWithNotEncodedParams(nil, map[string]string{"type": typeMedia,
+		"filter": "name==" + url.QueryEscape(diskName) + ";vdc==" + vdc.vdcId(), "filterEncoded": "true"})
 	if err != nil {
 		return nil, fmt.Errorf("error querying disks %s", err)
 	}
@@ -376,9 +374,8 @@ func (vdc *Vdc) GetDiskByHref(diskHref string) (*Disk, error) {
 	util.Logger.Printf("[TRACE] Get Disk By Href: %s\n", diskHref)
 	Disk := NewDisk(vdc.client)
 
-	_, err := vdc.client.ExecuteRequestWithApiVersion(diskHref, http.MethodGet,
-		"", "error retrieving Disk: %s", nil, Disk.Disk,
-		vdc.client.GetSpecificApiVersionOnCondition(">= 36.0", "36.0"))
+	_, err := vdc.client.ExecuteRequest(diskHref, http.MethodGet,
+		"", "error retrieving Disk: %s", nil, Disk.Disk)
 	if err != nil && (strings.Contains(err.Error(), "MajorErrorCode:403") || strings.Contains(err.Error(), "does not exist")) {
 		return nil, ErrorEntityNotFound
 	}
