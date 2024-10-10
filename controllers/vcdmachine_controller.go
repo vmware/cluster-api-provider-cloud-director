@@ -19,6 +19,7 @@ import (
 	"strings"
 	"text/template"
 	"time"
+	"compress/gzip"
 
 	"github.com/Masterminds/sprig/v3"
 	"github.com/go-logr/logr"
@@ -469,9 +470,14 @@ func (r *VCDMachineReconciler) reconcileVMBootstrap(ctx context.Context, vcdClie
 
 				return errors.Wrapf(err, "Error while generating network initialization script for ignition [%s/%s]", vcdCluster.Name, vm.VM.Name)
 			}
+			// GZip then Base64 encode bootstrap data
+			gzipb64encodedData, err := gzipAndBase64Encode([]byte(bootstrapData))
+			if err != nil {
+				return errors.Wrapf(err, "Failed to gzip and base64 encode bootstrap data for ignition [%s/%s]", vcdCluster.Name, vm.VM.Name)
+			}
 			keyVals = map[string]string{
-				"guestinfo.ignition.config.data":          b64BootstrapData,
-				"guestinfo.ignition.config.data.encoding": "base64",
+				"guestinfo.ignition.config.data":          gzipb64encodedData,
+				"guestinfo.ignition.config.data.encoding": "gz+base64",
 				"guestinfo.ignition.vmname":               vmName,
 				"disk.enableUUID":                         "1",
 				"guestinfo.ignition.network":              networkMetadata,
@@ -586,6 +592,30 @@ func (r *VCDMachineReconciler) reconcileVMBootstrap(ctx context.Context, vcdClie
 		log.Error(err, "failed to remove VCDMachineCreationError from RDE", "rdeID", vcdCluster.Status.InfraId)
 	}
 	return nil
+}
+
+func gzipAndBase64Encode(data []byte) (string, error) {
+	// Create a buffer to hold the compressed data
+	var buf bytes.Buffer
+
+	// Create a new gzip writer that writes to the buffer
+	gzipWriter := gzip.NewWriter(&buf)
+
+	// Write the original data to the gzip writer
+	_, err := gzipWriter.Write(data)
+	if err != nil {
+		return "", err
+	}
+
+	// Close the gzip writer to flush and complete the compression
+	if err := gzipWriter.Close(); err != nil {
+		return "", err
+	}
+
+	// Encode the compressed data to Base64
+	gzipb64Encoded := b64.StdEncoding.EncodeToString(buf.Bytes())
+
+	return gzipb64Encoded, nil
 }
 
 // getOVDCDetailsForMachine gets OVDC name and OVDC network name for the machine.
